@@ -61,8 +61,14 @@ describe('institutional reservation request mutations', () => {
     global.window.PublicKeyCredential = function PublicKeyCredential() {};
     global.window.open = jest.fn(() => ({
       closed: false,
+      document: {
+        open: jest.fn(),
+        write: jest.fn(),
+        close: jest.fn(),
+      },
       focus: jest.fn(),
       close: jest.fn(),
+      location: { href: '' },
       opener: null,
     }));
     global.navigator.credentials = { get: jest.fn(() => Promise.resolve({})) };
@@ -102,6 +108,11 @@ describe('institutional reservation request mutations', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
+    expect(global.window.open).toHaveBeenCalledWith('', 'intent-authorization', 'width=480,height=720');
+    const popup = global.window.open.mock.results[0].value;
+    expect(popup.document.write).toHaveBeenCalledWith(expect.stringContaining('Preparing authorization'));
+    expect(popup.location.href).toBe('https://institution.example/intents/authorize/session-1');
+    expect(global.window.open.mock.invocationCallOrder[0]).toBeLessThan(global.fetch.mock.invocationCallOrder[0]);
     expect(bookingMocks.updateBooking).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       labId: 'tk1',
       status: 'requested',
@@ -175,5 +186,6 @@ describe('institutional reservation request mutations', () => {
     expect(bookingMocks.addBooking).not.toHaveBeenCalled();
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
     expect(mockSetOptimisticBookingState).not.toHaveBeenCalled();
+    expect(global.window.open.mock.results[0].value.close).toHaveBeenCalledTimes(1);
   });
 });

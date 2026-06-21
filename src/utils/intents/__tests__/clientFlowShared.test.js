@@ -11,6 +11,8 @@ import {
   markBrowserCredentialVerifiedFromIntent,
   normalizeAuthorizationUrl,
   resolveAuthorizationInfo,
+  openAuthorizationPopup,
+  openPendingAuthorizationPopup,
 } from '../clientFlowShared'
 
 describe('clientFlowShared', () => {
@@ -77,5 +79,46 @@ describe('clientFlowShared', () => {
       stableUserId: 'user-123',
       institutionId: 'org.example',
     })
+  })
+
+  test('openPendingAuthorizationPopup opens a waiting window with status content', () => {
+    const popup = {
+      closed: false,
+      document: {
+        open: jest.fn(),
+        write: jest.fn(),
+        close: jest.fn(),
+      },
+      focus: jest.fn(),
+    }
+    window.open = jest.fn(() => popup)
+
+    const result = openPendingAuthorizationPopup()
+
+    expect(result).toBe(popup)
+    expect(window.open).toHaveBeenCalledWith('', 'intent-authorization', 'width=480,height=720')
+    expect(popup.document.write).toHaveBeenCalledWith(expect.stringContaining('Preparing authorization'))
+    expect(popup.focus).toHaveBeenCalled()
+  })
+
+  test('openAuthorizationPopup navigates an existing pending popup', () => {
+    const popup = {
+      closed: false,
+      focus: jest.fn(),
+      location: { href: 'about:blank' },
+      opener: {},
+    }
+    window.open = jest.fn()
+
+    const result = openAuthorizationPopup(
+      'https://ib.example/intents/authorize/ceremony/session-1',
+      popup,
+      { keepOpener: true }
+    )
+
+    expect(result).toBe(popup)
+    expect(window.open).not.toHaveBeenCalled()
+    expect(popup.location.href).toBe('https://ib.example/intents/authorize/ceremony/session-1')
+    expect(popup.focus).toHaveBeenCalled()
   })
 })

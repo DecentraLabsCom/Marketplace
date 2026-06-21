@@ -114,6 +114,91 @@ export const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 })
 
+const writePendingAuthorizationDocument = (popup) => {
+  try {
+    if (!popup || popup.closed || !popup.document) return
+    popup.document.open()
+    popup.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preparing authorization - DecentraLabs</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .panel {
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      padding: 32px;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      background: #111827;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.5);
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 20px;
+      border: 4px solid rgba(148, 163, 184, 0.35);
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    h1 { margin: 0 0 10px; font-size: 20px; }
+    p { margin: 0; color: #94a3b8; font-size: 14px; line-height: 1.5; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <main class="panel" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <h1>Preparing authorization</h1>
+    <p>Keep this window open. The security prompt will appear here when the reservation request is ready.</p>
+  </main>
+</body>
+</html>`)
+    popup.document.close()
+  } catch {
+    // Best effort only; the popup can still be navigated later.
+  }
+}
+
+export const openPendingAuthorizationPopup = () => {
+  if (typeof window === 'undefined') return null
+  const popup = window.open('', 'intent-authorization', 'width=480,height=720')
+  if (popup) {
+    writePendingAuthorizationDocument(popup)
+    try {
+      popup.focus()
+    } catch {
+      // ignore focus errors
+    }
+  }
+  return popup
+}
+
+export const closeAuthorizationPopup = (popup) => {
+  try {
+    if (popup && !popup.closed) {
+      popup.close()
+    }
+  } catch {
+    // ignore close errors
+  }
+}
+
 export const openAuthorizationPopup = (authorizationUrl, popup, { keepOpener = false } = {}) => {
   if (!authorizationUrl) return null
 
@@ -124,6 +209,16 @@ export const openAuthorizationPopup = (authorizationUrl, popup, { keepOpener = f
       'intent-authorization',
       'width=480,height=720'
     )
+  } else {
+    try {
+      authPopup.location.href = authorizationUrl
+    } catch {
+      try {
+        authPopup.location.assign(authorizationUrl)
+      } catch {
+        return null
+      }
+    }
   }
 
   if (authPopup) {

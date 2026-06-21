@@ -24,6 +24,8 @@ import {
   createIntentMutationError,
   createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
+  openPendingAuthorizationPopup,
+  closeAuthorizationPopup,
 } from '@/utils/intents/clientFlowShared'
 import {
   notifyReservationDenied,
@@ -191,6 +193,7 @@ export const useReservationRequestSSO = (options = {}) => {
       }
 
       emitReservationProgress(requestData, 'preparing_intent');
+      const authorizationPopup = openPendingAuthorizationPopup();
 
       const payload = {
         labId: requestData.tokenId ?? requestData.labId,
@@ -208,6 +211,7 @@ export const useReservationRequestSSO = (options = {}) => {
 
       const prepareData = await prepareResponse.json()
       if (!prepareResponse.ok) {
+        closeAuthorizationPopup(authorizationPopup)
         throw createIntentMutationError(
           prepareData,
           `Failed to prepare reservation intent: ${prepareResponse.status}`
@@ -221,6 +225,7 @@ export const useReservationRequestSSO = (options = {}) => {
       const authorizationStatus = await awaitBackendAuthorization(prepareData, {
         backendUrl: payload.backendUrl,
         authToken,
+        popup: authorizationPopup,
       })
       const authorizationRequestId =
         authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
