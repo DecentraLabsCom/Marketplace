@@ -11,7 +11,7 @@ export async function pollIntentAuthorizationStatus(sessionId, {
   authToken,
   signal,
   maxDurationMs = 5 * 60 * 1000,
-  initialDelayMs = 2000,
+  initialDelayMs = 500,
   maxDelayMs = 15000,
   onUpdate,
 } = {}) {

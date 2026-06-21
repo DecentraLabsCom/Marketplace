@@ -107,6 +107,7 @@ import {
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { POST as actionPreparePOST } from '../api/backend/intents/actions/prepare/route.js'
 import { POST as reservationPreparePOST } from '../api/backend/intents/reservations/prepare/route.js'
+import { clearReservationPrepareCache } from '../api/backend/intents/reservations/prepare/cache.js'
 
 const buildRequest = (url, body) =>
   new Request(url, {
@@ -121,6 +122,7 @@ describe('Intent prepare routes integration', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    clearReservationPrepareCache()
 
     requireAuth.mockResolvedValue({
       samlAssertion: '<Assertion>test</Assertion>',
@@ -432,5 +434,41 @@ describe('Intent prepare routes integration', () => {
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: 8, // ACTION_CODES.REQUEST_BOOKING
     }))
+  })
+
+  test('reservations/prepare: reuses stable cached admin and executor while refreshing lab reads', async () => {
+    const contract = {
+      getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
+      getReservation: jest.fn().mockResolvedValue({
+        labId: 9n,
+        price: 123n,
+        renter: '0x00000000000000000000000000000000000000a3',
+      }),
+      ownerOf: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000dead'),
+    }
+    getContractInstance.mockResolvedValue(contract)
+
+    const requestBody = {
+      labId: 55,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    }
+
+    const first = await reservationPreparePOST(buildRequest(
+      'http://localhost/api/backend/intents/reservations/prepare',
+      requestBody
+    ))
+    const second = await reservationPreparePOST(buildRequest(
+      'http://localhost/api/backend/intents/reservations/prepare',
+      { ...requestBody, start: nowSec + 2_000 }
+    ))
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(resolveIntentExecutorForInstitution).toHaveBeenCalledTimes(1)
+    expect(getAdminAddress).toHaveBeenCalledTimes(1)
+    expect(contract.getLab).toHaveBeenCalledTimes(2)
+    expect(contract.ownerOf).toHaveBeenCalledTimes(2)
   })
 })

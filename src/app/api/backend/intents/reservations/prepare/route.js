@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash, ACTION_CODES } from '@/utils/intents/signInstitutionalReservationIntent'
-import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { serializeIntent } from '@/utils/intents/serialize'
-import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
@@ -19,6 +18,7 @@ import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import devLog from '@/utils/dev/logger'
+import { getCachedAdminAddress, getCachedIntentExecutorForInstitution } from './cache'
 
 export async function POST(request) {
   try {
@@ -58,15 +58,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
-    const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
-    const adminAddress = await getAdminAddress()
-    const priceProvider = await getContractInstance()
-    const labData = await priceProvider.getLab(labId)
+    const executorAddressPromise = getCachedIntentExecutorForInstitution(schacHomeOrganization)
+    const adminAddressPromise = getCachedAdminAddress()
+    const priceProviderPromise = getContractInstance()
+    const chainNowSecPromise = resolveChainNowSec()
+
+    const priceProvider = await priceProviderPromise
+    const [labData, labOwner, institution, executorAddress, adminAddress, chainNowSec] = await Promise.all([
+      priceProvider.getLab(labId),
+      priceProvider.ownerOf(BigInt(labId)),
+      resolveInstitutionAddressFromSession(session, priceProvider),
+      executorAddressPromise,
+      adminAddressPromise,
+      chainNowSecPromise,
+    ])
+
     const rawPrice = labData?.base?.price ?? labData?.price ?? 0n
     const pricePerSecond = BigInt(rawPrice)
 
-    const labOwner = await priceProvider.ownerOf(BigInt(labId))
-    const { institutionAddress } = await resolveInstitutionAddressFromSession(session, priceProvider)
+    const { institutionAddress } = institution
     const bookingAction = labOwner.toLowerCase() === institutionAddress.toLowerCase()
       ? ACTION_CODES.DIRECT_BOOKING
       : ACTION_CODES.REQUEST_BOOKING
@@ -77,7 +87,6 @@ export async function POST(request) {
     const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), BigInt(start)])
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
-    const chainNowSec = await resolveChainNowSec()
     const intentPackage = await buildReservationIntent({
       executor: executorAddress,
       signer: adminAddress,
