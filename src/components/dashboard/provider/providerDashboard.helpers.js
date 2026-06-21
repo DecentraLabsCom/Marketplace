@@ -93,15 +93,39 @@ export function remapMovedLabAssetPaths(labData, movedFiles) {
     return labData
   }
 
-  const movedPathMap = new Map(
-    movedFiles
-      .filter((movedFile) => movedFile?.original && movedFile?.new)
-      .map((movedFile) => [movedFile.original, movedFile.new])
-  )
+  const normalizeMovedAssetPath = (filePath) => {
+    if (!filePath) return ''
+
+    const rawValue = String(filePath).replace(/\\/g, '/')
+    try {
+      const url = new URL(rawValue)
+      return decodeURIComponent(url.pathname).replace(/^\/data\//, '/')
+    } catch {
+      return rawValue.startsWith('/data/')
+        ? rawValue.replace(/^\/data\//, '/')
+        : rawValue
+    }
+  }
+
+  const movedPathMap = new Map()
+
+  movedFiles
+    .filter((movedFile) => movedFile?.original && movedFile?.new)
+    .forEach((movedFile) => {
+      const original = String(movedFile.original)
+      const normalizedOriginal = normalizeMovedAssetPath(original)
+
+      movedPathMap.set(original, movedFile.new)
+      if (normalizedOriginal) {
+        movedPathMap.set(normalizedOriginal, movedFile.new)
+        movedPathMap.set(normalizedOriginal.replace(/^\//, ''), movedFile.new)
+        movedPathMap.set(`/data${normalizedOriginal}`, movedFile.new)
+      }
+    })
 
   const remapPaths = (paths = []) => (
     Array.isArray(paths)
-      ? paths.map((filePath) => movedPathMap.get(filePath) || filePath)
+      ? paths.map((filePath) => movedPathMap.get(filePath) || movedPathMap.get(normalizeMovedAssetPath(filePath)) || filePath)
       : []
   )
 

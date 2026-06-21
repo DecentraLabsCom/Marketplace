@@ -4,6 +4,8 @@
 
 import {
   authenticateLabAccessSSO,
+  hasRecordedInstitutionalCheckIn,
+  recordInstitutionalCheckIn,
   submitInstitutionalCheckIn,
   getAuthErrorMessage,
 } from "../labAuth";
@@ -21,6 +23,7 @@ describe("Lab Authentication Utilities", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -97,6 +100,72 @@ describe("Lab Authentication Utilities", () => {
         token: "lab-access-token",
         labURL: "https://lab.example.com",
       });
+      expect(hasRecordedInstitutionalCheckIn("rk-1")).toBe(true);
+    });
+
+    test("skips duplicate check-in after a successful check-in for the same reservation", async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: true }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            token: "first-token",
+            labURL: "https://lab.example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            token: "second-token",
+            labURL: "https://lab.example.com",
+          }),
+        });
+
+      await authenticateLabAccessSSO({
+        labId,
+        reservationKey: "rk-1",
+        authEndpoint,
+      });
+
+      const result = await authenticateLabAccessSSO({
+        labId,
+        reservationKey: "rk-1",
+        authEndpoint,
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
+        "/api/auth/checkin",
+        "/api/auth/lab-access",
+        "/api/auth/lab-access",
+      ]);
+      expect(result.token).toBe("second-token");
+    });
+
+    test("does not cache an explicitly invalid check-in response", async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: false }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            token: "lab-access-token",
+            labURL: "https://lab.example.com",
+          }),
+        });
+
+      await authenticateLabAccessSSO({
+        labId,
+        reservationKey: "rk-invalid",
+        authEndpoint,
+      });
+
+      expect(hasRecordedInstitutionalCheckIn("rk-invalid")).toBe(false);
     });
 
     test("skips check-in when reservation is already in use", async () => {
@@ -126,6 +195,26 @@ describe("Lab Authentication Utilities", () => {
           authEndpoint,
         }),
       });
+    });
+
+    test("skips check-in when reservation was recorded in session storage", async () => {
+      recordInstitutionalCheckIn("rk-1");
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          token: "lab-access-token",
+          labURL: "https://lab.example.com",
+        }),
+      });
+
+      await authenticateLabAccessSSO({
+        labId,
+        reservationKey: "rk-1",
+        authEndpoint,
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch.mock.calls[0][0]).toBe("/api/auth/lab-access");
     });
 
     test("requires labId or reservationKey", async () => {

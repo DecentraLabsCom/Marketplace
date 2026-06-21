@@ -90,4 +90,27 @@ describe('providerDashboard.helpers', () => {
       docs: ['/data/42/docs/guide.pdf'],
     })
   })
+
+  test('remapMovedLabAssetPaths rewrites equivalent Vercel Blob temp URLs', () => {
+    const tempBlobUrl = 'https://store.public.blob.vercel-storage.com/data/temp/docs/guide.pdf'
+    const movedBlobUrl = 'https://store.public.blob.vercel-storage.com/data/42/docs/guide.pdf'
+
+    expect(
+      remapMovedLabAssetPaths(
+        {
+          images: [],
+          docs: ['/data/temp/docs/guide.pdf', tempBlobUrl],
+        },
+        [
+          {
+            original: tempBlobUrl,
+            new: movedBlobUrl,
+          },
+        ]
+      )
+    ).toEqual({
+      images: [],
+      docs: [movedBlobUrl, movedBlobUrl],
+    })
+  })
 })
