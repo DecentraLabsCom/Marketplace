@@ -33,6 +33,11 @@ jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => ({
   default: jest.fn(),
 }))
 
+jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
+  __esModule: true,
+  verifyInstitutionReportedExecution: jest.fn(() => Promise.resolve({ state: 2, stateName: 'EXECUTED' })),
+}))
+
 
 jest.mock('@/context/OptimisticUIContext', () => ({
   __esModule: true,
@@ -73,6 +78,7 @@ describe('institutional lab mutations', () => {
   test('add-lab returns labId after polling intent execution', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const { verifyInstitutionReportedExecution } = await import('@/utils/intents/verifyOnchainIntentStatus')
     pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '42', txHash: '0xtx' })
     pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' })
 
@@ -107,6 +113,7 @@ describe('institutional lab mutations', () => {
 
     expect(data.labId).toBe('42')
     expect(data.requestId).toBe('req-1')
+    expect(verifyInstitutionReportedExecution).toHaveBeenCalledWith('req-1', expect.any(Object))
   })
 
   test('add-lab performs a follow-up poll when executed without labId', async () => {

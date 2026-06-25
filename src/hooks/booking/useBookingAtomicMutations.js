@@ -21,6 +21,7 @@ import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/o
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
 import {
   resolveIntentRequestId,
+  assertInstitutionIntentExecuted,
   createIntentMutationError,
   createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
@@ -329,6 +330,7 @@ export const useReservationRequestSSO = (options = {}) => {
               const finalKey = result?.reservationKey || reservationKey;
 
               if (status === 'executed') {
+                await assertInstitutionIntentExecuted(intentId, result, { signal: variables?.abortSignal });
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
                   labId: variables.tokenId,
@@ -540,6 +542,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
               const reason = result?.error || result?.reason;
 
               if (status === 'executed') {
+                await assertInstitutionIntentExecuted(intentId, result, { signal: abortController.signal });
                 updateBooking(reservationKey, {
                   reservationKey,
                   isIntentPending: false,
@@ -716,6 +719,7 @@ export const useCancelBookingSSO = (options = {}) => {
               const reason = result?.error || result?.reason;
 
               if (status === 'executed') {
+                await assertInstitutionIntentExecuted(intentId, result);
                 queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
                   if (!oldData) return oldData;
                   return {

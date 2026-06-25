@@ -12,6 +12,9 @@ jest.mock('@/context/UserContext', () => ({
 }));
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'executed' })));
 jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS', requestId: 'req-1' })));
+jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
+  verifyInstitutionReportedExecution: jest.fn(() => Promise.resolve({ state: 2, stateName: 'EXECUTED' })),
+}));
 
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

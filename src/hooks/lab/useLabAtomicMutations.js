@@ -13,6 +13,7 @@ import { awaitIntentAuthorization } from '@/utils/intents/authorizationOrchestra
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import {
   resolveIntentRequestId,
+  assertInstitutionIntentExecuted,
   createIntentMutationError,
   createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
@@ -215,11 +216,11 @@ export const useAddLabSSO = (options = {}) => {
         maxDelayMs: labData.pollMaxDelayMs,
       });
 
+      await assertInstitutionIntentExecuted(requestId, statusResult, {
+        signal: labData.abortSignal,
+        fallbackMessage: 'Intent not executed',
+      });
       const status = statusResult?.status;
-      if (status !== 'executed') {
-        const reason = statusResult?.error || statusResult?.reason || 'Intent not executed';
-        throw new Error(reason);
-      }
 
       let labId = resolveLabId(statusResult);
       let txHash = statusResult?.txHash;
@@ -328,6 +329,7 @@ export const useUpdateLabSSO = (options = {}) => {
                 const reason = result?.error || result?.reason;
 
                 if (status === 'executed') {
+                  await assertInstitutionIntentExecuted(requestId, result);
                   updateLab(variables.labId, {
                     ...variables.labData,
                     id: variables.labId,
@@ -455,6 +457,7 @@ export const useDeleteLabSSO = (options = {}) => {
               const reason = result?.error || result?.reason;
 
               if (status === 'executed') {
+                await assertInstitutionIntentExecuted(requestId, result);
                 removeLab(labId);
               } else if (status === 'failed' || status === 'rejected') {
                 updateLab(labId, {
@@ -528,10 +531,10 @@ export const useListLabSSO = (options = {}) => {
       }
 
       const result = await pollIntentStatus(requestId, { authToken, backendUrl: resolvedBackendUrl });
+      await assertInstitutionIntentExecuted(requestId, result, {
+        fallbackMessage: 'List intent not executed',
+      });
       const status = result?.status;
-      if (status !== 'executed') {
-        throw new Error(result?.error || result?.reason || 'List intent not executed');
-      }
 
       return {
         ...data,
@@ -608,10 +611,10 @@ export const useUnlistLabSSO = (options = {}) => {
       }
 
       const result = await pollIntentStatus(requestId, { authToken, backendUrl: resolvedBackendUrl });
+      await assertInstitutionIntentExecuted(requestId, result, {
+        fallbackMessage: 'Unlist intent not executed',
+      });
       const status = result?.status;
-      if (status !== 'executed') {
-        throw new Error(result?.error || result?.reason || 'Unlist intent not executed');
-      }
 
       return {
         ...data,
@@ -704,6 +707,7 @@ export const useSetTokenURISSO = (options = {}) => {
               const reason = result?.error || result?.reason;
 
               if (status === 'executed') {
+                await assertInstitutionIntentExecuted(requestId, result);
                 updateLab(labId, {
                   id: labId,
                   labId,

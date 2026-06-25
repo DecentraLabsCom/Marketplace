@@ -1,4 +1,5 @@
 import { markBrowserCredentialVerified } from '@/utils/onboarding/browserCredentialMarker'
+import { verifyInstitutionReportedExecution } from '@/utils/intents/verifyOnchainIntentStatus'
 
 export const resolveIntentRequestId = (data) =>
   data?.requestId ||
@@ -40,6 +41,22 @@ export const createAuthorizationSessionUnavailableError = (message = 'Authorizat
   const err = new Error(message)
   err.code = 'INTENT_AUTH_SESSION_UNAVAILABLE'
   return err
+}
+
+export const assertInstitutionIntentExecuted = async (
+  requestId,
+  statusResult,
+  {
+    signal,
+    fallbackMessage = 'Intent not executed',
+  } = {},
+) => {
+  const status = statusResult?.status
+  if (status !== 'executed') {
+    const reason = statusResult?.error || statusResult?.reason || fallbackMessage
+    throw new Error(reason)
+  }
+  return verifyInstitutionReportedExecution(requestId, { signal })
 }
 
 export const markBrowserCredentialVerifiedFromIntent = (

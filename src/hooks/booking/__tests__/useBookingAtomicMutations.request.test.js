@@ -10,6 +10,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import pollIntentStatus from '@/utils/intents/pollIntentStatus';
 import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus';
+import { verifyInstitutionReportedExecution } from '@/utils/intents/verifyOnchainIntentStatus';
 import {
   useReservationRequest,
   useReservationRequestSSO,
@@ -35,6 +36,9 @@ jest.mock('@/context/NotificationContext', () => ({
 
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
 jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS' })));
+jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
+  verifyInstitutionReportedExecution: jest.fn(() => Promise.resolve({ state: 2, stateName: 'EXECUTED' })),
+}));
 
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../useBookingCacheUpdates');
 
@@ -153,6 +157,7 @@ describe('institutional reservation request mutations', () => {
 
     await waitFor(() => {
       expect(pollIntentStatus).toHaveBeenCalled();
+      expect(verifyInstitutionReportedExecution).toHaveBeenCalledWith('req-int-1', expect.any(Object));
       expect(bookingMocks.updateBooking).toHaveBeenCalledWith(
         'rk-final',
         expect.objectContaining({
