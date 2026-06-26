@@ -448,7 +448,7 @@ export default function LabFormFullSetup({
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
-        <div className={`grid gap-4 ${isCalendarPeriod ? 'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_80px_80px_140px_minmax(0,1.4fr)]' : 'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1.4fr)]'}`}>
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <CalendarInput
               label="Opens"
@@ -471,6 +471,29 @@ export default function LabFormFullSetup({
             />
             {errors.closes && <p className="text-red-500 text-sm mt-1!">{errors.closes}</p>}
           </div>
+        </div>
+
+        <label className="text-sm font-medium text-gray-900">Available Days</label>
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAY_OPTIONS.map(({ value, label }) => (
+            <button
+              type="button"
+              key={value}
+              onClick={() => toggleAvailableDay(value)}
+              className={`px-3 py-1 rounded-full border transition ${
+                availableDays.includes(value)
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={disabled}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
+
+        <div className={`grid gap-4 ${isCalendarPeriod ? 'md:grid-cols-[80px_80px_150px_minmax(0,1fr)]' : 'md:grid-cols-2'}`}>
           {isCalendarPeriod ? (
             <>
               <div>
@@ -512,22 +535,7 @@ export default function LabFormFullSetup({
                 {errors.allowedDurationRange && <p className="text-red-500 text-sm mt-1!">{errors.allowedDurationRange}</p>}
               </div>
             </>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
-              <input
-                type="text"
-                placeholder="15, 30, 60"
-                value={timeSlotsInput}
-                onChange={(e) => handleTimeSlotsChange(e.target.value)}
-                onBlur={handleTimeSlotsBlur}
-                className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-                disabled={disabled}
-                ref={timeSlotsRef}
-              />
-              {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
-            </div>
-          )}
+          ) : null}
           <div>
             <label htmlFor="lab-timezone" className="block text-sm font-medium text-gray-900 mb-1">Timezone</label>
             <select
@@ -553,27 +561,23 @@ export default function LabFormFullSetup({
             </select>
             {errors.timezone && <p className="text-red-500 text-sm mt-1!">{errors.timezone}</p>}
           </div>
+          {!isCalendarPeriod ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
+              <input
+                type="text"
+                placeholder="15, 30, 60"
+                value={timeSlotsInput}
+                onChange={(e) => handleTimeSlotsChange(e.target.value)}
+                onBlur={handleTimeSlotsBlur}
+                className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                disabled={disabled}
+                ref={timeSlotsRef}
+              />
+              {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
+            </div>
+          ) : null}
         </div>
-
-        <label className="text-sm font-medium text-gray-900">Available Days</label>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAY_OPTIONS.map(({ value, label }) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => toggleAvailableDay(value)}
-              className={`px-3 py-1 rounded-full border transition ${
-                availableDays.includes(value)
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={disabled}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>

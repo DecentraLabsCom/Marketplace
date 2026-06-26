@@ -103,12 +103,16 @@ describe("LabFormQuickSetup", () => {
     test("updates price field with correct value", () => {
       renderForm();
 
-      const priceInput = screen.getByPlaceholderText("Price per hour");
+      const priceInput = screen.getByPlaceholderText("Price");
       fireEvent.change(priceInput, { target: { value: "250" } });
 
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
         price: "250",
+        pricing: {
+          displayAmount: "250",
+          displayUnit: "hour",
+        },
       });
     });
 
@@ -227,7 +231,8 @@ describe("LabFormQuickSetup", () => {
     test("disables all fields except URI when isLocalURI is true", () => {
       renderForm({ isLocalURI: true });
 
-      expect(screen.getByPlaceholderText("Price per hour")).toBeDisabled();
+      expect(screen.getByPlaceholderText("Price")).toBeDisabled();
+      expect(screen.getByDisplayValue("hour")).toBeDisabled();
       expect(screen.getByPlaceholderText("Access URI")).toBeDisabled();
       expect(screen.getByPlaceholderText("Access Key")).toBeDisabled();
 
@@ -239,7 +244,8 @@ describe("LabFormQuickSetup", () => {
     test("enables all fields when isLocalURI is false", () => {
       renderForm({ isLocalURI: false });
 
-      expect(screen.getByPlaceholderText("Price per hour")).not.toBeDisabled();
+      expect(screen.getByPlaceholderText("Price")).not.toBeDisabled();
+      expect(screen.getByDisplayValue("hour")).not.toBeDisabled();
       expect(screen.getByPlaceholderText("Access URI")).not.toBeDisabled();
       expect(screen.getByPlaceholderText("Access Key")).not.toBeDisabled();
     });
@@ -311,7 +317,7 @@ describe("LabFormQuickSetup", () => {
     test("handles empty lab object gracefully", () => {
       renderForm({ localLab: {} });
 
-      expect(screen.getByPlaceholderText("Price per hour")).toHaveValue(null);
+      expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
       expect(screen.getByPlaceholderText("Access URI")).toHaveValue("");
       expect(screen.getByPlaceholderText("Access Key")).toHaveValue("");
     });
@@ -326,7 +332,7 @@ describe("LabFormQuickSetup", () => {
         },
       });
 
-      expect(screen.getByPlaceholderText("Price per hour")).toHaveValue(null);
+      expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
       expect(screen.getByPlaceholderText("Lab Data URL (JSON)")).toHaveValue(
         ""
       );
@@ -336,7 +342,7 @@ describe("LabFormQuickSetup", () => {
       renderForm({ lab: undefined });
 
       // Should still render without crashing
-      expect(screen.getByPlaceholderText("Price per hour")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Price")).toBeInTheDocument();
     });
   });
 

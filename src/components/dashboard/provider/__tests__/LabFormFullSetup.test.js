@@ -507,7 +507,8 @@ describe("LabFormFullSetup", () => {
       // Check that key inputs are disabled
       expect(screen.getByPlaceholderText("Lab Name")).toBeDisabled();
       expect(screen.getByTestId("category-multiselect")).toHaveClass("cursor-not-allowed");
-      expect(screen.getByPlaceholderText("Price per hour")).toBeDisabled();
+      expect(screen.getByPlaceholderText("Price")).toBeDisabled();
+      expect(screen.getByDisplayValue("hour")).toBeDisabled();
       expect(screen.getByText("Save Changes")).toBeDisabled();
 
       // Check that toggle buttons are disabled
@@ -604,7 +605,7 @@ describe("LabFormFullSetup", () => {
 
       expect(screen.getByPlaceholderText("Lab Name")).toHaveValue("");
       expect(screen.getByTestId("category-multiselect")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("Price per hour")).toHaveValue(null);
+      expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
     });
 
     test("handles null and undefined array values", () => {

@@ -326,7 +326,7 @@ describe("LabModal - Unit Tests", () => {
       );
 
       await waitFor(() => {
-        expect(mockFormatPrice).toHaveBeenCalledWith("100");
+        expect(mockFormatPrice).toHaveBeenCalledWith("100", "hour");
       });
     });
   });
