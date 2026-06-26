@@ -43,7 +43,7 @@
     "@tanstack/react-query-devtools": "^5.101.0",
     "@tanstack/react-query-persist-client": "^5.90.24",
     "@vercel/analytics": "^2.0.1",
-    "@vercel/blob": "^2.4.0",
+    "@vercel/blob": "^2.4.1",
     "cookie": "^1.1.1",
     "date-fns": "^4.4.0",
     "decentralabs-marketplace": "file:",
