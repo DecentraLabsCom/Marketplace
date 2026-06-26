@@ -10,6 +10,7 @@ import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup
 import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
 import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
 import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
@@ -180,12 +181,19 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       labToMerge.uri = normalizedUri;
     }
     
-    // Convert price from per-second (cache format) to per-hour (UI input format)
+    const priceUnit = normalizePricingUnit(
+      labToMerge?.pricing?.displayUnit
+      || labToMerge?.priceUnit
+      || 'hour'
+    );
+    labToMerge.priceUnit = priceUnit;
+    labToMerge.bookingMode = priceUnit === 'hour' ? 'slot' : 'calendar-period';
+
+    // Convert price from per-second (cache format) to the selected UI unit.
     if (labToMerge.price && decimals) {
       try {
-        // Use formatPrice to convert from per-second to per-hour for input fields
-        const pricePerHour = formatPrice(labToMerge.price);
-        labToMerge.price = pricePerHour;
+        const metadataDisplayAmount = labToMerge?.pricing?.displayAmount;
+        labToMerge.price = metadataDisplayAmount || formatPrice(labToMerge.price, priceUnit);
       } catch (error) {
         devLog.error('Error converting price for UI input:', error);
         // Keep original price if conversion fails

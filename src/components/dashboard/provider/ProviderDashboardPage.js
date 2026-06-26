@@ -34,7 +34,7 @@ import {
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
-import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
+import { displayPriceToRawPerSecond, normalizePricingUnit } from '@/utils/pricing/pricingUnits'
 import devLog from '@/utils/dev/logger'
 import {
   notifyLabCreateCancelled,
@@ -547,7 +547,8 @@ export default function ProviderDashboard() {
     // Convert price from user input to credit units for blockchain operations
     if (labData.price && decimals) {
       try {
-        const priceInTokenUnits = convertHourlyCreditsToRawPerSecond(labData.price, decimals)
+        const priceUnit = normalizePricingUnit(labData?.priceUnit || labData?.pricing?.displayUnit || 'hour')
+        const priceInTokenUnits = displayPriceToRawPerSecond(labData.price, priceUnit, decimals)
         labData = { ...labData, price: priceInTokenUnits.toString() }
       } catch (error) {
         devLog.error('Error converting price to credit units:', error)

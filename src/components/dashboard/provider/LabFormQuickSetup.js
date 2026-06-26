@@ -4,6 +4,13 @@ import { Loader2 } from 'lucide-react'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 
+const PRICE_UNIT_OPTIONS = [
+  { value: 'hour', label: 'hour' },
+  { value: 'day', label: 'day' },
+  { value: 'week', label: 'week' },
+  { value: 'month', label: '30-day month' },
+]
+
 function resolveGatewayAuthEndpoint(gatewayUrl) {
   try {
     const url = new URL(gatewayUrl)
@@ -108,19 +115,51 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
       {errors.resourceType && <p className="text-red-500 text-sm !mt-1">{errors.resourceType}</p>}
 
-      <input
-        type="number"
-        step="any"
-        min="0"
-        placeholder="Price per hour"
-        value={localLab?.price || ''}
-        onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-        disabled:cursor-not-allowed disabled:border-gray-300"
-        disabled={isLocalURI}
-        ref={priceRef}
-      />
-      {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px]">
+        <div>
+          <input
+            type="number"
+            step="any"
+            min="0"
+            placeholder="Price"
+            value={localLab?.price || ''}
+            onChange={(e) => setLocalLab({
+              ...localLab,
+              price: e.target.value,
+              pricing: {
+                ...(localLab?.pricing || {}),
+                displayAmount: e.target.value,
+                displayUnit: localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour',
+              },
+            })}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+            disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={isLocalURI}
+            ref={priceRef}
+          />
+          {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
+        </div>
+        <select
+          value={localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour'}
+          onChange={(e) => setLocalLab({
+            ...localLab,
+            priceUnit: e.target.value,
+            pricing: {
+              ...(localLab?.pricing || {}),
+              displayAmount: localLab?.price || '',
+              displayUnit: e.target.value,
+            },
+            bookingMode: e.target.value === 'hour' ? 'slot' : 'calendar-period',
+          })}
+          className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+          disabled:cursor-not-allowed disabled:border-gray-300"
+          disabled={isLocalURI}
+        >
+          {PRICE_UNIT_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
 
       <input
         type="text"

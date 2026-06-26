@@ -65,6 +65,12 @@ export const applyMetadataAttributes = (lab, metadata) => {
   if (attributeMap.unavailableWindows !== undefined) lab.unavailableWindows = attributeMap.unavailableWindows
   if (attributeMap.termsOfUse !== undefined) lab.termsOfUse = attributeMap.termsOfUse
   if (attributeMap.timezone !== undefined) lab.timezone = attributeMap.timezone
+  if (attributeMap.pricing !== undefined) lab.pricing = attributeMap.pricing
+  if (attributeMap.pricingUnit !== undefined) lab.priceUnit = attributeMap.pricingUnit
+  if (attributeMap.bookingMode !== undefined) lab.bookingMode = attributeMap.bookingMode
+  if (attributeMap.allowedDurationRange !== undefined) lab.allowedDurationRange = attributeMap.allowedDurationRange
+  if (attributeMap.allowedDurations !== undefined) lab.allowedDurations = attributeMap.allowedDurations
+  if (attributeMap.periodRules !== undefined) lab.periodRules = attributeMap.periodRules
   if (attributeMap.resourceType !== undefined) lab.resourceType = attributeMap.resourceType
   if (attributeMap.fmuFileName !== undefined) lab.fmuFileName = attributeMap.fmuFileName
   if (attributeMap.fmiVersion !== undefined) lab.fmiVersion = attributeMap.fmiVersion
@@ -164,6 +170,11 @@ export const buildEnrichedLab = ({
     if (metadata.category) enrichedLab.category = metadata.category;
     if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
     if (metadata.docs) enrichedLab.docs = metadata.docs;
+    if (metadata.pricing) enrichedLab.pricing = metadata.pricing;
+    if (metadata.bookingMode) enrichedLab.bookingMode = metadata.bookingMode;
+    if (metadata.allowedDurationRange) enrichedLab.allowedDurationRange = metadata.allowedDurationRange;
+    if (metadata.allowedDurations) enrichedLab.allowedDurations = metadata.allowedDurations;
+    if (metadata.periodRules) enrichedLab.periodRules = metadata.periodRules;
     if (useMetadataProvider && metadata.provider) enrichedLab.provider = metadata.provider;
     enrichedLab.demoEnabled = metadata.demoEnabled === true;
 

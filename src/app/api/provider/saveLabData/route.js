@@ -9,6 +9,12 @@ import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
+import {
+  CALENDAR_PERIOD_BOOKING_MODE,
+  DEFAULT_BOOKING_MODE,
+  displayPriceToRawPerSecond,
+  normalizePricingUnit,
+} from '@/utils/pricing/pricingUnits'
 import { 
   requireAuth,
   requireProviderRole,
@@ -20,6 +26,7 @@ import {
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+const PERIOD_UNITS = ['day', 'week', 'month']
 
 const extractInternalLabUri = (value) => {
   if (!value) return null
@@ -120,6 +127,87 @@ const parseOptionalNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const splitCsv = (value) => {
+  if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean)
+  if (typeof value !== 'string') return []
+  return value.split(',').map(item => item.trim()).filter(Boolean)
+}
+
+const normalizePositiveIntegers = (value) => (
+  (Array.isArray(value) ? value : splitCsv(value))
+    .map(Number)
+    .filter(item => Number.isFinite(item) && item > 0)
+    .map(Math.trunc)
+)
+
+const normalizePeriodUnit = (unit, fallback = 'day') => {
+  const normalized = String(unit || fallback).trim().toLowerCase().replace(/s$/, '')
+  return PERIOD_UNITS.includes(normalized) ? normalized : fallback
+}
+
+const getBookingModeFromPriceUnit = (priceUnit) => (
+  normalizePricingUnit(priceUnit) === 'hour'
+    ? DEFAULT_BOOKING_MODE
+    : CALENDAR_PERIOD_BOOKING_MODE
+)
+
+const normalizeAllowedDurationRange = (range, priceUnit = 'day') => {
+  const fallbackUnit = normalizePricingUnit(priceUnit) === 'month'
+    ? 'month'
+    : normalizePricingUnit(priceUnit) === 'week'
+      ? 'week'
+      : 'day'
+  const unit = normalizePeriodUnit(range?.unit, fallbackUnit)
+  const maxByUnit = { day: 90, week: 12, month: 3 }
+  const unitMax = maxByUnit[unit] || 90
+  const rawMin = Math.trunc(Number(range?.min ?? 1))
+  const rawMax = Math.trunc(Number(range?.max ?? rawMin))
+  const min = Math.min(Math.max(Number.isFinite(rawMin) ? rawMin : 1, 1), unitMax)
+  const max = Math.min(Math.max(Number.isFinite(rawMax) ? rawMax : min, min), unitMax)
+  return { unit, min, max }
+}
+
+const expandAllowedDurations = (range) => {
+  if (!range) return []
+  const min = Math.trunc(Number(range.min))
+  const max = Math.trunc(Number(range.max))
+  const unit = normalizePeriodUnit(range.unit)
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max < min) return []
+  return Array.from({ length: max - min + 1 }, (_, index) => ({ unit, value: min + index }))
+}
+
+const buildPeriodRules = (range) => {
+  if (!range) return null
+  const daysPerUnit = { day: 1, week: 7, month: 30 }
+  const unit = normalizePeriodUnit(range.unit)
+  return {
+    startGranularity: 'day',
+    allowCustomDateRange: true,
+    minDurationDays: Number(range.min) * daysPerUnit[unit],
+    maxDurationDays: Number(range.max) * daysPerUnit[unit],
+  }
+}
+
+const normalizePricing = ({ price, pricing, priceUnit }) => {
+  const displayUnit = normalizePricingUnit(pricing?.displayUnit || priceUnit || pricing?.unit || 'hour')
+  const displayAmount = String(pricing?.displayAmount ?? price ?? '').trim()
+  let rawPricePerSecond = pricing?.rawPricePerSecond ? String(pricing.rawPricePerSecond) : ''
+  if (!rawPricePerSecond && displayAmount) {
+    try {
+      rawPricePerSecond = displayPriceToRawPerSecond(displayAmount, displayUnit).toString()
+    } catch {
+      rawPricePerSecond = ''
+    }
+  }
+  return {
+    displayAmount,
+    displayUnit,
+    rawPricePerSecond,
+    roundingMode: 'ceil-per-second',
+    billingMode: 'linear-duration',
+  }
+}
+
 /**
  * Saves lab data to file system (local) or cloud storage (Vercel)
  * @param {Request} req - HTTP request with lab data
@@ -168,6 +256,10 @@ export async function POST(req) {
       docs,
       images,
       timeSlots,
+      price,
+      priceUnit,
+      pricing,
+      allowedDurationRange,
       uri,
       availableDays,
       availableHours,
@@ -300,24 +392,43 @@ export async function POST(req) {
     const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
     const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
     const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
+    const normalizedImages = Array.isArray(images) ? images.filter(Boolean) : splitCsv(images)
+    const normalizedDocs = Array.isArray(docs) ? docs.filter(Boolean) : splitCsv(docs)
+    const normalizedCategory = Array.isArray(category) ? category.filter(Boolean) : (category || "")
+    const normalizedKeywords = splitCsv(keywords)
+    const normalizedPricing = normalizePricing({ price, pricing, priceUnit })
+    const normalizedBookingMode = getBookingModeFromPriceUnit(normalizedPricing.displayUnit)
+    const normalizedTimeSlots = normalizePositiveIntegers(timeSlots)
+    const normalizedAllowedDurationRange = normalizedBookingMode === CALENDAR_PERIOD_BOOKING_MODE
+      ? normalizeAllowedDurationRange(allowedDurationRange, normalizedPricing.displayUnit)
+      : null
+    const normalizedAllowedDurations = normalizedBookingMode === CALENDAR_PERIOD_BOOKING_MODE
+      ? expandAllowedDurations(normalizedAllowedDurationRange)
+      : normalizedTimeSlots.map(slot => ({ unit: 'minute', value: slot }))
+    const normalizedPeriodRules = normalizedBookingMode === CALENDAR_PERIOD_BOOKING_MODE
+      ? buildPeriodRules(normalizedAllowedDurationRange)
+      : null
 
     // Prepare new data structure
     const newData = {
       name: name || "",
       description: description || "",
-      image: images && images.length > 0 ? images[0] : "",
+      image: normalizedImages.length > 0 ? normalizedImages[0] : "",
       attributes: [
-        { trait_type: "category", value: Array.isArray(category) ? category : (category || "") },
-        { trait_type: "keywords", value: Array.isArray(keywords) ? 
-          keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) },
-        { trait_type: "timeSlots", value: Array.isArray(timeSlots) ? 
-          timeSlots.map(Number).filter(Boolean) 
-          : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },
+        { trait_type: "category", value: normalizedCategory },
+        { trait_type: "keywords", value: normalizedKeywords },
+        ...(normalizedBookingMode === DEFAULT_BOOKING_MODE ? [{ trait_type: "timeSlots", value: normalizedTimeSlots }] : []),
+        { trait_type: "pricing", value: normalizedPricing },
+        { trait_type: "pricingUnit", value: normalizedPricing.displayUnit },
+        { trait_type: "pricingDisplayAmount", value: normalizedPricing.displayAmount },
+        { trait_type: "bookingMode", value: normalizedBookingMode },
+        ...(normalizedAllowedDurationRange ? [{ trait_type: "allowedDurationRange", value: normalizedAllowedDurationRange }] : []),
+        { trait_type: "allowedDurations", value: normalizedAllowedDurations },
+        ...(normalizedPeriodRules ? [{ trait_type: "periodRules", value: normalizedPeriodRules }] : []),
         { trait_type: "opens", value: normalizedOpens },
         { trait_type: "closes", value: normalizedCloses },
-        { trait_type: "additionalImages", value: images && images.length > 1 ? images.slice(1) : [] },
-        { trait_type: "docs", value: Array.isArray(docs) ? 
-          docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
+        { trait_type: "additionalImages", value: normalizedImages.length > 1 ? normalizedImages.slice(1) : [] },
+        { trait_type: "docs", value: normalizedDocs },
         { trait_type: "availableDays", value: normalizedAvailableDays },
         { trait_type: "availableHours", value: normalizedAvailableHours },
         { trait_type: "maxConcurrentUsers", value: normalizedMaxUsers },
@@ -357,6 +468,17 @@ export async function POST(req) {
     } else {
       finalData = newData;
     }
+
+    delete finalData.category
+    delete finalData.keywords
+    delete finalData.docs
+    delete finalData.images
+    delete finalData.pricing
+    delete finalData.bookingMode
+    delete finalData.allowedDurationRange
+    delete finalData.allowedDurations
+    delete finalData.periodRules
+    delete finalData.demoEnabled
 
     // Save the data
     const labJSON = JSON.stringify(finalData, null, 2);

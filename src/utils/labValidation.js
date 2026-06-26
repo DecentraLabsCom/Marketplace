@@ -90,7 +90,17 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.closes = 'Closing date must be after or equal to opening date';
     }
 
-    if (!localLab.timeSlots || localLab.timeSlots.length === 0 ||
+    const priceUnit = String(localLab.priceUnit || localLab.pricing?.displayUnit || 'hour').trim().toLowerCase();
+    const isCalendarPeriod = priceUnit !== 'hour';
+    if (isCalendarPeriod) {
+        const range = normalizeObject(localLab.allowedDurationRange);
+        const min = Number(range.min);
+        const max = Number(range.max);
+        const unit = String(range.unit || '').trim().toLowerCase();
+        if (!['day', 'week', 'month'].includes(unit) || !Number.isInteger(min) || !Number.isInteger(max) || min <= 0 || max < min) {
+            errors.allowedDurationRange = 'Select a valid minimum and maximum booking period';
+        }
+    } else if (!localLab.timeSlots || localLab.timeSlots.length === 0 ||
         localLab.timeSlots.every(slot => isNaN(Number(slot)) || Number(slot) <= 0)) {
         errors.timeSlots = 'At least one valid time slot (positive number) must be selected';
     }

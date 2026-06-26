@@ -33,6 +33,49 @@ import {
   normalizeObject,
 } from './labFormUtils'
 
+const PRICE_UNIT_OPTIONS = [
+  { value: 'hour', label: 'hour' },
+  { value: 'day', label: 'day' },
+  { value: 'week', label: 'week' },
+  { value: 'month', label: '30-day month' },
+]
+
+const PERIOD_UNIT_OPTIONS = [
+  { value: 'day', label: 'days' },
+  { value: 'week', label: 'weeks' },
+  { value: 'month', label: '30-day months' },
+]
+
+const normalizePricingUnit = (unit) => (
+  PRICE_UNIT_OPTIONS.some(option => option.value === unit) ? unit : 'hour'
+)
+
+const normalizePeriodUnit = (unit, fallback = 'day') => {
+  const normalized = String(unit || fallback).trim().toLowerCase().replace(/s$/, '')
+  return PERIOD_UNIT_OPTIONS.some(option => option.value === normalized) ? normalized : fallback
+}
+
+const periodUnitOptionsForPriceUnit = (priceUnit) => {
+  const minimum = priceUnit === 'month' ? 'month' : priceUnit === 'week' ? 'week' : 'day'
+  const index = PERIOD_UNIT_OPTIONS.findIndex(option => option.value === minimum)
+  return PERIOD_UNIT_OPTIONS.slice(Math.max(0, index))
+}
+
+const normalizeAllowedDurationRange = (range = {}, priceUnit = 'day') => {
+  const availableUnits = periodUnitOptionsForPriceUnit(priceUnit)
+  const fallbackUnit = availableUnits[0]?.value || 'day'
+  const unit = availableUnits.some(option => option.value === range?.unit)
+    ? normalizePeriodUnit(range.unit, fallbackUnit)
+    : fallbackUnit
+  const maxByUnit = { day: 90, week: 12, month: 3 }
+  const unitMax = maxByUnit[unit] || 90
+  const rawMin = Math.trunc(Number(range?.min ?? 1))
+  const rawMax = Math.trunc(Number(range?.max ?? rawMin))
+  const min = Math.min(Math.max(Number.isFinite(rawMin) ? rawMin : 1, 1), unitMax)
+  const max = Math.min(Math.max(Number.isFinite(rawMax) ? rawMax : min, min), unitMax)
+  return { unit, min, max }
+}
+
 export default function LabFormFullSetup({
   localLab = {},
   setLocalLab,
@@ -77,6 +120,10 @@ export default function LabFormFullSetup({
   const availableDays = normalizeArray(localLab.availableDays)
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
   const timezoneValue = typeof localLab?.timezone === 'string' ? localLab.timezone.trim() : ''
+  const priceUnit = normalizePricingUnit(localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour')
+  const isCalendarPeriod = priceUnit !== 'hour'
+  const allowedDurationRange = normalizeAllowedDurationRange(localLab?.allowedDurationRange, priceUnit)
+  const allowedPeriodUnitOptions = periodUnitOptionsForPriceUnit(priceUnit)
   const unavailableWindows = normalizeArray(localLab.unavailableWindows)
   const termsOfUse = normalizeObject(localLab.termsOfUse, {
     url: '',
@@ -171,7 +218,9 @@ export default function LabFormFullSetup({
   const handleFormSubmit = (e) => {
     // Process keywords and timeSlots before submitting
     handleKeywordsBlur()
-    handleTimeSlotsBlur()
+    if (!isCalendarPeriod) {
+      handleTimeSlotsBlur()
+    }
     // Call parent's onSubmit handler
     onSubmit(e)
   }
@@ -196,6 +245,32 @@ export default function LabFormFullSetup({
   const handleTimezoneChange = (value) => {
     if (disabled) return
     handleBasicChange('timezone', value)
+  }
+
+  const handlePriceUnitChange = (value) => {
+    if (disabled) return
+    const nextUnit = normalizePricingUnit(value)
+    const nextRange = normalizeAllowedDurationRange(latestLabRef.current?.allowedDurationRange, nextUnit)
+    setLocalLab({
+      ...latestLabRef.current,
+      priceUnit: nextUnit,
+      pricing: {
+        ...(latestLabRef.current?.pricing || {}),
+        displayAmount: latestLabRef.current?.price || '',
+        displayUnit: nextUnit,
+      },
+      bookingMode: nextUnit === 'hour' ? 'slot' : 'calendar-period',
+      allowedDurationRange: nextRange,
+    })
+  }
+
+  const handleAllowedDurationRangeChange = (field, value) => {
+    if (disabled) return
+    const nextRange = normalizeAllowedDurationRange({
+      ...allowedDurationRange,
+      [field]: value,
+    }, priceUnit)
+    handleBasicChange('allowedDurationRange', nextRange)
   }
 
   const handleAddWindow = () => {
@@ -265,19 +340,43 @@ export default function LabFormFullSetup({
           />
         </div>
 
-        <div>
-          <input
-            type="number"
-            step="any"
-            min="0"
-            placeholder="Price per hour"
-            value={localLab?.price || ''}
-            onChange={(e) => handleBasicChange('price', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={disabled}
-            ref={priceRef}
-          />
-          {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px]">
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Price</label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              placeholder="Price"
+              value={localLab?.price || ''}
+              onChange={(e) => setLocalLab({
+                ...latestLabRef.current,
+                price: e.target.value,
+                pricing: {
+                  ...(latestLabRef.current?.pricing || {}),
+                  displayAmount: e.target.value,
+                  displayUnit: priceUnit,
+                },
+              })}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={priceRef}
+            />
+            {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Per</label>
+            <select
+              value={priceUnit}
+              onChange={(e) => handlePriceUnitChange(e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+            >
+              {PRICE_UNIT_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <input
@@ -349,8 +448,8 @@ export default function LabFormFullSetup({
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
-        <div className="flex flex-col md:flex-row md:gap-6">
-          <div className="w-full md:flex-1">
+        <div className={`grid gap-4 ${isCalendarPeriod ? 'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_80px_80px_140px_minmax(0,1.4fr)]' : 'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1.4fr)]'}`}>
+          <div>
             <CalendarInput
               label="Opens"
               value={localLab?.opens ?? null}
@@ -362,7 +461,7 @@ export default function LabFormFullSetup({
             />
             {errors.opens && <p className="text-red-500 text-sm mt-1!">{errors.opens}</p>}
           </div>
-          <div className="w-full md:flex-1">
+          <div>
             <CalendarInput
               label="Closes"
               value={localLab?.closes ?? null}
@@ -372,29 +471,63 @@ export default function LabFormFullSetup({
             />
             {errors.closes && <p className="text-red-500 text-sm mt-1!">{errors.closes}</p>}
           </div>
-        </div>
-
-        <label className="text-sm font-medium text-gray-900">Available Days</label>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAY_OPTIONS.map(({ value, label }) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => toggleAvailableDay(value)}
-              className={`px-3 py-1 rounded-full border transition ${
-                availableDays.includes(value)
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={disabled}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
-
-        <div className="grid gap-4 md:grid-cols-2">
+          {isCalendarPeriod ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">Min</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={allowedDurationRange.min}
+                  onChange={(e) => handleAllowedDurationRangeChange('min', e.target.value)}
+                  className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={disabled}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">Max</label>
+                <input
+                  type="number"
+                  min={allowedDurationRange.min}
+                  step="1"
+                  value={allowedDurationRange.max}
+                  onChange={(e) => handleAllowedDurationRangeChange('max', e.target.value)}
+                  className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={disabled}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-1">Unit</label>
+                <select
+                  value={allowedDurationRange.unit}
+                  onChange={(e) => handleAllowedDurationRangeChange('unit', e.target.value)}
+                  className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={disabled}
+                >
+                  {allowedPeriodUnitOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                {errors.allowedDurationRange && <p className="text-red-500 text-sm mt-1!">{errors.allowedDurationRange}</p>}
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
+              <input
+                type="text"
+                placeholder="15, 30, 60"
+                value={timeSlotsInput}
+                onChange={(e) => handleTimeSlotsChange(e.target.value)}
+                onBlur={handleTimeSlotsBlur}
+                className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                disabled={disabled}
+                ref={timeSlotsRef}
+              />
+              {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
+            </div>
+          )}
           <div>
             <label htmlFor="lab-timezone" className="block text-sm font-medium text-gray-900 mb-1">Timezone</label>
             <select
@@ -420,21 +553,27 @@ export default function LabFormFullSetup({
             </select>
             {errors.timezone && <p className="text-red-500 text-sm mt-1!">{errors.timezone}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
-            <input
-              type="text"
-              placeholder="15, 30, 60"
-              value={timeSlotsInput}
-              onChange={(e) => handleTimeSlotsChange(e.target.value)}
-              onBlur={handleTimeSlotsBlur}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={timeSlotsRef}
-            />
-            {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
-          </div>
         </div>
+
+        <label className="text-sm font-medium text-gray-900">Available Days</label>
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAY_OPTIONS.map(({ value, label }) => (
+            <button
+              type="button"
+              key={value}
+              onClick={() => toggleAvailableDay(value)}
+              className={`px-3 py-1 rounded-full border transition ${
+                availableDays.includes(value)
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={disabled}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
