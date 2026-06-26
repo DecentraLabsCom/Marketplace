@@ -386,6 +386,41 @@ describe("useLabReservationState", () => {
         30
       );
     });
+
+    test("calculates calendar-period cost from custom start and end dates", async () => {
+      const longLab = {
+        ...mockLab,
+        bookingMode: "calendar-period",
+        allowedDurations: [{ unit: "day", value: 1 }],
+        periodRules: { allowCustomDateRange: true, minDurationDays: 1, maxDurationDays: 90 },
+      };
+
+      const { result } = renderHookWithClient(() =>
+        useLabReservationState({
+          selectedLab: longLab,
+          labBookings: [],
+          isSSO: false,
+        })
+      );
+
+      await waitFor(() => expect(result.current.isCalendarPeriod).toBe(true));
+
+      act(() => {
+        result.current.handleDateChange(new Date("2026-03-02T00:00:00"));
+      });
+      act(() => {
+        result.current.handlePeriodEndDateChange(new Date("2026-03-09T00:00:00"));
+      });
+
+      expect(result.current.duration).toBe(7);
+      expect(mockLabToken.calculateReservationCost).toHaveBeenLastCalledWith(
+        100,
+        {
+          start: Math.floor(new Date("2026-03-02T00:00:00").getTime() / 1000),
+          end: Math.floor(new Date("2026-03-09T00:00:00").getTime() / 1000),
+        }
+      );
+    });
   });
 
   describe("Auto Time Selection", () => {

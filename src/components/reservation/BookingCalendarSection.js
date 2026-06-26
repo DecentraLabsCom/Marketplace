@@ -10,6 +10,20 @@ import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 
+const toDateInputValue = (value) => {
+  if (!(value instanceof Date) || isNaN(value.getTime())) return ''
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const fromDateInputValue = (value) => {
+  if (!value) return null
+  const parsed = new Date(`${value}T00:00:00`)
+  return isNaN(parsed.getTime()) ? null : parsed
+}
+
 /**
  * Calendar section with time slot selection
  * @param {Object} props
@@ -40,6 +54,11 @@ export default function BookingCalendarSection({
   selectedTime,
   onTimeChange,
   availableTimes,
+  isCalendarPeriod = false,
+  allowedDurations = [],
+  allowCustomDateRange = false,
+  periodEndDate,
+  onPeriodEndDateChange,
   minDate,
   maxDate,
   forceRefresh,
@@ -92,6 +111,20 @@ export default function BookingCalendarSection({
     }
   }, [lab])
 
+  const periodOptions = useMemo(() => {
+    const toOption = (duration) => {
+      const value = Number(duration?.value)
+      const unit = String(duration?.unit || '').toLowerCase()
+      if (!Number.isFinite(value) || value <= 0) return null
+      if (unit === 'day' || unit === 'days') return { days: value, label: `${value} day${value === 1 ? '' : 's'}` }
+      if (unit === 'week' || unit === 'weeks') return { days: value * 7, label: `${value} week${value === 1 ? '' : 's'}` }
+      if (unit === 'month' || unit === 'months') return { days: value * 30, label: `${value} 30-day month${value === 1 ? '' : 's'}` }
+      return null
+    }
+    const options = allowedDurations.map(toOption).filter(Boolean)
+    return options.length ? options : [{ days: 1, label: '1 day' }]
+  }, [allowedDurations])
+
   if (!lab) return null
 
   return (
@@ -119,7 +152,7 @@ export default function BookingCalendarSection({
         {/* Duration */}
         <div>
           <label htmlFor="duration-select" className="block text-lg font-semibold mb-2">
-            Duration:
+            {isCalendarPeriod ? 'Period:' : 'Duration:'}
           </label>
           <select
             id="duration-select"
@@ -127,16 +160,39 @@ export default function BookingCalendarSection({
             value={duration}
             onChange={(e) => onDurationChange(Number(e.target.value))}
           >
-            {(lab?.timeSlots || [15, 30, 60]).map((slot) => (
-              <option key={slot} value={slot}>
-                {slot} minutes
-              </option>
-            ))}
+            {isCalendarPeriod
+              ? periodOptions.map((option) => (
+                <option key={`${option.days}-${option.label}`} value={option.days}>
+                  {option.label}
+                </option>
+              ))
+              : (lab?.timeSlots || [15, 30, 60]).map((slot) => (
+                <option key={slot} value={slot}>
+                  {slot} minutes
+                </option>
+              ))}
           </select>
         </div>
 
+        {isCalendarPeriod && allowCustomDateRange && (
+          <div>
+            <label htmlFor="period-end-date" className="block text-lg font-semibold mb-2">
+              End date:
+            </label>
+            <input
+              id="period-end-date"
+              type="date"
+              className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+              min={toDateInputValue(date)}
+              max={toDateInputValue(maxDate)}
+              value={toDateInputValue(periodEndDate)}
+              onChange={(event) => onPeriodEndDateChange?.(fromDateInputValue(event.target.value))}
+            />
+          </div>
+        )}
+
         {/* Starting Time */}
-        <div>
+        {!isCalendarPeriod && <div>
           <label htmlFor="time-select" className="block text-lg font-semibold mb-2">
             Starting time:
           </label>
@@ -165,7 +221,7 @@ export default function BookingCalendarSection({
               </option>
             ))}
           </select>
-        </div>
+        </div>}
       </div>
 
       {/* Payment info is shown only for the non-SSO fallback path. */}
@@ -175,10 +231,10 @@ export default function BookingCalendarSection({
           <LabCreditInfo
             className="h-fit"
             labPrice={lab.price}
-            durationMinutes={duration}
+            durationMinutes={isCalendarPeriod ? duration * 24 * 60 : duration}
           />
           <p className="text-text-secondary font-semibold text-xl mt-4 text-center">
-            {formatPrice(lab.price)} credits / hour
+            {formatPrice(lab.price, lab?.pricing?.displayUnit || 'hour')} credits / {lab?.pricing?.displayUnit || 'hour'}
           </p>
         </div>
       )}
@@ -197,6 +253,11 @@ BookingCalendarSection.propTypes = {
   selectedTime: PropTypes.string, // Can be null initially before user selects
   onTimeChange: PropTypes.func.isRequired,
   availableTimes: PropTypes.array.isRequired,
+  isCalendarPeriod: PropTypes.bool,
+  allowedDurations: PropTypes.array,
+  allowCustomDateRange: PropTypes.bool,
+  periodEndDate: PropTypes.instanceOf(Date),
+  onPeriodEndDateChange: PropTypes.func,
   minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]).isRequired,
   maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
   forceRefresh: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]).isRequired,

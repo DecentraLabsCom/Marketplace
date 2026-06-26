@@ -39,6 +39,11 @@ export default function LabDetailsPanel({
   selectedTime,
   onTimeChange,
   availableTimes,
+  isCalendarPeriod,
+  allowedDurations,
+  allowCustomDateRange,
+  periodEndDate,
+  onPeriodEndDateChange,
   minDate,
   maxDate,
   forceRefresh,
@@ -73,6 +78,11 @@ export default function LabDetailsPanel({
           selectedTime={selectedTime}
           onTimeChange={onTimeChange}
           availableTimes={availableTimes}
+          isCalendarPeriod={isCalendarPeriod}
+          allowedDurations={allowedDurations}
+          allowCustomDateRange={allowCustomDateRange}
+          periodEndDate={periodEndDate}
+          onPeriodEndDateChange={onPeriodEndDateChange}
           minDate={minDate}
           maxDate={maxDate}
           forceRefresh={forceRefresh}
@@ -95,6 +105,11 @@ LabDetailsPanel.propTypes = {
   selectedTime: PropTypes.string, // Can be null initially before user selects
   onTimeChange: PropTypes.func.isRequired,
   availableTimes: PropTypes.array.isRequired,
+  isCalendarPeriod: PropTypes.bool,
+  allowedDurations: PropTypes.array,
+  allowCustomDateRange: PropTypes.bool,
+  periodEndDate: PropTypes.instanceOf(Date),
+  onPeriodEndDateChange: PropTypes.func,
   minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]).isRequired,
   maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
   forceRefresh: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]).isRequired,

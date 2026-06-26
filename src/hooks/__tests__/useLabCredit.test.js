@@ -69,6 +69,29 @@ describe('useLabCreditHook', () => {
     expect(result.current.calculateReservationCost('1', 60)).toBe(3600n)
   })
 
+  test('calculateReservationCost supports explicit start/end windows', async () => {
+    const { result } = renderHook(() => useLabCredit(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.calculateReservationCost('29', {
+      start: 1_700_000_000,
+      end: 1_700_086_400,
+    })).toBe(2_505_600n)
+  })
+
+  test('formatPrice supports non-hour display units', async () => {
+    const { result } = renderHook(() => useLabCredit(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.formatPrice('29', 'day')).toBe('25.1')
+  })
+
   test('refreshTokenData refetches ledger data', async () => {
     const { result } = renderHook(() => useLabCredit(), {
       wrapper: createWrapper(),

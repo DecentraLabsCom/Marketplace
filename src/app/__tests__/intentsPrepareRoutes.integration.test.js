@@ -316,7 +316,9 @@ describe('Intent prepare routes integration', () => {
     })
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
       labId: 22,
-      start: nowSec + 1_000,
+      start: BigInt(nowSec + 1_000),
+      end: BigInt(nowSec + 1_120),
+      price: 240n,
       assertionHash: '0xreservationassertionhash',
       nowSec: 1_700_000_000,
     }))
@@ -434,6 +436,40 @@ describe('Intent prepare routes integration', () => {
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: 8, // ACTION_CODES.REQUEST_BOOKING
     }))
+  })
+
+  test('reservations/prepare: accepts explicit end for long-duration bookings', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      end: nowSec + 87_400,
+      duration: { unit: 'day', value: 1 },
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      start: BigInt(nowSec + 1_000),
+      end: BigInt(nowSec + 87_400),
+      price: 172_800n,
+    }))
+  })
+
+  test('reservations/prepare: rejects explicit end before start', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      end: nowSec + 999,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(payload).toEqual({ error: 'Reservation end must be after start' })
   })
 
   test('reservations/prepare: reuses stable cached admin and executor while refreshing lab reads', async () => {

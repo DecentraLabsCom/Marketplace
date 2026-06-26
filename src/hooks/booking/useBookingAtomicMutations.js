@@ -199,7 +199,9 @@ export const useReservationRequestSSO = (options = {}) => {
       const payload = {
         labId: requestData.tokenId ?? requestData.labId,
         start: requestData.start,
+        end: requestData.end,
         timeslot: requestData.timeslot ?? requestData.duration ?? requestData.timeslotMinutes,
+        duration: requestData.durationDescriptor ?? requestData.duration,
         backendUrl: requestData.backendUrl,
       }
 

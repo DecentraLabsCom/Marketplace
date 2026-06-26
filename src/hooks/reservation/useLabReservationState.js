@@ -28,6 +28,30 @@ import {
   notifyReservationRequestAcceptedAwaitingOnChain,
 } from '@/utils/notifications/reservationToasts'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import {
+  CALENDAR_PERIOD_BOOKING_MODE,
+  normalizeAllowedDurations,
+  normalizeBookingMode,
+} from '@/utils/pricing/pricingUnits'
+
+const durationToDays = (duration) => {
+  const value = Number(duration?.value)
+  if (!Number.isFinite(value) || value <= 0) return null
+  const unit = String(duration?.unit || '').toLowerCase()
+  if (unit === 'day' || unit === 'days') return value
+  if (unit === 'week' || unit === 'weeks') return value * 7
+  if (unit === 'month' || unit === 'months') return value * 30
+  return null
+}
+
+const addDaysAtStartOfDay = (value, days) => {
+  const base = new Date(value)
+  base.setHours(0, 0, 0, 0)
+  base.setDate(base.getDate() + Math.max(1, Number(days) || 1))
+  return base
+}
+
+const resolvePeriodRules = (lab) => lab?.periodRules || {}
 
 const safeParseDate = (value, fallback = new Date()) => {
   if (value === undefined || value === null) return fallback
@@ -170,6 +194,7 @@ export function useLabReservationState({
   const [forceRefresh, setForceRefresh] = useState(0)
   const [isClient, setIsClient] = useState(false)
   const [pendingData, setPendingData] = useState(null)
+  const [periodEndDate, setPeriodEndDate] = useState(null)
 
   const optimisticRemovedRef = useRef(false)
   const fallbackSsoToastKeysRef = useRef(new Set())
@@ -197,11 +222,24 @@ export function useLabReservationState({
     optimisticRemovedRef.current = false
   }, [pendingData?.optimisticId])
 
+  const bookingMode = useMemo(() => normalizeBookingMode(selectedLab || {}), [selectedLab])
+  const isCalendarPeriod = bookingMode === CALENDAR_PERIOD_BOOKING_MODE
+  const allowedDurations = useMemo(() => normalizeAllowedDurations(selectedLab || {}), [selectedLab])
+  const periodRules = useMemo(() => resolvePeriodRules(selectedLab || {}), [selectedLab])
+  const allowCustomDateRange = isCalendarPeriod && periodRules?.allowCustomDateRange === true
+
   useEffect(() => {
-    if (selectedLab && Array.isArray(selectedLab.timeSlots) && selectedLab.timeSlots.length > 0) {
+    if (isCalendarPeriod) {
+      const firstDays = allowedDurations.map(durationToDays).find((days) => Number.isFinite(days) && days > 0)
+      const resolvedDays = firstDays || 1
+      setDuration(resolvedDays)
+      setSelectedTime('00:00')
+      setPeriodEndDate((current) => current || addDaysAtStartOfDay(date, resolvedDays))
+    } else if (selectedLab && Array.isArray(selectedLab.timeSlots) && selectedLab.timeSlots.length > 0) {
       setDuration(selectedLab.timeSlots[0])
+      setPeriodEndDate(null)
     }
-  }, [selectedLab])
+  }, [selectedLab, isCalendarPeriod, allowedDurations, date])
 
   useEffect(() => {
     if (selectedLab && selectedLab.opens) {
@@ -227,6 +265,7 @@ export function useLabReservationState({
 
   const availableTimes = useMemo(() => {
     if (!selectedLab) return []
+    if (isCalendarPeriod) return [{ value: '00:00', label: 'Full day', disabled: false }]
 
     return generateTimeOptions({
       date,
@@ -234,7 +273,7 @@ export function useLabReservationState({
       lab: selectedLab,
       bookingInfo: (labBookings || []).filter((booking) => !isCancelledBooking(booking))
     })
-  }, [selectedLab, date, duration, labBookings])
+  }, [selectedLab, isCalendarPeriod, date, duration, labBookings])
 
   const reconciledBookingsForLab = useMemo(() => (
     reconcileBookings([
@@ -279,8 +318,22 @@ export function useLabReservationState({
   ])
 
   const totalCost = useMemo(
-    () => (selectedLab ? calculateReservationCost(selectedLab.price, duration) : 0n),
-    [selectedLab, duration, calculateReservationCost]
+    () => {
+      if (!selectedLab) return 0n
+      if (isCalendarPeriod) {
+        const startDate = new Date(date)
+        startDate.setHours(0, 0, 0, 0)
+        const start = Math.floor(startDate.getTime() / 1000)
+        const resolvedEndDate = allowCustomDateRange && periodEndDate
+          ? new Date(periodEndDate)
+          : addDaysAtStartOfDay(startDate, duration)
+        resolvedEndDate.setHours(0, 0, 0, 0)
+        const end = Math.floor(resolvedEndDate.getTime() / 1000)
+        return calculateReservationCost(selectedLab.price, { start, end })
+      }
+      return calculateReservationCost(selectedLab.price, duration)
+    },
+    [selectedLab, isCalendarPeriod, allowCustomDateRange, periodEndDate, date, duration, calculateReservationCost]
   )
 
   const effectiveBookingStage = isTrackedSsoBookingFinal
@@ -515,11 +568,33 @@ export function useLabReservationState({
 
   const handleDateChange = useCallback((newDate) => {
     setDate(newDate)
-  }, [])
+    if (isCalendarPeriod) {
+      setPeriodEndDate(addDaysAtStartOfDay(newDate, duration))
+    }
+  }, [isCalendarPeriod, duration])
+
+  const handlePeriodEndDateChange = useCallback((newEndDate) => {
+    if (!newEndDate) return
+    const normalizedStart = new Date(date)
+    normalizedStart.setHours(0, 0, 0, 0)
+    const normalizedEnd = new Date(newEndDate)
+    normalizedEnd.setHours(0, 0, 0, 0)
+    if (normalizedEnd <= normalizedStart) {
+      setPeriodEndDate(addDaysAtStartOfDay(normalizedStart, 1))
+      setDuration(1)
+      return
+    }
+    const days = Math.round((normalizedEnd.getTime() - normalizedStart.getTime()) / 86400000)
+    setPeriodEndDate(normalizedEnd)
+    setDuration(days)
+  }, [date])
 
   const handleDurationChange = useCallback((newDuration) => {
     setDuration(newDuration)
-  }, [])
+    if (isCalendarPeriod) {
+      setPeriodEndDate(addDaysAtStartOfDay(date, newDuration))
+    }
+  }, [isCalendarPeriod, date])
 
   const handleTimeChange = useCallback((newTime) => {
     setSelectedTime(newTime)
@@ -549,6 +624,12 @@ export function useLabReservationState({
     minDate,
     maxDate,
     availableTimes,
+    bookingMode,
+    isCalendarPeriod,
+    allowedDurations,
+    periodRules,
+    allowCustomDateRange,
+    periodEndDate,
     calendarUserBookingsForLab,
     totalCost,
     bookingStage: effectiveBookingStage,
@@ -560,6 +641,7 @@ export function useLabReservationState({
     setPendingData,
     setForceRefresh,
     handleDateChange,
+    handlePeriodEndDateChange,
     handleDurationChange,
     handleTimeChange,
     handleBookingSuccess,

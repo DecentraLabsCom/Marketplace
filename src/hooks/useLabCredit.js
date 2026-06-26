@@ -7,6 +7,10 @@ import {
   formatRawCredits,
   formatRawPricePerHour,
 } from '@/utils/blockchain/creditUnits'
+import {
+  calculateReservationTotal,
+  rawPerSecondToDisplayPrice,
+} from '@/utils/pricing/pricingUnits'
 
 const tryParseBigInt = (value) => {
   if (typeof value === 'bigint') return value
@@ -103,13 +107,26 @@ export function useLabCreditHook() {
   const decimals = DEFAULT_LAB_TOKEN_DECIMALS
   const labCreditAddress = creditAddressResponse?.labCreditAddress || null
 
-  const calculateReservationCost = useCallback((labPrice, durationMinutes) => {
-    if (!labPrice || !durationMinutes) return 0n
+  const calculateReservationCost = useCallback((labPrice, durationOrWindow) => {
+    if (!labPrice || !durationOrWindow) return 0n
 
     try {
       const pricePerSecondUnits = tryParseBigInt(labPrice)
       if (pricePerSecondUnits === null || pricePerSecondUnits < 0n) return 0n
 
+      if (
+        typeof durationOrWindow === 'object'
+        && durationOrWindow.start !== undefined
+        && durationOrWindow.end !== undefined
+      ) {
+        return calculateReservationTotal(
+          pricePerSecondUnits,
+          durationOrWindow.start,
+          durationOrWindow.end
+        )
+      }
+
+      const durationMinutes = durationOrWindow
       const durationSeconds = Number(durationMinutes) * 60
       if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return 0n
 
@@ -133,8 +150,8 @@ export function useLabCreditHook() {
     }
   }, [balance, allowance])
 
-  const checkSufficientBalance = useCallback((labPrice, durationMinutes) => {
-    const cost = calculateReservationCost(labPrice, durationMinutes)
+  const checkSufficientBalance = useCallback((labPrice, durationOrWindow) => {
+    const cost = calculateReservationCost(labPrice, durationOrWindow)
 
     return {
       hasSufficient: balance >= cost,
@@ -149,19 +166,24 @@ export function useLabCreditHook() {
     return formatRawCredits(tryParseBigInt(amount) ?? 0n, decimals)
   }, [decimals])
 
-  const formatPrice = useCallback((price) => {
+  const formatPrice = useCallback((price, unit = 'hour') => {
     if (price === null || price === undefined) return '0'
 
     try {
       const priceUnits = tryParseBigInt(price)
       if (priceUnits !== null) {
-        return formatRawPricePerHour(priceUnits, decimals)
+        return unit === 'hour'
+          ? formatRawPricePerHour(priceUnits, decimals)
+          : rawPerSecondToDisplayPrice(priceUnits, unit, { decimals })
       }
 
       const numericPrice = Number(price)
       if (!Number.isFinite(numericPrice)) return '0'
 
-      return formatRawPricePerHour(BigInt(Math.trunc(numericPrice)), decimals)
+      const normalizedPrice = BigInt(Math.trunc(numericPrice))
+      return unit === 'hour'
+        ? formatRawPricePerHour(normalizedPrice, decimals)
+        : rawPerSecondToDisplayPrice(normalizedPrice, unit, { decimals })
     } catch (error) {
       devLog.error('Error formatting price:', error, 'Price:', price, 'Decimals:', decimals)
       return '0'

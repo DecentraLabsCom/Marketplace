@@ -98,6 +98,10 @@ export default function LabReservation({ id }) {
     minDate,
     maxDate,
     availableTimes,
+    isCalendarPeriod,
+    allowedDurations,
+    allowCustomDateRange,
+    periodEndDate,
     calendarUserBookingsForLab,
     totalCost,
     ssoBookingStage,
@@ -106,6 +110,7 @@ export default function LabReservation({ id }) {
     setIsBooking,
     setPendingData,
     handleDateChange,
+    handlePeriodEndDateChange,
     handleDurationChange,
     handleTimeChange,
     handleBookingSuccess,
@@ -131,7 +136,7 @@ export default function LabReservation({ id }) {
   
   // Validation and calculation
   const validateAndCalculateBooking = () => {
-    if (!selectedTime) {
+    if (!isCalendarPeriod && !selectedTime) {
       notifyReservationMissingTimeSelection(addTemporaryNotification)
       return null
     }
@@ -142,16 +147,41 @@ export default function LabReservation({ id }) {
     }
 
     const labIdNum = Number(selectedLab.id)
-    const [hours, minutes] = selectedTime.split(':').map(Number)
     const startDate = new Date(date)
-    startDate.setHours(hours)
-    startDate.setMinutes(minutes)
+    if (isCalendarPeriod) {
+      startDate.setHours(0)
+      startDate.setMinutes(0)
+    } else {
+      const [hours, minutes] = selectedTime.split(':').map(Number)
+      startDate.setHours(hours)
+      startDate.setMinutes(minutes)
+    }
     startDate.setSeconds(0)
     startDate.setMilliseconds(0)
     const start = Math.floor(startDate.getTime() / 1000)
-    const timeslot = duration * 60
+    const timeslot = isCalendarPeriod ? undefined : duration * 60
+    const resolvedPeriodEndDate = periodEndDate ? new Date(periodEndDate) : null
+    if (resolvedPeriodEndDate) {
+      resolvedPeriodEndDate.setHours(0, 0, 0, 0)
+    }
+    const end = isCalendarPeriod && resolvedPeriodEndDate
+      ? Math.floor(resolvedPeriodEndDate.getTime() / 1000)
+      : isCalendarPeriod
+        ? start + Number(duration || 1) * 86400
+        : start + timeslot
 
-    return { labId: labIdNum, start, timeslot }
+    if (end <= start) {
+      notifyReservationMissingTimeSelection(addTemporaryNotification)
+      return null
+    }
+
+    return {
+      labId: labIdNum,
+      start,
+      end,
+      timeslot,
+      durationDescriptor: isCalendarPeriod ? { unit: 'day', value: Math.max(1, Math.round((end - start) / 86400)) } : undefined,
+    }
   }
   
   // Server-side booking (SSO users)
@@ -164,7 +194,7 @@ export default function LabReservation({ id }) {
       return
     }
 
-    const { labId, start, timeslot } = bookingData
+    const { labId, start, end, timeslot, durationDescriptor } = bookingData
     if (typeof startSsoProcessing === 'function') {
       startSsoProcessing()
     }
@@ -188,8 +218,9 @@ export default function LabReservation({ id }) {
       const result = await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
-        end: start + timeslot,
+        end,
         timeslot,
+        durationDescriptor,
         userAddress, 
         backendUrl: institutionBackendUrl,
         onProgress: emitProgressToast
@@ -207,7 +238,7 @@ export default function LabReservation({ id }) {
         labId,
         userAddress,
         start: String(start),
-        end: String(start + timeslot),
+        end: String(end),
         isOptimistic: true
       });
       if (typeof markSsoRequestSent === 'function') {
@@ -215,7 +246,7 @@ export default function LabReservation({ id }) {
           reservationKey,
           labId,
           start: String(start),
-          end: String(start + timeslot),
+          end: String(end),
           action: result?.intent?.meta?.action,
         })
       }
@@ -331,6 +362,11 @@ export default function LabReservation({ id }) {
               selectedTime={selectedTime}
               onTimeChange={handleTimeChange}
               availableTimes={availableTimes}
+              isCalendarPeriod={isCalendarPeriod}
+              allowedDurations={allowedDurations}
+              allowCustomDateRange={allowCustomDateRange}
+              periodEndDate={periodEndDate}
+              onPeriodEndDateChange={handlePeriodEndDateChange}
               minDate={minDate}
               maxDate={maxDate}
               forceRefresh={forceRefresh}

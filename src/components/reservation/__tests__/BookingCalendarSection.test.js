@@ -372,7 +372,7 @@ describe("BookingCalendarSection", () => {
         />
       );
 
-      expect(formatPrice).toHaveBeenCalledWith("100");
+      expect(formatPrice).toHaveBeenCalledWith("100", "hour");
       expect(screen.getByText("100.00 credits / hour")).toBeInTheDocument();
     });
     
@@ -390,8 +390,50 @@ describe("BookingCalendarSection", () => {
         target: { value: "60" },
       });
 
-      expect(formatPrice).toHaveBeenCalledWith("100");
+      expect(formatPrice).toHaveBeenCalledWith("100", "hour");
       expect(screen.getByText(/-formatted credits/)).toBeInTheDocument();
+    });
+
+    test("renders calendar-period duration options without time selector", () => {
+      const onPeriodEndDateChange = jest.fn();
+      const longLab = {
+        ...mockLab,
+        bookingMode: "calendar-period",
+        pricing: { displayUnit: "day" },
+        allowedDurations: [
+          { unit: "day", value: 1 },
+          { unit: "week", value: 1 },
+          { unit: "month", value: 1 },
+        ],
+      };
+
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          lab={longLab}
+          isCalendarPeriod={true}
+          allowedDurations={longLab.allowedDurations}
+          allowCustomDateRange={true}
+          periodEndDate={new Date("2025-11-08T00:00:00")}
+          onPeriodEndDateChange={onPeriodEndDateChange}
+          isSSO={false}
+          formatPrice={jest.fn((price, unit) => `${price}-${unit}`)}
+        />
+      );
+
+      expect(screen.getByLabelText("Period:")).toBeInTheDocument();
+      expect(screen.getByText("1 day")).toBeInTheDocument();
+      expect(screen.getByText("1 week")).toBeInTheDocument();
+      expect(screen.getByText("1 30-day month")).toBeInTheDocument();
+      expect(screen.getByLabelText("End date:")).toHaveValue("2025-11-08");
+      expect(screen.queryByLabelText("Starting time:")).not.toBeInTheDocument();
+      expect(screen.getByText("100-day credits / day")).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("End date:"), {
+        target: { value: "2025-11-15" },
+      });
+
+      expect(onPeriodEndDateChange).toHaveBeenCalledWith(new Date("2025-11-15T00:00:00"));
     });
   });
 

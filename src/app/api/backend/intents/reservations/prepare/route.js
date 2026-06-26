@@ -17,14 +17,27 @@ import {
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
+import { calculateReservationTotal } from '@/utils/pricing/pricingUnits'
 import devLog from '@/utils/dev/logger'
 import { getCachedAdminAddress, getCachedIntentExecutorForInstitution } from './cache'
+
+function parsePositiveBigInt(value, fieldName) {
+  try {
+    const parsed = BigInt(value)
+    if (parsed <= 0n) {
+      return { error: `Invalid ${fieldName}` }
+    }
+    return { value: parsed }
+  } catch {
+    return { error: `Invalid ${fieldName}` }
+  }
+}
 
 export async function POST(request) {
   try {
     const session = await requireAuth()
     const body = await request.json()
-    const { labId, start, timeslot, backendUrl: backendUrlOverride, returnUrl } = body || {}
+    const { labId, start, end, timeslot, backendUrl: backendUrlOverride, returnUrl } = body || {}
 
     if (labId === undefined || labId === null) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
@@ -32,12 +45,34 @@ export async function POST(request) {
     if (start === undefined || start === null) {
       return NextResponse.json({ error: 'Missing start' }, { status: 400 })
     }
-    if (!timeslot || Number(timeslot) <= 0) {
-      return NextResponse.json({ error: 'Invalid timeslot' }, { status: 400 })
+    const parsedStart = parsePositiveBigInt(start, 'start')
+    if (parsedStart.error) {
+      return NextResponse.json({ error: parsedStart.error }, { status: 400 })
+    }
+
+    let parsedEnd
+    let durationSeconds
+    if (end !== undefined && end !== null) {
+      parsedEnd = parsePositiveBigInt(end, 'end')
+      if (parsedEnd.error) {
+        return NextResponse.json({ error: parsedEnd.error }, { status: 400 })
+      }
+      durationSeconds = parsedEnd.value - parsedStart.value
+    } else {
+      const parsedTimeslot = parsePositiveBigInt(timeslot, 'timeslot')
+      if (parsedTimeslot.error) {
+        return NextResponse.json({ error: parsedTimeslot.error }, { status: 400 })
+      }
+      durationSeconds = parsedTimeslot.value
+      parsedEnd = { value: parsedStart.value + parsedTimeslot.value }
+    }
+
+    if (durationSeconds <= 0n) {
+      return NextResponse.json({ error: 'Reservation end must be after start' }, { status: 400 })
     }
 
     const now = Math.floor(Date.now() / 1000)
-    if (Number(start) < now) {
+    if (Number(parsedStart.value) < now) {
       return NextResponse.json({ error: 'Cannot book in the past' }, { status: 400 })
     }
 
@@ -81,10 +116,8 @@ export async function POST(request) {
       ? ACTION_CODES.DIRECT_BOOKING
       : ACTION_CODES.REQUEST_BOOKING
 
-    const end = BigInt(start) + BigInt(timeslot)
-    const durationSeconds = BigInt(timeslot)
-    const price = pricePerSecond * durationSeconds
-    const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), BigInt(start)])
+    const price = calculateReservationTotal(pricePerSecond, parsedStart.value, parsedEnd.value)
+    const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), parsedStart.value])
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
     const intentPackage = await buildReservationIntent({
@@ -94,8 +127,8 @@ export async function POST(request) {
       puc,
       assertionHash,
       labId,
-      start,
-      end,
+      start: parsedStart.value,
+      end: parsedEnd.value,
       price,
       reservationKey,
       nowSec: chainNowSec,
