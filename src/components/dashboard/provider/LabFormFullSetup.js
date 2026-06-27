@@ -274,23 +274,22 @@ export default function LabFormFullSetup({
   }
 
   const handleFordChange = (categories) => {
-    const nextSuggested = getSuggestedIscedCodes(categories)
     setLocalLab({
       ...latestLabRef.current,
       category: categories,
       classification: undefined,
-      ...(latestLabRef.current?.educationalProgramLinked
-        ? { iscedF: nextSuggested.length ? nextSuggested : latestLabRef.current?.iscedF || [] }
-        : {}),
     })
   }
 
   const handleEducationalLinkChange = (checked) => {
+    const manuallyEditedIsced = latestLabRef.current?.iscedFSelectionTouched === true
     const nextSuggested = getSuggestedIscedCodes(selectedFordCodes)
     setLocalLab({
       ...latestLabRef.current,
       educationalProgramLinked: checked,
-      iscedF: checked ? (selectedIscedCodes.length ? selectedIscedCodes : nextSuggested) : [],
+      iscedF: checked
+        ? (selectedIscedCodes.length || manuallyEditedIsced ? selectedIscedCodes : nextSuggested)
+        : [],
     })
   }
 
@@ -299,7 +298,11 @@ export default function LabFormFullSetup({
     const next = selectedIscedCodes.includes(code)
       ? selectedIscedCodes.filter(item => item !== code)
       : [...selectedIscedCodes, code]
-    handleBasicChange('iscedF', next)
+    setLocalLab({
+      ...latestLabRef.current,
+      iscedF: next,
+      iscedFSelectionTouched: true,
+    })
   }
 
   const handleAllowedDurationRangeChange = (field, value) => {

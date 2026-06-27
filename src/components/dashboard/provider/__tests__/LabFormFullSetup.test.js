@@ -248,6 +248,56 @@ describe("LabFormFullSetup", () => {
       });
     });
 
+    test("auto-selects initial ISCED-F suggestions when educational link is enabled", () => {
+      renderForm({ localLab: { ...mockLab, educationalProgramLinked: false, iscedF: [] } });
+
+      fireEvent.click(screen.getByLabelText("Linked to education programs"));
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        educationalProgramLinked: true,
+        iscedF: ["051"],
+      });
+    });
+
+    test("does not auto-select ISCED-F after manual ISCED-F edits", () => {
+      renderForm({
+        localLab: {
+          ...mockLab,
+          educationalProgramLinked: false,
+          iscedF: [],
+          iscedFSelectionTouched: true,
+        },
+      });
+
+      fireEvent.click(screen.getByLabelText("Linked to education programs"));
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        educationalProgramLinked: true,
+        iscedF: [],
+        iscedFSelectionTouched: true,
+      });
+    });
+
+    test("keeps manually selected ISCED-F codes when FORD classification changes", () => {
+      const linkedLab = {
+        ...mockLab,
+        educationalProgramLinked: true,
+        iscedF: ["091"],
+      };
+      renderForm({ localLab: linkedLab });
+
+      fireEvent.click(screen.getByTestId("category-multiselect"));
+      fireEvent.click(screen.getByText("Chemical sciences"));
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...linkedLab,
+        category: ["1.6", "1.4"],
+        classification: undefined,
+      });
+    });
+
     test("splits comma-separated values into arrays", () => {
       renderForm();
 
