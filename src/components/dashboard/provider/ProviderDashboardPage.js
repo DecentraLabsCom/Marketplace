@@ -67,6 +67,33 @@ const resolveEffectiveOnchainAccessKey = (lab, resourceTypeCode) => {
   return resourceTypeCode === 1 ? (lab?.fmuFileName || '') : accessKey
 }
 
+const extractLocalMetadataUri = (uri) => {
+  const trimmed = String(uri || '').trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) return trimmed
+
+  try {
+    const parsed = new URL(trimmed, 'http://localhost')
+    const uriParam = parsed.searchParams.get('uri')
+    if (uriParam?.startsWith('Lab-') && uriParam.endsWith('.json')) {
+      return uriParam
+    }
+    const match = parsed.pathname.match(/Lab-[^/]+\.json$/)
+    return match ? match[0] : ''
+  } catch {
+    const match = trimmed.match(/Lab-[^/?#]+\.json/)
+    return match ? match[0] : ''
+  }
+}
+
+const normalizeMetadataUriForComparison = (uri) => {
+  const localUri = extractLocalMetadataUri(uri)
+  if (localUri) return `local:${localUri}`
+  return String(uri || '').trim()
+}
+
+const normalizeAccessUriForComparison = (uri) => String(uri || '').trim().replace(/\/+$/, '')
+
 /**
  * Provider dashboard page component
  * Displays provider's labs, reservations calendar, and provides lab management tools
@@ -592,21 +619,25 @@ export default function ProviderDashboard() {
     const nextResourceType = normalizeResourceTypeCode(labData?.resourceType)
     const originalAccessKey = resolveEffectiveOnchainAccessKey(originalLab, originalResourceType)
     const nextAccessKey = resolveEffectiveOnchainAccessKey(labData, nextResourceType)
+    const originalUriForComparison = normalizeMetadataUriForComparison(originalLab.uri)
+    const nextUriForComparison = normalizeMetadataUriForComparison(onchainUri)
+    const originalAccessUriForComparison = normalizeAccessUriForComparison(originalLab.accessURI)
+    const nextAccessUriForComparison = normalizeAccessUriForComparison(labData.accessURI)
     
     // ONLY compare on-chain fields that are stored in the smart contract
     // According to smart contract ABI: uri, price, accessURI, accessKey, resourceType
     const hasChangedOnChainData =
-      normalize(originalLab.uri) !== normalize(onchainUri) ||
+      normalize(originalUriForComparison) !== normalize(nextUriForComparison) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
-      normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
+      normalize(originalAccessUriForComparison) !== normalize(nextAccessUriForComparison) ||
       normalize(originalAccessKey) !== normalize(nextAccessKey) ||
       originalResourceType !== nextResourceType;
 
     // Debug logging to help identify what's causing transaction triggers
     devLog.log('📁 On-chain comparison debug:', {
-      uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
+      uri: { original: normalize(originalUriForComparison), new: normalize(nextUriForComparison), changed: normalize(originalUriForComparison) !== normalize(nextUriForComparison) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
-      accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
+      accessURI: { original: normalize(originalAccessUriForComparison), new: normalize(nextAccessUriForComparison), changed: normalize(originalAccessUriForComparison) !== normalize(nextAccessUriForComparison) },
       accessKey: { original: normalize(originalAccessKey), new: normalize(nextAccessKey), changed: normalize(originalAccessKey) !== normalize(nextAccessKey) },
       resourceType: { original: originalResourceType, new: nextResourceType, changed: originalResourceType !== nextResourceType },
       hasChangedOnChainData

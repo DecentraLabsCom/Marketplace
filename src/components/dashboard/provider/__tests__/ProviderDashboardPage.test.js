@@ -639,6 +639,8 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("updates FMU metadata off-chain when only metadata categories change", async () => {
+        const previousBlobBaseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+        process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = "https://blob.example.com";
         mockLabsData.data = {
           labs: [
             {
@@ -675,27 +677,35 @@ describe("ProviderDashboard Component", () => {
         };
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-        renderWithClient(<ProviderDashboard />);
+        try {
+          renderWithClient(<ProviderDashboard />);
 
-        await waitFor(() => {
-          fireEvent.click(screen.getByTestId("edit-2"));
-        });
+          await waitFor(() => {
+            fireEvent.click(screen.getByTestId("edit-2"));
+          });
 
-        await act(async () => {
-          fireEvent.click(await screen.findByTestId("modal-submit"));
-        });
+          await act(async () => {
+            fireEvent.click(await screen.findByTestId("modal-submit"));
+          });
 
-        await waitFor(() => {
-          expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
-            expect.objectContaining({
-              id: "2",
-              resourceType: "fmu",
-              accessKey: "spring-damper.fmu",
-              category: ["1.2", "2.2"],
-            })
-          );
-        });
-        expect(mockUpdateLabMutate).not.toHaveBeenCalled();
+          await waitFor(() => {
+            expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
+              expect.objectContaining({
+                id: "2",
+                resourceType: "fmu",
+                accessKey: "spring-damper.fmu",
+                category: ["1.2", "2.2"],
+              })
+            );
+          });
+          expect(mockUpdateLabMutate).not.toHaveBeenCalled();
+        } finally {
+          if (previousBlobBaseUrl === undefined) {
+            delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+          } else {
+            process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = previousBlobBaseUrl;
+          }
+        }
       });
 
       test("handles edit error", async () => {
