@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { ethers } from 'ethers';
+import { ethers, TypedDataEncoder } from 'ethers';
 import { getNextIntentNonce } from './intentNonceStore';
 import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
 
@@ -35,13 +35,6 @@ export const ACTION_PAYLOAD_TYPES = {
     { name: 'resourceType', type: 'uint8' },
   ],
 };
-
-const ACTION_PAYLOAD_TYPEHASH = ethers.keccak256(ethers.toUtf8Bytes(
-  'ActionIntentPayload(address executor,string schacHomeOrganization,bytes32 pucHash,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,uint96 maxBatch,string accessURI,string accessKey,string tokenURI,uint8 resourceType)'
-));
-
-const ABI_CODER = ethers.AbiCoder.defaultAbiCoder();
-
 
 function toBigIntOrZero(value) {
   if (value === undefined || value === null || value === '') return 0n;
@@ -79,40 +72,7 @@ function normalizeActionPayload(payload) {
 
 export function hashActionPayload(payload) {
   const normalized = normalizeActionPayload(payload);
-  return ethers.keccak256(ABI_CODER.encode(
-    [
-      'bytes32',
-      'address',
-      'bytes32',
-      'bytes32',
-      'bytes32',
-      'uint256',
-      'bytes32',
-      'bytes32',
-      'uint96',
-      'uint96',
-      'bytes32',
-      'bytes32',
-      'bytes32',
-      'uint8',
-    ],
-    [
-      ACTION_PAYLOAD_TYPEHASH,
-      normalized.executor,
-      ethers.keccak256(ethers.toUtf8Bytes(normalized.schacHomeOrganization)),
-      normalized.pucHash,
-      normalized.assertionHash,
-      normalized.labId,
-      normalized.reservationKey,
-      ethers.keccak256(ethers.toUtf8Bytes(normalized.uri)),
-      normalized.price,
-      normalized.maxBatch,
-      ethers.keccak256(ethers.toUtf8Bytes(normalized.accessURI)),
-      ethers.keccak256(ethers.toUtf8Bytes(normalized.accessKey)),
-      ethers.keccak256(ethers.toUtf8Bytes(normalized.tokenURI)),
-      normalized.resourceType,
-    ],
-  ));
+  return TypedDataEncoder.hashStruct('ActionIntentPayload', ACTION_PAYLOAD_TYPES, normalized);
 }
 
 /**
