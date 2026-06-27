@@ -59,6 +59,14 @@ import {
   notifyLabUpdateFailed,
 } from '@/utils/notifications/labToasts'
 
+const resolveEffectiveOnchainAccessKey = (lab, resourceTypeCode) => {
+  const accessKey = lab?.accessKey
+  if (accessKey !== undefined && accessKey !== null && String(accessKey).trim()) {
+    return accessKey
+  }
+  return resourceTypeCode === 1 ? (lab?.fmuFileName || '') : accessKey
+}
+
 /**
  * Provider dashboard page component
  * Displays provider's labs, reservations calendar, and provides lab management tools
@@ -582,6 +590,8 @@ export default function ProviderDashboard() {
     const normalize = (value) => value === undefined || value === null ? '' : value;
     const originalResourceType = normalizeResourceTypeCode(originalLab?.resourceType)
     const nextResourceType = normalizeResourceTypeCode(labData?.resourceType)
+    const originalAccessKey = resolveEffectiveOnchainAccessKey(originalLab, originalResourceType)
+    const nextAccessKey = resolveEffectiveOnchainAccessKey(labData, nextResourceType)
     
     // ONLY compare on-chain fields that are stored in the smart contract
     // According to smart contract ABI: uri, price, accessURI, accessKey, resourceType
@@ -589,7 +599,7 @@ export default function ProviderDashboard() {
       normalize(originalLab.uri) !== normalize(onchainUri) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
       normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
-      normalize(originalLab.accessKey) !== normalize(labData.accessKey) ||
+      normalize(originalAccessKey) !== normalize(nextAccessKey) ||
       originalResourceType !== nextResourceType;
 
     // Debug logging to help identify what's causing transaction triggers
@@ -597,7 +607,7 @@ export default function ProviderDashboard() {
       uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
-      accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
+      accessKey: { original: normalize(originalAccessKey), new: normalize(nextAccessKey), changed: normalize(originalAccessKey) !== normalize(nextAccessKey) },
       resourceType: { original: originalResourceType, new: nextResourceType, changed: originalResourceType !== nextResourceType },
       hasChangedOnChainData
     });

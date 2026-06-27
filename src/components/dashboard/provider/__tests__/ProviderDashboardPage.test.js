@@ -262,7 +262,7 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
         </button>
         <button
           onClick={() =>
-            onSubmit({
+            onSubmit(lab.submitData || {
               ...lab,
               name: lab.name || "New Lab",
               price: lab.price || "99",
@@ -636,6 +636,66 @@ describe("ProviderDashboard Component", () => {
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ editing: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
         });
+      });
+
+      test("updates FMU metadata off-chain when only metadata categories change", async () => {
+        mockLabsData.data = {
+          labs: [
+            {
+              id: "2",
+              name: "Original FMU",
+              uri: "http://localhost/api/metadata?uri=Lab-Provider-2.json",
+              price: "2750",
+              priceUnit: "hour",
+              accessURI: "https://lab.com",
+              resourceType: "fmu",
+              fmuFileName: "spring-damper.fmu",
+              classification: [
+                {
+                  scheme: "OECD-FORD",
+                  schemeVersion: "Frascati Manual 2015",
+                  code: "1.2",
+                  label: "Computer and information sciences",
+                },
+              ],
+              submitData: {
+                id: "2",
+                name: "Original FMU",
+                uri: "Lab-Provider-2.json",
+                price: "99",
+                priceUnit: "hour",
+                accessURI: "https://lab.com",
+                resourceType: "fmu",
+                fmuFileName: "spring-damper.fmu",
+                accessKey: "spring-damper.fmu",
+                category: ["1.2", "2.2"],
+              },
+            },
+          ],
+        };
+        mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
+
+        renderWithClient(<ProviderDashboard />);
+
+        await waitFor(() => {
+          fireEvent.click(screen.getByTestId("edit-2"));
+        });
+
+        await act(async () => {
+          fireEvent.click(await screen.findByTestId("modal-submit"));
+        });
+
+        await waitFor(() => {
+          expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              id: "2",
+              resourceType: "fmu",
+              accessKey: "spring-damper.fmu",
+              category: ["1.2", "2.2"],
+            })
+          );
+        });
+        expect(mockUpdateLabMutate).not.toHaveBeenCalled();
       });
 
       test("handles edit error", async () => {
