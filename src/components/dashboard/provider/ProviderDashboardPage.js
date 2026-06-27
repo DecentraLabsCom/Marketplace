@@ -626,20 +626,25 @@ export default function ProviderDashboard() {
     
     // ONLY compare on-chain fields that are stored in the smart contract
     // According to smart contract ABI: uri, price, accessURI, accessKey, resourceType
-    const hasChangedOnChainData =
-      normalize(originalUriForComparison) !== normalize(nextUriForComparison) ||
-      normalize(originalLab.price) !== normalize(labData.price) ||
-      normalize(originalAccessUriForComparison) !== normalize(nextAccessUriForComparison) ||
-      normalize(originalAccessKey) !== normalize(nextAccessKey) ||
-      originalResourceType !== nextResourceType;
+    const onChainComparison = {
+      uri: { original: normalize(originalUriForComparison), new: normalize(nextUriForComparison) },
+      price: { original: normalize(originalLab.price), new: normalize(labData.price) },
+      accessURI: { original: normalize(originalAccessUriForComparison), new: normalize(nextAccessUriForComparison) },
+      accessKey: { original: normalize(originalAccessKey), new: normalize(nextAccessKey) },
+      resourceType: { original: originalResourceType, new: nextResourceType },
+    }
+    Object.keys(onChainComparison).forEach((key) => {
+      onChainComparison[key].changed = onChainComparison[key].original !== onChainComparison[key].new
+    })
+    const changedOnChainFields = Object.entries(onChainComparison)
+      .filter(([, value]) => value.changed)
+      .map(([key]) => key)
+    const hasChangedOnChainData = changedOnChainFields.length > 0;
 
     // Debug logging to help identify what's causing transaction triggers
     devLog.log('📁 On-chain comparison debug:', {
-      uri: { original: normalize(originalUriForComparison), new: normalize(nextUriForComparison), changed: normalize(originalUriForComparison) !== normalize(nextUriForComparison) },
-      price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
-      accessURI: { original: normalize(originalAccessUriForComparison), new: normalize(nextAccessUriForComparison), changed: normalize(originalAccessUriForComparison) !== normalize(nextAccessUriForComparison) },
-      accessKey: { original: normalize(originalAccessKey), new: normalize(nextAccessKey), changed: normalize(originalAccessKey) !== normalize(nextAccessKey) },
-      resourceType: { original: originalResourceType, new: nextResourceType, changed: originalResourceType !== nextResourceType },
+      ...onChainComparison,
+      changedOnChainFields,
       hasChangedOnChainData
     });
 
@@ -671,6 +676,8 @@ export default function ProviderDashboard() {
           clearOptimisticLabState(String(labData.id));
         } catch (err) {
           devLog.error('Error updating lab onchain:', err);
+          err.onChainComparison = onChainComparison;
+          err.changedOnChainFields = changedOnChainFields;
           clearActionProgressNotification(actionKey);
           clearOptimisticLabState(String(labData.id));
           try {
