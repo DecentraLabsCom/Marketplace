@@ -18,7 +18,7 @@ import { validateLabFull, validateLabQuick } from "../labValidation";
 describe("validateLabFull", () => {
   const validLab = {
     name: "AI Lab",
-    category: "AI",
+    category: "1.2",
     description: "Test lab",
     price: 100,
     accessURI: "https://lab.example.com",
@@ -47,7 +47,7 @@ describe("validateLabFull", () => {
   describe("Required Fields", () => {
     test.each([
       ["name", "", "Lab name is required"],
-      ["category", "", "Category is required"],
+      ["category", "", "At least one valid OECD FORD field is required"],
       ["description", "", "Description is required"],
       ["accessKey", "", "Access Key is required"],
       ["timezone", "", "Timezone is required"],

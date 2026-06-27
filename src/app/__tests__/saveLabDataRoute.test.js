@@ -103,7 +103,7 @@ describe('/api/provider/saveLabData route', () => {
           name: 'Long booking lab',
           description: 'A lab with weekly booking periods',
           images: ['https://example.edu/lab.png', 'https://example.edu/side.png'],
-          category: ['physics'],
+          category: ['1.3'],
           keywords: ['remote', 'weekly'],
           price: '100',
           priceUnit: 'week',
@@ -136,6 +136,15 @@ describe('/api/provider/saveLabData route', () => {
     const attributes = Object.fromEntries(
       body.metadata.attributes.map((attr) => [attr.trait_type, attr.value])
     )
+    expect(attributes.category).toBeUndefined()
+    expect(attributes.classification).toEqual([
+      {
+        scheme: 'OECD-FORD',
+        schemeVersion: 'Frascati Manual 2015',
+        code: '1.3',
+        label: 'Physical sciences',
+      },
+    ])
     expect(attributes.pricing).toEqual(expect.objectContaining({
       displayAmount: '100',
       displayUnit: 'week',

@@ -1,3 +1,5 @@
+import { getClassificationLabels } from '@/constants/labClassifications'
+
 const EMPTY_ARRAY = [];
 
 export const extractLabIdValue = (value) => {
@@ -53,7 +55,12 @@ export const applyMetadataAttributes = (lab, metadata) => {
   if (!metadata) return {}
   const attributeMap = buildAttributeMap(metadata)
 
-  if (attributeMap.category !== undefined) lab.category = attributeMap.category
+  if (attributeMap.classification !== undefined) {
+    const labels = getClassificationLabels(attributeMap.classification)
+    if (labels.length > 0) lab.category = labels
+    lab.classification = attributeMap.classification
+  }
+  if (attributeMap.educationalProgramLinked !== undefined) lab.educationalProgramLinked = attributeMap.educationalProgramLinked
   if (attributeMap.keywords !== undefined) lab.keywords = attributeMap.keywords
   if (attributeMap.timeSlots !== undefined) lab.timeSlots = attributeMap.timeSlots
   if (attributeMap.opens !== undefined) lab.opens = attributeMap.opens
@@ -167,7 +174,11 @@ export const buildEnrichedLab = ({
     if (metadata.name) enrichedLab.name = metadata.name;
     if (metadata.description) enrichedLab.description = metadata.description;
     if (metadata.image) enrichedLab.image = metadata.image;
-    if (metadata.category) enrichedLab.category = metadata.category;
+    if (metadata.classification) {
+      const labels = getClassificationLabels(metadata.classification)
+      if (labels.length > 0) enrichedLab.category = labels
+      enrichedLab.classification = metadata.classification
+    }
     if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
     if (metadata.docs) enrichedLab.docs = metadata.docs;
     if (metadata.pricing) enrichedLab.pricing = metadata.pricing;

@@ -16,6 +16,8 @@
  * @param {string} options.docInputType - Type of document input ('file' or 'url')
  * @returns {Object} Object containing validation errors (empty if all valid)
  */
+import { getFordField } from '@/constants/labClassifications'
+
 const WEEKDAY_VALUES = [
   'MONDAY',
   'TUESDAY',
@@ -49,11 +51,11 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     
     // Category validation - supports both string and array
     if (Array.isArray(localLab.category)) {
-        if (localLab.category.length === 0) {
-            errors.category = 'At least one category is required';
+        if (localLab.category.length === 0 || !localLab.category.some(code => getFordField(code))) {
+            errors.category = 'At least one valid OECD FORD field is required';
         }
-    } else if (!localLab.category || !localLab.category.trim()) {
-        errors.category = 'Category is required';
+    } else if (!localLab.category || !localLab.category.trim() || !getFordField(localLab.category)) {
+        errors.category = 'At least one valid OECD FORD field is required';
     }
     
     if (!localLab.description?.trim()) errors.description = 'Description is required';

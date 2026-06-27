@@ -24,6 +24,12 @@ import {
   BadRequestError
 } from '@/utils/auth/guards'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import {
+  CLASSIFICATION_SCHEMES,
+  buildClassificationEntries,
+  getFordCodesFromClassification,
+  getIscedCodesFromClassification,
+} from '@/constants/labClassifications'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const PERIOD_UNITS = ['day', 'week', 'month']
@@ -250,6 +256,9 @@ export async function POST(req) {
       name,
       description,
       category,
+      classification,
+      educationalProgramLinked,
+      iscedF,
       keywords,
       opens,
       closes,
@@ -394,7 +403,31 @@ export async function POST(req) {
     const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
     const normalizedImages = Array.isArray(images) ? images.filter(Boolean) : splitCsv(images)
     const normalizedDocs = Array.isArray(docs) ? docs.filter(Boolean) : splitCsv(docs)
-    const normalizedCategory = Array.isArray(category) ? category.filter(Boolean) : (category || "")
+    const fordCodesFromClassification = getFordCodesFromClassification(classification)
+    const iscedCodesFromClassification = getIscedCodesFromClassification(classification)
+    const normalizedCategory = Array.isArray(category)
+      ? category.filter(Boolean)
+      : (category ? [category] : fordCodesFromClassification)
+    const normalizedIscedCodes = Array.isArray(iscedF) && iscedF.length
+      ? iscedF.filter(Boolean)
+      : iscedCodesFromClassification
+    const hasEducationalLink = educationalProgramLinked === true
+      || normalizedIscedCodes.length > 0
+      || iscedCodesFromClassification.length > 0
+    const normalizedClassification = buildClassificationEntries({
+      fordCodes: normalizedCategory,
+      iscedCodes: normalizedIscedCodes,
+      educationalProgramLinked: hasEducationalLink,
+    })
+    if (!normalizedClassification.some(entry => entry.scheme === CLASSIFICATION_SCHEMES.FORD)) {
+      return NextResponse.json(
+        {
+          error: 'At least one valid OECD FORD classification is required',
+          code: 'MISSING_FORD_CLASSIFICATION'
+        },
+        { status: 400 }
+      )
+    }
     const normalizedKeywords = splitCsv(keywords)
     const normalizedPricing = normalizePricing({ price, pricing, priceUnit })
     const normalizedBookingMode = getBookingModeFromPriceUnit(normalizedPricing.displayUnit)
@@ -415,7 +448,9 @@ export async function POST(req) {
       description: description || "",
       image: normalizedImages.length > 0 ? normalizedImages[0] : "",
       attributes: [
-        { trait_type: "category", value: normalizedCategory },
+        { trait_type: "classification", value: normalizedClassification },
+        { trait_type: "classificationPrimaryScheme", value: CLASSIFICATION_SCHEMES.FORD },
+        ...(hasEducationalLink ? [{ trait_type: "educationalProgramLinked", value: true }] : []),
         { trait_type: "keywords", value: normalizedKeywords },
         ...(normalizedBookingMode === DEFAULT_BOOKING_MODE ? [{ trait_type: "timeSlots", value: normalizedTimeSlots }] : []),
         { trait_type: "pricing", value: normalizedPricing },

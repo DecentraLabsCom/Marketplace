@@ -1,4 +1,11 @@
 import { getResourceType } from '@/utils/resourceType'
+import {
+  getFordCodesFromClassification,
+  getIscedCodesFromClassification,
+} from '@/constants/labClassifications'
+
+const getInitialFordCodes = (lab) => getFordCodesFromClassification(lab?.classification)
+const getInitialIscedCodes = (lab) => getIscedCodesFromClassification(lab?.classification)
 
 export const initialState = (lab) => ({
   activeTab: 'full',
@@ -12,7 +19,6 @@ export const initialState = (lab) => ({
     // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
     id: lab?.id || null,
     name: lab?.name || '',
-    category: lab?.category || '',
     keywords: lab?.keywords || [],
     description: lab?.description || '',
     price: lab?.price || '',
@@ -45,6 +51,10 @@ export const initialState = (lab) => ({
     },
     // Spread the rest of the lab properties after ensuring required fields have defaults
     ...lab,
+    category: getInitialFordCodes(lab),
+    classification: lab?.classification || [],
+    educationalProgramLinked: getInitialIscedCodes(lab).length > 0 || lab?.educationalProgramLinked === true,
+    iscedF: getInitialIscedCodes(lab),
     // Always normalize to canonical string values ('lab' | 'fmu')
     resourceType: getResourceType(lab),
   },

@@ -4,7 +4,10 @@ import { labQueryKeys } from '@/utils/hooks/queryKeys'
 export function createEmptyLabDraft() {
   return {
     name: '',
-    category: '',
+    category: [],
+    classification: [],
+    educationalProgramLinked: false,
+    iscedF: [],
     keywords: [],
     price: '',
     priceUnit: 'hour',

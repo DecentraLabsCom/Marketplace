@@ -11,6 +11,10 @@ import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/la
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
+import {
+  getFordCodesFromClassification,
+  getIscedCodesFromClassification,
+} from '@/constants/labClassifications'
 import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
 import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
@@ -176,6 +180,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
     labToMerge.resourceType = getResourceType(lab)
+    const fordCodes = getFordCodesFromClassification(lab?.classification)
+    const iscedCodes = getIscedCodesFromClassification(lab?.classification)
+    labToMerge.category = fordCodes
+    labToMerge.iscedF = iscedCodes
+    labToMerge.educationalProgramLinked = iscedCodes.length > 0 || lab?.educationalProgramLinked === true
     const normalizedUri = extractInternalLabUri(lab?.uri);
     if (normalizedUri) {
       labToMerge.uri = normalizedUri;

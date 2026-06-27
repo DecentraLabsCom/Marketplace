@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { ChevronDown, X } from 'lucide-react'
-import { LAB_CATEGORIES_GROUPED } from '../../../constants/labCategories'
+import { FORD_FIELDS_GROUPED, getFordField } from '../../../constants/labClassifications'
 
 /**
  * Multi-select dropdown component for laboratory categories
@@ -19,6 +19,7 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
   const dropdownRef = useRef(null)
 
   const selectedCategories = Array.isArray(value) ? value : []
+  const getLabel = (code) => getFordField(code)?.label || code
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -66,7 +67,7 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
                 key={category}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-800 rounded text-sm"
               >
-                {category}
+                {getLabel(category)}
                 {!disabled && (
                   <button
                     type="button"
@@ -90,7 +91,7 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
 
       {isOpen && !disabled && (
         <div role="listbox" className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-96 overflow-y-auto">
-          {Object.entries(LAB_CATEGORIES_GROUPED).map(([groupName, categories]) => (
+          {Object.entries(FORD_FIELDS_GROUPED).map(([groupName, categories]) => (
             <div key={groupName} className="border-b last:border-b-0">
               <div className="px-3 py-2 bg-gray-50 font-semibold text-sm text-gray-700 sticky top-0">
                 {groupName}
@@ -98,21 +99,22 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
               <div className="py-1">
                 {categories.map(category => (
                   <div
-                    key={category}
+                    key={category.code}
                     role="option"
-                    aria-selected={selectedCategories.includes(category)}
-                    onClick={() => toggleCategory(category)}
+                    aria-selected={selectedCategories.includes(category.code)}
+                    onClick={() => toggleCategory(category.code)}
                     className={`px-4 py-2 cursor-pointer hover:bg-primary-50 flex items-center gap-2 text-gray-900
-                      ${selectedCategories.includes(category) ? 'bg-primary-50' : ''}
+                      ${selectedCategories.includes(category.code) ? 'bg-primary-50' : ''}
                     `}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedCategories.includes(category)}
+                      checked={selectedCategories.includes(category.code)}
                       onChange={() => {}} // Controlled by parent div onClick
                       className="cursor-pointer accent-primary-600 w-4 h-4"
                     />
-                    <span className="text-sm">{category}</span>
+                    <span className="text-sm">{category.label}</span>
+                    <span className="ml-auto text-xs text-gray-500">{category.code}</span>
                   </div>
                 ))}
               </div>

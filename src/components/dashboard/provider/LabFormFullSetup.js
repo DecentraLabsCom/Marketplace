@@ -23,6 +23,11 @@ import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 import CategoryMultiSelect from '../../ui/forms/CategoryMultiSelect'
+import {
+  ISCED_F_FIELDS,
+  getIscedField,
+  getSuggestedIscedCodes,
+} from '@/constants/labClassifications'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 import FmuFieldsSection from './FmuFieldsSection'
 import {
@@ -121,6 +126,10 @@ export default function LabFormFullSetup({
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
   const timezoneValue = typeof localLab?.timezone === 'string' ? localLab.timezone.trim() : ''
   const priceUnit = normalizePricingUnit(localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour')
+  const selectedFordCodes = Array.isArray(localLab?.category) ? localLab.category : (localLab?.category ? [localLab.category] : [])
+  const selectedIscedCodes = Array.isArray(localLab?.iscedF) ? localLab.iscedF : []
+  const educationalProgramLinked = localLab?.educationalProgramLinked === true
+  const suggestedIscedCodes = getSuggestedIscedCodes(selectedFordCodes)
   const isCalendarPeriod = priceUnit !== 'hour'
   const allowedDurationRange = normalizeAllowedDurationRange(localLab?.allowedDurationRange, priceUnit)
   const allowedPeriodUnitOptions = periodUnitOptionsForPriceUnit(priceUnit)
@@ -264,6 +273,35 @@ export default function LabFormFullSetup({
     })
   }
 
+  const handleFordChange = (categories) => {
+    const nextSuggested = getSuggestedIscedCodes(categories)
+    setLocalLab({
+      ...latestLabRef.current,
+      category: categories,
+      classification: undefined,
+      ...(latestLabRef.current?.educationalProgramLinked
+        ? { iscedF: nextSuggested.length ? nextSuggested : latestLabRef.current?.iscedF || [] }
+        : {}),
+    })
+  }
+
+  const handleEducationalLinkChange = (checked) => {
+    const nextSuggested = getSuggestedIscedCodes(selectedFordCodes)
+    setLocalLab({
+      ...latestLabRef.current,
+      educationalProgramLinked: checked,
+      iscedF: checked ? (selectedIscedCodes.length ? selectedIscedCodes : nextSuggested) : [],
+    })
+  }
+
+  const toggleIscedCode = (code) => {
+    if (disabled) return
+    const next = selectedIscedCodes.includes(code)
+      ? selectedIscedCodes.filter(item => item !== code)
+      : [...selectedIscedCodes, code]
+    handleBasicChange('iscedF', next)
+  }
+
   const handleAllowedDurationRangeChange = (field, value) => {
     if (disabled) return
     const nextRange = normalizeAllowedDurationRange({
@@ -330,14 +368,50 @@ export default function LabFormFullSetup({
         {errors.name && <p className="text-red-500 text-sm mt-1!">{errors.name}</p>}
 
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">Categories</label>
+          <label className="block text-sm font-medium text-gray-900 mb-1">FORD Classification</label>
           <CategoryMultiSelect
-            value={Array.isArray(localLab?.category) ? localLab.category : (localLab?.category ? [localLab.category] : [])}
-            onChange={(categories) => handleBasicChange('category', categories)}
+            value={selectedFordCodes}
+            onChange={handleFordChange}
             disabled={disabled}
-            placeholder="Select one or more categories..."
+            placeholder="Select one or more OECD FORD fields..."
             error={errors.category}
           />
+        </div>
+
+        <div className="space-y-3 rounded border border-gray-200 p-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-900">
+            <input
+              type="checkbox"
+              checked={educationalProgramLinked}
+              onChange={(e) => handleEducationalLinkChange(e.target.checked)}
+              disabled={disabled}
+              className="size-4 accent-primary-600"
+            />
+            Linked to education programs
+          </label>
+          {educationalProgramLinked && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {(suggestedIscedCodes.length ? suggestedIscedCodes : ISCED_F_FIELDS.map(field => field.code)).map(code => {
+                  const field = getIscedField(code)
+                  if (!field) return null
+                  const checked = selectedIscedCodes.includes(code)
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => toggleIscedCode(code)}
+                      disabled={disabled}
+                      className={`rounded border px-3 py-1 text-sm ${checked ? 'border-primary-600 bg-primary-100 text-primary-900' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {field.code} {field.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {errors.iscedF && <p className="text-red-500 text-sm mt-1!">{errors.iscedF}</p>}
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px]">
