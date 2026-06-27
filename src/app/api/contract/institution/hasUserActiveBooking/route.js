@@ -1,50 +1,46 @@
-/**
- * API endpoint for checking if institutional user has active booking
- * Returns whether an institutional user (identified by PUC) has an active reservation
- * 
- * Calls: hasInstitutionalUserActiveBooking(institutionalProvider, puc)
- * 
- * @security Protected - requires authenticated session
- */
-
 import { getContractInstance } from '../../utils/contractInstance'
 import {
+  getSessionPucHash,
   resolveInstitutionAddressFromSession,
-  getSessionPuc,
 } from '../../utils/institutionSession'
-import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
+import {
+  BadRequestError,
+  handleGuardError,
+  requireAuth,
+} from '@/utils/auth/guards'
 
-/**
- * Checks if institutional user has active booking
- * Derives institution wallet and puc from authenticated session
- * @returns {Response} JSON response with active booking status
- */
-export async function GET() {
+export async function GET(request) {
   try {
     const session = await requireAuth()
-    const contract = await getContractInstance()
 
+    const url = new URL(request.url)
+    const labId = url.searchParams.get('labId')
+    if (!labId) {
+      throw new BadRequestError('Missing labId parameter')
+    }
+
+    const labIdNum = parseInt(labId, 10)
+    if (Number.isNaN(labIdNum) || labIdNum < 0) {
+      throw new BadRequestError('Invalid labId format')
+    }
+
+    const contract = await getContractInstance()
     const { institutionAddress, normalizedDomain } =
       await resolveInstitutionAddressFromSession(session, contract)
-    const puc = getSessionPuc(session)
+    const pucHash = getSessionPucHash(session)
 
     const hasActiveBooking = await contract.hasInstitutionalUserActiveBooking(
       institutionAddress,
-      puc,
+      pucHash,
+      labIdNum,
       { from: institutionAddress },
     )
-
-    console.log(
-      `🔍 Checking active institutional booking for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
-    )
-
-    console.log(`✅ Active booking check complete: ${hasActiveBooking}`)
 
     return Response.json(
       {
         hasActiveBooking: Boolean(hasActiveBooking),
         institutionAddress,
-        puc,
+        labId: labIdNum,
         institutionDomain: normalizedDomain,
       },
       { status: 200 },
@@ -54,7 +50,7 @@ export async function GET() {
       return handleGuardError(error)
     }
 
-    console.error('❌ Error checking active booking:', error)
+    console.error('Error checking active booking:', error)
 
     return Response.json(
       {

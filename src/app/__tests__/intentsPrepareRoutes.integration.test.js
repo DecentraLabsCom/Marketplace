@@ -328,7 +328,7 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
-  test('reservations/prepare: forwards canonical puc from session into signed payload', async () => {
+  test('reservations/prepare: forwards canonical puc hash from session into signed payload', async () => {
     getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
 
     const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
@@ -342,7 +342,7 @@ describe('Intent prepare routes integration', () => {
 
     expect(res.status).toBe(200)
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      puc: 'alice@uned.es|targeted-alice',
+      pucHash: '0x7fe5d7dcc5cb9b92f130b0e011fe4ac4f2efa319e74ad62bece3039af9acca0f',
     }))
   })
 

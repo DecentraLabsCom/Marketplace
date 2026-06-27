@@ -1,27 +1,13 @@
-/**
- * API endpoint for getting institutional user's reservation key by index
- * Returns a specific reservation key from the user's reservation list
- * 
- * Calls: getInstitutionalUserReservationByIndex(institutionalProvider, puc, index)
- * 
- * @security Protected - requires authenticated session
- */
-
 import { getContractInstance } from '../../utils/contractInstance'
 import {
+  getSessionPucHash,
   resolveInstitutionAddressFromSession,
-  getSessionPuc,
 } from '../../utils/institutionSession'
 import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
 
-/**
- * Gets a reservation key at a specific index for an institutional user
- * Derives institution wallet and puc from authenticated session; requires index param
- * @param {Request} request - HTTP request with query parameters
- * @param {string} request.searchParams.index - Index in reservation list (required)
- * @returns {Response} JSON response with reservation key
- */
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
 export async function GET(request) {
   try {
     const session = await requireAuth()
@@ -41,21 +27,21 @@ export async function GET(request) {
     const contract = await getContractInstance()
     const { institutionAddress, normalizedDomain } =
       await resolveInstitutionAddressFromSession(session, contract)
-    const puc = getSessionPuc(session)
+    const pucHash = getSessionPucHash(session)
 
     const reservationKey = await contract.getInstitutionalUserReservationByIndex(
       institutionAddress,
-      puc,
+      pucHash,
       index,
       { from: institutionAddress },
     )
 
-    const reservationKeyStr = reservationKey?.toString() || '0x0000000000000000000000000000000000000000000000000000000000000000'
+    const reservationKeyStr = reservationKey?.toString() || ZERO_BYTES32
 
-    if (reservationKeyStr !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    if (reservationKeyStr !== ZERO_BYTES32) {
       try {
         const reservation = await contract.getReservation(reservationKeyStr)
-        devLog.log('🧾 getUserReservationByIndex debug:', {
+        devLog.log('getUserReservationByIndex debug:', {
           index,
           key: reservationKeyStr,
           labId: reservation?.labId?.toString?.(),
@@ -64,17 +50,9 @@ export async function GET(request) {
           end: reservation?.end?.toString?.(),
         })
       } catch (debugError) {
-        devLog.warn('⚠️ getUserReservationByIndex debug failed:', debugError?.message || debugError)
+        devLog.warn('getUserReservationByIndex debug failed:', debugError?.message || debugError)
       }
     }
-
-    console.log(
-      `🔍 Getting reservation at index ${index} for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
-    )
-
-    console.log(
-      `✅ Reservation key: ${reservationKeyStr.slice(0, 10)}...`,
-    )
 
     return Response.json(
       {
@@ -86,7 +64,7 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    console.error('❌ [API] Error getting institutional user reservation by index:', error)
+    console.error('[API] Error getting institutional user reservation by index:', error)
     return handleGuardError(error)
   }
 }

@@ -4,12 +4,12 @@ export const { GET } = createContractHandler({
   auth: true,
   params: [
     { name: 'institutionAddress', type: 'address' },
-    { name: 'puc' },
+    { name: 'pucHash', type: 'bytes32' },
   ],
   method: 'getInstitutionalUserRemainingAllowance',
   transform: (result, p) => ({
     remainingAllowance: result?.toString() || '0',
     institutionAddress: p.institutionAddress,
-    puc: p.puc,
+    pucHash: p.pucHash,
   }),
 })

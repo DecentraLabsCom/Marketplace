@@ -261,7 +261,7 @@ export async function registerIntentOnChain(kind, meta, payload, signature) {
     const normalizedPayload = [
       payload.executor,
       payload.schacHomeOrganization || '',
-      payload.puc || '',
+      payload.pucHash || ethers.ZeroHash,
       payload.assertionHash,
       toBigInt(payload.labId),
       toBigInt(payload.start),

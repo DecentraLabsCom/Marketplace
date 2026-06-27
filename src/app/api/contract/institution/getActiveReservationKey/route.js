@@ -1,15 +1,6 @@
-/**
- * API endpoint for getting institutional user's active reservation key
- * Returns the active reservation key for an SSO user in a specific lab
- * 
- * Calls: getInstitutionalUserActiveReservationKey(institutionalProvider, puc, labId)
- * 
- * @security Protected - requires authenticated session
- */
-
 import { getContractInstance } from '../../utils/contractInstance'
 import {
-  getSessionPuc,
+  getSessionPucHash,
   resolveInstitutionAddressFromSession,
 } from '../../utils/institutionSession'
 import {
@@ -18,15 +9,8 @@ import {
   requireAuth,
 } from '@/utils/auth/guards'
 
-const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-/**
- * Gets the active reservation key for an institutional user in a specific lab
- * Derives institution wallet and puc from authenticated session; requires labId param
- * @param {Request} request - HTTP request with query parameters
- * @param {string} request.searchParams.labId - Lab ID to check (required)
- * @returns {Response} JSON response with reservation key (or 0x0 if no active booking)
- */
 export async function GET(request) {
   try {
     const session = await requireAuth()
@@ -46,31 +30,23 @@ export async function GET(request) {
     const contract = await getContractInstance()
     const { institutionAddress, normalizedDomain } =
       await resolveInstitutionAddressFromSession(session, contract)
-    const puc = getSessionPuc(session)
+    const pucHash = getSessionPucHash(session)
 
     const reservationKey = await contract.getInstitutionalUserActiveReservationKey(
       institutionAddress,
-      puc,
+      pucHash,
       labIdNum,
     )
 
     const reservationKeyStr = reservationKey?.toString() || ZERO_BYTES32
     const hasActiveReservation = reservationKeyStr !== ZERO_BYTES32
 
-    console.log(
-      `🔍 Getting active reservation key for PUC: ${puc.slice(0, 8)}... in lab ${labIdNum} at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
-    )
-
-    console.log(
-      `✅ Active reservation key: ${hasActiveReservation ? `${reservationKeyStr.slice(0, 10)}...` : 'none'}`,
-    )
-
     return Response.json(
       {
         reservationKey: reservationKeyStr,
         hasActiveReservation,
         institutionAddress,
-        puc,
+        pucHash,
         labId: labIdNum,
         institutionDomain: normalizedDomain,
       },
@@ -81,7 +57,7 @@ export async function GET(request) {
       return handleGuardError(error)
     }
 
-    console.error('❌ Error getting active reservation key:', error)
+    console.error('Error getting active reservation key:', error)
 
     return Response.json(
       {

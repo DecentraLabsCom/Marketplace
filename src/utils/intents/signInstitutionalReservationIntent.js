@@ -15,7 +15,7 @@ export const RESERVATION_TYPES = {
   ReservationIntentPayload: [
     { name: 'executor', type: 'address' },
     { name: 'schacHomeOrganization', type: 'string' },
-    { name: 'puc', type: 'string' },
+    { name: 'pucHash', type: 'bytes32' },
     { name: 'assertionHash', type: 'bytes32' },
     { name: 'labId', type: 'uint256' },
     { name: 'start', type: 'uint32' },
@@ -36,7 +36,7 @@ function normalizeReservationPayload(payload) {
   return {
     executor: payload.executor,
     schacHomeOrganization: payload.schacHomeOrganization || '',
-    puc: payload.puc || '',
+    pucHash: payload.pucHash || ethers.ZeroHash,
     assertionHash: payload.assertionHash || ethers.ZeroHash,
     labId: BigInt(payload.labId),
     start: BigInt(payload.start),
@@ -59,7 +59,7 @@ export async function buildReservationIntent({
   executor,
   signer,
   schacHomeOrganization,
-  puc,
+  pucHash,
   assertionHash = ethers.ZeroHash,
   labId,
   start,
@@ -93,7 +93,7 @@ export async function buildReservationIntent({
   const payload = normalizeReservationPayload({
     executor,
     schacHomeOrganization,
-    puc,
+    pucHash,
     assertionHash,
     labId,
     start,

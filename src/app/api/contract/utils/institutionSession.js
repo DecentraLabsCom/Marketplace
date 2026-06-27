@@ -5,7 +5,7 @@
 
 import { BadRequestError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
-import { getNormalizedPucFromSession } from '@/utils/auth/puc'
+import { getNormalizedPucFromSession, getPucHashFromSession } from '@/utils/auth/puc'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -69,6 +69,16 @@ export function getSessionPuc(session) {
   }
 
   return id
+}
+
+export function getSessionPucHash(session) {
+  const pucHash = getPucHashFromSession(session)
+
+  if (!pucHash || typeof pucHash !== 'string') {
+    throw new BadRequestError('SSO session missing user identifier hash')
+  }
+
+  return pucHash
 }
 
 /**

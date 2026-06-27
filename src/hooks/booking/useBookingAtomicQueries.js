@@ -437,8 +437,12 @@ useActiveReservationKeyForSessionUserSSO.queryFn = getSSOActiveReservationKeyQue
 // ===== SSO session: useHasActiveBooking Hook (SSO-only) =====
 
 // Define queryFn first for reuse
-const getSSOHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
-  const response = await fetch('/api/contract/institution/hasUserActiveBooking', {
+const getSSOHasActiveBookingQueryFn = createSSRSafeQuery(async (labId) => {
+  if (!labId) {
+    throw new Error('Lab ID is required')
+  }
+
+  const response = await fetch(`/api/contract/institution/hasUserActiveBooking?labId=${encodeURIComponent(labId)}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   })
@@ -456,11 +460,11 @@ const getSSOHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
  * Hook for /api/contract/institution/hasUserActiveBooking (SSO institutional users)
  * Checks if institutional user has any active booking
  */
-export const useHasActiveBookingForSessionUserSSO = (options = {}) => {
+export const useHasActiveBookingForSessionUserSSO = (labId, options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.ssoHasActiveBookingSession(),
-    queryFn: () => getSSOHasActiveBookingQueryFn(),
-    enabled: options.enabled ?? true,
+    queryKey: [...bookingQueryKeys.ssoHasActiveBookingSession(), labId],
+    queryFn: () => getSSOHasActiveBookingQueryFn(labId),
+    enabled: !!labId && (options.enabled ?? true),
     ...BOOKING_QUERY_CONFIG,
     ...options,
   })
@@ -476,10 +480,10 @@ export const useActiveReservationKeyForSessionUser = (labId, options = {}) => {
   })
 }
 
-export const useHasActiveBookingForSessionUser = (options = {}) => {
-  return useHasActiveBookingForSessionUserSSO({
+export const useHasActiveBookingForSessionUser = (labId, options = {}) => {
+  return useHasActiveBookingForSessionUserSSO(labId, {
     ...options,
-    enabled: options.enabled ?? true,
+    enabled: !!labId && (options.enabled ?? true),
   })
 }
 

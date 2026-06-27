@@ -17,7 +17,7 @@ describe('signInstitutionalReservationIntent utilities', () => {
       executor: '0x000000000000000000000000000000000000beef',
       signer: '0x000000000000000000000000000000000000beef',
       schacHomeOrganization: 'example.edu',
-      puc: 'user-id',
+      pucHash: ethers.keccak256(ethers.toUtf8Bytes('user-id')),
       labId: 1,
       start: 1,
       end: 2,
@@ -29,6 +29,7 @@ describe('signInstitutionalReservationIntent utilities', () => {
     })
 
     expect(intent.payload.assertionHash).toBe(hash)
+    expect(intent.payload.pucHash).toBe(ethers.keccak256(ethers.toUtf8Bytes('user-id')))
     expect(intent.payload.labId).toBe(1n)
     expect(intent.meta.signer).toBe('0x000000000000000000000000000000000000beef')
     expect(intent.meta.requestedAt).toBeDefined()

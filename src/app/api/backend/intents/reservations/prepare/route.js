@@ -4,6 +4,7 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash, ACTION_CODES } from '@/utils/intents/signInstitutionalReservationIntent'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { normalizePuc } from '@/utils/auth/puc'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import {
@@ -87,6 +88,13 @@ export async function POST(request) {
     if (!puc) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
+    const normalizedPuc = normalizePuc(puc)
+    const pucHash = normalizedPuc
+      ? ethers.keccak256(ethers.toUtf8Bytes(normalizedPuc))
+      : ethers.ZeroHash
+    if (pucHash === ethers.ZeroHash) {
+      return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
+    }
 
     const backendUrl = backendUrlOverride || process.env.INSTITUTION_BACKEND_URL
     if (!backendUrl) {
@@ -124,7 +132,7 @@ export async function POST(request) {
       executor: executorAddress,
       signer: adminAddress,
       schacHomeOrganization,
-      puc,
+      pucHash,
       assertionHash,
       labId,
       start: parsedStart.value,
