@@ -428,7 +428,14 @@ describe("LabModal Component - Lab Listing Flow", () => {
       auth: "https://auth.existing.com",
       accessURI: "https://lab.existing.com",
       accessKey: "existing-key",
-      category: ["electronics"],
+      classification: [
+        {
+          scheme: "OECD-FORD",
+          schemeVersion: "Frascati Manual 2015",
+          code: "2.2",
+          label: "Electrical engineering, electronic engineering, information engineering",
+        },
+      ],
       keywords: ["test"],
       opens: 1735689600,
       closes: 1767139200,
@@ -475,7 +482,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Updated Lab Name",
-          category: ["electronics"],
+          category: ["2.2"],
           id: 1,
         })
       );

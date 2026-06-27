@@ -95,7 +95,7 @@ import { useUploadFile } from "@/hooks/provider/useProvider";
 const mockLab = {
   id: "1",
   name: "Test Lab",
-  category: "Biology",
+  category: ["1.6"],
   keywords: ["bio", "lab"],
   description: "Test description",
   price: "100",
@@ -216,7 +216,7 @@ describe("LabFormWizard - Unit tests", () => {
       const formData = JSON.parse(formDataElement.textContent);
 
       expect(formData.name).toBe("Test Lab");
-      expect(formData.category).toBe("Biology");
+      expect(formData.category).toEqual(["1.6"]);
     });
 
     test("updates form data through child component", async () => {

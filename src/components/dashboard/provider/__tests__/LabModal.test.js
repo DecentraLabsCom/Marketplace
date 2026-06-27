@@ -288,7 +288,14 @@ describe("LabModal - Unit Tests", () => {
         id: "123",
         name: "Existing Lab",
         price: "100",
-        category: "Biology",
+        classification: [
+          {
+            scheme: "OECD-FORD",
+            schemeVersion: "Frascati Manual 2015",
+            code: "1.6",
+            label: "Biological sciences",
+          },
+        ],
       };
 
       render(

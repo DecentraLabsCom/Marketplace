@@ -107,7 +107,7 @@ import LabFormFullSetup from "../LabFormFullSetup";
 const mockLab = {
   id: "1",
   name: "Test Lab",
-  category: ["Biology"],
+  category: ["1.6"],
   keywords: ["bio", "lab"],
   description: "Test description",
   price: "100",
@@ -201,7 +201,7 @@ describe("LabFormFullSetup", () => {
       // Test representative fields (not every single one)
       // Covers different input types: text, number, textarea
       expect(screen.getByDisplayValue("Test Lab")).toBeInTheDocument();
-      expect(screen.getByText("Biology")).toBeInTheDocument(); // Category chip display
+      expect(screen.getByText("Biological sciences")).toBeInTheDocument(); // Category chip display
       expect(screen.getByDisplayValue("Test description")).toBeInTheDocument();
       expect(screen.getByDisplayValue("100")).toBeInTheDocument();
       expect(screen.getByDisplayValue("bio, lab")).toBeInTheDocument();
@@ -237,13 +237,14 @@ describe("LabFormFullSetup", () => {
       const categorySelect = screen.getByTestId("category-multiselect");
       fireEvent.click(categorySelect);
 
-      // Select "Chemistry" category (adds to existing "Biology")
-      const chemistryOption = screen.getByText("Chemistry");
+      // Select "Chemical sciences" category (adds to existing "Biological sciences")
+      const chemistryOption = screen.getByText("Chemical sciences");
       fireEvent.click(chemistryOption);
 
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
-        category: ["Biology", "Chemistry"],
+        category: ["1.6", "1.4"],
+        classification: undefined,
       });
     });
 
