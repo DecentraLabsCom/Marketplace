@@ -708,6 +708,60 @@ describe("ProviderDashboard Component", () => {
         }
       });
 
+      test("preserves unchanged rounded raw price during metadata-only edits", async () => {
+        mockLabsData.data = {
+          labs: [
+            {
+              id: "2",
+              name: "Rounded FMU",
+              uri: "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com/data/Lab-UNED-2.json",
+              price: "8",
+              priceUnit: "hour",
+              accessURI: "https://sarlab.dia.uned.es",
+              accessKey: "BouncingBall.fmu",
+              resourceType: "fmu",
+              fmuFileName: "BouncingBall.fmu",
+              submitData: {
+                id: "2",
+                name: "Rounded FMU",
+                uri: "Lab-UNED-2.json",
+                price: "0.3",
+                priceUnit: "hour",
+                _originalRawPrice: "8",
+                _originalDisplayPrice: "0.3",
+                accessURI: "https://sarlab.dia.uned.es",
+                accessKey: "BouncingBall.fmu",
+                resourceType: "fmu",
+                fmuFileName: "BouncingBall.fmu",
+                category: ["1.2", "2.2"],
+              },
+            },
+          ],
+        };
+        mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
+
+        renderWithClient(<ProviderDashboard />);
+
+        await waitFor(() => {
+          fireEvent.click(screen.getByTestId("edit-2"));
+        });
+
+        await act(async () => {
+          fireEvent.click(await screen.findByTestId("modal-submit"));
+        });
+
+        await waitFor(() => {
+          expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              id: "2",
+              price: "0.3",
+              category: ["1.2", "2.2"],
+            })
+          );
+        });
+        expect(mockUpdateLabMutate).not.toHaveBeenCalled();
+      });
+
       test("handles edit error", async () => {
         const error = new Error("Update failed");
         mockUpdateLabMutate.mockRejectedValueOnce(error);

@@ -578,13 +578,22 @@ export default function ProviderDashboard() {
   const handleSaveLab = async (labData) => {
     // Store the original human-readable price for local state updates
     const originalPrice = labData.price;
+    const priceWasUnchangedDuringEdit =
+      labData.id &&
+      labData._originalRawPrice !== undefined &&
+      labData._originalRawPrice !== null &&
+      String(labData.price ?? '').trim() === String(labData._originalDisplayPrice ?? '').trim()
     
     // Convert price from user input to credit units for blockchain operations
     if (labData.price && decimals) {
       try {
-        const priceUnit = normalizePricingUnit(labData?.priceUnit || labData?.pricing?.displayUnit || 'hour')
-        const priceInTokenUnits = displayPriceToRawPerSecond(labData.price, priceUnit, decimals)
-        labData = { ...labData, price: priceInTokenUnits.toString() }
+        if (priceWasUnchangedDuringEdit) {
+          labData = { ...labData, price: String(labData._originalRawPrice) }
+        } else {
+          const priceUnit = normalizePricingUnit(labData?.priceUnit || labData?.pricing?.displayUnit || 'hour')
+          const priceInTokenUnits = displayPriceToRawPerSecond(labData.price, priceUnit, decimals)
+          labData = { ...labData, price: priceInTokenUnits.toString() }
+        }
       } catch (error) {
         devLog.error('Error converting price to credit units:', error)
         return

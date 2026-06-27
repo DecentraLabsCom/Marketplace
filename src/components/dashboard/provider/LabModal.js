@@ -201,8 +201,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     // Convert price from per-second (cache format) to the selected UI unit.
     if (labToMerge.price && decimals) {
       try {
+        const originalRawPrice = labToMerge.price;
         const metadataDisplayAmount = labToMerge?.pricing?.displayAmount;
-        labToMerge.price = metadataDisplayAmount || formatPrice(labToMerge.price, priceUnit);
+        const displayPrice = metadataDisplayAmount || formatPrice(labToMerge.price, priceUnit);
+        labToMerge.price = displayPrice;
+        labToMerge._originalRawPrice = String(originalRawPrice);
+        labToMerge._originalDisplayPrice = String(displayPrice);
       } catch (error) {
         devLog.error('Error converting price for UI input:', error);
         // Keep original price if conversion fails
