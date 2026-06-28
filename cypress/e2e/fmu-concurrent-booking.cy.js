@@ -26,6 +26,12 @@ describe("FMU Concurrent Calendar Bookings", () => {
 
   const startTs = futureTimestamp(14, 0);
   const endTs = futureTimestamp(14, 30);
+  const bookingDayStartTs = (() => {
+    const d = new Date(startTs * 1000);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor(d.getTime() / 1000);
+  })();
+  const bookingWindowClosesTs = bookingDayStartTs + 30 * 24 * 60 * 60;
 
   const FMU_LAB = {
     id: 5,
@@ -36,6 +42,8 @@ describe("FMU Concurrent Calendar Bookings", () => {
     uri: "fmu-concurrent-5.json",
     price: "500000000000000000",
     isListed: true,
+    opens: bookingDayStartTs,
+    closes: bookingWindowClosesTs,
     accessKey: "spring-damper.fmu",
     metadata: {
       name: "Spring-Damper Simulation",
@@ -61,6 +69,8 @@ describe("FMU Concurrent Calendar Bookings", () => {
     uri: "lab-regular-6.json",
     price: "1000000000000000000",
     isListed: true,
+    opens: bookingDayStartTs,
+    closes: bookingWindowClosesTs,
     metadata: {
       name: "Physics Lab",
       description: "Regular lab (exclusive access)",

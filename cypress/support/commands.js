@@ -105,6 +105,8 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
           accessURI: lab.accessURI || "",
           accessKey: lab.accessKey || "",
           createdAt: lab.createdAt || 0,
+          opens: lab.opens ?? 0,
+          closes: lab.closes ?? 0,
         },
       },
     });

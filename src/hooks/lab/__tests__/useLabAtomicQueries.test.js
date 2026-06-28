@@ -181,6 +181,8 @@ describe("useLabAtomicQueries", () => {
         price: "100000",
         accessURI: "",
         accessKey: "",
+        opens: 1782684000,
+        closes: 1782770400,
       },
     };
 
@@ -205,6 +207,8 @@ describe("useLabAtomicQueries", () => {
           accessURI: "",
           accessKey: "",
           createdAt: 0,
+          opens: 1782684000,
+          closes: 1782770400,
         },
       });
       expect(global.fetch).toHaveBeenCalledWith(

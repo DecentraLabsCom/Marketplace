@@ -59,6 +59,8 @@ const selectLabData = (data, labId) => {
       accessURI: String(base.accessURI || ''),
       accessKey: String(base.accessKey || ''),
       createdAt: normalizeNumber(base.createdAt, 0),
+      opens: normalizeNumber(base.opens, 0),
+      closes: normalizeNumber(base.closes, 0),
     }
   };
 };
