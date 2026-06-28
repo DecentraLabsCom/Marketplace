@@ -1,4 +1,5 @@
 import { defineConfig } from "cypress";
+import codeCoverageTask from "@cypress/code-coverage/task";
 
 export default defineConfig({
   e2e: {
@@ -15,7 +16,7 @@ export default defineConfig({
     defaultCommandTimeout: 10000,
     retries: { runMode: 2, openMode: 0 },
     setupNodeEvents(on, config) {
-      require("@cypress/code-coverage/task")(on, config);
+      codeCoverageTask(on, config);
       return config;
     },
   },
