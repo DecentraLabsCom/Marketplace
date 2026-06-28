@@ -82,12 +82,13 @@ describe("Market - search and listing toggle", () => {
   });
 
   it("triggers search when Search button is clicked", () => {
-    cy.get("#search-bar").clear().type("Quantum");
+    // Use a listed lab so this assertion is independent of the listed/all toggle.
+    cy.get("#search-bar").clear().type("Advanced");
     cy.contains("button", /search/i).click();
     cy.wait(400);
 
     cy.get(".grid").find("h2").should("have.length", 1);
-    cy.contains("Quantum Computing Lab").should("be.visible");
+    cy.contains("Advanced AI Lab").should("be.visible");
   });
 
   it("Listed / All labs toggle hides and shows unlisted labs", () => {

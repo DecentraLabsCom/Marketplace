@@ -686,7 +686,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
               </div>
             </div>
 
-            <section className="w-full sm:w-auto sm:min-w-[280px]">
+            <section className="w-full sm:w-auto sm:min-w-70">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 sm:text-right">Resource Type</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button

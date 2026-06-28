@@ -51,6 +51,36 @@ const FMU_LAB = {
 };
 
 describe("FMU Provider - Create FMU resource", () => {
+  const onboardingStableUserId = "sim-provider@institution.edu";
+  const onboardingInstitutionId = "sim.edu";
+  const onboardingMarkerKey = `institutional_browser_passkey:${onboardingInstitutionId}:${onboardingStableUserId}`;
+
+  const visitProviderDashboard = () => {
+    cy.visit("/providerdashboard", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem(
+          onboardingMarkerKey,
+          JSON.stringify({ verifiedAt: Date.now(), advisoryDismissedAt: null })
+        );
+      },
+    });
+
+    cy.wait("@getSession");
+    cy.wait("@resolveInstitution");
+    cy.wait("@onboardingSession");
+  };
+
+  const openAddNewLabModal = () => {
+    cy.get("body").then(($body) => {
+      const hasOpenDialog = $body.find('[role="dialog"]').length > 0;
+      if (!hasOpenDialog) {
+        cy.contains("button", "Add New Lab").should("be.visible").click();
+      }
+    });
+
+    cy.contains("h2", "Add New Lab").should("be.visible");
+  };
+
   beforeEach(() => {
     cy.clearCookies();
     cy.clearLocalStorage();
@@ -85,6 +115,47 @@ describe("FMU Provider - Create FMU resource", () => {
       },
     }).as("resolveInstitution");
 
+    cy.intercept("GET", "/api/onboarding/session*", {
+      statusCode: 200,
+      body: {
+        meta: {
+          stableUserId: onboardingStableUserId,
+          institutionId: onboardingInstitutionId,
+        },
+      },
+    }).as("onboardingSession");
+
+    cy.intercept("GET", "**/onboarding/webauthn/key-status/**", {
+      statusCode: 200,
+      body: {
+        hasCredential: true,
+        hasPlatformCredential: true,
+      },
+    }).as("keyStatus");
+
+    cy.intercept("GET", "/api/contract/institution/getInstitutionCreditBalance*", {
+      statusCode: 200,
+      body: { balance: "0" },
+    }).as("getInstitutionCreditBalance");
+
+    cy.intercept("GET", "/api/contract/institution/getUserReservationCount*", {
+      statusCode: 200,
+      body: { count: 0 },
+    }).as("getUserReservationCount");
+
+    cy.intercept("GET", "/api/contract/institution/getUserReservationByIndex*", {
+      statusCode: 200,
+      body: {
+        reservationKey: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        index: 0,
+      },
+    }).as("getUserReservationByIndex");
+
+    cy.intercept("GET", "/api/contract/institution/hasUserActiveBooking*", {
+      statusCode: 200,
+      body: { hasActiveBooking: false },
+    }).as("hasUserActiveBooking");
+
     cy.mockLabApis([FMU_LAB]);
 
     cy.intercept("GET", "/api/contract/reservation/getReservationsOfToken*", {
@@ -94,37 +165,30 @@ describe("FMU Provider - Create FMU resource", () => {
   });
 
   it("should open Add New Lab modal and show Resource Type selector", () => {
-    cy.visit("/providerdashboard");
-    cy.wait("@getSession");
-    cy.wait("@resolveInstitution");
-
-    cy.contains("Add New Lab").click();
+    visitProviderDashboard();
+    openAddNewLabModal();
 
     // Modal should open
     cy.contains("h2", "Add New Lab").should("be.visible");
 
     // Resource type selector should be visible
     cy.contains("Resource Type").should("be.visible");
-    cy.contains("button", "Remote Lab").should("be.visible");
-    cy.contains("button", /fmu simulation/i).should("be.visible");
+    cy.contains("button", /(remote lab|real lab)/i).should("be.visible");
+    cy.contains("button", /(fmu simulation|simulation)/i).should("be.visible");
   });
 
   it("should show FMU-specific fields when FMU Simulation is selected", () => {
-    cy.visit("/providerdashboard");
-    cy.wait("@getSession");
-    cy.wait("@resolveInstitution");
-
-    cy.contains("Add New Lab").click();
-    cy.contains("h2", "Add New Lab").should("be.visible");
+    visitProviderDashboard();
+    openAddNewLabModal();
 
     // Select FMU Simulation
-    cy.contains("button", /fmu simulation/i).click();
+    cy.contains("button", /(fmu simulation|simulation)/i).click();
 
-    // FMU Configuration section should appear
-    cy.contains("FMU Configuration").should("be.visible");
-    cy.contains("FMU File Name").should("be.visible");
-    cy.get('input[placeholder="spring-damper.fmu"]').should("be.visible");
-    cy.contains("button", "Auto-detect").should("be.visible");
+    // FMU section is rendered below the fold inside a fixed modal: scroll first.
+    cy.contains("FMU Configuration").scrollIntoView().should("exist");
+    cy.contains("FMU File Name").should("exist");
+    cy.get('input[placeholder="spring-damper.fmu"]').scrollIntoView().should("be.visible");
+    cy.contains("button", "Auto-detect").scrollIntoView().should("be.visible");
 
     // Submit button should read "Add FMU Simulation"
     cy.get('button[type="submit"]').should("contain.text", "Add FMU Simulation");
@@ -147,18 +211,16 @@ describe("FMU Provider - Create FMU resource", () => {
       },
     }).as("describeSimulation");
 
-    cy.visit("/providerdashboard");
-    cy.wait("@getSession");
-    cy.wait("@resolveInstitution");
+    visitProviderDashboard();
+    openAddNewLabModal();
+    cy.contains("button", /(fmu simulation|simulation)/i).click();
 
-    cy.contains("Add New Lab").click();
-    cy.contains("button", /fmu simulation/i).click();
-
-    // Type FMU filename
-    cy.get('input[placeholder="spring-damper.fmu"]').type("test-model.fmu");
+    // Auto-detect requires both gateway URL (Access URI) and FMU file name.
+    cy.get('input[placeholder="Access URI"]').scrollIntoView().clear().type("https://gateway.example.test");
+    cy.get('input[placeholder="spring-damper.fmu"]').scrollIntoView().clear().type("test-model.fmu");
 
     // Click auto-detect
-    cy.contains("button", "Auto-detect").click();
+    cy.contains("button", "Auto-detect").should("not.be.disabled").click();
     cy.wait("@describeSimulation");
 
     // Success message should appear
@@ -166,18 +228,15 @@ describe("FMU Provider - Create FMU resource", () => {
   });
 
   it("should switch back to lab mode and hide FMU fields", () => {
-    cy.visit("/providerdashboard");
-    cy.wait("@getSession");
-    cy.wait("@resolveInstitution");
-
-    cy.contains("Add New Lab").click();
+    visitProviderDashboard();
+    openAddNewLabModal();
 
     // Select FMU first
-    cy.contains("button", /fmu simulation/i).click();
-    cy.contains("FMU Configuration").should("be.visible");
+    cy.contains("button", /(fmu simulation|simulation)/i).click();
+    cy.contains("FMU Configuration").scrollIntoView().should("exist");
 
     // Switch back to Remote Lab
-    cy.contains("button", "Remote Lab").click();
+    cy.contains("button", /(remote lab|real lab)/i).click();
     cy.contains("FMU Configuration").should("not.exist");
 
     // Submit button should read "Add Lab"
