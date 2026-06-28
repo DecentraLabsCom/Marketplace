@@ -101,6 +101,19 @@ describe('reservationToasts', () => {
     )
   })
 
+  test('maps textual treasury denial reasons to credit-charge message', () => {
+    notifyReservationDenied(addTemporaryNotification, 'reservation-5', {
+      reason: 'preflight_revert: Insufficient treasury balance',
+    })
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      'error',
+      'Reservation denied by your institution (credit charge failed).',
+      null,
+      expect.objectContaining({ dedupeKey: 'reservation-denied:reservation-5' })
+    )
+  })
+
   test('emits reservation progress toasts with stable dedupe keys and durations', () => {
     const payload = { labId: 9, start: 1700000000 }
 

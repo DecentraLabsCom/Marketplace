@@ -549,6 +549,74 @@ describe("useLabReservationState", () => {
         );
       });
     });
+
+    test("clears pending SSO calendar entry when reservation is denied", async () => {
+      const pendingRequest = {
+        reservationKey: "sso-denied-1",
+        labId: "lab-1",
+        start: "1704110400",
+        end: "1704114000",
+      };
+
+      const trackedPendingBooking = {
+        reservationKey: "sso-denied-1",
+        labId: "lab-1",
+        start: "1704110400",
+        end: "1704114000",
+        status: 0,
+      };
+
+      const { result, rerender } = renderHookWithClient(
+        ({ userBookings }) =>
+          useLabReservationState({
+            selectedLab: mockLab,
+            labBookings: [],
+            userBookingsForLab: userBookings,
+            isSSO: true,
+          }),
+        { initialProps: { userBookings: [] } }
+      );
+
+      act(() => {
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
+        result.current.setPendingData({
+          optimisticId: "optimistic-denied-1",
+          isOptimistic: true,
+          ...pendingRequest,
+        });
+      });
+
+      rerender({ userBookings: [trackedPendingBooking] });
+
+      await waitFor(() => {
+        expect(result.current.bookingStage).toBe("request_registered");
+        expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
+      });
+
+      rerender({ userBookings: [] });
+
+      await waitFor(() => {
+        expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
+      });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent("reservation-request-denied", {
+          detail: {
+            reservationKey: "sso-denied-1",
+            labId: "lab-1",
+          },
+        }));
+      });
+
+      await waitFor(() => {
+        expect(result.current.bookingStage).toBe("idle");
+        expect(result.current.calendarUserBookingsForLab).toHaveLength(0);
+      });
+      expect(mockCacheUpdates.removeOptimisticBooking).toHaveBeenCalledWith(
+        expect.arrayContaining(["sso-denied-1", "optimistic-denied-1"])
+      );
+    });
   });
 
   describe("Calendar Pending Merge", () => {

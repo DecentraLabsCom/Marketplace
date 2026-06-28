@@ -183,7 +183,7 @@ async function runActionIntent(action, payload) {
  */
 export const useReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
-  const { updateBooking, invalidateAllBookings, addBooking } = useBookingCacheUpdates();
+  const { updateBooking, invalidateAllBookings, addBooking, removeOptimisticBooking } = useBookingCacheUpdates();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
   const { addTemporaryNotification } = useNotifications();
 
@@ -400,6 +400,15 @@ export const useReservationRequestSSO = (options = {}) => {
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  removeOptimisticBooking([
+                    finalKey,
+                    reservationKey,
+                  ].filter(Boolean));
+                } catch (err) {
+                  devLog.warn('Failed to remove optimistic booking after reservation denial:', err);
+                }
 
                 invalidateInstitutionalReservationQueries(queryClient, {
                   labId: variables.tokenId,

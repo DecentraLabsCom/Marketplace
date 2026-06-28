@@ -30,6 +30,16 @@ import { notify } from './notify'
 
 const resolveReservationDeniedMessage = (reason) => {
   const numericReason = Number(reason)
+  const textReason = typeof reason === 'string' ? reason.toLowerCase() : ''
+
+  if (
+    textReason.includes('treasury_spend_failed') ||
+    textReason.includes('treasury spend') ||
+    textReason.includes('insufficient treasury') ||
+    textReason.includes('credit charge')
+  ) {
+    return 'Reservation denied by your institution (credit charge failed).'
+  }
 
   switch (numericReason) {
     case RESERVATION_DENY_REASON.PROVIDER_MANUAL:

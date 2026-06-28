@@ -170,6 +170,45 @@ describe('institutional reservation request mutations', () => {
     });
   });
 
+  test('intent denial removes optimistic booking cache entries', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-denied-1' });
+    pollIntentStatus.mockResolvedValueOnce({
+      status: 'rejected',
+      reason: 'treasury spend failed',
+      reservationKey: 'rk-denied-final',
+    });
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-denied',
+          authorizationSessionId: 'session-denied',
+          backendUrl: 'https://institution.example',
+          intent: {
+            meta: { requestId: 'req-denied-1' },
+            payload: { reservationKey: 'rk-denied-initial' },
+          },
+        }),
+    });
+
+    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.mutateAsync({ tokenId: 'tk-denied', start: 111, end: 222, userAddress: '0xdenied' });
+    });
+
+    await waitFor(() => {
+      expect(bookingMocks.removeOptimisticBooking).toHaveBeenCalledWith([
+        'rk-denied-final',
+        'rk-denied-initial',
+      ]);
+      expect(mockClearOptimisticBookingState).toHaveBeenCalledWith('rk-denied-final');
+    });
+  });
+
   test('prepare failure throws and does not update cache', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);

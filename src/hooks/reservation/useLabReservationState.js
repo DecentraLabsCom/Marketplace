@@ -548,7 +548,46 @@ export function useLabReservationState({
     }
 
     const handleOnChainRegistered = (event) => invalidateTrackedQueries(event?.detail)
-    const handleDenied = (event) => invalidateTrackedQueries(event?.detail)
+    const handleDenied = (event) => {
+      const detail = event?.detail || {}
+      const eventReservationKey = normalizeReservationKey(detail?.reservationKey)
+      const pendingReservationKey = normalizeReservationKey(pendingData?.reservationKey || pendingData?.optimisticId)
+      const activeReservationKey = normalizeReservationKey(activeSsoRequest?.reservationKey)
+      const eventLabId = detail?.labId !== undefined && detail?.labId !== null ? String(detail.labId) : null
+      const pendingLabId = pendingData?.labId !== undefined && pendingData?.labId !== null
+        ? String(pendingData.labId)
+        : null
+      const activeLabId = activeSsoRequest?.labId !== undefined && activeSsoRequest?.labId !== null
+        ? String(activeSsoRequest.labId)
+        : null
+
+      const matchesKey =
+        !eventReservationKey ||
+        eventReservationKey === pendingReservationKey ||
+        eventReservationKey === activeReservationKey
+      const matchesLab =
+        !eventLabId ||
+        eventLabId === pendingLabId ||
+        eventLabId === activeLabId
+
+      if (matchesKey || matchesLab) {
+        const references = [
+          eventReservationKey,
+          pendingData?.reservationKey,
+          pendingData?.optimisticId,
+          activeSsoRequest?.reservationKey,
+        ].filter(Boolean)
+
+        if (references.length > 0) {
+          bookingCacheUpdates.removeOptimisticBooking(references)
+        }
+        setPendingData(null)
+        optimisticRemovedRef.current = true
+        setForceRefresh((current) => current + 1)
+      }
+
+      invalidateTrackedQueries(detail)
+    }
 
     window.addEventListener('reservation-request-onchain', handleOnChainRegistered)
     window.addEventListener('reservation-request-denied', handleDenied)
@@ -563,6 +602,8 @@ export function useLabReservationState({
     activeSsoRequest?.labId,
     pendingData?.reservationKey,
     pendingData?.optimisticId,
+    pendingData?.labId,
+    bookingCacheUpdates,
     queryClient,
   ])
 
