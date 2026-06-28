@@ -53,3 +53,41 @@ jobs:
           name: coverage-report-node-${{ matrix.node-version }}
           path: coverage/
           retention-days: 7
+
+  cypress-e2e:
+    name: Cypress E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v7
+
+      - name: 📦 Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "npm"
+
+      - name: 📚 Install dependencies
+        env:
+          NPM_CONFIG_LEGACY_PEER_DEPS: true
+        run: npm ci --include=dev
+
+      - name: 📥 Install Cypress binary
+        run: npx cypress install
+
+      - name: 🧪 Run Cypress E2E tests
+        run: npm run test:e2e -- --browser chrome
+        env:
+          CI: true
+
+      - name: 💾 Archive Cypress artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/videos
+            cypress/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
