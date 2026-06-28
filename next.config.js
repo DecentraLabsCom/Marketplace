@@ -17,6 +17,7 @@ const nextConfig = {
   // If you still need polling for OneDrive during dev, set `CHOKIDAR_USEPOLLING=1` in your environment.
   // To run with webpack instead, use `npm run dev:webpack` which keeps the old webpack hook.
   images: {
+    qualities: [75, 82],
     remotePatterns: [
       { protocol: "https", hostname: "**.blob.vercel-storage.com" },
       { protocol: "https", hostname: "n7alj90bp0isqv2j.public.blob.vercel-storage.com" },

@@ -47,22 +47,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
         { trait_type: "fmiVersion", value: "2.0" },
         { trait_type: "fmuFileName", value: "spring-damper.fmu" },
         { trait_type: "simulationType", value: "CoSimulation" },
-        {
-          trait_type: "timeSlots",
-          value: [{ startHour: 0, endHour: 24 }],
-        },
-        {
-          trait_type: "availability",
-          value: [
-            { day: "monday", enabled: true },
-            { day: "tuesday", enabled: true },
-            { day: "wednesday", enabled: true },
-            { day: "thursday", enabled: true },
-            { day: "friday", enabled: true },
-            { day: "saturday", enabled: true },
-            { day: "sunday", enabled: true },
-          ],
-        },
+        { trait_type: "timeSlots", value: [30] },
       ],
     },
   };
@@ -81,22 +66,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       description: "Regular lab (exclusive access)",
       keywords: ["physics"],
       attributes: [
-        {
-          trait_type: "timeSlots",
-          value: [{ startHour: 0, endHour: 24 }],
-        },
-        {
-          trait_type: "availability",
-          value: [
-            { day: "monday", enabled: true },
-            { day: "tuesday", enabled: true },
-            { day: "wednesday", enabled: true },
-            { day: "thursday", enabled: true },
-            { day: "friday", enabled: true },
-            { day: "saturday", enabled: true },
-            { day: "sunday", enabled: true },
-          ],
-        },
+        { trait_type: "timeSlots", value: [30] },
       ],
     },
   };
@@ -154,6 +124,11 @@ describe("FMU Concurrent Calendar Bookings", () => {
     }).as("getReservation");
   }
 
+  function waitForReservationCalendar(labId) {
+    cy.get("select").should("have.value", String(labId));
+    cy.wait("@getReservationCount", { timeout: 10000 });
+  }
+
   describe("FMU resource with concurrent bookings", () => {
     beforeEach(() => {
       cy.clearCookies();
@@ -201,7 +176,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getMetadata");
 
       // Wait for bookings to load
-      cy.wait("@getReservationCount");
+      waitForReservationCalendar(5);
 
       // The time select should contain occupancy notation
       // FMU with maxConcurrentUsers=3 → slots show (N/3)
@@ -219,7 +194,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      cy.wait("@getReservationCount");
+      waitForReservationCalendar(5);
 
       // The 14:00 slot should have 2/3 occupancy but NOT be disabled
       // (since 2 < 3 maxConcurrent)
@@ -259,7 +234,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      cy.wait("@getReservationCount");
+      waitForReservationCalendar(6);
 
       cy.get("#time-select").should("be.visible");
       cy.get("#time-select option").then(($options) => {
@@ -275,7 +250,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      cy.wait("@getReservationCount");
+      waitForReservationCalendar(6);
 
       cy.get("#time-select").should("be.visible");
       // Verify that at least one option is disabled (the booked slot)

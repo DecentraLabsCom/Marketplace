@@ -6,6 +6,10 @@
  */
 
 describe("Market - FMU resource type filter", () => {
+  const selectResourceType = (value) => {
+    cy.get("#resource-type-filter").should("be.visible").select(value);
+  };
+
   const labs = [
     {
       id: 1,
@@ -103,9 +107,9 @@ describe("Market - FMU resource type filter", () => {
   });
 
   it("filters to show only labs when toggled to Labs only", () => {
-    // Click the resource type toggle — first click goes from All → lab
-    cy.contains("button", /all types/i).click();
-    cy.contains("button", /labs only/i).should("be.visible");
+    // Select the real-lab resource type.
+    selectResourceType("lab");
+    cy.get("#resource-type-filter").should("have.value", "lab");
 
     // Only labs (no resourceType or resourceType = 'lab') should be visible
     cy.get(".grid").find("h2").should("have.length", 2);
@@ -116,10 +120,9 @@ describe("Market - FMU resource type filter", () => {
   });
 
   it("filters to show only FMU when toggled to FMU only", () => {
-    // Click twice: All → lab → fmu
-    cy.contains("button", /all types/i).click();
-    cy.contains("button", /labs only/i).click();
-    cy.contains("button", /fmu only/i).should("be.visible");
+    // Select the simulated/FMU resource type.
+    selectResourceType("fmu");
+    cy.get("#resource-type-filter").should("have.value", "fmu");
 
     // Only FMU resources should be visible
     cy.get(".grid").find("h2").should("have.length", 2);
@@ -130,19 +133,22 @@ describe("Market - FMU resource type filter", () => {
   });
 
   it("cycles back to All Types after FMU only", () => {
-    // Click three times: All → lab → fmu → All
-    cy.contains("button", /all types/i).click();
-    cy.contains("button", /labs only/i).click();
-    cy.contains("button", /fmu only/i).click();
-    cy.contains("button", /all types/i).should("be.visible");
+    // Return from simulated/FMU resources to all modalities.
+    selectResourceType("fmu");
+    selectResourceType("All");
+    cy.get("#resource-type-filter").should("have.value", "All");
 
     // All resources should be visible again
     cy.get(".grid").find("h2").should("have.length", 4);
   });
 
   it("shows FMU badge on FMU cards", () => {
-    // FMU cards should display the ⚙ FMU badge
-    cy.contains("⚙ FMU").should("exist");
+    // FMU cards should display the current simulated-resource badge.
+    cy.contains("h2", "Spring-Damper Simulation")
+      .parent()
+      .within(() => {
+        cy.contains("Sim").should("be.visible");
+      });
   });
 
   it("shows Explore Simulation on FMU cards and Explore Lab on lab cards", () => {
@@ -152,9 +158,8 @@ describe("Market - FMU resource type filter", () => {
 
   it("combines resource type filter with text search", () => {
     // Filter to FMU only first
-    cy.contains("button", /all types/i).click();
-    cy.contains("button", /labs only/i).click();
-    cy.contains("button", /fmu only/i).should("be.visible");
+    selectResourceType("fmu");
+    cy.get("#resource-type-filter").should("have.value", "fmu");
 
     // Search within FMUs
     cy.get("#search-bar").type("Motor");

@@ -162,6 +162,13 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
 
     req.reply({ statusCode: 200, body: metadata });
   }).as("getMetadata");
+
+  cy.intercept("GET", "/api/contract/reservation/getLabCreditAddress*", {
+    statusCode: 200,
+    body: {
+      labCreditAddress: "0x0000000000000000000000000000000000000000",
+    },
+  }).as("getLabCreditAddress");
 });
 
 /**
@@ -231,5 +238,6 @@ Cypress.Commands.add(
       statusCode: 200,
       body: { hasActiveBooking },
     }).as("hasUserActiveBooking");
+
   }
 );

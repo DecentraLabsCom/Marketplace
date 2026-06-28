@@ -2,7 +2,17 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 
 const mode = process.argv[2] === 'open' ? 'open' : 'run';
-const cypressArgs = process.argv.slice(3);
+const rawCypressArgs = process.argv.slice(3);
+const cypressArgs = rawCypressArgs.flatMap((arg, index) => {
+  if (
+    typeof arg === 'string' &&
+    arg.startsWith('cypress/e2e/') &&
+    rawCypressArgs[index - 1] !== '--spec'
+  ) {
+    return ['--spec', arg];
+  }
+  return [arg];
+});
 const devPort = Number(process.env.E2E_PORT || 3000);
 const baseUrl = `http://127.0.0.1:${devPort}`;
 const timeoutMs = Number(process.env.E2E_SERVER_TIMEOUT_MS || 120000);
