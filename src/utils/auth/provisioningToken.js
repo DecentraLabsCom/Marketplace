@@ -72,7 +72,18 @@ export function normalizeHttpsUrl(url, label) {
   if (!url || typeof url !== 'string') {
     throw new Error(`${label} is required`);
   }
-  const trimmed = url.trim();
+  let trimmed = url.trim();
+  const repeatedScheme = trimmed.match(/^(?:https?:\/\/)+/i);
+  if (repeatedScheme) {
+    const schemes = repeatedScheme[0].match(/https?:\/\//gi) || [];
+    const preferredScheme = schemes.some((scheme) => scheme.toLowerCase() === 'https://')
+      ? 'https://'
+      : schemes[0].toLowerCase();
+    trimmed = `${preferredScheme}${trimmed.slice(repeatedScheme[0].length)}`;
+  } else {
+    trimmed = `https://${trimmed}`;
+  }
+
   let parsed;
   try {
     parsed = new URL(trimmed);

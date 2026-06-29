@@ -180,10 +180,11 @@ export default function InviteTokenPage() {
             Public base URL
             <input
               className="mt-1 w-full border rounded p-2 text-sm"
-              type="url"
+              type="text"
+              inputMode="url"
               value={form.publicBaseUrl}
               onChange={updateField('publicBaseUrl')}
-              placeholder="https://gateway.partner.org"
+              placeholder="gateway.partner.org"
               required
             />
           </label>

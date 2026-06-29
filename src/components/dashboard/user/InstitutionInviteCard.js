@@ -78,7 +78,7 @@ export default function InstitutionInviteCard({
       return;
     }
 
-    if (!publicBaseUrl || !publicBaseUrl.trim().startsWith('https://')) {
+    if (!publicBaseUrl || !publicBaseUrl.trim()) {
       notifyInstitutionPublicBaseUrlRequired(addTemporaryNotification);
       return;
     }
@@ -243,7 +243,7 @@ export default function InstitutionInviteCard({
       return;
     }
 
-    if (!publicBaseUrl || !publicBaseUrl.trim().startsWith('https://')) {
+    if (!publicBaseUrl || !publicBaseUrl.trim()) {
       notifyInstitutionPublicBaseUrlRequired(addTemporaryNotification);
       return;
     }
@@ -435,10 +435,11 @@ export default function InstitutionInviteCard({
             Public base URL (https://)
             <input
               className="mt-1 w-full border rounded p-2 text-sm"
-              type="url"
+              type="text"
+              inputMode="url"
               value={publicBaseUrl}
               onChange={(e) => setPublicBaseUrl(e.target.value)}
-              placeholder="https://institution.example.edu"
+              placeholder="institution.example.edu"
             />
           </label>
 
@@ -464,10 +465,11 @@ export default function InstitutionInviteCard({
             Public base URL (https://)
             <input
               className="mt-1 w-full border rounded p-2 text-sm"
-              type="url"
+              type="text"
+              inputMode="url"
               value={publicBaseUrl}
               onChange={(e) => setPublicBaseUrl(e.target.value)}
-              placeholder="https://institution.example.edu"
+              placeholder="institution.example.edu"
             />
           </label>
         </div>

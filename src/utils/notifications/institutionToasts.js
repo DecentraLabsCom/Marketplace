@@ -27,7 +27,7 @@ export const notifyInstitutionPublicBaseUrlRequired = (addTemporaryNotification)
   notify(
     addTemporaryNotification,
     'error',
-    'Public base URL (https://) is required.',
+    'Public base URL is required.',
     institutionToastIds.publicBaseUrlRequired()
   )
 
