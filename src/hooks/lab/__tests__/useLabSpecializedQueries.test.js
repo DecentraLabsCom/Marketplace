@@ -247,7 +247,6 @@ describe("useLabSpecializedQueries", () => {
         score: 2,
         totalEvents: 4,
         ownerCancellations: 1,
-        institutionalCancellations: 1,
         lastUpdated: 0,
       },
       isLoading: false,
@@ -261,7 +260,6 @@ describe("useLabSpecializedQueries", () => {
         score: 2,
         totalEvents: 4,
         ownerCancellations: 1,
-        institutionalCancellations: 1,
         lastUpdated: 0,
       })
     );
@@ -344,7 +342,6 @@ describe("useLabSpecializedQueries", () => {
               score: 2,
               totalEvents: 4,
               ownerCancellations: 1,
-              institutionalCancellations: 1,
               lastUpdated: 0,
             },
             isLoading: false,

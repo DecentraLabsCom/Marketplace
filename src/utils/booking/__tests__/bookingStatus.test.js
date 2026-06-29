@@ -53,8 +53,8 @@ describe("Status Checking Functions", () => {
 
   describe("isCancelledBooking", () => {
     test.each([
-      [5, true],
-      ["5", true],
+      [4, true],
+      ["4", true],
       [BOOKING_STATUS.CANCELLED, true],
       [0, false],
       [1, false],
@@ -122,9 +122,8 @@ describe("Display Utilities", () => {
       [0, "Pending"],
       [1, "Confirmed"],
       [2, "In Use"],
-      [3, "Completed"],
-      [4, "Collected"],
-      [5, "Cancelled"],
+      [3, "Collected"],
+      [4, "Cancelled"],
       [99, "Unknown"],
       ["1", "Confirmed"], // string number
       ["pending", "Pending"],
@@ -142,9 +141,9 @@ describe("Display Utilities", () => {
       );
     });
 
-    test("returns Completed for confirmed booking whose end is in the past", () => {
+    test("returns Expired for confirmed booking whose end is in the past", () => {
       const pastEnd = Math.floor(Date.now() / 1000) - 60;
-      expect(getBookingStatusText({ status: 1, end: pastEnd })).toBe("Completed");
+      expect(getBookingStatusText({ status: 1, end: pastEnd })).toBe("Expired");
     });
 
     test("returns Completed for in-use booking whose end is in the past", () => {
@@ -172,9 +171,8 @@ describe("Display Utilities", () => {
         [0, "text-warning"],
         [1, "text-success"],
         [2, "text-info"],
-        [3, "text-neutral-600"],
-        [4, "text-neutral-500"],
-        [5, "text-error"],
+        [3, "text-neutral-500"],
+        [4, "text-error"],
         [99, "text-neutral-400"],
       ])("returns correct color for status=%s", (status, expected) => {
         expect(getBookingStatusColor({ status })).toBe(expected);
@@ -204,6 +202,16 @@ describe("Display Utilities", () => {
       expect(display.text).toBe("Completed");
       expect(display.className).toBe(
         "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border"
+      );
+    });
+
+    test("returns expired display for confirmed booking whose end is in the past", () => {
+      const pastEnd = Math.floor(Date.now() / 1000) - 60;
+      const display = getBookingStatusDisplay({ status: 1, end: pastEnd });
+
+      expect(display.text).toBe("Expired");
+      expect(display.className).toBe(
+        "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border"
       );
     });
 
@@ -326,7 +334,7 @@ describe("Filtering by Display Mode", () => {
   describe("Common Rules Across All Modes", () => {
     test("always excludes cancelled bookings", () => {
       const bookings = [
-        createBooking(5, futureTimestamp, futureTimestamp + 3600), // cancelled future
+        createBooking(4, futureTimestamp, futureTimestamp + 3600), // cancelled future
         createBooking(1, futureTimestamp, futureTimestamp + 3600), // confirmed future
       ];
 

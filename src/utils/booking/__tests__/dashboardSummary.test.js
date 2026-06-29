@@ -47,7 +47,7 @@ describe('dashboardSummary', () => {
     const now = Math.floor(Date.now() / 1000)
 
     const summary = calculateBookingSummary([
-      { status: 5, start: now - 120, end: now - 60 },
+      { status: 3, start: now - 120, end: now - 60 },
       { status: 1, intentStatus: 'REJECTED', start: now + 60, end: now + 120 },
       { status: 0, start: now - 600, end: now - 300 },
       { status: 4, start: now - 200, end: now - 100 },
@@ -67,9 +67,8 @@ describe('dashboardSummary', () => {
     expect(getReservationStatusText(0)).toBe('Pending')
     expect(getReservationStatusText(1)).toBe('Confirmed')
     expect(getReservationStatusText(2)).toBe('In Use')
-    expect(getReservationStatusText(3)).toBe('Completed')
-    expect(getReservationStatusText(4)).toBe('Settled')
-    expect(getReservationStatusText(5)).toBe('Cancelled')
+    expect(getReservationStatusText(3)).toBe('Settled')
+    expect(getReservationStatusText(4)).toBe('Cancelled')
     expect(getReservationStatusText(99)).toBe('Unknown')
   })
 })

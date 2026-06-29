@@ -13,7 +13,6 @@ export const { GET } = createContractHandler({
     score: toNumber(result?.score ?? result?.[0]),
     totalEvents: toNumber(result?.totalEvents ?? result?.[1]),
     ownerCancellations: toNumber(result?.ownerCancellations ?? result?.[2]),
-    institutionalCancellations: toNumber(result?.institutionalCancellations ?? result?.[3]),
-    lastUpdated: toNumber(result?.lastUpdated ?? result?.[4])
+    lastUpdated: toNumber(result?.lastUpdated ?? result?.[3])
   })
 })

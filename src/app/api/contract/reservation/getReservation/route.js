@@ -52,7 +52,7 @@ export async function GET(request) {
     // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
     //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
     //   providerShare }
-    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE, 3=COMPLETED, 4=COLLECTED, 5=CANCELLED
+    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE, 3=COLLECTED, 4=CANCELLED
     const status = Number(reservationData.status);
     const renterAddress = reservationData.renter || '0x0000000000000000000000000000000000000000';
     const labProviderAddress = reservationData.labProvider || '0x0000000000000000000000000000000000000000';
@@ -90,14 +90,10 @@ export async function GET(request) {
           isConfirmed = true;
           break;
         case 3:
-          reservationState = 'Completed';
-          isConfirmed = true;
-          break;
-        case 4:
           reservationState = 'Collected';
           isConfirmed = true;
           break;
-        case 5:
+        case 4:
           reservationState = 'Cancelled';
           isConfirmed = false;
           break;
@@ -128,10 +124,10 @@ export async function GET(request) {
         isBooked: status === 1,
         isInUse: status === 2,
         isUsed: status === 2, // backward compatibility alias
-        isCollected: status === 4,
-        isCanceled: status === 5,
+        isCollected: status === 3,
+        isCanceled: status === 4,
         isActive: status === 1 || status === 2, // Active when confirmed or in-use
-        isCompleted: status === 3 || status === 4, // Completed or collected
+        isCompleted: status === 3, // Collected/settled terminal state
         isConfirmed: isConfirmed,
         exists: effectiveExists,
         isInstitutional: payerInstitutionAddress !== '0x0000000000000000000000000000000000000000'

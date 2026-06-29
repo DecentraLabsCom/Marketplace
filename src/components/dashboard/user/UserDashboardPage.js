@@ -197,8 +197,8 @@ export default function UserDashboard() {
         .filter((booking) => {
           const status = parseStatus(booking?.status);
           const end = parseUnix(booking?.end);
-          if (status === 5) return true; // Cancelled
-          if (status === 3 || status === 4) return true; // Completed / Collected
+          if (status === 4) return true; // Cancelled
+          if (status === 3) return true; // Collected
           if ((status === 1 || status === 2) && end !== null && end < nowUnix) return true; // Temporally completed
           if (status === 0 && end !== null && end < nowUnix) return true; // Expired pending
           return false;
@@ -248,7 +248,7 @@ export default function UserDashboard() {
     }
 
     // Check if already canceled
-    if (booking.status === "5" || booking.status === 5) {
+    if (booking.status === "4" || booking.status === 4) {
       notifyUserDashboardAlreadyCanceled(addTemporaryNotification);
       return;
     }

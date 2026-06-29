@@ -68,8 +68,7 @@ const transformReputation = (raw) => ({
   score: toFiniteNumber(raw?.score ?? raw?.[0], 0),
   totalEvents: toFiniteNumber(raw?.totalEvents ?? raw?.[1], 0),
   ownerCancellations: toFiniteNumber(raw?.ownerCancellations ?? raw?.[2], 0),
-  institutionalCancellations: toFiniteNumber(raw?.institutionalCancellations ?? raw?.[3], 0),
-  lastUpdated: toFiniteNumber(raw?.lastUpdated ?? raw?.[4], 0),
+  lastUpdated: toFiniteNumber(raw?.lastUpdated ?? raw?.[3], 0),
 });
 
 const parseProviders = (providersRaw) => {

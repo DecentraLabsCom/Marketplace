@@ -68,7 +68,7 @@ const baseLabProps = {
   isListed: true,
   image: "https://cdn.example.com/lab.jpg",
   createdAt: Math.floor(Date.now() / 1000),
-  reputation: { score: 4, totalEvents: 2, ownerCancellations: 0, institutionalCancellations: 0, lastUpdated: 0 },
+  reputation: { score: 4, totalEvents: 2, ownerCancellations: 0, lastUpdated: 0 },
 };
 
 describe("LabCard - FMU Support", () => {

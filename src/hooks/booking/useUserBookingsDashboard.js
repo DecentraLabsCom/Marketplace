@@ -185,7 +185,7 @@ export const useUserBookingsDashboard = (userAddress, {
     let statusCategory = 'unknown';
     const numericStatus = parseInt(statusNumeric);
     
-    if (numericStatus === 5 || statusNumeric === '5') {
+    if (numericStatus === 4 || statusNumeric === '4') {
       statusCategory = 'cancelled';
     } else if (numericStatus === 0 || statusNumeric === '0') {
       if (endTime && now > endTime) {
@@ -193,14 +193,22 @@ export const useUserBookingsDashboard = (userAddress, {
       } else {
         statusCategory = 'pending';
       }
-    } else if (numericStatus === 2 || numericStatus === 3 || numericStatus === 4) {
-      statusCategory = 'completed';  // USED, COMPLETED, or COLLECTED
+    } else if (numericStatus === 3) {
+      statusCategory = 'completed';  // Collected/settled terminal state
+    } else if (numericStatus === 2) {
+      if (startTime && endTime) {
+        if (now >= startTime && now <= endTime) statusCategory = 'active';
+        else if (now > endTime) statusCategory = 'completed';
+        else statusCategory = 'upcoming';
+      } else {
+        statusCategory = 'active';
+      }
     } else if (numericStatus === 1) {
       // CONFIRMED/BOOKED - use timing logic
       if (startTime && endTime) {
         if (now < startTime) statusCategory = 'upcoming';
         else if (now >= startTime && now <= endTime) statusCategory = 'active';
-        else statusCategory = 'completed';
+        else statusCategory = 'expired';
       } else {
         statusCategory = 'upcoming';  // No timing, assume upcoming
       }
@@ -216,7 +224,7 @@ export const useUserBookingsDashboard = (userAddress, {
       id: payload.reservationKey || undefined,
       reservationKey: payload.reservationKey,
       labId,
-      status: statusNumeric, // keep numeric/string code (0,1,2,3,4,5)
+      status: statusNumeric, // keep numeric/string code (0,1,2,3,4)
       price,
       payerInstitution,
       collectorInstitution,
@@ -437,10 +445,12 @@ export const useUserBookingsDashboard = (userAddress, {
       // Add to recent activity (for recent 30 days)
       if (start > thirtyDaysAgo) {
         let action = 'Unknown';
-        if (status === 5) action = 'Cancelled';
-        else if (status === 4 || status === 3) action = 'Completed';
+        if (status === 4) action = 'Cancelled';
+        else if (status === 3) action = 'Completed';
         else if ((status === 1 || status === 2) && start <= now && now <= end) action = 'Active';
         else if ((status === 1 || status === 2) && start > now) action = 'Upcoming';
+        else if (status === 1 && end < now) action = 'Expired';
+        else if (status === 2 && end < now) action = 'Completed';
         else if (status === 0) action = 'Pending';
 
         // Safely format date

@@ -12,9 +12,8 @@ export const BOOKING_STATUS = {
   PENDING: 0,
   CONFIRMED: 1,
   IN_USE: 2,
-  COMPLETED: 3,
-  COLLECTED: 4,
-  CANCELLED: 5
+  COLLECTED: 3,
+  CANCELLED: 4
 }
 
 /**
@@ -47,10 +46,7 @@ const toSemanticStatus = (status) => {
   return status.trim().toLowerCase()
 }
 
-const isExpiredPendingBooking = (booking) => {
-  const numericStatus = normalizeBookingStatusCode(booking)
-  if (numericStatus !== BOOKING_STATUS.PENDING) return false
-
+const hasBookingEnded = (booking) => {
   const endRaw = booking?.end ?? booking?.endTime
   const end = Number(endRaw)
   if (!Number.isFinite(end) || end <= 0) return false
@@ -59,20 +55,27 @@ const isExpiredPendingBooking = (booking) => {
   return now > end
 }
 
+const isExpiredPendingBooking = (booking) => {
+  const numericStatus = normalizeBookingStatusCode(booking)
+  if (numericStatus !== BOOKING_STATUS.PENDING) return false
+
+  return hasBookingEnded(booking)
+}
+
+const isExpiredConfirmedBooking = (booking) => {
+  const numericStatus = normalizeBookingStatusCode(booking)
+  if (numericStatus !== BOOKING_STATUS.CONFIRMED) return false
+
+  return hasBookingEnded(booking)
+}
+
 const isTemporallyCompletedBooking = (booking) => {
   const numericStatus = normalizeBookingStatusCode(booking)
-  if (numericStatus !== BOOKING_STATUS.CONFIRMED && numericStatus !== BOOKING_STATUS.IN_USE) {
+  if (numericStatus !== BOOKING_STATUS.IN_USE) {
     return false
   }
 
-  const endRaw = booking?.end ?? booking?.endTime
-  const end = Number(endRaw)
-  if (!Number.isFinite(end) || end <= 0) {
-    return false
-  }
-
-  const now = Math.floor(Date.now() / 1000)
-  return now > end
+  return hasBookingEnded(booking)
 }
 
 export const normalizeBookingStatusCode = (booking) => {
@@ -86,7 +89,7 @@ export const normalizeBookingStatusCode = (booking) => {
     case BOOKING_STATE.IN_USE:
       return BOOKING_STATUS.IN_USE
     case BOOKING_STATE.COMPLETED:
-      return BOOKING_STATUS.COMPLETED
+      return BOOKING_STATUS.IN_USE
     case BOOKING_STATE.COLLECTED:
       return BOOKING_STATUS.COLLECTED
     case BOOKING_STATE.CANCELLED:
@@ -106,8 +109,6 @@ export const normalizeBookingStatusState = (booking) => {
         return BOOKING_STATE.CONFIRMED
       case BOOKING_STATUS.IN_USE:
         return BOOKING_STATE.IN_USE
-      case BOOKING_STATUS.COMPLETED:
-        return BOOKING_STATE.COMPLETED
       case BOOKING_STATUS.COLLECTED:
         return BOOKING_STATE.COLLECTED
       case BOOKING_STATUS.CANCELLED:
@@ -176,7 +177,7 @@ export const isCollectedBooking = (booking) => {
  * @returns {string} Human-readable status
  */
 export const getBookingStatusText = (booking) => {
-  if (isExpiredPendingBooking(booking)) {
+  if (isExpiredPendingBooking(booking) || isExpiredConfirmedBooking(booking)) {
     return 'Expired'
   }
 
@@ -213,13 +214,16 @@ export const getBookingStatusColor = (booking) => {
     return 'text-neutral-600'
   }
 
+  if (isExpiredConfirmedBooking(booking)) {
+    return 'text-warning'
+  }
+
   switch (normalizeBookingStatusCode(booking)) {
     case 0: return 'text-warning';         // Pending - warning yellow
     case 1: return 'text-success';         // Confirmed - success green
     case 2: return 'text-info';            // In use - info blue
-    case 3: return 'text-neutral-600';     // Completed - neutral gray
-    case 4: return 'text-neutral-500';     // Collected - neutral gray
-    case 5: return 'text-error';           // Cancelled - error red
+    case 3: return 'text-neutral-500';     // Collected - neutral gray
+    case 4: return 'text-error';           // Cancelled - error red
     default: return 'text-neutral-400';    // Unknown - light gray
   }
 }
@@ -230,7 +234,7 @@ export const getBookingStatusColor = (booking) => {
  * @returns {Object} Display object with text, className, and icon
  */
 export const getBookingStatusDisplay = (booking) => {
-  if (isExpiredPendingBooking(booking)) {
+  if (isExpiredPendingBooking(booking) || isExpiredConfirmedBooking(booking)) {
     return {
       text: "Expired",
       className: "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border",
@@ -264,16 +268,11 @@ export const getBookingStatusDisplay = (booking) => {
       icon: faPlay
     };
     case 3: return {
-      text: "Completed",
-      className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
-      icon: faCircleCheck
-    };
-    case 4: return {
       text: "Collected",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
       icon: faCircleCheck
     };
-    case 5: return {
+    case 4: return {
       text: "Cancelled",
       className: "bg-booking-cancelled-bg text-booking-cancelled-text border-booking-cancelled-border",
       icon: faXmark

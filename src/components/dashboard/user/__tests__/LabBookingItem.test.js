@@ -44,7 +44,7 @@ jest.mock('@/utils/booking/bookingStatus', () => ({
     };
     return statusMap[booking.status] || { text: 'Unknown', icon: '', className: 'bg-gray-200' };
   }),
-  isCancelledBooking: (booking) => booking.status === '5' || booking.status === 5,
+  isCancelledBooking: (booking) => booking.status === '4' || booking.status === 4,
   isPendingBooking: (booking) => booking.status === '0' || booking.status === 0,
   isConfirmedBooking: (booking) => booking.status === '1' || booking.status === 1
 }));

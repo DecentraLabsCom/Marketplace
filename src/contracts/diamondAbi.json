@@ -4404,11 +4404,6 @@
         "internalType": "uint32"
       },
       {
-        "name": "institutionalCancellations",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
         "name": "lastUpdated",
         "type": "uint64",
         "internalType": "uint64"

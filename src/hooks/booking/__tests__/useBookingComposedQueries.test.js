@@ -211,7 +211,7 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
           { reservationKey: "key1", statusCategory: "active", status: 1 },
           { reservationKey: "key2", statusCategory: "completed", status: 3 },
           { reservationKey: "key3", statusCategory: "active", status: 1 },
-          { reservationKey: "key4", statusCategory: "cancelled", status: 5 },
+          { reservationKey: "key4", statusCategory: "cancelled", status: 4 },
           { reservationKey: "key5", statusCategory: "upcoming", status: 1 },
           { reservationKey: "key6", statusCategory: "pending", status: 0 },
         ],

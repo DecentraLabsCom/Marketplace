@@ -98,8 +98,7 @@ const selectReputationData = (data) => {
     score: normalizeNumber(data.score ?? data[0]),
     totalEvents: normalizeNumber(data.totalEvents ?? data[1]),
     ownerCancellations: normalizeNumber(data.ownerCancellations ?? data[2]),
-    institutionalCancellations: normalizeNumber(data.institutionalCancellations ?? data[3]),
-    lastUpdated: normalizeNumber(data.lastUpdated ?? data[4]),
+    lastUpdated: normalizeNumber(data.lastUpdated ?? data[3]),
   };
 };
 

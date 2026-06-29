@@ -123,7 +123,6 @@ const defaultProps = {
     score: 4,
     totalEvents: 4,
     ownerCancellations: 0,
-    institutionalCancellations: 0,
     lastUpdated: 0,
   },
 };

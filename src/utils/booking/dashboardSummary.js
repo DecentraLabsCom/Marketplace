@@ -26,7 +26,7 @@ export function calculateBookingSummary(bookings = [], options = {}) {
       return false
     }
 
-    if (status === 5 || booking.statusCategory === 'cancelled') {
+    if (status === 4 || booking.statusCategory === 'cancelled') {
       return false
     }
 
@@ -70,14 +70,14 @@ export function calculateBookingSummary(bookings = [], options = {}) {
     }
 
     if (!bucket) {
-      if (status === 5) {
+      if (status === 4) {
         if (includeCancelled) bucket = 'cancelled'
       } else if (status === 0) {
         if (end && Number.isFinite(Number(end)) && now > Number(end)) {
           return
         }
         bucket = 'pending'
-      } else if (status === 4 || status === 3) {
+      } else if (status === 3) {
         bucket = 'completed'
       } else if (status === 2) {
         if (start && end) {
@@ -143,10 +143,8 @@ export function getReservationStatusText(status) {
     case 2:
       return 'In Use'
     case 3:
-      return 'Completed'
-    case 4:
       return 'Settled'
-    case 5:
+    case 4:
       return 'Cancelled'
     default:
       return 'Unknown'

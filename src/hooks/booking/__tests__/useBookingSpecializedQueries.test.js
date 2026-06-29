@@ -346,7 +346,7 @@ describe('useBookingSpecializedQueries', () => {
 
     it('does not include cancelled (status 5) booking as next', () => {
       setupReservationsMock([
-        { labId: '6', status: 5, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
+        { labId: '6', status: 4, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
       const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
       expect(result.current.data.nextBooking).toBeNull()
@@ -407,7 +407,7 @@ describe('useBookingSpecializedQueries', () => {
 
     it('counts a cancelled booking (status 5)', () => {
       setupReservationsMock([
-        { labId: '1', status: 5, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
+        { labId: '1', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
       const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
       expect(result.current.data.cancelledBookings).toBe(1)
@@ -437,7 +437,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.completedBookings).toBe(1)
     })
 
-    it('counts status-3 (completed) booking directly as completedBookings', () => {
+    it('counts status-3 (collected) booking directly as completedBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 3, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
@@ -445,12 +445,12 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.completedBookings).toBe(1)
     })
 
-    it('counts status-4 (collected) booking as completedBookings', () => {
+    it('counts status-4 booking as cancelledBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
       const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
-      expect(result.current.data.completedBookings).toBe(1)
+      expect(result.current.data.cancelledBookings).toBe(1)
     })
 
     it('counts in_use (status 2) booking within window as activeBookings', () => {
@@ -475,7 +475,7 @@ describe('useBookingSpecializedQueries', () => {
         { labId: '2', status: 1, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },   // active
         { labId: '3', status: 1, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },   // upcoming
         { labId: '4', status: 3, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },   // completed
-        { labId: '5', status: 5, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },   // cancelled
+        { labId: '5', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },   // cancelled
       ])
       const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
       expect(result.current.data).toMatchObject({

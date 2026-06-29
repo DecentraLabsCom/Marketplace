@@ -126,7 +126,7 @@ describe("useSsoReservationFlow", () => {
     act(() => {
       result.current.markSsoRequestSent({ reservationKey: "res-can", labId: "1", start: "1700000000" });
     });
-    rerender({ userBookingsForLab: [{ reservationKey: "res-can", labId: "1", start: "1700000000", status: 5 }] });
+    rerender({ userBookingsForLab: [{ reservationKey: "res-can", labId: "1", start: "1700000000", status: 4 }] });
     expect(result.current.ssoBookingStage).toBe("idle");
   });
 

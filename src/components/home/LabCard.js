@@ -189,7 +189,6 @@ LabCard.propTypes = {
     score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     ownerCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
   createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

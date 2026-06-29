@@ -54,9 +54,9 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     if (status === 0 || status === "0" || status === "pending" || status === "requested") return "pending";
     if (status === 1 || status === "1" || status === "confirmed") return "confirmed";
     if (status === 2 || status === "2" || status === "in_use") return "in_use";
-    if (status === 3 || status === "3" || status === "completed") return "completed";
-    if (status === 4 || status === "4" || status === "collected") return "collected";
-    if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return "cancelled";
+    if (status === "completed") return "completed";
+    if (status === 3 || status === "3" || status === "collected") return "collected";
+    if (status === 4 || status === "4" || status === "cancelled" || status === "canceled") return "cancelled";
     return null;
   }),
   normalizeBookingStatusCode: jest.fn((booking) => {
@@ -64,18 +64,17 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     if (status === 0 || status === "0" || status === "pending" || status === "requested") return 0;
     if (status === 1 || status === "1" || status === "confirmed") return 1;
     if (status === 2 || status === "2" || status === "in_use") return 2;
-    if (status === 3 || status === "3" || status === "completed") return 3;
-    if (status === 4 || status === "4" || status === "collected") return 4;
-    if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return 5;
+    if (status === "completed") return 2;
+    if (status === 3 || status === "3" || status === "collected") return 3;
+    if (status === 4 || status === "4" || status === "cancelled" || status === "canceled") return 4;
     return null;
   }),
   BOOKING_STATUS: {
     PENDING: 0,
     CONFIRMED: 1,
     IN_USE: 2,
-    COMPLETED: 3,
-    COLLECTED: 4,
-    CANCELLED: 5,
+    COLLECTED: 3,
+    CANCELLED: 4,
   },
 }));
 jest.mock("@/utils/booking/labBookingCalendar");

@@ -89,7 +89,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     if (!labId) return;
 
     // Skip cancelled bookings
-    if (status === 5) return;
+    if (status === 4) return;
 
     if (start <= nowEpochSeconds && nowEpochSeconds <= end && (status === 1 || status === 2)) {
       // Add active bookings to Set
@@ -253,7 +253,7 @@ export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
     }
 
     return rawReservations
-      .filter(reservation => parseInt(reservation.status) !== 5)
+      .filter(reservation => parseInt(reservation.status) !== 4)
       .map(reservation => ({
         id: reservation.reservationKey,
         labId: reservation.labId,
@@ -380,11 +380,11 @@ export const useUserBookingSummary = (userAddress, options = {}) => {
       const end = parseInt(reservation.end);
       const status = parseInt(reservation.status);
       
-      if (status === 5) {
+      if (status === 4) {
         computed.cancelledBookings++;
       } else if (status === 0) {
         computed.pendingBookings++;
-      } else if (status === 3 || status === 4) {
+      } else if (status === 3) {
         computed.completedBookings++;
       } else if (status === 2) {
         if (start && end) {
