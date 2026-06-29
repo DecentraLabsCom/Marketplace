@@ -238,6 +238,20 @@ describe("Lab Authentication Utilities", () => {
         authenticateLabAccessSSO({ labId, reservationKey: "rk-1", authEndpoint })
       ).rejects.toThrow("SSO authentication failed. Status: 401");
     });
+
+    test("does not request lab access when check-in fails", async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+
+      await expect(
+        authenticateLabAccessSSO({ labId, reservationKey: "rk-1", authEndpoint })
+      ).rejects.toThrow("Institutional check-in failed. Status: 500");
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch.mock.calls[0][0]).toBe("/api/auth/checkin");
+    });
   });
 
   describe("getAuthErrorMessage", () => {
