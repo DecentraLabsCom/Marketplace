@@ -26,7 +26,7 @@ export async function GET() {
         if (process.env.JWT_PUBLIC_KEY) {
           publicKey = process.env.JWT_PUBLIC_KEY;
         } else {
-          console.error('? Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
+          console.error('Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
           return new Response('Public key not found', {
             status: 404,
             headers: {
@@ -42,7 +42,7 @@ export async function GET() {
     // Validate basic PEM format
     if (!publicKey.includes('-----BEGIN PUBLIC KEY-----') ||
         !publicKey.includes('-----END PUBLIC KEY-----')) {
-      console.error('? Invalid PEM format in public key file');
+      console.error('Invalid PEM format in public key');
       return new Response('Invalid public key format', {
         status: 500,
         headers: {
@@ -64,7 +64,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('? Error serving public key:', error);
+    console.error('Error serving public key:', error);
     return new Response('Internal server error', {
       status: 500,
       headers: {
