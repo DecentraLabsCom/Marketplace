@@ -20,8 +20,8 @@ export async function GET() {
     if (process.env.JWT_PUBLIC_KEY) {
       publicKey = process.env.JWT_PUBLIC_KEY;
     } else {
-      // Fallback to file system (for local development)
-      const publicKeyPath = path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-public-key.pem');
+      // Fallback to the committed static file (single source of truth for key rotation)
+      const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
       // Verify that the file exists
       if (!fs.existsSync(publicKeyPath)) {
