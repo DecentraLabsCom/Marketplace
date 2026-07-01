@@ -7,7 +7,6 @@ import fs from 'fs'
 jest.mock('fs', () => ({
   __esModule: true,
   default: {
-    existsSync: jest.fn(),
     readFileSync: jest.fn(),
   },
 }))
@@ -19,7 +18,6 @@ describe('/.well-known/public-key.pem route', () => {
   beforeEach(() => {
     process.env = { ...originalEnv }
     delete process.env.JWT_PUBLIC_KEY
-    fs.existsSync.mockReset()
     fs.readFileSync.mockReset()
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -52,16 +50,26 @@ describe('/.well-known/public-key.pem route', () => {
 
   test('returns 404 when file is missing and env var not set', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
-    fs.existsSync.mockReturnValue(false)
+    const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    fs.readFileSync.mockImplementation(() => { throw enoent })
 
     const res = await GET()
     expect(res.status).toBe(404)
     await expect(res.text()).resolves.toMatch(/Public key not found/i)
   })
 
+  test('fallback reads from public/.well-known/public-key.pem', async () => {
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
+    fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
+
+    await GET()
+
+    const calledPath = fs.readFileSync.mock.calls[0][0]
+    expect(calledPath).toMatch(/public[/\\]\.well-known[/\\]public-key\.pem$/)
+  })
+
   test('returns key from file when env var not set and file exists', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
-    fs.existsSync.mockReturnValue(true)
     fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
 
     const res = await GET()
