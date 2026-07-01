@@ -23,19 +23,21 @@ export async function GET() {
       // Fallback to the committed static file (single source of truth for local development)
       const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
-      // Verify that the file exists
-      if (!fs.existsSync(publicKeyPath)) {
-        console.error('? Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
-        return new Response('Public key not found', {
-          status: 404,
-          headers: {
-            'Content-Type': 'text/plain'
-          }
-        });
+      // Single read — avoids TOCTOU between existsSync and readFileSync
+      try {
+        publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          console.error('? Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
+          return new Response('Public key not found', {
+            status: 404,
+            headers: {
+              'Content-Type': 'text/plain'
+            }
+          });
+        }
+        throw err; // other read errors bubble up to the outer catch → 500
       }
-
-      // Read the public key
-      publicKey = fs.readFileSync(publicKeyPath, 'utf8');
     }
 
     // Validate basic PEM format

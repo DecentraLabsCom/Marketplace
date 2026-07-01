@@ -6,6 +6,7 @@
  * Outputs:
  * - certificates/jwt/marketplace-private-key.pem
  * - certificates/jwt/marketplace-public-key.pem
+ * - public/.well-known/public-key.pem  (kept in sync for local dev)
  *
  * Flags:
  * - --force   overwrite existing keys
@@ -18,6 +19,7 @@ import crypto from 'crypto';
 const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
 const PRIVATE_KEY_PATH = path.join(KEYS_DIR, 'marketplace-private-key.pem');
 const PUBLIC_KEY_PATH = path.join(KEYS_DIR, 'marketplace-public-key.pem');
+const WELL_KNOWN_PUBLIC_KEY_PATH = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -58,9 +60,14 @@ function main() {
   writeFile(PRIVATE_KEY_PATH, privateKey, 0o600);
   writeFile(PUBLIC_KEY_PATH, publicKey, 0o644);
 
+  // Also update the well-known path so the route handler and local dev stay in sync
+  ensureDir(path.dirname(WELL_KNOWN_PUBLIC_KEY_PATH));
+  writeFile(WELL_KNOWN_PUBLIC_KEY_PATH, publicKey, 0o644);
+
   console.log('JWT key pair generated:');
-  console.log(`- Private: ${PRIVATE_KEY_PATH}`);
-  console.log(`- Public : ${PUBLIC_KEY_PATH}`);
+  console.log(`- Private   : ${PRIVATE_KEY_PATH}`);
+  console.log(`- Public    : ${PUBLIC_KEY_PATH}`);
+  console.log(`- Well-known: ${WELL_KNOWN_PUBLIC_KEY_PATH}`);
 }
 
 try {
