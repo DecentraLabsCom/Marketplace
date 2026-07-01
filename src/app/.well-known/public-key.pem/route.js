@@ -15,19 +15,17 @@ import path from 'path';
 export async function GET() {
   try {
     let publicKey;
+    const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
-    // Try environment variable first (for Vercel deployment)
-    if (process.env.JWT_PUBLIC_KEY) {
-      publicKey = process.env.JWT_PUBLIC_KEY;
-    } else {
-      // Fallback to the committed static file (single source of truth for local development)
-      const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
-
-      // Single read — avoids TOCTOU between existsSync and readFileSync
-      try {
-        publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-      } catch (err) {
-        if (err.code === 'ENOENT') {
+    // Prefer the committed static file for consistency with /.well-known/public-key.pem.
+    // Fall back to JWT_PUBLIC_KEY when the file is unavailable.
+    try {
+      publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        if (process.env.JWT_PUBLIC_KEY) {
+          publicKey = process.env.JWT_PUBLIC_KEY;
+        } else {
           console.error('? Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
           return new Response('Public key not found', {
             status: 404,
@@ -36,6 +34,7 @@ export async function GET() {
             }
           });
         }
+      } else {
         throw err; // other read errors bubble up to the outer catch → 500
       }
     }
@@ -74,4 +73,3 @@ export async function GET() {
     });
   }
 }
-
