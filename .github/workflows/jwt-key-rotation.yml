@@ -156,10 +156,9 @@ jobs:
             6. 🌐 Verify public key endpoint: `curl https://your-domain/.well-known/public-key.pem`
             
             ### 📁 Files Changed:
-            - `certificates/jwt/marketplace-private-key.pem` (new private key)
-            - `certificates/jwt/marketplace-public-key.pem` (new public key)  
-            - `certificates/jwt/rotation-metadata.json` (updated metadata)
-            - `certificates/jwt/backups/` (backup files)
+            - `public/.well-known/public-key.pem` (new public key, committed for client verification)
+            
+            > **Note**: Private key, rotation metadata, and backups are stored in `certificates/jwt/` (gitignored) and not committed to the repository. The new keys are applied via Vercel environment variables.
             
             ### 🔧 Troubleshooting:
             If authentication issues occur after deployment:
