@@ -56,7 +56,10 @@ describe('LabAccess', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/contract/lab/getLabAuthURI?labId=123')
     })
-    fireEvent.click(await screen.findByRole('button', { name: /access/i }))
+    // Wait for the auth URI fetch to complete so the button is enabled before clicking
+    const button = await screen.findByRole('button', { name: /access/i })
+    await waitFor(() => expect(button).not.toBeDisabled())
+    fireEvent.click(button)
 
     expect(await screen.findByText('Institutional login is required to access this lab.')).toBeInTheDocument()
     expect(mockAuthenticateLabAccessSSO).not.toHaveBeenCalled()
