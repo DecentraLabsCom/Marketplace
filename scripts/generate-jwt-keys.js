@@ -44,6 +44,10 @@ function main() {
   ensureDir(KEYS_DIR);
   assertCanWrite(PRIVATE_KEY_PATH);
   assertCanWrite(PUBLIC_KEY_PATH);
+  // Preflight: ensure the well-known directory exists and is writable before
+  // replacing the cert files, so a failure here doesn't leave them inconsistent.
+  ensureDir(path.dirname(WELL_KNOWN_PUBLIC_KEY_PATH));
+  assertCanWrite(WELL_KNOWN_PUBLIC_KEY_PATH);
 
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -61,7 +65,6 @@ function main() {
   writeFile(PUBLIC_KEY_PATH, publicKey, 0o644);
 
   // Also update the well-known path so the route handler and local dev stay in sync
-  ensureDir(path.dirname(WELL_KNOWN_PUBLIC_KEY_PATH));
   writeFile(WELL_KNOWN_PUBLIC_KEY_PATH, publicKey, 0o644);
 
   console.log('JWT key pair generated:');
