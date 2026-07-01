@@ -33,6 +33,8 @@ describe('/.well-known/public-key.pem route', () => {
   test('returns public key from env var when valid PEM', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
     process.env.JWT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----'
+    const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    fs.readFileSync.mockImplementation(() => { throw enoent })
 
     const res = await GET()
     expect(res.status).toBe(200)
@@ -42,6 +44,8 @@ describe('/.well-known/public-key.pem route', () => {
   test('returns 500 when env var PEM is invalid', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
     process.env.JWT_PUBLIC_KEY = 'not-a-pem'
+    const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    fs.readFileSync.mockImplementation(() => { throw enoent })
 
     const res = await GET()
     expect(res.status).toBe(500)
@@ -58,7 +62,7 @@ describe('/.well-known/public-key.pem route', () => {
     await expect(res.text()).resolves.toMatch(/Public key not found/i)
   })
 
-  test('fallback reads from public/.well-known/public-key.pem', async () => {
+  test('reads from public/.well-known/public-key.pem when file exists', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
     fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
 
@@ -70,6 +74,16 @@ describe('/.well-known/public-key.pem route', () => {
 
   test('returns key from file when env var not set and file exists', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
+    fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
+
+    const res = await GET()
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toContain('DEF')
+  })
+
+  test('prefers key from file when both file and env var are present', async () => {
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
+    process.env.JWT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----'
     fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
 
     const res = await GET()
