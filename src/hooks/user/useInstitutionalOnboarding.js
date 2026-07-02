@@ -681,6 +681,7 @@ export function useInstitutionalOnboarding({
       backendUrl: initResult.backendUrl,
       stableUserId: initResult.stableUserId,
       institutionId: initResult.institutionId,
+      backendAuthToken: initResult.backendAuthToken,
     })
 
     if (!popupResult?.opened) {

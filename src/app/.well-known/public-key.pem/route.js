@@ -17,25 +17,25 @@ export async function GET() {
     let publicKey;
     const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
-    // Prefer the committed static file for consistency with /.well-known/public-key.pem.
-    // Fall back to JWT_PUBLIC_KEY when the file is unavailable.
-    try {
-      publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-    } catch (err) {
-      if (err.code === 'ENOENT') {
-        if (process.env.JWT_PUBLIC_KEY) {
-          publicKey = process.env.JWT_PUBLIC_KEY;
-        } else {
+    // Prefer the runtime env var so deployed key rotations keep signing and
+    // published verification keys in sync. Fall back to the committed file for
+    // local/static deployments.
+    if (process.env.JWT_PUBLIC_KEY) {
+      publicKey = process.env.JWT_PUBLIC_KEY;
+    } else {
+      try {
+        publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+      } catch (err) {
+        if (err.code === 'ENOENT') {
           console.error('Public key not found. Set JWT_PUBLIC_KEY environment variable or place file at:', publicKeyPath);
           return new Response('Public key not found', {
             status: 404,
             headers: {
-              'Content-Type': 'text/plain'
-            }
+              'Content-Type': 'text/plain',
+            },
           });
         }
-      } else {
-        throw err; // other read errors bubble up to the outer catch → 500
+        throw err;
       }
     }
 
@@ -46,8 +46,8 @@ export async function GET() {
       return new Response('Invalid public key format', {
         status: 500,
         headers: {
-          'Content-Type': 'text/plain'
-        }
+          'Content-Type': 'text/plain',
+        },
       });
     }
 
@@ -56,11 +56,11 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'text/plain',
-        'Cache-Control': 'public, max-age=3600', // 1 hour cache
-        'Access-Control-Allow-Origin': '*', // Allow access from auth-service
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
     });
 
   } catch (error) {
@@ -68,8 +68,8 @@ export async function GET() {
     return new Response('Internal server error', {
       status: 500,
       headers: {
-        'Content-Type': 'text/plain'
-      }
+        'Content-Type': 'text/plain',
+      },
     });
   }
 }

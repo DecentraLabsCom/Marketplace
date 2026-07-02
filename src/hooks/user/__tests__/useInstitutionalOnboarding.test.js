@@ -144,6 +144,7 @@ describe('useInstitutionalOnboarding', () => {
         json: () => Promise.resolve({
           status: 'ok',
           payload: { stableUserId: 'user123' },
+          auth: { backendAuthToken: 'backend-token' },
           meta: { stableUserId: 'user123', institutionId: 'university.edu' }
         })
       })
@@ -163,6 +164,9 @@ describe('useInstitutionalOnboarding', () => {
         'https://backend.example.com/onboarding/webauthn/key-status/user123?institutionId=university.edu',
         expect.objectContaining({
           method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer backend-token',
+          }),
         })
       )
     })
@@ -404,6 +408,9 @@ describe('useInstitutionalOnboarding', () => {
           institutionId: 'university.edu',
           email: 'test@university.edu',
           displayName: 'Test User'
+        },
+        auth: {
+          backendAuthToken: 'backend-token'
         }
       }
 
@@ -440,12 +447,17 @@ describe('useInstitutionalOnboarding', () => {
         'https://backend.example.com/onboarding/webauthn/options',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer backend-token',
+          },
         })
       )
       expect(result.current.state).toBe(OnboardingState.REDIRECTING)
       expect(result.current.sessionData.sessionId).toBe('session123')
+      expect(result.current.sessionData.backendAuthToken).toBe('backend-token')
       expect(resultData.sessionId).toBe('session123')
+      expect(resultData.backendAuthToken).toBe('backend-token')
     })
 
     it('should handle session fetch error', async () => {
@@ -829,6 +841,7 @@ describe('useInstitutionalOnboarding', () => {
         json: () => Promise.resolve({
           status: 'ok',
           payload: { stableUserId: 'user123' },
+          auth: { backendAuthToken: 'backend-token' },
           meta: { stableUserId: 'user123', institutionId: 'university.edu' }
         })
       })
@@ -841,7 +854,7 @@ describe('useInstitutionalOnboarding', () => {
         })
       })
 
-      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
 
       let flowResult
       await act(async () => {
@@ -850,6 +863,8 @@ describe('useInstitutionalOnboarding', () => {
 
       expect(flowResult.redirecting).toBe(true)
       expect(flowResult.ceremonyUrl).toBe('https://ceremony.example.com')
+      const storedSession = JSON.parse(mockSessionStorage.setItem.mock.calls[0][1])
+      expect(storedSession.backendAuthToken).toBe('backend-token')
     })
   })
 

@@ -81,13 +81,14 @@ describe('/.well-known/public-key.pem route', () => {
     await expect(res.text()).resolves.toContain('DEF')
   })
 
-  test('prefers key from file when both file and env var are present', async () => {
+  test('prefers key from env var when both file and env var are present', async () => {
     const { GET } = await import('../.well-known/public-key.pem/route.js')
     process.env.JWT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----'
     fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
 
     const res = await GET()
     expect(res.status).toBe(200)
-    await expect(res.text()).resolves.toContain('DEF')
+    await expect(res.text()).resolves.toContain('ABC')
+    expect(fs.readFileSync).not.toHaveBeenCalled()
   })
 })
