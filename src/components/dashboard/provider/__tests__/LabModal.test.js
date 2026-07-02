@@ -70,8 +70,12 @@ jest.mock("@/utils/dev/logger", () => ({
 // Child components mocked with functional stubs
 jest.mock("@/components/dashboard/provider/LabFormFullSetup", () => ({
   __esModule: true,
-  default: ({ onSubmit, onCancel }) => (
+  default: ({ localLab, onSubmit, onCancel }) => (
     <div data-testid="full-setup-form">
+      <span data-testid="resource-type">{localLab?.resourceType}</span>
+      {localLab?.resourceType === "fmu" && (
+        <span data-testid="max-concurrent-users">{localLab?.maxConcurrentUsers}</span>
+      )}
       <button onClick={onSubmit}>Submit Full</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
@@ -206,6 +210,30 @@ describe("LabModal - Unit Tests", () => {
       await user.click(fullSetupTab);
 
       expect(screen.getByTestId("full-setup-form")).toBeInTheDocument();
+    });
+
+    test("resets max concurrent users when switching between resource types", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <LabModal
+          isOpen={true}
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          lab={null}
+          maxId={0}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /Simulation/i }));
+
+      expect(screen.getByTestId("resource-type")).toHaveTextContent("fmu");
+      expect(screen.getByTestId("max-concurrent-users")).toHaveTextContent("2");
+
+      await user.click(screen.getByRole("button", { name: /Real Lab/i }));
+
+      expect(screen.getByTestId("resource-type")).toHaveTextContent("lab");
+      expect(screen.queryByTestId("max-concurrent-users")).not.toBeInTheDocument();
     });
   });
 

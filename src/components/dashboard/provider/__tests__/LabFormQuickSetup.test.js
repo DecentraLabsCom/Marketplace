@@ -347,7 +347,7 @@ describe("LabFormQuickSetup", () => {
   });
 
   describe("FMU handling in quick setup", () => {
-    const fmuLab = { ...mockLab, resourceType: "fmu", fmuFileName: "spring-damper.fmu" };
+    const fmuLab = { ...mockLab, resourceType: "fmu", fmuFileName: "spring-damper.fmu", maxConcurrentUsers: 4 };
 
     test("shows FMU file name field instead of Access Key for FMU labs", () => {
       renderForm({ localLab: fmuLab, lab: {} });
@@ -393,11 +393,25 @@ describe("LabFormQuickSetup", () => {
       );
     });
 
+    test("shows editable max concurrent users field for FMU labs", () => {
+      renderForm({ localLab: fmuLab, lab: {} });
+
+      const input = screen.getByLabelText("Max Concurrent Users");
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveValue(4);
+
+      fireEvent.change(input, { target: { value: "6" } });
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith(expect.objectContaining({
+        maxConcurrentUsers: "6",
+      }));
+    });
+
     test("shows Access Key field and hides FMU file name field for regular labs", () => {
       renderForm({ localLab: { ...mockLab, resourceType: "lab" }, lab: {} });
 
       expect(screen.getByPlaceholderText("Access Key")).toBeInTheDocument();
       expect(screen.queryByPlaceholderText(/FMU file name/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Max Concurrent Users")).not.toBeInTheDocument();
     });
 
     test("displays fmuFileName validation error", () => {

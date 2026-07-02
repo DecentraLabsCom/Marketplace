@@ -7,6 +7,15 @@ import {
 const getInitialFordCodes = (lab) => getFordCodesFromClassification(lab?.classification)
 const getInitialIscedCodes = (lab) => getIscedCodesFromClassification(lab?.classification)
 
+export const normalizeMaxConcurrentUsersForResource = (lab) => {
+  const resourceType = getResourceType(lab)
+  const parsed = Math.trunc(Number(lab?.maxConcurrentUsers))
+  if (resourceType === 'fmu') {
+    return Number.isFinite(parsed) && parsed >= 2 ? parsed : 2
+  }
+  return 1
+}
+
 export const initialState = (lab) => ({
   activeTab: 'full',
   imageInputType: 'link',
@@ -34,7 +43,7 @@ export const initialState = (lab) => ({
     availableDays: lab?.availableDays || [],
     availableHours: lab?.availableHours || { start: '', end: '' },
     timezone: lab?.timezone || '',
-    maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
+    maxConcurrentUsers: 1,
     fmuFileName: lab?.fmuFileName || '',
     fmiVersion: lab?.fmiVersion || '',
     simulationType: lab?.simulationType || '',
@@ -51,6 +60,7 @@ export const initialState = (lab) => ({
     },
     // Spread the rest of the lab properties after ensuring required fields have defaults
     ...lab,
+    maxConcurrentUsers: normalizeMaxConcurrentUsersForResource(lab),
     category: getInitialFordCodes(lab),
     classification: lab?.classification || [],
     educationalProgramLinked: getInitialIscedCodes(lab).length > 0 || lab?.educationalProgramLinked === true,

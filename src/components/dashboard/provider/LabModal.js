@@ -15,7 +15,12 @@ import {
   getFordCodesFromClassification,
   getIscedCodesFromClassification,
 } from '@/constants/labClassifications'
-import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
+import {
+  initialState,
+  extractInternalLabUri,
+  normalizeMaxConcurrentUsersForResource,
+  reducer,
+} from './labModalReducer'
 import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
 
@@ -180,6 +185,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
     labToMerge.resourceType = getResourceType(lab)
+    labToMerge.maxConcurrentUsers = normalizeMaxConcurrentUsersForResource(labToMerge)
     const fordCodes = getFordCodesFromClassification(lab?.classification)
     const iscedCodes = getIscedCodesFromClassification(lab?.classification)
     labToMerge.category = fordCodes
@@ -655,6 +661,35 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     }
   };
 
+  const handleResourceTypeChange = (resourceType) => {
+    if (resourceType === RESOURCE_TYPES.FMU) {
+      const currentMax = Math.trunc(Number(localLab?.maxConcurrentUsers))
+      dispatch({
+        type: 'MERGE_LOCAL_LAB',
+        value: {
+          resourceType,
+          maxConcurrentUsers: Number.isFinite(currentMax) && currentMax >= 2 ? currentMax : 2,
+        },
+      })
+      return
+    }
+
+    dispatch({
+      type: 'MERGE_LOCAL_LAB',
+      value: {
+        resourceType,
+        maxConcurrentUsers: 1,
+        fmuFileName: '',
+        fmiVersion: '',
+        simulationType: '',
+        modelVariables: [],
+        defaultStartTime: null,
+        defaultStopTime: null,
+        defaultStepSize: null,
+      },
+    })
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -691,7 +726,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
+                  onClick={() => handleResourceTypeChange(RESOURCE_TYPES.LAB)}
                   className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                     localLab?.resourceType === RESOURCE_TYPES.LAB
                       ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
@@ -704,7 +739,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 </button>
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } })}
+                  onClick={() => handleResourceTypeChange(RESOURCE_TYPES.FMU)}
                   className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                     localLab?.resourceType === RESOURCE_TYPES.FMU
                       ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'

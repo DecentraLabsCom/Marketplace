@@ -3,7 +3,14 @@ import { Loader2, Cpu } from 'lucide-react'
 import { normalizeArray } from './labFormUtils'
 import devLog from '@/utils/dev/logger'
 
-export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmuMetadata, errors, disabled, gatewayUrl }) {
+export default function FmuFieldsSection({
+  localLab,
+  handleBasicChange,
+  applyFmuMetadata,
+  errors,
+  disabled,
+  gatewayUrl,
+}) {
   const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
   const abortRef = useRef(null)
 
@@ -80,7 +87,7 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmu
       devLog.error('FMU describe failed:', err)
       setDescribeFetch({ loading: false, error: err.message, fetched: false })
     }
-  }, [localLab?.fmuFileName, localLab?.id, handleBasicChange, gatewayUrl])
+  }, [localLab?.fmuFileName, localLab?.id, handleBasicChange, applyFmuMetadata, gatewayUrl])
 
   useEffect(() => {
     return () => { if (abortRef.current) abortRef.current.abort() }

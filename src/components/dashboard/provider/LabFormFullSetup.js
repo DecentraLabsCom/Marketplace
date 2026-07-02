@@ -570,6 +570,29 @@ export default function LabFormFullSetup({
         </div>
         {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
 
+        {localLab?.resourceType === RESOURCE_TYPES.FMU && (
+          <div>
+            <label htmlFor="fmu-max-concurrent-users" className="block text-sm font-medium text-gray-900 mb-1">
+              Max Concurrent Users
+            </label>
+            <input
+              id="fmu-max-concurrent-users"
+              type="number"
+              min="2"
+              step="1"
+              placeholder="Concurrent users"
+              value={localLab?.maxConcurrentUsers || ''}
+              onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={maxConcurrentUsersRef}
+            />
+            {errors.maxConcurrentUsers && (
+              <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
+            )}
+          </div>
+        )}
+
         <div className={`grid gap-4 ${isCalendarPeriod ? 'md:grid-cols-[80px_80px_150px_minmax(0,1fr)]' : 'md:grid-cols-2'}`}>
           {isCalendarPeriod ? (
             <>
@@ -705,23 +728,6 @@ export default function LabFormFullSetup({
               <p className="text-red-500 text-sm mt-1!">{errors.availableHoursEnd}</p>
             )}
           </div>
-        </div>
-
-        <div className="hidden">
-          <label className="block text-sm font-medium text-gray-900 mb-1">Max Concurrent Users</label>
-          <input
-            type="number"
-            min="1"
-            placeholder="Max Concurrent Users"
-            value={localLab?.maxConcurrentUsers || ''}
-            onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={true}
-            ref={maxConcurrentUsersRef}
-          />
-          {errors.maxConcurrentUsers && (
-            <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
-          )}
         </div>
       </section>
 

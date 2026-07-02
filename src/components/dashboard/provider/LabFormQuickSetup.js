@@ -202,6 +202,25 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
           {describeFetch.fetched && (
             <p className="text-green-600 text-sm">✓ FMU metadata loaded successfully</p>
           )}
+          <div>
+            <label htmlFor="quick-fmu-max-concurrent-users" className="block text-sm font-medium text-gray-700 mb-1">
+              Max Concurrent Users
+            </label>
+            <input
+              id="quick-fmu-max-concurrent-users"
+              type="number"
+              min="2"
+              step="1"
+              placeholder="Concurrent users"
+              value={localLab?.maxConcurrentUsers || ''}
+              onChange={(e) => setLocalLab({ ...localLab, maxConcurrentUsers: e.target.value })}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={isLocalURI}
+            />
+            {errors.maxConcurrentUsers && (
+              <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
+            )}
+          </div>
           <p className="text-xs text-gray-400">
             Access Key is set automatically to match the FMU file name.
             {onSwitchToFullSetup && (

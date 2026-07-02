@@ -101,11 +101,13 @@ export const fillFullSetupForm = async (labData) => {
     });
   }
 
-  // Max Concurrent Users
-  const maxUsersInput = screen.getByPlaceholderText(/concurrent users/i);
-  fireEvent.change(maxUsersInput, {
-    target: { value: labData.maxConcurrentUsers.toString() }
-  });
+  // Max Concurrent Users (FMU-only)
+  const maxUsersInput = screen.queryByPlaceholderText(/concurrent users/i);
+  if (maxUsersInput && labData.maxConcurrentUsers != null) {
+    fireEvent.change(maxUsersInput, {
+      target: { value: labData.maxConcurrentUsers.toString() }
+    });
+  }
 
   // Terms of Use
   if (labData.termsOfUse?.url) {

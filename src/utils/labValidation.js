@@ -154,6 +154,8 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         const maxUsers = parseInt(localLab.maxConcurrentUsers, 10);
         if (isNaN(maxUsers) || maxUsers <= 0) {
             errors.maxConcurrentUsers = 'Concurrent user limit must be a positive integer';
+        } else if (localLab.resourceType === 'fmu' && maxUsers < 2) {
+            errors.maxConcurrentUsers = 'FMU concurrent user limit must be at least 2';
         }
     }
 
@@ -290,8 +292,7 @@ export function validateFmuFields(localLab) {
         errors.accessKey = 'For FMU resources, Access Key must match FMU file name.';
     }
 
-    // maxConcurrentUsers is already validated in validateLabFull, but for FMUs
-    // we additionally require it to be >= 1 (which validateLabFull already enforces)
+    // maxConcurrentUsers is already validated in validateLabFull; FMUs require >= 2.
 
     // --- Auto-read fields ---
     // Metadata can be absent during creation when gateway auth is not yet available.

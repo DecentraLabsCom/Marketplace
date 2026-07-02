@@ -90,12 +90,14 @@ jest.mock("@/components/ui/media/DocPreviewList.js", () => ({
   ),
 }));
 
-// Mock FmuFieldsSection to avoid fetch calls in unit tests
+// Mock FmuFieldsSection to avoid fetch calls in unit tests while preserving
+// the provider-entered concurrency control contract.
 jest.mock("../FmuFieldsSection", () => ({
   __esModule: true,
-  default: ({ localLab }) => (
+  default: ({ localLab, disabled }) => (
     <div data-testid="fmu-fields-section">
       <span>{localLab?.fmuFileName}</span>
+      <span>{disabled ? "disabled" : "enabled"}</span>
     </div>
   ),
 }));
@@ -717,10 +719,25 @@ describe("LabFormFullSetup", () => {
       expect(screen.getByTestId("fmu-fields-section")).toBeInTheDocument();
     });
 
+    test("shows editable max concurrent users field for FMU labs", () => {
+      renderForm({ localLab: { ...fmuLab, maxConcurrentUsers: 7 } });
+
+      const input = screen.getByLabelText("Max Concurrent Users");
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveValue(7);
+      expect(input).not.toBeDisabled();
+
+      fireEvent.change(input, { target: { value: "9" } });
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith(expect.objectContaining({
+        maxConcurrentUsers: "9",
+      }));
+    });
+
     test("does not render FmuFieldsSection when resourceType is not fmu", () => {
       renderForm({ localLab: { ...mockLab, resourceType: "lab" } });
 
       expect(screen.queryByTestId("fmu-fields-section")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Max Concurrent Users")).not.toBeInTheDocument();
     });
 
     test("shows 'Add FMU Simulation' button text for new FMU lab", () => {
