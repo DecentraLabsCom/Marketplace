@@ -550,48 +550,52 @@ export default function LabFormFullSetup({
           </div>
         </div>
 
-        <label className="text-sm font-medium text-gray-900">Available Days</label>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAY_OPTIONS.map(({ value, label }) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => toggleAvailableDay(value)}
-              className={`px-3 py-1 rounded-full border transition ${
-                availableDays.includes(value)
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={disabled}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
-
-        {localLab?.resourceType === RESOURCE_TYPES.FMU && (
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(240px,300px)] items-start">
           <div>
-            <label htmlFor="fmu-max-concurrent-users" className="block text-sm font-medium text-gray-900 mb-1">
-              Max Concurrent Users
-            </label>
-            <input
-              id="fmu-max-concurrent-users"
-              type="number"
-              min="2"
-              step="1"
-              placeholder="Concurrent users"
-              value={localLab?.maxConcurrentUsers || ''}
-              onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={maxConcurrentUsersRef}
-            />
-            {errors.maxConcurrentUsers && (
-              <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
-            )}
+            <label className="text-sm font-medium text-gray-900">Available Days</label>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAY_OPTIONS.map(({ value, label }) => (
+                <button
+                  type="button"
+                  key={value}
+                  onClick={() => toggleAvailableDay(value)}
+                  className={`px-3 py-1 rounded-full border transition ${
+                    availableDays.includes(value)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={disabled}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
           </div>
-        )}
+
+          {localLab?.resourceType === RESOURCE_TYPES.FMU && (
+            <div>
+              <label htmlFor="fmu-max-concurrent-users" className="block text-sm font-medium text-gray-900 mb-1">
+                Max Concurrent Users
+              </label>
+              <input
+                id="fmu-max-concurrent-users"
+                type="number"
+                min="2"
+                step="1"
+                placeholder="Concurrent users"
+                value={localLab?.maxConcurrentUsers || ''}
+                onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
+                className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                disabled={disabled}
+                ref={maxConcurrentUsersRef}
+              />
+              {errors.maxConcurrentUsers && (
+                <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className={`grid gap-4 ${isCalendarPeriod ? 'md:grid-cols-[80px_80px_150px_minmax(0,1fr)]' : 'md:grid-cols-2'}`}>
           {isCalendarPeriod ? (

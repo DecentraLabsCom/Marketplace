@@ -43,7 +43,6 @@ export const initialState = (lab) => ({
     availableDays: lab?.availableDays || [],
     availableHours: lab?.availableHours || { start: '', end: '' },
     timezone: lab?.timezone || '',
-    maxConcurrentUsers: 1,
     fmuFileName: lab?.fmuFileName || '',
     fmiVersion: lab?.fmiVersion || '',
     simulationType: lab?.simulationType || '',
