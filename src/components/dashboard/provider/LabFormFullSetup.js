@@ -550,7 +550,7 @@ export default function LabFormFullSetup({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(240px,300px)] items-start">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] items-start">
           <div>
             <label className="text-sm font-medium text-gray-900">Available Days</label>
             <div className="flex flex-wrap gap-2">
