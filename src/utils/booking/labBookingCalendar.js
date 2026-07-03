@@ -161,25 +161,66 @@ const getZonedTimeInfo = (date, timeZone, fallbackWeekday) => {
   }
 }
 
-const getWeekdayForDate = (date, timeZone) => {
-  const fallbackWeekday = WEEKDAYS[date.getDay()]
-  if (!timeZone) return fallbackWeekday
+const getCalendarWeekday = (date) => WEEKDAYS[date.getDay()]
 
-  try {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      weekday: 'long'
-    }).formatToParts(date)
-    const weekdayPart = parts.find(part => part.type === 'weekday')?.value
-    return weekdayPart ? weekdayPart.toUpperCase() : fallbackWeekday
-  } catch (error) {
-    devLog.warn('getWeekdayForDate: failed to apply timezone', { error, timeZone })
-  }
+const resolveAvailabilityInterval = (lab, interval) => {
+  const parsedInterval = Number(interval)
+  if (Number.isFinite(parsedInterval) && parsedInterval > 0) return parsedInterval
 
-  return fallbackWeekday
+  const slotDurations = Array.isArray(lab?.timeSlots)
+    ? lab.timeSlots.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    : []
+  return slotDurations.length > 0 ? Math.min(...slotDurations) : 30
 }
 
-export const isDayFullyUnavailable = ({ date, lab }) => {
+const hasStructurallyAvailableSlot = ({
+  dayStart,
+  dayEnd,
+  durationMinutes,
+  timezone,
+  availableDays,
+  hasDailyHours,
+  parsedHoursStart,
+  parsedHoursEnd,
+  opensUnix,
+  closesUnix,
+  unavailableWindows,
+}) => {
+  let slot = new Date(dayStart)
+
+  while (slot <= dayEnd) {
+    const slotStart = new Date(slot)
+    const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60 * 1000)
+    const slotStartInfo = getZonedTimeInfo(slotStart, timezone, WEEKDAYS[slotStart.getDay()])
+    const slotStartUnix = Math.floor(slotStart.getTime() / 1000)
+    const slotEndUnix = Math.floor(slotEnd.getTime() / 1000)
+
+    const outsideDayAvailability = availableDays.length > 0 && !availableDays.includes(slotStartInfo.weekday)
+    const outsideHours = hasDailyHours
+      ? (
+          slotStartInfo.minutesOfDay < parsedHoursStart ||
+          slotStartInfo.minutesOfDay >= parsedHoursEnd ||
+          (slotStartInfo.minutesOfDay + durationMinutes) > parsedHoursEnd
+        )
+      : false
+    const outsideGlobalWindow =
+      (Number.isFinite(opensUnix) && slotStartUnix < opensUnix) ||
+      (Number.isFinite(closesUnix) && slotEndUnix > closesUnix)
+    const inMaintenanceWindow = unavailableWindows.some((window) =>
+      slotStartUnix < window.endUnix && slotEndUnix > window.startUnix
+    )
+
+    if (!outsideDayAvailability && !outsideHours && !outsideGlobalWindow && !inMaintenanceWindow) {
+      return true
+    }
+
+    slot = slotEnd
+  }
+
+  return false
+}
+
+export const isDayFullyUnavailable = ({ date, lab, interval }) => {
   if (!(date instanceof Date) || isNaN(date.getTime()) || !lab) return false
 
   const timezone = typeof lab?.timezone === 'string' ? lab.timezone.trim() : undefined
@@ -188,6 +229,10 @@ export const isDayFullyUnavailable = ({ date, lab }) => {
   const availableDays = Array.isArray(lab?.availableDays)
     ? lab.availableDays.map(day => day?.toUpperCase?.()).filter(Boolean)
     : []
+  const parsedHoursStart = parseTimeToMinutes(lab?.availableHours?.start)
+  const parsedHoursEnd = parseTimeToMinutes(lab?.availableHours?.end)
+  const hasDailyHours = Number.isFinite(parsedHoursStart) && Number.isFinite(parsedHoursEnd) && parsedHoursEnd > parsedHoursStart
+  const unavailableWindows = normalizeUnavailableWindows(lab?.unavailableWindows)
 
   const dayStart = new Date(date)
   dayStart.setHours(0, 0, 0, 0)
@@ -200,12 +245,11 @@ export const isDayFullyUnavailable = ({ date, lab }) => {
   if (Number.isFinite(opensUnix) && dayEndUnix <= opensUnix) return true
   if (Number.isFinite(closesUnix) && dayStartUnix >= closesUnix) return true
 
-  if (availableDays.length > 0) {
-    const weekday = getWeekdayForDate(date, timezone)
+  if (!timezone && availableDays.length > 0 && !hasDailyHours) {
+    const weekday = getCalendarWeekday(date)
     if (!availableDays.includes(weekday)) return true
   }
 
-  const unavailableWindows = normalizeUnavailableWindows(lab?.unavailableWindows)
   if (unavailableWindows.length > 0) {
     const isFullyCovered = unavailableWindows.some(window => {
       if (!Number.isFinite(window.startUnix) || !Number.isFinite(window.endUnix)) return false
@@ -213,6 +257,22 @@ export const isDayFullyUnavailable = ({ date, lab }) => {
     })
 
     if (isFullyCovered) return true
+  }
+
+  if (timezone || availableDays.length > 0 || hasDailyHours || unavailableWindows.length > 0) {
+    return !hasStructurallyAvailableSlot({
+      dayStart,
+      dayEnd,
+      durationMinutes: resolveAvailabilityInterval(lab, interval),
+      timezone,
+      availableDays,
+      hasDailyHours,
+      parsedHoursStart,
+      parsedHoursEnd,
+      opensUnix,
+      closesUnix,
+      unavailableWindows,
+    })
   }
 
   return false

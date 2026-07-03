@@ -95,8 +95,8 @@ export default function BookingCalendarSection({
 
   const filterUnavailableDays = useMemo(() => {
     if (!lab) return undefined
-    return (day) => !isDayFullyUnavailable({ date: day, lab })
-  }, [lab])
+    return (day) => !isDayFullyUnavailable({ date: day, lab, interval: duration })
+  }, [lab, duration])
 
   const unavailableDayClassName = useMemo(() => {
     if (!lab) return undefined
@@ -107,9 +107,9 @@ export default function BookingCalendarSection({
       const dayStart = new Date(day)
       dayStart.setHours(0, 0, 0, 0)
       if (dayStart < today) return ''
-      return isDayFullyUnavailable({ date: day, lab }) ? 'unavailable-day' : ''
+      return isDayFullyUnavailable({ date: day, lab, interval: duration }) ? 'unavailable-day' : ''
     }
-  }, [lab])
+  }, [lab, duration])
 
   const periodOptions = useMemo(() => {
     const toOption = (duration) => {

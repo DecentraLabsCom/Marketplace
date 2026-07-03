@@ -42,6 +42,79 @@ jest.mock("@/utils/dev/logger", () => ({
   },
 }));
 
+const OFFSET_DIFFS = [1, 2, 5, 8, 10, 12];
+const SLOT_DURATIONS = [15, 30, 60, 120];
+
+const restoreTimezone = (timezone) => {
+  if (timezone === undefined) {
+    delete process.env.TZ;
+  } else {
+    process.env.TZ = timezone;
+  }
+};
+
+const withUserTimezone = (timezone, callback) => {
+  const previousTimezone = process.env.TZ;
+  process.env.TZ = timezone;
+
+  try {
+    return callback();
+  } finally {
+    restoreTimezone(previousTimezone);
+  }
+};
+
+const timezoneBehindUtc = (hours) => `Etc/GMT+${hours}`;
+const timezoneAheadOfUtc = (hours) => `Etc/GMT-${hours}`;
+
+const enabledSlotValues = (options) =>
+  options.filter((slot) => !slot.disabled).map((slot) => slot.value);
+
+const slotStartDate = (date, timeValue) => {
+  const [hours, minutes] = timeValue.split(":").map(Number);
+  const slotDate = new Date(date);
+  slotDate.setHours(hours, minutes, 0, 0);
+  return slotDate;
+};
+
+const zonedSlotInfo = (date, timeValue, timeZone) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(slotStartDate(date, timeValue));
+
+  const mapped = parts.reduce((acc, part) => {
+    if (part.type !== "literal") acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return {
+    weekday: mapped.weekday.toUpperCase(),
+    minutesOfDay: Number(mapped.hour) * 60 + Number(mapped.minute),
+  };
+};
+
+const expectEnabledSlotsWithinLabWindow = ({
+  options,
+  date,
+  lab,
+  expectedWeekday,
+  startMinutes,
+  endMinutes,
+  duration,
+}) => {
+  const enabled = enabledSlotValues(options);
+  enabled.forEach((timeValue) => {
+    const info = zonedSlotInfo(date, timeValue, lab.timezone);
+    expect(info.weekday).toBe(expectedWeekday);
+    expect(info.minutesOfDay).toBeGreaterThanOrEqual(startMinutes);
+    expect(info.minutesOfDay + duration).toBeLessThanOrEqual(endMinutes);
+  });
+};
+
 describe("generateTimeOptions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -258,6 +331,194 @@ describe("generateTimeOptions", () => {
       expect(eightAM.disabled).toBe(false);
       expect(nineAM.disabled).toBe(false);
       expect(tenAM.disabled).toBe(true);
+    });
+
+    test("allows user-day slots that map to an available lab weekday", () => {
+      dateFns.isToday.mockReturnValue(false);
+
+      withUserTimezone("UTC", () => {
+        const result = generateTimeOptions({
+          date: new Date(2026, 6, 11), // Saturday for the user
+          interval: 60,
+          bookingInfo: [],
+          lab: {
+            availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+            availableHours: { start: "10:00", end: "23:00" },
+            timezone: "America/Santiago",
+          },
+        });
+
+        expect(result.find((slot) => slot.value === "00:00").disabled).toBe(false);
+        expect(result.find((slot) => slot.value === "02:00").disabled).toBe(false);
+        expect(result.find((slot) => slot.value === "05:00").disabled).toBe(true);
+      });
+    });
+
+    describe("Timezone offset availability matrix", () => {
+      const matrixCases = OFFSET_DIFFS.flatMap((offsetHours) =>
+        SLOT_DURATIONS.map((duration) => ({ offsetHours, duration }))
+      );
+
+      test.each(matrixCases)(
+        "keeps only lab-valid starts when user is $offsetHours hours behind and duration is $duration minutes",
+        ({ offsetHours, duration }) => {
+          dateFns.isToday.mockReturnValue(false);
+
+          withUserTimezone(timezoneBehindUtc(offsetHours), () => {
+            const lab = {
+              availableDays: ["MONDAY"],
+              availableHours: { start: "00:00", end: "04:00" },
+              timezone: "UTC",
+            };
+            const date = new Date(2026, 6, 5); // User Sunday, overlapping lab Monday.
+
+            const result = generateTimeOptions({
+              date,
+              interval: duration,
+              bookingInfo: [],
+              lab,
+            });
+            const enabled = enabledSlotValues(result);
+
+            expect(isDayFullyUnavailable({ date, lab, interval: duration })).toBe(enabled.length === 0);
+            expectEnabledSlotsWithinLabWindow({
+              options: result,
+              date,
+              lab,
+              expectedWeekday: "MONDAY",
+              startMinutes: 0,
+              endMinutes: 4 * 60,
+              duration,
+            });
+          });
+        }
+      );
+
+      test.each(matrixCases)(
+        "keeps only lab-valid starts when user is $offsetHours hours ahead and duration is $duration minutes",
+        ({ offsetHours, duration }) => {
+          dateFns.isToday.mockReturnValue(false);
+
+          withUserTimezone(timezoneAheadOfUtc(offsetHours), () => {
+            const lab = {
+              availableDays: ["FRIDAY"],
+              availableHours: { start: "20:00", end: "23:59" },
+              timezone: "UTC",
+            };
+            const date = new Date(2026, 6, 11); // User Saturday, overlapping lab Friday.
+
+            const result = generateTimeOptions({
+              date,
+              interval: duration,
+              bookingInfo: [],
+              lab,
+            });
+            const enabled = enabledSlotValues(result);
+
+            expect(isDayFullyUnavailable({ date, lab, interval: duration })).toBe(enabled.length === 0);
+            expectEnabledSlotsWithinLabWindow({
+              options: result,
+              date,
+              lab,
+              expectedWeekday: "FRIDAY",
+              startMinutes: 20 * 60,
+              endMinutes: (23 * 60) + 59,
+              duration,
+            });
+          });
+        }
+      );
+
+      test.each(matrixCases)(
+        "disables an adjacent user day with no lab-valid starts when user is $offsetHours hours behind and duration is $duration minutes",
+        ({ offsetHours, duration }) => {
+          dateFns.isToday.mockReturnValue(false);
+
+          withUserTimezone(timezoneBehindUtc(offsetHours), () => {
+            const lab = {
+              availableDays: ["MONDAY"],
+              availableHours: { start: "00:00", end: "04:00" },
+              timezone: "UTC",
+            };
+            const date = new Date(2026, 6, 4); // User Saturday, before the spillover day.
+
+            const result = generateTimeOptions({
+              date,
+              interval: duration,
+              bookingInfo: [],
+              lab,
+            });
+
+            expect(enabledSlotValues(result)).toHaveLength(0);
+            expect(isDayFullyUnavailable({ date, lab, interval: duration })).toBe(true);
+          });
+        }
+      );
+
+      test.each(
+        matrixCases.flatMap(({ offsetHours, duration }) => [
+          { offsetHours, duration, userTimezone: timezoneBehindUtc(offsetHours) },
+          { offsetHours, duration, userTimezone: timezoneAheadOfUtc(offsetHours) },
+        ])
+      )(
+        "keeps a broadly available lab selectable for $offsetHours hour offset and $duration minute slots",
+        ({ duration, userTimezone }) => {
+          dateFns.isToday.mockReturnValue(false);
+
+          withUserTimezone(userTimezone, () => {
+            const lab = {
+              availableDays: [
+                "SUNDAY",
+                "MONDAY",
+                "TUESDAY",
+                "WEDNESDAY",
+                "THURSDAY",
+                "FRIDAY",
+                "SATURDAY",
+              ],
+              availableHours: { start: "00:00", end: "23:59" },
+              timezone: "UTC",
+            };
+            const date = new Date(2026, 6, 8);
+
+            const result = generateTimeOptions({
+              date,
+              interval: duration,
+              bookingInfo: [],
+              lab,
+            });
+
+            expect(enabledSlotValues(result).length).toBeGreaterThan(0);
+            expect(isDayFullyUnavailable({ date, lab, interval: duration })).toBe(false);
+          });
+        }
+      );
+
+      test.each(SLOT_DURATIONS)(
+        "fully disables a same-timezone unavailable calendar day for %i minute slots",
+        (duration) => {
+          dateFns.isToday.mockReturnValue(false);
+
+          withUserTimezone("UTC", () => {
+            const lab = {
+              availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+              availableHours: { start: "09:00", end: "17:00" },
+              timezone: "UTC",
+            };
+            const date = new Date(2026, 6, 12); // Sunday in both user and lab timezone.
+
+            const result = generateTimeOptions({
+              date,
+              interval: duration,
+              bookingInfo: [],
+              lab,
+            });
+
+            expect(enabledSlotValues(result)).toHaveLength(0);
+            expect(isDayFullyUnavailable({ date, lab, interval: duration })).toBe(true);
+          });
+        }
+      );
     });
   });
 
@@ -757,6 +1018,37 @@ describe("isDayFullyUnavailable", () => {
     });
 
     expect(result).toBe(false);
+  });
+
+  test("keeps user calendar days selectable when lab availability spills across timezones", () => {
+    withUserTimezone("UTC", () => {
+      const lab = {
+        availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+        availableHours: { start: "10:00", end: "23:00" },
+        timezone: "America/Santiago",
+      };
+
+      expect(isDayFullyUnavailable({
+        date: new Date(2026, 6, 10), // Friday for the user
+        lab,
+        interval: 60,
+      })).toBe(false);
+      expect(isDayFullyUnavailable({
+        date: new Date(2026, 6, 11), // Saturday contains late Friday lab slots
+        lab,
+        interval: 60,
+      })).toBe(false);
+      expect(isDayFullyUnavailable({
+        date: new Date(2026, 6, 12), // Sunday has no lab slots
+        lab,
+        interval: 60,
+      })).toBe(true);
+      expect(isDayFullyUnavailable({
+        date: new Date(2026, 6, 13), // Monday for the user
+        lab,
+        interval: 60,
+      })).toBe(false);
+    });
   });
 
   test("returns true when unavailable window covers full day", () => {
