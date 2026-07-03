@@ -4,77 +4,12 @@
  */
 import devLog from '@/utils/dev/logger'
 
-const CHECKED_IN_RESERVATIONS_STORAGE_KEY = 'decentralabs.checkedInReservations'
-const checkedInReservationsMemory = new Set()
-
-function normalizeReservationKey(reservationKey) {
-  if (!reservationKey) {
-    return null
-  }
-  const key = String(reservationKey).trim()
-  return key || null
-}
-
-function readCheckedInReservations() {
-  if (typeof window === 'undefined' || !window.sessionStorage) {
-    return new Set(checkedInReservationsMemory)
-  }
-
-  try {
-    const raw = window.sessionStorage.getItem(CHECKED_IN_RESERVATIONS_STORAGE_KEY)
-    const values = raw ? JSON.parse(raw) : []
-    if (!Array.isArray(values)) {
-      return new Set()
-    }
-    return new Set(values.filter(Boolean).map(String))
-  } catch {
-    return new Set(checkedInReservationsMemory)
-  }
-}
-
-function writeCheckedInReservations(values) {
-  checkedInReservationsMemory.clear()
-  values.forEach((value) => checkedInReservationsMemory.add(value))
-
-  if (typeof window === 'undefined' || !window.sessionStorage) {
-    return
-  }
-
-  try {
-    window.sessionStorage.setItem(
-      CHECKED_IN_RESERVATIONS_STORAGE_KEY,
-      JSON.stringify([...values])
-    )
-  } catch {
-    // In-memory cache still avoids duplicate check-ins during the current page lifetime.
-  }
-}
-
-export function hasRecordedInstitutionalCheckIn(reservationKey) {
-  const key = normalizeReservationKey(reservationKey)
-  if (!key) {
-    return false
-  }
-  return readCheckedInReservations().has(key)
-}
-
-export function recordInstitutionalCheckIn(reservationKey) {
-  const key = normalizeReservationKey(reservationKey)
-  if (!key) {
-    return
-  }
-  const values = readCheckedInReservations()
-  values.add(key)
-  writeCheckedInReservations(values)
-}
-
 /**
  * Authenticates SSO user for lab access using marketplace-backed flow.
  * @param {Object} params
  * @param {string|number} params.labId - Lab ID to access
  * @param {string} [params.reservationKey] - Optional reservation key for validation
  * @param {string} [params.authEndpoint] - Optional auth endpoint override
- * @param {boolean} [params.skipCheckIn] - Skip check-in when reservation is already marked in use
  * @returns {Promise<Object>} Authentication result with token and labURL or error
  * @throws {Error} If any step of the SSO authentication process fails
  */
@@ -82,19 +17,10 @@ export const authenticateLabAccessSSO = async ({
   labId,
   reservationKey = null,
   authEndpoint = null,
-  skipCheckIn = false,
 } = {}) => {
   try {
     if (!labId && !reservationKey) {
       throw new Error('Missing labId or reservationKey for SSO access');
-    }
-
-    const shouldSkipCheckIn = skipCheckIn || hasRecordedInstitutionalCheckIn(reservationKey);
-    if (!shouldSkipCheckIn) {
-      const checkInResult = await submitInstitutionalCheckIn({ reservationKey, labId, authEndpoint });
-      if (checkInResult?.valid !== false) {
-        recordInstitutionalCheckIn(reservationKey);
-      }
     }
 
     const response = await fetch('/api/auth/lab-access', {

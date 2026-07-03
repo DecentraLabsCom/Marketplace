@@ -335,13 +335,13 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.nextBooking).toMatchObject({ labId: 'earlier' })
     })
 
-    it('does not treat status-2 (in_use) booking as active', () => {
-      // Implementation only checks status === 1 for active
+    it('identifies an active in-use booking (status 2, now within window)', () => {
       setupReservationsMock([
         { labId: '5', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
       const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
-      expect(result.current.data.activeBooking).toBeNull()
+      expect(result.current.data.hasActiveBooking).toBe(true)
+      expect(result.current.data.activeBooking).toMatchObject({ reservationKey: 'rk-0', labId: '5' })
     })
 
     it('does not include cancelled (status 5) booking as next', () => {
@@ -519,6 +519,16 @@ describe('useBookingSpecializedQueries', () => {
       expect(activeBooking.start).toBe(NOW_UNIX_S - 1800)
       expect(activeBooking.end).toBe(NOW_UNIX_S + 1800)
       expect(activeBooking.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(result.current.data.nextBooking).toBeNull()
+    })
+
+    it('returns activeBooking when in-use booking is now active', () => {
+      setupReservationsMock([
+        { labId: '10-in-use', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
+      ])
+      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      expect(result.current.data.hasActiveBooking).toBe(true)
+      expect(result.current.data.activeBooking).toMatchObject({ labId: '10-in-use', status: 2 })
       expect(result.current.data.nextBooking).toBeNull()
     })
 

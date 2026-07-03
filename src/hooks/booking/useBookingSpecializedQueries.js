@@ -305,7 +305,7 @@ export const useActiveUserBooking = (userAddress, options = {}) => {
       const start = parseInt(reservation.start);
       const end = parseInt(reservation.end);
       const status = parseInt(reservation.status);
-      return status === 1 && start <= now && end >= now;
+      return (status === 1 || status === 2) && start <= now && end >= now;
     }) || null;
 
     if (active) {
@@ -445,7 +445,7 @@ export const useUserActiveBookings = (userAddress, options = {}) => {
       const start = parseInt(reservation.start);
       const end = parseInt(reservation.end);
       const status = parseInt(reservation.status);
-      return status === 1 && start <= now && end >= now;
+      return (status === 1 || status === 2) && start <= now && end >= now;
     });
 
     if (activeReservation) {

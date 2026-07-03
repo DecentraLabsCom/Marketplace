@@ -57,15 +57,12 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
   const [authURI, setAuthURI] = useState(null);
   const [fetchingAuth, setFetchingAuth] = useState(false);
   const { isSSO } = useUser();
-  const { data: reservationData, isFetching: isFetchingReservation } = useReservation(reservationKey, {
+  const { isFetching: isFetchingReservation } = useReservation(reservationKey, {
     enabled: !!reservationKey && !!hasActiveBooking,
     staleTime: 60 * 1000,
     refetchOnMount: 'always',
   });
 
-  const isReservationInUse =
-    reservationData?.reservation?.isInUse === true ||
-    Number(reservationData?.reservation?.status) === 2;
   const waitingReservationState = !!reservationKey && !!hasActiveBooking && !!isFetchingReservation;
 
   // Fetch authURI when component mounts or lab ID changes
@@ -130,7 +127,6 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
         labId: id,
         reservationKey: resolvedReservationKey,
         authEndpoint: authURI,
-        skipCheckIn: Boolean(resolvedReservationKey) && isReservationInUse,
       });
 
       // Handle successful authentication

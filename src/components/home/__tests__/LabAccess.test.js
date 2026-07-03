@@ -84,7 +84,6 @@ describe('LabAccess', () => {
         labId: '123',
         reservationKey: 'rk-1',
         authEndpoint: 'https://auth.example.com/auth',
-        skipCheckIn: false,
       })
     })
 
@@ -144,7 +143,6 @@ describe('LabAccess', () => {
         labId: '123',
         reservationKey: '0xabc123',
         authEndpoint: 'https://auth.example.com/auth',
-        skipCheckIn: false,
       })
     })
   })

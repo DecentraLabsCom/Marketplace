@@ -6,7 +6,7 @@
  *
  * Test Behaviors:
  * - Active booking detection
- * - Status validation (confirmed only)
+ * - Status validation (confirmed and in-use)
  * - Time boundary checks
  * - Invalid input handling
  */
@@ -71,6 +71,24 @@ describe("isBookingActive", () => {
       ];
 
       expect(isBookingActive(bookingInfo)).toBe(true);
+    });
+
+    test("returns true when booking is active and in use", () => {
+      jest.setSystemTime(new Date("2025-06-15T12:00:00"));
+
+      const bookingStart = Math.floor(
+        new Date("2025-06-15T10:00:00").getTime() / 1000
+      );
+      const bookingEnd = Math.floor(
+        new Date("2025-06-15T14:00:00").getTime() / 1000
+      );
+
+      expect(isBookingActive([
+        { start: bookingStart, end: bookingEnd, status: 2 },
+      ])).toBe(true);
+      expect(isBookingActive([
+        { start: bookingStart, end: bookingEnd, status: "2" },
+      ])).toBe(true);
     });
 
     test("returns true when multiple bookings and one is active", () => {
@@ -141,7 +159,7 @@ describe("isBookingActive", () => {
       expect(isBookingActive(bookingInfo)).toBe(false);
     });
 
-    test("returns false when status is not confirmed", () => {
+    test("returns false when status is not active", () => {
       jest.setSystemTime(new Date("2025-06-15T12:00:00"));
 
       const bookingStart = Math.floor(
@@ -153,7 +171,6 @@ describe("isBookingActive", () => {
 
       const bookingInfo = [
         { start: bookingStart, end: bookingEnd, status: 0 },
-        { start: bookingStart, end: bookingEnd, status: 2 },
         { start: bookingStart, end: bookingEnd, status: "0" },
       ];
 
