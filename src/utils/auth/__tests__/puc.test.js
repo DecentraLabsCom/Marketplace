@@ -7,6 +7,12 @@ import {
 } from '../puc'
 
 describe('puc normalization', () => {
+  const originalEnv = process.env
+
+  afterEach(() => {
+    process.env = originalEnv
+  })
+
   test('normalizePuc trims and lowercases generic identifiers', () => {
     expect(normalizePuc('  User@University.EDU|Targeted-ID  ')).toBe('user@university.edu|targeted-id')
   })
@@ -16,12 +22,31 @@ describe('puc normalization', () => {
   })
 
   test('getNormalizedPucFromSession lowercases composite shared identifier', () => {
+    process.env = {
+      ...originalEnv,
+      NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE: 'principal_targeted_id',
+    }
+
     expect(
       getNormalizedPucFromSession({
         eduPersonPrincipalName: 'Alice@UNED.ES ',
         eduPersonTargetedID: ' Targeted-Alice ',
       })
     ).toBe('alice@uned.es|targeted-alice')
+  })
+
+  test('getNormalizedPucFromSession can ignore eduPersonTargetedID by env config', () => {
+    process.env = {
+      ...originalEnv,
+      NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE: 'principal',
+    }
+
+    expect(
+      getNormalizedPucFromSession({
+        eduPersonPrincipalName: 'Alice@UNED.ES ',
+        eduPersonTargetedID: ' Targeted-Alice ',
+      })
+    ).toBe('alice@uned.es')
   })
 
   test('getNormalizedPucFromSession lowercases fallback session id', () => {

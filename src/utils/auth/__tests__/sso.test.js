@@ -678,6 +678,31 @@ describe("SSO Utilities", () => {
       expect(result.affiliation).toBe("campus.edu");
     });
 
+    test("uses only eduPersonPrincipalName when stable id mode is principal", async () => {
+      process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = "principal";
+
+      const mockSAMLAssertion = {
+        user: {
+          attributes: {
+            eduPersonPrincipalName: "user@campus.edu",
+            eduPersonTargetedID: "targeted-user-id",
+            mail: "user@campus.edu",
+            displayName: "Campus User",
+            schacHomeOrganization: "campus.edu",
+          },
+        },
+      };
+
+      mockSP.post_assert.mockImplementation((idp, options, callback) => {
+        callback(null, mockSAMLAssertion);
+      });
+
+      const result = await parseSAMLResponse("saml-response-data");
+
+      expect(result.id).toBe("user@campus.edu");
+      expect(result.eduPersonTargetedID).toBe("targeted-user-id");
+    });
+
     test("handles array attributes correctly", async () => {
       const mockSAMLAssertion = {
         user: {

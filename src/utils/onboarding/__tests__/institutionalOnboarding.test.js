@@ -5,6 +5,12 @@ import {
 } from '../institutionalOnboarding'
 
 describe('institutionalOnboarding', () => {
+  const originalEnv = process.env
+
+  afterEach(() => {
+    process.env = originalEnv
+  })
+
   test('OnboardingStatus enum values', () => {
     expect(OnboardingStatus.PENDING).toBe('PENDING')
     expect(OnboardingStatus.SUCCESS).toBe('SUCCESS')
@@ -26,5 +32,19 @@ describe('institutionalOnboarding', () => {
     expect(extractStableUserId({ id: 'justid' })).toBe('justid')
     expect(extractStableUserId({ email: 'a@uned.es' })).toBeNull()
     expect(extractStableUserId(null)).toBeNull()
+  })
+
+  test('extractStableUserId can use only eduPersonPrincipalName by env config', () => {
+    process.env = {
+      ...originalEnv,
+      NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE: 'principal',
+    }
+
+    expect(
+      extractStableUserId({
+        eduPersonPrincipalName: 'ep@uni.edu',
+        eduPersonTargetedID: 't1',
+      })
+    ).toBe('ep@uni.edu')
   })
 })

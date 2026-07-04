@@ -87,6 +87,13 @@ We run **unit and integration tests** (Jest) and linting in CI on every push/PR.
 - Run unit & integration tests: `npm test` (or `npm run test:ci` to run with coverage in CI mode)
 - Run lint: `npm run lint` or `npm run test:lint:cypress` (validates Cypress files do not trigger `no-undef` errors like `expect`)
 
+### SAML stable user ID mode
+
+`NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE` controls how Marketplace derives the stable SSO user identifier from SAML attributes:
+
+- `principal_targeted_id` (default): `eduPersonPrincipalName|eduPersonTargetedID` when `eduPersonTargetedID` is received, otherwise `eduPersonPrincipalName`.
+- `principal`: always use only `eduPersonPrincipalName`.
+
 ### Run E2E tests locally
 
 To run E2E tests locally (recommended):

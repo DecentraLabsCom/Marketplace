@@ -12,6 +12,8 @@
  * @module utils/onboarding/institutionalOnboarding
  */
 
+import { getNormalizedPucFromSession } from '@/utils/auth/puc'
+
 /**
  * Onboarding session status values
  * @readonly
@@ -43,7 +45,7 @@ export const OnboardingErrorCode = {
 
 /**
  * Extracts the stable user identifier from SAML session data.
- * R&S shared identifier:
+ * R&S shared identifier, controlled by NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE:
  * - eduPersonPrincipalName
  * - eduPersonPrincipalName|eduPersonTargetedID
  * 
@@ -53,17 +55,7 @@ export const OnboardingErrorCode = {
 export function extractStableUserId(userData) {
   if (!userData) return null
 
-  if (userData.eduPersonPrincipalName) {
-    return (userData.eduPersonTargetedID
-      ? `${userData.eduPersonPrincipalName}|${userData.eduPersonTargetedID}`
-      : userData.eduPersonPrincipalName).trim().toLowerCase()
-  }
-
-  if (userData.id && typeof userData.id === 'string') {
-    return userData.id.trim().toLowerCase()
-  }
-
-  return null
+  return getNormalizedPucFromSession(userData)
 }
 
 export default {

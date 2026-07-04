@@ -1,5 +1,21 @@
 import { keccak256, toUtf8Bytes } from 'ethers'
 
+export const SAML_STABLE_USER_ID_MODES = Object.freeze({
+  PRINCIPAL: 'principal',
+  PRINCIPAL_TARGETED_ID: 'principal_targeted_id',
+})
+
+export function getSamlStableUserIdMode() {
+  const configured = process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE?.trim().toLowerCase()
+  return configured === SAML_STABLE_USER_ID_MODES.PRINCIPAL
+    ? SAML_STABLE_USER_ID_MODES.PRINCIPAL
+    : SAML_STABLE_USER_ID_MODES.PRINCIPAL_TARGETED_ID
+}
+
+export function shouldIncludeEduPersonTargetedId() {
+  return getSamlStableUserIdMode() === SAML_STABLE_USER_ID_MODES.PRINCIPAL_TARGETED_ID
+}
+
 /**
  * Normalize an identifier string.
  * Historically this was used for SCHAC Personal Unique Codes, but it now
@@ -37,7 +53,7 @@ export function normalizePuc(value) {
 /**
  * Resolve a stable shared user identifier from an authenticated session.
  *
- * Canonical format for on-chain usage:
+ * Canonical format for on-chain usage, controlled by NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE:
  *   - eduPersonPrincipalName
  *   - eduPersonPrincipalName|eduPersonTargetedID
  *
@@ -51,7 +67,10 @@ export function getNormalizedPucFromSession(session) {
   const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
   if (principalName) {
-    return (targetedId ? `${principalName}|${targetedId}` : principalName).toLowerCase()
+    const stableId = shouldIncludeEduPersonTargetedId() && targetedId
+      ? `${principalName}|${targetedId}`
+      : principalName
+    return stableId.toLowerCase()
   }
 
   // Session id is expected to already be the canonical shared identifier.

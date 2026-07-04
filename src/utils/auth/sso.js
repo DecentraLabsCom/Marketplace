@@ -6,6 +6,7 @@ import esLocale from 'i18n-iso-countries/langs/es.json'
 import devLog from '@/utils/dev/logger'
 import { createSessionCookie } from './sessionCookie'
 import { resolveInstitutionDomain } from './institutionDomain'
+import { shouldIncludeEduPersonTargetedId } from './puc'
 export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 
 let countriesInitialized = false
@@ -329,7 +330,7 @@ export async function parseSAMLResponse(samlResponse) {
         devLog.log('[SAML] Derived affiliation domain from fallback attributes:', affiliation);
       }
 
-      const stableId = eduPersonTargetedID
+      const stableId = shouldIncludeEduPersonTargetedId() && eduPersonTargetedID
         ? `${eduPersonPrincipalName}|${eduPersonTargetedID}`
         : eduPersonPrincipalName
 
