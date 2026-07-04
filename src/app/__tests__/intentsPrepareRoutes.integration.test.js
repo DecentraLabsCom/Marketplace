@@ -42,7 +42,8 @@ jest.mock('@/utils/intents/resolveIntentExecutor', () => ({
 }))
 
 jest.mock('@/utils/webauthn/service', () => ({
-  getPucFromSession: jest.fn(),
+  ...jest.requireActual('@/utils/webauthn/service'),
+  getPucFromSession: jest.fn(jest.requireActual('@/utils/webauthn/service').getPucFromSession),
 }))
 
 jest.mock('@/utils/intents/adminIntentSigner', () => ({
@@ -126,10 +127,15 @@ describe('Intent prepare routes integration', () => {
     process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal'
 
     requireAuth.mockResolvedValue({
+      id: 'alice@uned.es|targeted-alice',
+      eduPersonPrincipalName: 'alice@uned.es',
+      eduPersonTargetedID: 'targeted-alice',
       samlAssertion: '<Assertion>test</Assertion>',
       schacHomeOrganization: 'uni.example',
     })
-    getPucFromSession.mockReturnValue('puc-123')
+    getPucFromSession.mockImplementation(
+      jest.requireActual('@/utils/webauthn/service').getPucFromSession
+    )
     resolveIntentExecutorForInstitution.mockResolvedValue('0x00000000000000000000000000000000000000a1')
     getAdminAddress.mockResolvedValue('0x00000000000000000000000000000000000000a2')
     resolveChainNowSec.mockResolvedValue(1_700_000_000)
@@ -230,9 +236,7 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
-  test('actions/prepare: forwards canonical puc hash from session into signed payload', async () => {
-    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
-
+  test('actions/prepare: forwards principal-only puc hash from session into signed payload', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
       action: ACTION_CODES.LAB_UPDATE,
       backendUrl: 'https://ib.example',
@@ -246,7 +250,7 @@ describe('Intent prepare routes integration', () => {
 
     expect(res.status).toBe(200)
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
-      pucHash: '0x7fe5d7dcc5cb9b92f130b0e011fe4ac4f2efa319e74ad62bece3039af9acca0f',
+      pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
     }))
   })
 
@@ -331,9 +335,7 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
-  test('reservations/prepare: forwards canonical puc hash from session into signed payload', async () => {
-    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
-
+  test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
       labId: 22,
       start: nowSec + 1_000,
@@ -345,7 +347,7 @@ describe('Intent prepare routes integration', () => {
 
     expect(res.status).toBe(200)
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      pucHash: '0x7fe5d7dcc5cb9b92f130b0e011fe4ac4f2efa319e74ad62bece3039af9acca0f',
+      pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
     }))
   })
 
