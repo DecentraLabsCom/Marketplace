@@ -59,6 +59,8 @@ const resolvePopupCeremonyUrl = (ceremonyUrl) => {
   }
 }
 
+const ONBOARDING_POPUP_FEATURES = 'width=580,height=720'
+
 const buildBackendAuthHeaders = (token) =>
   token
     ? { Authorization: `Bearer ${token}` }
@@ -380,7 +382,7 @@ export function useInstitutionalOnboarding({
         const popupWindow = window.open(
           popupCeremonyUrl,
           'institutional-onboarding',
-          'width=480,height=720'
+          ONBOARDING_POPUP_FEATURES
         )
         if (popupWindow) {
           onboardingPopup = popupWindow

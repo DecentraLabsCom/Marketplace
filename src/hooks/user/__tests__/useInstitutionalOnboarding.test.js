@@ -551,7 +551,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(parsedUrl.origin).toBe(new URL(mockCeremonyUrl).origin)
       expect(parsedUrl.searchParams.get('parentOrigin')).toBe(window.location.origin)
       expect(popupName).toBe('institutional-onboarding')
-      expect(popupFeatures).toBe('width=480,height=720')
+      expect(popupFeatures).toBe('width=580,height=720')
     })
 
     it('should emit popup-blocked guidance and fail when popup cannot be opened', () => {
