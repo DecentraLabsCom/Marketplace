@@ -80,6 +80,7 @@ export async function requestIntentAuthorizationSession({
   payload,
   signature,
   samlAssertion,
+  stableUserIdMode = null,
   returnUrl = null,
 }) {
   const headers = createIntentBackendHeaders(backendAuthToken)
@@ -87,6 +88,7 @@ export async function requestIntentAuthorizationSession({
     meta,
     signature,
     samlAssertion,
+    stableUserIdMode,
     returnUrl,
     [payloadKey]: payload,
   }

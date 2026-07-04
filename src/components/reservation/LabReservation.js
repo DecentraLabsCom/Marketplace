@@ -21,6 +21,7 @@ import {
   notifyReservationAuthorizationCancelled,
   notifyReservationMissingTimeSelection,
   notifyReservationProgressAuthorization,
+  notifyReservationProgressIntentRegistered,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
 } from '@/utils/notifications/reservationToasts'
@@ -200,13 +201,15 @@ export default function LabReservation({ id }) {
     }
 
     const progressStagesShown = new Set()
-    const emitProgressToast = ({ stage } = {}) => {
+    const emitProgressToast = ({ stage, requestId, txHash, blockNumber } = {}) => {
       if (!stage || progressStagesShown.has(stage)) return
       progressStagesShown.add(stage)
-      const progressPayload = { labId, start }
+      const progressPayload = { labId, start, requestId, txHash, blockNumber }
 
       if (stage === 'preparing_intent') {
         notifyReservationProgressPreparing(addTemporaryNotification, progressPayload)
+      } else if (stage === 'intent_prepared') {
+        notifyReservationProgressIntentRegistered(addTemporaryNotification, progressPayload)
       } else if (stage === 'awaiting_authorization' || stage === 'awaiting_webauthn_assertion') {
         notifyReservationProgressAuthorization(addTemporaryNotification, progressPayload)
       }

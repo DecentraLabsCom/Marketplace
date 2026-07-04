@@ -87,6 +87,7 @@ describe('institutional reservation request mutations', () => {
 
   test('useReservationRequestSSO prepares intent and marks optimistic state', async () => {
     const bookingMocks = makeBookingMocks();
+    const onProgress = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
     pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' });
 
@@ -97,6 +98,7 @@ describe('institutional reservation request mutations', () => {
           authorizationUrl: 'https://institution.example/intents/authorize/session-1',
           authorizationSessionId: 'session-1',
           backendUrl: 'https://institution.example',
+          onChain: { txHash: '0xREGISTER', blockNumber: 123 },
           intent: {
             meta: { requestId: 'req-1' },
             payload: { reservationKey: 'rk-1' },
@@ -108,7 +110,7 @@ describe('institutional reservation request mutations', () => {
 
     let out;
     await act(async () => {
-      out = await result.current.mutateAsync({ tokenId: 'tk1', start: 111, end: 222, userAddress: 'u1' });
+      out = await result.current.mutateAsync({ tokenId: 'tk1', start: 111, end: 222, userAddress: 'u1', onProgress });
     });
 
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
@@ -117,6 +119,16 @@ describe('institutional reservation request mutations', () => {
     expect(popup.document.write).toHaveBeenCalledWith(expect.stringContaining('Preparing authorization'));
     expect(popup.location.href).toBe('https://institution.example/intents/authorize/session-1');
     expect(global.window.open.mock.invocationCallOrder[0]).toBeLessThan(global.fetch.mock.invocationCallOrder[0]);
+    expect(onProgress).toHaveBeenCalledWith({
+      stage: 'intent_prepared',
+      requestId: 'req-1',
+      reservationKey: 'rk-1',
+      txHash: '0xREGISTER',
+      blockNumber: 123,
+    });
+    expect(onProgress.mock.invocationCallOrder[1]).toBeLessThan(
+      pollIntentAuthorizationStatus.mock.invocationCallOrder[0]
+    );
     expect(bookingMocks.updateBooking).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       labId: 'tk1',
       status: 'requested',

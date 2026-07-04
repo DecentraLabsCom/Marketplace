@@ -221,7 +221,12 @@ export const useReservationRequestSSO = (options = {}) => {
         )
       }
 
-      emitReservationProgress(requestData, 'intent_prepared');
+      emitReservationProgress(requestData, 'intent_prepared', {
+        requestId: prepareData?.requestId || prepareData?.intent?.meta?.requestId || null,
+        reservationKey: prepareData?.intent?.payload?.reservationKey || null,
+        txHash: prepareData?.onChain?.txHash || null,
+        blockNumber: prepareData?.onChain?.blockNumber || null,
+      });
 
       const authToken = prepareData?.backendAuthToken || null
       emitReservationProgress(requestData, 'awaiting_authorization');

@@ -4,7 +4,7 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import { normalizePuc } from '@/utils/auth/puc'
+import { getSamlStableUserIdMode, normalizePuc } from '@/utils/auth/puc'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -175,6 +175,7 @@ export async function POST(request) {
         payload: serializedPayload,
         signature: adminSignature,
         samlAssertion,
+        stableUserIdMode: getSamlStableUserIdMode(),
         returnUrl,
       })
 

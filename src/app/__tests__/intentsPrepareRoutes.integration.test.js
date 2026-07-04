@@ -123,6 +123,7 @@ describe('Intent prepare routes integration', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     clearReservationPrepareCache()
+    process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal'
 
     requireAuth.mockResolvedValue({
       samlAssertion: '<Assertion>test</Assertion>',
@@ -225,6 +226,7 @@ describe('Intent prepare routes integration', () => {
       payloadKey: 'actionPayload',
       backendUrl: 'https://ib.example',
       samlAssertion: '<Assertion>test</Assertion>',
+      stableUserIdMode: 'principal',
     }))
   })
 
@@ -325,6 +327,7 @@ describe('Intent prepare routes integration', () => {
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'reservationPayload',
       returnUrl: 'https://market.example/callback',
+      stableUserIdMode: 'principal',
     }))
   })
 
