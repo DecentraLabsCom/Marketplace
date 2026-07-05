@@ -3,6 +3,7 @@ import {
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
+  notifyIntentRegistrationSignal,
 } from '../backendClient'
 
 describe('backendClient', () => {
@@ -41,5 +42,39 @@ describe('backendClient', () => {
     expect(
       resolveAuthorizationUrl('https://ib.example/', { sessionId: 'session-42' })
     ).toBe('https://ib.example/intents/authorize/ceremony/session-42')
+  })
+
+  test('notifyIntentRegistrationSignal posts registration trigger to backend', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'accepted' }),
+    })
+
+    const result = await notifyIntentRegistrationSignal({
+      backendUrl: 'https://ib.example/',
+      backendAuthToken: 'backend-token',
+      requestId: '0xabc',
+      event: 'registration_mined',
+      txHash: '0xtx',
+      blockNumber: 12,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://ib.example/intents/0xabc/registration',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer backend-token' }),
+      }),
+    )
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      event: 'registration_mined',
+      txHash: '0xtx',
+      blockNumber: 12,
+      reason: null,
+    })
+
+    delete global.fetch
   })
 })

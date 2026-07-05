@@ -107,6 +107,35 @@ export async function requestIntentAuthorizationSession({
   }
 }
 
+export async function notifyIntentRegistrationSignal({
+  backendUrl,
+  backendAuthToken,
+  requestId,
+  event,
+  txHash = null,
+  blockNumber = null,
+  reason = null,
+}) {
+  const headers = createIntentBackendHeaders(backendAuthToken)
+  const res = await fetch(`${normalizeBackendUrl(backendUrl)}/intents/${encodeURIComponent(requestId)}/registration`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      event,
+      txHash,
+      blockNumber,
+      reason,
+    }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  return {
+    ok: res.ok,
+    status: res.status,
+    data,
+  }
+}
+
 export async function submitIntentExecutionToBackend({
   backendUrl,
   backendAuthToken,
