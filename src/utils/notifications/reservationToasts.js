@@ -17,8 +17,6 @@ export const reservationToastIds = {
   onchainRequested: (reservationKey) => `reservation-onchain-requested:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   onchainPending: (reservationKey) => `reservation-onchain-pending:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   progressPrepare: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:prepare`,
-  progressIntentRegistered: ({ labId, start, requestId }) =>
-    `reservation-progress:${String(labId)}:${String(start)}:intent-registered:${String(requestId || 'unknown')}`,
   progressAuthorize: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:authorize`,
   progressSubmitted: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:submitted`,
   authorizationCancelled: () => 'reservation-authorization-cancelled',
@@ -104,16 +102,6 @@ export const notifyReservationProgressPreparing = (addTemporaryNotification, pay
   notify(addTemporaryNotification, 'pending', 'Preparing reservation request...', reservationToastIds.progressPrepare(payload), {
     duration: 7000,
   })
-}
-
-export const notifyReservationProgressIntentRegistered = (addTemporaryNotification, payload) => {
-  notify(
-    addTemporaryNotification,
-    'success',
-    'Reservation intent registered on-chain. Continue with passkey authorization.',
-    reservationToastIds.progressIntentRegistered(payload),
-    { duration: 9000 }
-  )
 }
 
 export const notifyReservationProgressAuthorization = (addTemporaryNotification, payload) => {

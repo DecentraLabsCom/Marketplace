@@ -9,7 +9,6 @@ import {
   notifyReservationOnChainRequested,
   notifyReservationRequestAcceptedAwaitingOnChain,
   notifyReservationProgressAuthorization,
-  notifyReservationProgressIntentRegistered,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
   notifyReservationTxReverted,
@@ -119,11 +118,6 @@ describe('reservationToasts', () => {
     const payload = { labId: 9, start: 1700000000 }
 
     notifyReservationProgressPreparing(addTemporaryNotification, payload)
-    notifyReservationProgressIntentRegistered(addTemporaryNotification, {
-      ...payload,
-      requestId: 'req-1',
-      txHash: '0xabc',
-    })
     notifyReservationProgressAuthorization(addTemporaryNotification, payload)
     notifyReservationProgressSubmitted(addTemporaryNotification, payload)
 
@@ -140,17 +134,6 @@ describe('reservationToasts', () => {
 
     expect(addTemporaryNotification).toHaveBeenNthCalledWith(
       2,
-      'success',
-      'Reservation intent registered on-chain. Continue with passkey authorization.',
-      null,
-      expect.objectContaining({
-        dedupeKey: 'reservation-progress:9:1700000000:intent-registered:req-1',
-        duration: 9000,
-      })
-    )
-
-    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
-      3,
       'pending',
       'Waiting for your security key/passkey signature...',
       null,
@@ -161,7 +144,7 @@ describe('reservationToasts', () => {
     )
 
     expect(addTemporaryNotification).toHaveBeenNthCalledWith(
-      4,
+      3,
       'pending',
       'Reservation request sent. Processing...',
       null,
