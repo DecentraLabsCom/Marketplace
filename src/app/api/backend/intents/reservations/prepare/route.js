@@ -10,6 +10,7 @@ import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminInte
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
+  notifyIntentRegistrationMined,
   mapAuthorizationErrorCode,
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
@@ -145,32 +146,24 @@ export async function POST(request) {
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
 
-    let onChain = null
-    try {
-      onChain = await registerIntentOnChain('reservation', intentPackage.meta, intentPackage.payload, adminSignature)
-    } catch (err) {
-      devLog.error('[API] On-chain reservation intent registration failed', err)
-      console.error('[API] On-chain reservation intent registration failed', err)
-      const onchain = extractOnchainErrorDetails(err)
-      return NextResponse.json(
-        {
-          error: 'Failed to register reservation intent on-chain',
-          details: err?.message || String(err),
-          onchain,
-        },
-        { status: 502 },
-      )
-    }
-
     let authorization = null
     let backendAuth = null
+    let onChain = null
     try {
       backendAuth = await getIntentBackendAuthToken()
 
       const serializedMeta = serializeIntent(intentPackage.meta)
       const serializedPayload = serializeIntent(intentPackage.payload)
 
-      const authResponse = await requestIntentAuthorizationSession({
+      const registrationPromise = registerIntentOnChain(
+        'reservation',
+        intentPackage.meta,
+        intentPackage.payload,
+        adminSignature,
+        { waitForReceipt: false },
+      )
+
+      const authPromise = requestIntentAuthorizationSession({
         backendUrl,
         backendAuthToken: backendAuth.token,
         payloadKey: 'reservationPayload',
@@ -182,6 +175,56 @@ export async function POST(request) {
         returnUrl: returnUrl || null,
       })
 
+      const [registrationResult, authResult] = await Promise.allSettled([
+        registrationPromise,
+        authPromise,
+      ])
+
+      if (registrationResult.status === 'rejected') {
+        const err = registrationResult.reason
+        devLog.error('[API] On-chain reservation intent registration submission failed', err)
+        console.error('[API] On-chain reservation intent registration submission failed', err)
+        const onchain = extractOnchainErrorDetails(err)
+        return NextResponse.json(
+          {
+            error: 'Failed to register reservation intent on-chain',
+            details: err?.message || String(err),
+            onchain,
+          },
+          { status: 502 },
+        )
+      }
+
+      const registrationSubmission = registrationResult.value || {}
+      onChain = {
+        txHash: registrationSubmission.txHash || null,
+        blockNumber: registrationSubmission.blockNumber || null,
+        status: 'submitted',
+      }
+      if (typeof registrationSubmission.wait === 'function') {
+        registrationSubmission.wait()
+          .then((receipt) => notifyIntentRegistrationMined({
+            backendUrl,
+            backendAuthToken: backendAuth.token,
+            requestId: intentPackage.meta.requestId,
+            txHash: registrationSubmission.txHash || null,
+            blockNumber: receipt?.blockNumber || null,
+          }))
+          .then((signalResult) => {
+            if (signalResult && !signalResult.ok) {
+              devLog.warn('[API] Reservation registration mined signal was not accepted', signalResult)
+            }
+          })
+          .catch((err) => {
+            devLog.warn('[API] Reservation registration mined signal skipped', err)
+          })
+      }
+
+      if (authResult.status === 'rejected') {
+        throw authResult.reason
+      }
+
+      const authResponse = authResult.value
       authorization = authResponse.data
       if (!authResponse.ok) {
         const authError =

@@ -45,6 +45,14 @@ Federated authentication for institutional users.
 
 Open-source architecture, promoting transparency and collaboration.
 
+### Institutional Intent Nonce Limitation
+
+Marketplace runs as stateless Vercel functions in production. The on-chain intent registry uses a sequential anti-replay nonce per `signer`, so concurrent intent registrations from the same signer can collide if two functions read the same `nextIntentNonce(signer)` before the first registration is mined.
+
+The current implementation intentionally does not use an in-memory nonce lock, because that lock would not be shared across Vercel instances and would provide a false production guarantee. Until a durable coordinator is added, simultaneous reservations using the same signer may fail with `InvalidNonce` and must be retried.
+
+The correct production fix is a distributed lock or queue per signer (Redis, KV, Postgres, or equivalent) or a persistent registration worker.
+
 ### Getting Started
 
 This dApp is developed as a [Next.js](https://nextjs.org) project using the App Router.

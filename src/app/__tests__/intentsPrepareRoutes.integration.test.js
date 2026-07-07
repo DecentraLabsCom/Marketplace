@@ -63,6 +63,7 @@ jest.mock('@/utils/intents/serialize', () => ({
 jest.mock('@/utils/intents/backendClient', () => ({
   getIntentBackendAuthToken: jest.fn(),
   requestIntentAuthorizationSession: jest.fn(),
+  notifyIntentRegistrationMined: jest.fn(),
   mapAuthorizationErrorCode: jest.fn(),
   normalizeAuthorizationResponse: jest.fn(),
   hasUsableAuthorizationSession: jest.fn(),
@@ -100,6 +101,7 @@ import { serializeIntent } from '@/utils/intents/serialize'
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
+  notifyIntentRegistrationMined,
   mapAuthorizationErrorCode,
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
@@ -156,6 +158,11 @@ describe('Intent prepare routes integration', () => {
 
     signIntentMeta.mockResolvedValue('0xadminsignature')
     registerIntentOnChain.mockResolvedValue({ txHash: '0xontx' })
+    notifyIntentRegistrationMined.mockResolvedValue({
+      ok: true,
+      status: 202,
+      body: { status: 'accepted' },
+    })
 
     getContractInstance.mockResolvedValue({
       getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
@@ -333,6 +340,45 @@ describe('Intent prepare routes integration', () => {
       returnUrl: 'https://market.example/callback',
       stableUserIdMode: 'principal',
     }))
+    expect(registerIntentOnChain).toHaveBeenCalledWith(
+      'reservation',
+      expect.any(Object),
+      expect.any(Object),
+      '0xadminsignature',
+      { waitForReceipt: false },
+    )
+    expect(payload.onChain).toEqual(expect.objectContaining({
+      txHash: '0xontx',
+      blockNumber: null,
+      status: 'submitted',
+    }))
+  })
+
+  test('reservations/prepare: signals backend after registration receipt is mined', async () => {
+    registerIntentOnChain.mockResolvedValueOnce({
+      txHash: '0xontx',
+      wait: jest.fn().mockResolvedValue({ blockNumber: 777 }),
+    })
+
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(res.status).toBe(200)
+    expect(notifyIntentRegistrationMined).toHaveBeenCalledWith({
+      backendUrl: 'https://ib.example',
+      backendAuthToken: 'backend-token',
+      requestId: 'req-reservation-1',
+      txHash: '0xontx',
+      blockNumber: 777,
+    })
   })
 
   test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {

@@ -107,6 +107,40 @@ export async function requestIntentAuthorizationSession({
   }
 }
 
+export async function notifyIntentRegistrationMined({
+  backendUrl,
+  backendAuthToken,
+  requestId,
+  txHash = null,
+  blockNumber = null,
+}) {
+  if (!requestId) {
+    throw new Error('requestId is required to notify mined registration')
+  }
+  const headers = createIntentBackendHeaders(backendAuthToken)
+  const body = {
+    event: 'registration_mined',
+    txHash,
+    blockNumber,
+  }
+
+  const res = await fetch(
+    `${normalizeBackendUrl(backendUrl)}/intents/${encodeURIComponent(requestId)}/registration-mined`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    },
+  )
+
+  const responseBody = await res.json().catch(() => ({}))
+  return {
+    ok: res.ok,
+    status: res.status,
+    body: responseBody,
+  }
+}
+
 export async function submitIntentExecutionToBackend({
   backendUrl,
   backendAuthToken,

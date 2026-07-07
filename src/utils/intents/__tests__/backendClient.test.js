@@ -3,6 +3,7 @@ import {
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
+  notifyIntentRegistrationMined,
 } from '../backendClient'
 
 describe('backendClient', () => {
@@ -41,5 +42,42 @@ describe('backendClient', () => {
     expect(
       resolveAuthorizationUrl('https://ib.example/', { sessionId: 'session-42' })
     ).toBe('https://ib.example/intents/authorize/ceremony/session-42')
+  })
+
+  test('notifyIntentRegistrationMined posts mined signal with backend auth headers', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 202,
+      json: jest.fn().mockResolvedValue({ requestId: 'req-1', status: 'accepted' }),
+    })
+
+    const result = await notifyIntentRegistrationMined({
+      backendUrl: 'https://ib.example/',
+      backendAuthToken: 'backend-token',
+      requestId: 'req-1',
+      txHash: '0xabc',
+      blockNumber: 123,
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://ib.example/intents/req-1/registration-mined',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer backend-token',
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          event: 'registration_mined',
+          txHash: '0xabc',
+          blockNumber: 123,
+        }),
+      }),
+    )
+    expect(result).toEqual({
+      ok: true,
+      status: 202,
+      body: { requestId: 'req-1', status: 'accepted' },
+    })
   })
 })
