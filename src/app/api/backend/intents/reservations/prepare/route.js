@@ -14,7 +14,6 @@ import {
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
-  notifyIntentRegistrationSignal,
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
@@ -146,24 +145,32 @@ export async function POST(request) {
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
 
+    let onChain = null
+    try {
+      onChain = await registerIntentOnChain('reservation', intentPackage.meta, intentPackage.payload, adminSignature)
+    } catch (err) {
+      devLog.error('[API] On-chain reservation intent registration failed', err)
+      console.error('[API] On-chain reservation intent registration failed', err)
+      const onchain = extractOnchainErrorDetails(err)
+      return NextResponse.json(
+        {
+          error: 'Failed to register reservation intent on-chain',
+          details: err?.message || String(err),
+          onchain,
+        },
+        { status: 502 },
+      )
+    }
+
     let authorization = null
     let backendAuth = null
-    let onChain = null
     try {
       backendAuth = await getIntentBackendAuthToken()
 
       const serializedMeta = serializeIntent(intentPackage.meta)
       const serializedPayload = serializeIntent(intentPackage.payload)
 
-      const registrationPromise = registerIntentOnChain(
-        'reservation',
-        intentPackage.meta,
-        intentPackage.payload,
-        adminSignature,
-        { waitForReceipt: false },
-      )
-
-      const authPromise = requestIntentAuthorizationSession({
+      const authResponse = await requestIntentAuthorizationSession({
         backendUrl,
         backendAuthToken: backendAuth.token,
         payloadKey: 'reservationPayload',
@@ -174,60 +181,6 @@ export async function POST(request) {
         stableUserIdMode: getSamlStableUserIdMode(),
         returnUrl: returnUrl || null,
       })
-
-      const [registrationResult, authResult] = await Promise.allSettled([
-        registrationPromise,
-        authPromise,
-      ])
-
-      if (registrationResult.status === 'rejected') {
-        const err = registrationResult.reason
-        devLog.error('[API] On-chain reservation intent registration submission failed', err)
-        console.error('[API] On-chain reservation intent registration submission failed', err)
-        await notifyIntentRegistrationSignal({
-          backendUrl,
-          backendAuthToken: backendAuth.token,
-          requestId: intentPackage.meta.requestId,
-          event: 'registration_failed',
-          reason: err?.message || String(err),
-        }).catch((notifyErr) => {
-          devLog.warn('[API] Failed to notify registration failure', notifyErr)
-        })
-        const onchain = extractOnchainErrorDetails(err)
-        return NextResponse.json(
-          {
-            error: 'Failed to register reservation intent on-chain',
-            details: err?.message || String(err),
-            onchain,
-          },
-          { status: 502 },
-        )
-      }
-
-      const registrationSubmission = registrationResult.value || {}
-      onChain = {
-        txHash: registrationSubmission.txHash || null,
-        blockNumber: registrationSubmission.blockNumber || null,
-        status: 'submitted',
-      }
-      if (onChain.txHash) {
-        await notifyIntentRegistrationSignal({
-          backendUrl,
-          backendAuthToken: backendAuth.token,
-          requestId: intentPackage.meta.requestId,
-          event: 'registration_submitted',
-          txHash: onChain.txHash,
-          blockNumber: onChain.blockNumber,
-        }).catch((notifyErr) => {
-          devLog.warn('[API] Failed to notify registration submission', notifyErr)
-        })
-      }
-
-      if (authResult.status === 'rejected') {
-        throw authResult.reason
-      }
-
-      const authResponse = authResult.value
 
       authorization = authResponse.data
       if (!authResponse.ok) {

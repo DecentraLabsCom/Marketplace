@@ -233,8 +233,7 @@ function getIntentContract(wallet) {
   return new ethers.Contract(address, contractABI, wallet)
 }
 
-export async function registerIntentOnChain(kind, meta, payload, signature, options = {}) {
-  const waitForReceipt = options?.waitForReceipt !== false
+export async function registerIntentOnChain(kind, meta, payload, signature) {
   const wallet = await getAdminWallet()
   if (isDebugEnabled()) {
     const preflight = await preflightIntentRegistration(kind, meta, payload, signature, wallet.address)
@@ -271,13 +270,6 @@ export async function registerIntentOnChain(kind, meta, payload, signature, opti
       payload.reservationKey,
     ]
     const tx = await contract.registerReservationIntent(normalizedMeta, normalizedPayload, signature)
-    if (!waitForReceipt) {
-      return {
-        txHash: tx.hash,
-        blockNumber: null,
-        wait: async () => tx.wait?.(),
-      }
-    }
     const receipt = await tx.wait?.()
     return { txHash: tx.hash, blockNumber: receipt?.blockNumber }
   }
@@ -299,13 +291,6 @@ export async function registerIntentOnChain(kind, meta, payload, signature, opti
       toBigInt(payload.resourceType || 0),
     ]
     const tx = await contract.registerActionIntent(normalizedMeta, normalizedPayload, signature)
-    if (!waitForReceipt) {
-      return {
-        txHash: tx.hash,
-        blockNumber: null,
-        wait: async () => tx.wait?.(),
-      }
-    }
     const receipt = await tx.wait?.()
     return { txHash: tx.hash, blockNumber: receipt?.blockNumber }
   }

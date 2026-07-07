@@ -67,7 +67,6 @@ jest.mock('@/utils/intents/backendClient', () => ({
   normalizeAuthorizationResponse: jest.fn(),
   hasUsableAuthorizationSession: jest.fn(),
   resolveAuthorizationUrl: jest.fn(),
-  notifyIntentRegistrationSignal: jest.fn(),
 }))
 
 jest.mock('@/utils/intents/onchainHelpers', () => ({
@@ -105,7 +104,6 @@ import {
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
-  notifyIntentRegistrationSignal,
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { POST as actionPreparePOST } from '../api/backend/intents/actions/prepare/route.js'
@@ -157,7 +155,7 @@ describe('Intent prepare routes integration', () => {
     computeReservationAssertionHash.mockReturnValue('0xreservationassertionhash')
 
     signIntentMeta.mockResolvedValue('0xadminsignature')
-    registerIntentOnChain.mockResolvedValue({ txHash: '0xontx', blockNumber: null, wait: jest.fn().mockResolvedValue({ blockNumber: 123 }) })
+    registerIntentOnChain.mockResolvedValue({ txHash: '0xontx' })
 
     getContractInstance.mockResolvedValue({
       getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
@@ -197,7 +195,6 @@ describe('Intent prepare routes integration', () => {
     normalizeAuthorizationResponse.mockImplementation((value) => value)
     hasUsableAuthorizationSession.mockReturnValue(true)
     resolveAuthorizationUrl.mockReturnValue('https://ib.example/intents/authorize/ceremony/auth-session-1')
-    notifyIntentRegistrationSignal.mockResolvedValue({ ok: true, status: 200, data: { status: 'accepted' } })
 
     extractOnchainErrorDetails.mockReturnValue({ message: 'onchain-details' })
   })
@@ -336,26 +333,6 @@ describe('Intent prepare routes integration', () => {
       returnUrl: 'https://market.example/callback',
       stableUserIdMode: 'principal',
     }))
-    expect(registerIntentOnChain).toHaveBeenCalledWith(
-      'reservation',
-      expect.any(Object),
-      expect.any(Object),
-      '0xadminsignature',
-      { waitForReceipt: false },
-    )
-    expect(payload.onChain).toEqual(expect.objectContaining({
-      txHash: '0xontx',
-      blockNumber: null,
-      status: 'submitted',
-    }))
-    expect(notifyIntentRegistrationSignal).toHaveBeenCalledWith({
-      backendUrl: 'https://ib.example',
-      backendAuthToken: 'backend-token',
-      requestId: 'req-reservation-1',
-      event: 'registration_submitted',
-      txHash: '0xontx',
-      blockNumber: null,
-    })
   })
 
   test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {
