@@ -3,13 +3,8 @@ import { useState, useRef, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
-
-const PRICE_UNIT_OPTIONS = [
-  { value: 'hour', label: 'hour' },
-  { value: 'day', label: 'day' },
-  { value: 'week', label: 'week' },
-  { value: 'month', label: '30-day month' },
-]
+import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
+import { PRICE_UNIT_OPTIONS } from './labBookingPeriodOptions'
 
 function resolveGatewayAuthEndpoint(gatewayUrl) {
   try {
@@ -46,9 +41,24 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
   onSubmit, onCancel, lab, onSwitchToFullSetup }) {
 
   const isFmu = localLab?.resourceType === RESOURCE_TYPES.FMU
+  const priceUnit = normalizePricingUnit(localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour')
 
   const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
   const abortRef = useRef(null)
+
+  const handlePriceUnitChange = (value) => {
+    const nextUnit = normalizePricingUnit(value)
+    setLocalLab({
+      ...localLab,
+      priceUnit: nextUnit,
+      pricing: {
+        ...(localLab?.pricing || {}),
+        displayAmount: localLab?.price || '',
+        displayUnit: nextUnit,
+      },
+      bookingMode: nextUnit === 'hour' ? 'slot' : 'calendar-period',
+    })
+  }
 
   const fetchDescribe = useCallback(async () => {
     const fmuFileName = localLab?.fmuFileName?.trim()
@@ -129,7 +139,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
               pricing: {
                 ...(localLab?.pricing || {}),
                 displayAmount: e.target.value,
-                displayUnit: localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour',
+                displayUnit: priceUnit,
               },
             })}
             className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
@@ -140,17 +150,8 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
           {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
         </div>
         <select
-          value={localLab?.priceUnit || localLab?.pricing?.displayUnit || 'hour'}
-          onChange={(e) => setLocalLab({
-            ...localLab,
-            priceUnit: e.target.value,
-            pricing: {
-              ...(localLab?.pricing || {}),
-              displayAmount: localLab?.price || '',
-              displayUnit: e.target.value,
-            },
-            bookingMode: e.target.value === 'hour' ? 'slot' : 'calendar-period',
-          })}
+          value={priceUnit}
+          onChange={(e) => handlePriceUnitChange(e.target.value)}
           className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
           disabled:cursor-not-allowed disabled:border-gray-300"
           disabled={isLocalURI}

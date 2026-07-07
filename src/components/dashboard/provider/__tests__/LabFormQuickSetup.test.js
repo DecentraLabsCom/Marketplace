@@ -116,6 +116,38 @@ describe("LabFormQuickSetup", () => {
       });
     });
 
+    test("switches to calendar-period setup when price unit is not hourly", () => {
+      renderForm();
+
+      fireEvent.change(screen.getByDisplayValue("hour"), { target: { value: "day" } });
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        priceUnit: "day",
+        pricing: {
+          displayAmount: "100",
+          displayUnit: "day",
+        },
+        bookingMode: "calendar-period",
+      });
+    });
+
+    test("does not render booking period range controls for long-duration price units", () => {
+      renderForm({
+        localLab: {
+          ...mockLab,
+          priceUnit: "week",
+          pricing: { displayAmount: "100", displayUnit: "week" },
+          bookingMode: "calendar-period",
+          allowedDurationRange: { unit: "week", min: 1, max: 4 },
+        },
+      });
+
+      expect(screen.queryByLabelText("Min")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Max")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
+    });
+
     test("updates access URI field with correct value", () => {
       renderForm();
 
