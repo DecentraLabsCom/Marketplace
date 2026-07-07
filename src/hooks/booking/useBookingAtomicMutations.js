@@ -32,7 +32,6 @@ import {
   notifyReservationDenied,
   notifyReservationOnChainRequested,
 } from '@/utils/notifications/reservationToasts'
-import { startIntentRegistrationReceiptTracker } from '@/utils/intents/registrationSignalClient'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -230,12 +229,6 @@ export const useReservationRequestSSO = (options = {}) => {
       });
 
       const authToken = prepareData?.backendAuthToken || null
-      startIntentRegistrationReceiptTracker({
-        requestId: prepareData?.requestId || prepareData?.intent?.meta?.requestId || null,
-        txHash: prepareData?.onChain?.txHash || null,
-        backendUrl: prepareData?.backendUrl || payload.backendUrl,
-        backendAuthToken: authToken,
-      })
       emitReservationProgress(requestData, 'awaiting_authorization');
       const authorizationStatus = await awaitBackendAuthorization(prepareData, {
         backendUrl: payload.backendUrl,

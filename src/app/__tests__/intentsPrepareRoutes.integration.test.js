@@ -356,6 +356,15 @@ describe('Intent prepare routes integration', () => {
       txHash: '0xontx',
       blockNumber: null,
     })
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(notifyIntentRegistrationSignal).toHaveBeenCalledWith({
+      backendUrl: 'https://ib.example',
+      backendAuthToken: 'backend-token',
+      requestId: 'req-reservation-1',
+      event: 'registration_mined',
+      txHash: '0xontx',
+      blockNumber: 123,
+    })
   })
 
   test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {
