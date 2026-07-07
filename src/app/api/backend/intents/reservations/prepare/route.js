@@ -35,48 +35,6 @@ function parsePositiveBigInt(value, fieldName) {
   }
 }
 
-function monitorRegistrationReceipt({
-  registrationSubmission,
-  backendUrl,
-  backendAuthToken,
-  requestId,
-}) {
-  if (
-    !registrationSubmission?.txHash ||
-    typeof registrationSubmission?.wait !== 'function' ||
-    !backendUrl ||
-    !backendAuthToken ||
-    !requestId
-  ) {
-    return
-  }
-
-  registrationSubmission.wait()
-    .then(async (receipt) => {
-      await notifyIntentRegistrationSignal({
-        backendUrl,
-        backendAuthToken,
-        requestId,
-        event: 'registration_mined',
-        txHash: registrationSubmission.txHash,
-        blockNumber: receipt?.blockNumber ?? null,
-      })
-    })
-    .catch(async (err) => {
-      devLog.warn('[API] Reservation intent registration receipt monitor failed', err)
-      await notifyIntentRegistrationSignal({
-        backendUrl,
-        backendAuthToken,
-        requestId,
-        event: 'registration_failed',
-        txHash: registrationSubmission.txHash,
-        reason: err?.message || String(err),
-      }).catch((notifyErr) => {
-        devLog.warn('[API] Failed to notify registration receipt failure', notifyErr)
-      })
-    })
-}
-
 export async function POST(request) {
   try {
     const session = await requireAuth()
@@ -262,12 +220,6 @@ export async function POST(request) {
           blockNumber: onChain.blockNumber,
         }).catch((notifyErr) => {
           devLog.warn('[API] Failed to notify registration submission', notifyErr)
-        })
-        monitorRegistrationReceipt({
-          registrationSubmission,
-          backendUrl,
-          backendAuthToken: backendAuth.token,
-          requestId: intentPackage.meta.requestId,
         })
       }
 

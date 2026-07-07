@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import pollIntentStatus from '@/utils/intents/pollIntentStatus';
 import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus';
 import { verifyInstitutionReportedExecution } from '@/utils/intents/verifyOnchainIntentStatus';
+import { startIntentRegistrationReceiptTracker } from '@/utils/intents/registrationSignalClient';
 import {
   useReservationRequest,
   useReservationRequestSSO,
@@ -38,6 +39,9 @@ jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolv
 jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS' })));
 jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
   verifyInstitutionReportedExecution: jest.fn(() => Promise.resolve({ state: 2, stateName: 'EXECUTED' })),
+}));
+jest.mock('@/utils/intents/registrationSignalClient', () => ({
+  startIntentRegistrationReceiptTracker: jest.fn(),
 }));
 
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../useBookingCacheUpdates');
@@ -130,6 +134,12 @@ describe('institutional reservation request mutations', () => {
     expect(onProgress.mock.invocationCallOrder[1]).toBeLessThan(
       pollIntentAuthorizationStatus.mock.invocationCallOrder[0]
     );
+    expect(startIntentRegistrationReceiptTracker).toHaveBeenCalledWith({
+      requestId: 'req-1',
+      txHash: '0xREGISTER',
+      backendUrl: 'https://institution.example',
+      backendAuthToken: 'backend-token-1',
+    });
     expect(bookingMocks.updateBooking).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       labId: 'tk1',
       status: 'requested',
