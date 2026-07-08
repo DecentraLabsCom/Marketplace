@@ -76,7 +76,7 @@ describe('ActiveBookingSection', () => {
     expect(card).toHaveAttribute('data-action-label', 'Cancel Booking');
   });
 
-  test('does not expose cancel action for next in-use booking status', () => {
+  test('does not expose cancel action for next access-authorized booking status', () => {
     const onBookingAction = jest.fn();
     const nextBooking = {
       reservationKey: 'rk-next-inuse',

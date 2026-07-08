@@ -52,7 +52,7 @@ export async function GET(request) {
     // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
     //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
     //   providerShare }
-    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE, 3=COLLECTED, 4=CANCELLED
+    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE/access authorized, 3=COLLECTED, 4=CANCELLED
     const status = Number(reservationData.status);
     const renterAddress = reservationData.renter || '0x0000000000000000000000000000000000000000';
     const labProviderAddress = reservationData.labProvider || '0x0000000000000000000000000000000000000000';
@@ -86,7 +86,7 @@ export async function GET(request) {
           isConfirmed = true;
           break;
         case 2:
-          reservationState = 'In Use';
+          reservationState = 'Access Authorized';
           isConfirmed = true;
           break;
         case 3:
@@ -122,11 +122,12 @@ export async function GET(request) {
         reservationState: reservationState,
         isPending: status === 0,
         isBooked: status === 1,
-        isInUse: status === 2,
+        isAccessAuthorized: status === 2,
+        isInUse: status === 2, // backward compatibility alias
         isUsed: status === 2, // backward compatibility alias
         isCollected: status === 3,
         isCanceled: status === 4,
-        isActive: status === 1 || status === 2, // Active when confirmed or in-use
+        isActive: status === 1 || status === 2, // Reservation can be active when confirmed or access-authorized
         isCompleted: status === 3, // Collected/settled terminal state
         isConfirmed: isConfirmed,
         exists: effectiveExists,
@@ -164,6 +165,7 @@ export async function GET(request) {
           reservationState: 'Not Found',
           isPending: false,
           isBooked: false,
+          isAccessAuthorized: false,
           isInUse: false,
           isUsed: false,
           isCollected: false,
@@ -208,6 +210,7 @@ export async function GET(request) {
           reservationState: 'Not Found',
           isPending: false,
           isBooked: false,
+          isAccessAuthorized: false,
           isInUse: false,
           isUsed: false,
           isCollected: false,

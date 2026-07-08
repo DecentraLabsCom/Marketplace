@@ -168,6 +168,26 @@ describe("ActiveLabCard", () => {
       expect(labAccess).toHaveTextContent("Key: abc123xyz");
     });
 
+    test("labels confirmed active window without implying a started session", () => {
+      const now = 1_710_490_000;
+      jest.spyOn(Date, "now").mockReturnValue(now * 1000);
+
+      renderCard({
+        isActive: true,
+        booking: {
+          ...mockBooking,
+          status: 1,
+          start: now - 60,
+          end: now + 600,
+        },
+      });
+
+      expect(screen.getByText("Access Window Open")).toBeInTheDocument();
+      expect(screen.queryByText("In Use")).not.toBeInTheDocument();
+
+      Date.now.mockRestore();
+    });
+
     test("applies border animation class for active lab", () => {
       const { container } = renderCard({ isActive: true });
 

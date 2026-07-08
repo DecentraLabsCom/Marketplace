@@ -66,7 +66,7 @@ describe('dashboardSummary', () => {
   test('maps reservation status numbers to display labels', () => {
     expect(getReservationStatusText(0)).toBe('Pending')
     expect(getReservationStatusText(1)).toBe('Confirmed')
-    expect(getReservationStatusText(2)).toBe('In Use')
+    expect(getReservationStatusText(2)).toBe('Access Authorized')
     expect(getReservationStatusText(3)).toBe('Settled')
     expect(getReservationStatusText(4)).toBe('Cancelled')
     expect(getReservationStatusText(99)).toBe('Unknown')

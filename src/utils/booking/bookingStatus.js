@@ -154,12 +154,20 @@ export const isCancelledBooking = (booking) => {
 }
 
 /**
- * Check if a booking is used/completed
+ * Check if access has been authorized for a booking.
  * @param {Object} booking - Booking object
- * @returns {boolean} True if booking is used
+ * @returns {boolean} True if the booking has on-chain access authorization
+ */
+export const isAccessAuthorizedBooking = (booking) => {
+  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.IN_USE
+}
+
+/**
+ * Backward-compatible alias. Status 2 is access authorization, not proof of a
+ * remote lab session.
  */
 export const isUsedBooking = (booking) => {
-  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.IN_USE
+  return isAccessAuthorizedBooking(booking)
 }
 
 /**
@@ -193,7 +201,7 @@ export const getBookingStatusText = (booking) => {
     case BOOKING_STATE.CONFIRMED:
       return 'Confirmed'
     case BOOKING_STATE.IN_USE:
-      return 'In Use'
+      return 'Access Authorized'
     case BOOKING_STATE.COMPLETED:
       return 'Completed'
     case BOOKING_STATE.COLLECTED:
@@ -221,7 +229,7 @@ export const getBookingStatusColor = (booking) => {
   switch (normalizeBookingStatusCode(booking)) {
     case 0: return 'text-warning';         // Pending - warning yellow
     case 1: return 'text-success';         // Confirmed - success green
-    case 2: return 'text-info';            // In use - info blue
+    case 2: return 'text-info';            // Access authorized - info blue
     case 3: return 'text-neutral-500';     // Collected - neutral gray
     case 4: return 'text-error';           // Cancelled - error red
     default: return 'text-neutral-400';    // Unknown - light gray
@@ -263,7 +271,7 @@ export const getBookingStatusDisplay = (booking) => {
       icon: faCheck
     };
     case 2: return {
-      text: "In Use",
+      text: "Access Authorized",
       className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
       icon: faPlay
     };

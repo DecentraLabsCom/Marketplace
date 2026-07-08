@@ -70,16 +70,16 @@ const LabBookingItem = React.memo(function LabBookingItem({
 
     const isCancelled = isCancelledBooking(booking);
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
-    const isInUse = booking.status === "2" || booking.status === 2;
+    const isAccessAuthorized = booking.status === "2" || booking.status === 2;
     const isTemporallyActive =
       startTimeUnix !== null &&
       endTimeUnix !== null &&
       startTimeUnix <= now &&
       now < endTimeUnix;
-    const isBookingInUseNow = (isConfirmedBooking(booking) || isInUse) && isTemporallyActive;
-    const effectiveStatusDisplay = isBookingInUseNow
+    const isBookingInAccessWindow = (isConfirmedBooking(booking) || isAccessAuthorized) && isTemporallyActive;
+    const effectiveStatusDisplay = isBookingInAccessWindow && isConfirmedBooking(booking)
       ? {
-          text: "In Use",
+          text: "Access Window Open",
           className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
           icon: "✅",
         }
@@ -101,14 +101,14 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const shouldUseRefundAction =
       typeof onCancel === "function" &&
       typeof onRefund === "function" &&
-      isBookingInUseNow;
+      isBookingInAccessWindow;
     const canRefund = Boolean(
       typeof onRefund === "function" &&
       booking.reservationKey &&
       !isCancelled &&
       !isFreeReservation &&
       !isSameInstitutionBooking &&
-      (isConfirmedBooking(booking) || isInUse) &&
+      (isConfirmedBooking(booking) || isAccessAuthorized) &&
       (shouldUseRefundAction || typeof onCancel !== "function")
     );
     const showCancelButton = typeof onCancel === "function" && canCancel && !shouldUseRefundAction;
