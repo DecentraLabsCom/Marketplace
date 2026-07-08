@@ -168,6 +168,10 @@ class MarketplaceJwtService {
    * @param {string} [params.puc] - Personal unique code (optional)
    * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
    * @param {boolean} [params.bookingInfoAllowed] - Allow booking info claims
+   * @param {string} [params.purpose] - Purpose binding for backend-side policy
+   * @param {string} [params.reservationKey] - Reservation key bound to this token
+   * @param {string|number} [params.labId] - Lab id bound to this token
+   * @param {string} [params.samlAssertionHash] - Keccak256 hash of the SAML assertion
    * @returns {Promise<string>} Signed JWT token
    */
   async generateSamlAuthToken({
@@ -178,6 +182,10 @@ class MarketplaceJwtService {
     scope = 'booking:read',
     bookingInfoAllowed = true,
     audience,
+    purpose,
+    reservationKey,
+    labId,
+    samlAssertionHash,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -217,6 +225,22 @@ class MarketplaceJwtService {
 
       if (puc) {
         payload.puc = puc;
+      }
+
+      if (purpose) {
+        payload.purpose = purpose;
+      }
+
+      if (reservationKey) {
+        payload.reservationKey = reservationKey;
+      }
+
+      if (labId !== undefined && labId !== null && labId !== '') {
+        payload.labId = String(labId);
+      }
+
+      if (samlAssertionHash) {
+        payload.samlAssertionHash = samlAssertionHash;
       }
 
       const token = jwt.sign(payload, this.privateKey, {

@@ -5,6 +5,7 @@
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { requireAuth } from '@/utils/auth/guards'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
@@ -21,6 +22,10 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
     isConfigured: jest.fn(),
     generateSamlAuthToken: jest.fn(),
   },
+}))
+
+jest.mock('@/utils/onboarding/institutionalBackend', () => ({
+  resolveInstitutionalBackendUrl: jest.fn(),
 }))
 
 describe('/api/auth/lab-access route', () => {
@@ -106,7 +111,7 @@ describe('/api/auth/lab-access route', () => {
     })
   })
 
-  test('authenticates via saml-auth2 when request is valid', async () => {
+  test('authorizes access with consumer backend before requesting provider credential', async () => {
     requireAuth.mockResolvedValue({
       id: 'user-1@uned.es|targeted-user-1',
       samlAssertion: 'assert',
@@ -116,12 +121,18 @@ describe('/api/auth/lab-access route', () => {
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     getContractInstance.mockResolvedValue({
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+      })
+      .mockResolvedValueOnce(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -142,13 +153,23 @@ describe('/api/auth/lab-access route', () => {
       labURL: 'https://lab.example.com',
     })
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://gateway.example.com/auth/saml-auth2',
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      'https://consumer.example.com/auth/checkin-institutional',
+      expect.objectContaining({ method: 'POST' })
+    )
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://gateway.example.com/auth/access-credential',
       expect.objectContaining({ method: 'POST' })
     )
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1@uned.es|targeted-user-1',
+        purpose: 'lab_access',
+        reservationKey: '0xabc',
+        labId: '10',
+        samlAssertionHash: expect.stringMatching(/^0x[a-fA-F0-9]{64}$/),
       })
     )
   })
@@ -162,12 +183,18 @@ describe('/api/auth/lab-access route', () => {
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     getContractInstance.mockResolvedValue({
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+      })
+      .mockResolvedValueOnce(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -204,6 +231,7 @@ describe('/api/auth/lab-access route', () => {
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     const getLabAuthURI = jest.fn().mockResolvedValue('https://gateway.example.com/auth')
 
@@ -212,7 +240,12 @@ describe('/api/auth/lab-access route', () => {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+      })
+      .mockResolvedValueOnce(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -232,13 +265,14 @@ describe('/api/auth/lab-access route', () => {
     })
 
     expect(getLabAuthURI).toHaveBeenCalledWith(10)
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://gateway.example.com/auth/saml-auth2',
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://gateway.example.com/auth/access-credential',
       expect.objectContaining({ method: 'POST' })
     )
   })
 
-  test('authenticates via saml-auth2 with reservationKey only', async () => {
+  test('requests provider credential with reservationKey only', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
@@ -247,12 +281,18 @@ describe('/api/auth/lab-access route', () => {
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     getContractInstance.mockResolvedValue({
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+      })
+      .mockResolvedValueOnce(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -272,8 +312,9 @@ describe('/api/auth/lab-access route', () => {
       labURL: 'https://lab.example.com',
     })
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://gateway.example.com/auth/saml-auth2',
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://gateway.example.com/auth/access-credential',
       expect.objectContaining({ method: 'POST' })
     )
   })

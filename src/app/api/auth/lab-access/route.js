@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { keccak256, toUtf8Bytes } from 'ethers'
 import {
   BadRequestError,
   handleGuardError,
@@ -78,6 +80,10 @@ async function resolveInstitutionWallet(domain) {
   return wallet.toLowerCase()
 }
 
+function computeSamlAssertionHash(samlAssertion) {
+  return keccak256(toUtf8Bytes(samlAssertion))
+}
+
 function resolveUserId(session) {
   return session?.id || session?.eduPersonPrincipalName || null
 }
@@ -127,6 +133,7 @@ export async function POST(req) {
     }
 
     const puc = getPucFromSession(session) || undefined
+    const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       userId,
@@ -135,31 +142,81 @@ export async function POST(req) {
       puc,
       scope: 'booking:read',
       bookingInfoAllowed: true,
+      purpose: 'lab_access',
+      reservationKey,
+      labId,
+      samlAssertionHash,
     })
 
-    const payload = {
+    if (!includeBookingInfo) {
+      const response = await fetch(`${authBase}/saml-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          marketplaceToken,
+          samlAssertion: session.samlAssertion,
+          timestamp: Math.floor(Date.now() / 1000),
+        }),
+      })
+
+      const responseText = await response.text()
+      if (!response.ok) {
+        devLog.error('SSO lab access failed:', response.status, responseText)
+        return NextResponse.json(
+          { error: 'SSO lab access failed', details: responseText },
+          { status: response.status },
+        )
+      }
+
+      const data = responseText ? JSON.parse(responseText) : {}
+      return NextResponse.json(data, { status: 200 })
+    }
+
+    const consumerBackendBase = await resolveInstitutionalBackendUrl(affiliation)
+    if (!consumerBackendBase) {
+      throw new BadRequestError('Institution backend not registered')
+    }
+
+    const checkInPayload = {
       marketplaceToken,
       samlAssertion: session.samlAssertion,
-      timestamp: Math.floor(Date.now() / 1000),
-    }
-    if (includeBookingInfo) {
-      payload.labId = labId
-      payload.reservationKey = reservationKey
+      reservationKey,
+      labId,
+      institutionalProviderWallet,
+      puc,
     }
 
-    const authPath = includeBookingInfo ? 'saml-auth2' : 'saml-auth'
-
-    const response = await fetch(`${authBase}/${authPath}`, {
+    const checkInResponse = await fetch(`${consumerBackendBase}/auth/checkin-institutional`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(checkInPayload),
+    })
+
+    const checkInResponseText = await checkInResponse.text()
+    if (!checkInResponse.ok) {
+      devLog.error('Institutional access authorization failed:', checkInResponse.status, checkInResponseText)
+      return NextResponse.json(
+        { error: 'Institutional access authorization failed', details: checkInResponseText },
+        { status: checkInResponse.status },
+      )
+    }
+
+    const providerPayload = {
+      marketplaceToken,
+      reservationKey,
+      labId,
+    }
+    const response = await fetch(`${authBase}/access-credential`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(providerPayload),
     })
 
     const responseText = await response.text()
     if (!response.ok) {
-      devLog.error('SSO lab access failed:', response.status, responseText)
+      devLog.error('Provider access credential issuance failed:', response.status, responseText)
       return NextResponse.json(
-        { error: 'SSO lab access failed', details: responseText },
+        { error: 'Provider access credential issuance failed', details: responseText },
         { status: response.status },
       )
     }
