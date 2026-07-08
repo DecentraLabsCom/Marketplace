@@ -6,15 +6,6 @@ import devLog from '@/utils/dev/logger'
 import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
 import { PRICE_UNIT_OPTIONS } from './labBookingPeriodOptions'
 
-function resolveGatewayAuthEndpoint(gatewayUrl) {
-  try {
-    const url = new URL(gatewayUrl)
-    return `${url.origin}/auth/login`
-  } catch {
-    return null
-  }
-}
-
 /**
  * Quick lab setup form for simplified lab creation with minimal required fields
  * Provides streamlined interface for providers to quickly publish labs
@@ -74,23 +65,23 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
     setDescribeFetch({ loading: true, error: null, fetched: false })
     try {
       const gwParam = encodeURIComponent(gatewayUrl)
-      const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
       let describeAuthHeader = {}
-      if (authEndpoint) {
-        try {
-          const authRes = await fetch('/api/auth/lab-access', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ authEndpoint, includeBookingInfo: false }),
-          })
-          if (authRes.ok) {
-            const authData = await authRes.json()
-            if (authData?.token) describeAuthHeader = { Authorization: `Bearer ${authData.token}` }
+      try {
+        const tokenRes = await fetch(
+          `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}`,
+          { credentials: 'include', signal: controller.signal }
+        )
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json()
+          if (tokenData?.token) {
+            describeAuthHeader = { Authorization: `Bearer ${tokenData.token}` }
           }
-        } catch (authError) {
-          devLog.warn('FMU describe auth failed, continuing without token', authError)
+        } else {
+          devLog.warn('FMU provider describe token request failed:', tokenRes.status)
         }
+      } catch (tokenError) {
+        if (tokenError.name === 'AbortError') throw tokenError
+        devLog.warn('FMU provider describe token request failed, continuing without bearer token', tokenError)
       }
       const labParam = localLab?.id ? `&labId=${encodeURIComponent(String(localLab.id))}` : ''
       const res = await fetch(
@@ -123,7 +114,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
 
   return (
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
-      {errors.resourceType && <p className="text-red-500 text-sm !mt-1">{errors.resourceType}</p>}
+      {errors.resourceType && <p className="text-red-500 text-sm mt-1!">{errors.resourceType}</p>}
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px]">
         <div>

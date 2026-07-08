@@ -10,20 +10,10 @@ import {
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'
-
-function normalizeAuthBase(authEndpoint) {
-  if (!authEndpoint || typeof authEndpoint !== 'string') {
-    return null
-  }
-  const trimmed = authEndpoint.endsWith('/') ? authEndpoint.slice(0, -1) : authEndpoint
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return null
-  }
-  if (!trimmed.endsWith('/auth')) {
-    return null
-  }
-  return trimmed
-}
+import {
+  GatewayValidationError,
+  resolveGatewayBaseUrl,
+} from '@/utils/api/gatewayProxy'
 
 function normalizeOrganizationDomain(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -61,13 +51,23 @@ function normalizeOrganizationDomain(domain) {
   return normalized
 }
 
-async function resolveAuthEndpoint(labId) {
+async function resolveAuthEndpoint(labId, authEndpoint) {
   if (!labId) {
-    return null
+    throw new BadRequestError('labId is required to verify auth endpoint')
   }
-  const contract = await getContractInstance()
-  const authURI = await contract.getLabAuthURI(Number(labId))
-  return normalizeAuthBase(authURI || '')
+  try {
+    const gatewayBase = await resolveGatewayBaseUrl({
+      labId,
+      gatewayUrl: authEndpoint,
+      requireLabMatch: true,
+    })
+    return `${gatewayBase}/auth`
+  } catch (error) {
+    if (error instanceof GatewayValidationError) {
+      throw new BadRequestError(error.message)
+    }
+    throw error
+  }
 }
 
 async function resolveInstitutionWallet(domain) {
@@ -107,7 +107,7 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO session')
     }
 
-    const authBase = normalizeAuthBase(authEndpoint) || (await resolveAuthEndpoint(labId))
+    const authBase = await resolveAuthEndpoint(labId, authEndpoint)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }
