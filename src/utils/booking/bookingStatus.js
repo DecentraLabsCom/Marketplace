@@ -24,6 +24,7 @@ export const BOOKING_STATE = {
   REQUESTED: 'requested',
   PENDING: 'pending',
   CONFIRMED: 'confirmed',
+  // Legacy contract/state name. Semantically this means on-chain access authorization.
   IN_USE: 'in_use',
   COMPLETED: 'completed',
   COLLECTED: 'collected',

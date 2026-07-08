@@ -104,7 +104,7 @@ describe("useSsoReservationFlow", () => {
     expect(result.current.ssoBookingStage).toBe("request_sent");
   });
 
-  test("resets flow when booking reaches in_use status", () => {
+  test("resets flow when booking reaches access-authorized status", () => {
     const { result, rerender } = renderHook(
       ({ userBookingsForLab }) =>
         useSsoReservationFlow({ isSSO: true, userBookingsForLab, labBookings: [] }),

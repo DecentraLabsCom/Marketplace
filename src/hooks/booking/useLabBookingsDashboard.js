@@ -206,7 +206,7 @@ export const useLabBookingsDashboard = (labId, {
   const labSpecificAggregates = {
     pendingBookings: processedBookings.filter(b => b.status === 0).length,       // PENDING
     confirmedBookings: processedBookings.filter(b => b.status === 1).length,     // BOOKED/CONFIRMED
-    usedBookings: processedBookings.filter(b => b.status === 2).length,          // USED
+    usedBookings: processedBookings.filter(b => b.status === 2).length,          // Access authorized (legacy field)
     collectedBookings: processedBookings.filter(b => b.status === 3).length,     // COLLECTED
   };
 

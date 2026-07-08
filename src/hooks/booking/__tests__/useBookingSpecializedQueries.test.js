@@ -453,7 +453,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.cancelledBookings).toBe(1)
     })
 
-    it('counts in_use (status 2) booking within window as activeBookings', () => {
+    it('counts access-authorized status 2 booking within window as activeBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
@@ -461,7 +461,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.activeBookings).toBe(1)
     })
 
-    it('counts in_use (status 2) future booking as upcomingBookings', () => {
+    it('counts access-authorized status 2 future booking as upcomingBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
