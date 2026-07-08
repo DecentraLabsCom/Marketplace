@@ -183,7 +183,7 @@ describe("ActiveLabCard", () => {
       });
 
       expect(screen.getByText("Access Window Open")).toBeInTheDocument();
-      expect(screen.queryByText("In Use")).not.toBeInTheDocument();
+      expect(screen.queryByText("Access Authorized")).not.toBeInTheDocument();
 
       Date.now.mockRestore();
     });

@@ -83,7 +83,7 @@ export default function ActiveLabCard({
   const effectiveStatusDisplay = isTemporallyActive && isConfirmedBooking(booking)
     ? {
         text: "Access Window Open",
-        className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
+        className: "bg-booking-access-authorized-bg text-booking-access-authorized-text border-booking-access-authorized-border",
         icon: "AccessWindowOpen",
       }
     : getBookingStatusDisplay(booking);

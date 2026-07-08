@@ -52,7 +52,7 @@ export async function GET(request) {
     // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
     //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
     //   providerShare }
-    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE/access authorized, 3=COLLECTED, 4=CANCELLED
+    // Status: 0=PENDING, 1=CONFIRMED, 2=ACCESS_AUTHORIZED, 3=COLLECTED, 4=CANCELLED
     const status = Number(reservationData.status);
     const renterAddress = reservationData.renter || '0x0000000000000000000000000000000000000000';
     const labProviderAddress = reservationData.labProvider || '0x0000000000000000000000000000000000000000';
@@ -123,8 +123,6 @@ export async function GET(request) {
         isPending: status === 0,
         isBooked: status === 1,
         isAccessAuthorized: status === 2,
-        isInUse: status === 2, // backward compatibility alias
-        isUsed: status === 2, // backward compatibility alias
         isCollected: status === 3,
         isCanceled: status === 4,
         isActive: status === 1 || status === 2, // Reservation can be active when confirmed or access-authorized
@@ -166,8 +164,6 @@ export async function GET(request) {
           isPending: false,
           isBooked: false,
           isAccessAuthorized: false,
-          isInUse: false,
-          isUsed: false,
           isCollected: false,
           isCanceled: false,
           isActive: false,
@@ -211,8 +207,6 @@ export async function GET(request) {
           isPending: false,
           isBooked: false,
           isAccessAuthorized: false,
-          isInUse: false,
-          isUsed: false,
           isCollected: false,
           isCanceled: false,
           isActive: false,

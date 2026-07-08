@@ -93,9 +93,9 @@
   --color-booking-confirmed-text: oklch(0.5273 0.1371 150.07);
   --color-booking-confirmed-border: oklch(0.925 0.0806 155.99);
 
-  --color-booking-used-bg: oklch(0.9705 0.0142 254.6);
-  --color-booking-used-text: oklch(0.4882 0.2172 264.38);
-  --color-booking-used-border: oklch(0.8823 0.0571 254.13);
+  --color-booking-access-authorized-bg: oklch(0.9705 0.0142 254.6);
+  --color-booking-access-authorized-text: oklch(0.4882 0.2172 264.38);
+  --color-booking-access-authorized-border: oklch(0.8823 0.0571 254.13);
 
   --color-booking-collected-bg: oklch(0.9846 0.0017 247.84);
   --color-booking-collected-text: oklch(0.3729 0.0306 259.73);

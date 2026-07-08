@@ -11,7 +11,7 @@ import devLog from '@/utils/dev/logger'
 export const BOOKING_STATUS = {
   PENDING: 0,
   CONFIRMED: 1,
-  IN_USE: 2,
+  ACCESS_AUTHORIZED: 2,
   COLLECTED: 3,
   CANCELLED: 4
 }
@@ -24,8 +24,7 @@ export const BOOKING_STATE = {
   REQUESTED: 'requested',
   PENDING: 'pending',
   CONFIRMED: 'confirmed',
-  // Legacy contract/state name. Semantically this means on-chain access authorization.
-  IN_USE: 'in_use',
+  ACCESS_AUTHORIZED: 'access_authorized',
   COMPLETED: 'completed',
   COLLECTED: 'collected',
   CANCELLED: 'cancelled',
@@ -72,7 +71,7 @@ const isExpiredConfirmedBooking = (booking) => {
 
 const isTemporallyCompletedBooking = (booking) => {
   const numericStatus = normalizeBookingStatusCode(booking)
-  if (numericStatus !== BOOKING_STATUS.IN_USE) {
+  if (numericStatus !== BOOKING_STATUS.ACCESS_AUTHORIZED) {
     return false
   }
 
@@ -87,10 +86,10 @@ export const normalizeBookingStatusCode = (booking) => {
       return BOOKING_STATUS.PENDING
     case BOOKING_STATE.CONFIRMED:
       return BOOKING_STATUS.CONFIRMED
-    case BOOKING_STATE.IN_USE:
-      return BOOKING_STATUS.IN_USE
+    case BOOKING_STATE.ACCESS_AUTHORIZED:
+      return BOOKING_STATUS.ACCESS_AUTHORIZED
     case BOOKING_STATE.COMPLETED:
-      return BOOKING_STATUS.IN_USE
+      return BOOKING_STATUS.ACCESS_AUTHORIZED
     case BOOKING_STATE.COLLECTED:
       return BOOKING_STATUS.COLLECTED
     case BOOKING_STATE.CANCELLED:
@@ -108,8 +107,8 @@ export const normalizeBookingStatusState = (booking) => {
         return BOOKING_STATE.PENDING
       case BOOKING_STATUS.CONFIRMED:
         return BOOKING_STATE.CONFIRMED
-      case BOOKING_STATUS.IN_USE:
-        return BOOKING_STATE.IN_USE
+      case BOOKING_STATUS.ACCESS_AUTHORIZED:
+        return BOOKING_STATE.ACCESS_AUTHORIZED
       case BOOKING_STATUS.COLLECTED:
         return BOOKING_STATE.COLLECTED
       case BOOKING_STATUS.CANCELLED:
@@ -131,7 +130,10 @@ export const normalizeBookingStatusState = (booking) => {
     booking?.statusCategory === 'pending'
   ) return BOOKING_STATE.PENDING
   if (semanticStatus === BOOKING_STATE.CONFIRMED || semanticStatus === 'booked') return BOOKING_STATE.CONFIRMED
-  if (semanticStatus === BOOKING_STATE.IN_USE || semanticStatus === 'in use') return BOOKING_STATE.IN_USE
+  if (
+    semanticStatus === BOOKING_STATE.ACCESS_AUTHORIZED ||
+    semanticStatus === 'access authorized'
+  ) return BOOKING_STATE.ACCESS_AUTHORIZED
   if (semanticStatus === BOOKING_STATE.COMPLETED) return BOOKING_STATE.COMPLETED
   if (semanticStatus === BOOKING_STATE.COLLECTED) return BOOKING_STATE.COLLECTED
   if (semanticStatus === BOOKING_STATE.CANCELLED || semanticStatus === 'canceled' || booking?.statusCategory === 'cancelled') return BOOKING_STATE.CANCELLED
@@ -160,15 +162,7 @@ export const isCancelledBooking = (booking) => {
  * @returns {boolean} True if the booking has on-chain access authorization
  */
 export const isAccessAuthorizedBooking = (booking) => {
-  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.IN_USE
-}
-
-/**
- * Backward-compatible alias. Status 2 is access authorization, not proof of a
- * remote lab session.
- */
-export const isUsedBooking = (booking) => {
-  return isAccessAuthorizedBooking(booking)
+  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.ACCESS_AUTHORIZED
 }
 
 /**
@@ -201,7 +195,7 @@ export const getBookingStatusText = (booking) => {
       return 'Pending'
     case BOOKING_STATE.CONFIRMED:
       return 'Confirmed'
-    case BOOKING_STATE.IN_USE:
+    case BOOKING_STATE.ACCESS_AUTHORIZED:
       return 'Access Authorized'
     case BOOKING_STATE.COMPLETED:
       return 'Completed'
@@ -273,7 +267,7 @@ export const getBookingStatusDisplay = (booking) => {
     };
     case 2: return {
       text: "Access Authorized",
-      className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
+      className: "bg-booking-access-authorized-bg text-booking-access-authorized-text border-booking-access-authorized-border",
       icon: faPlay
     };
     case 3: return {

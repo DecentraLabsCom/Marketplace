@@ -123,7 +123,7 @@ export const colors = {
       text: 'oklch(0.5273 0.1371 150.07)',      // green-700
       border: 'oklch(0.925 0.0806 155.99)'     // green-200
     },
-    used: {
+    accessAuthorized: {
       bg: 'oklch(0.9705 0.0142 254.6)',        // blue-50
       text: 'oklch(0.4882 0.2172 264.38)',      // blue-700
       border: 'oklch(0.8823 0.0571 254.13)'     // blue-200

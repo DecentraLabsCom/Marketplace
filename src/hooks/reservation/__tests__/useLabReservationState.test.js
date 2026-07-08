@@ -44,7 +44,7 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     REQUESTED: "requested",
     PENDING: "pending",
     CONFIRMED: "confirmed",
-    IN_USE: "in_use",
+    ACCESS_AUTHORIZED: "access_authorized",
     COMPLETED: "completed",
     COLLECTED: "collected",
     CANCELLED: "cancelled",
@@ -53,7 +53,7 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     const status = booking?.status;
     if (status === 0 || status === "0" || status === "pending" || status === "requested") return "pending";
     if (status === 1 || status === "1" || status === "confirmed") return "confirmed";
-    if (status === 2 || status === "2" || status === "in_use") return "in_use";
+    if (status === 2 || status === "2" || status === "access_authorized") return "access_authorized";
     if (status === "completed") return "completed";
     if (status === 3 || status === "3" || status === "collected") return "collected";
     if (status === 4 || status === "4" || status === "cancelled" || status === "canceled") return "cancelled";
@@ -63,7 +63,7 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     const status = booking?.status;
     if (status === 0 || status === "0" || status === "pending" || status === "requested") return 0;
     if (status === 1 || status === "1" || status === "confirmed") return 1;
-    if (status === 2 || status === "2" || status === "in_use") return 2;
+    if (status === 2 || status === "2" || status === "access_authorized") return 2;
     if (status === "completed") return 2;
     if (status === 3 || status === "3" || status === "collected") return 3;
     if (status === 4 || status === "4" || status === "cancelled" || status === "canceled") return 4;
@@ -72,7 +72,7 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
   BOOKING_STATUS: {
     PENDING: 0,
     CONFIRMED: 1,
-    IN_USE: 2,
+    ACCESS_AUTHORIZED: 2,
     COLLECTED: 3,
     CANCELLED: 4,
   },

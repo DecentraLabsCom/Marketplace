@@ -46,7 +46,7 @@ describe('/api/contract/reservation/getReservation route', () => {
     requireAuth.mockResolvedValue({ userid: 'user@example.edu' })
   })
 
-  test('labels status 2 as access authorized while preserving compatibility aliases', async () => {
+  test('labels status 2 as access authorized', async () => {
     getContractInstance.mockResolvedValue({
       getReservation: jest.fn().mockResolvedValue({
         ...baseReservation,
@@ -65,8 +65,6 @@ describe('/api/contract/reservation/getReservation route', () => {
       status: 2,
       reservationState: 'Access Authorized',
       isAccessAuthorized: true,
-      isInUse: true,
-      isUsed: true,
       isActive: true,
       isConfirmed: true,
     })

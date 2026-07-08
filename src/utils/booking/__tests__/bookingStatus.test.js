@@ -19,7 +19,6 @@ import {
   normalizeBookingStatusState,
   isCancelledBooking,
   isAccessAuthorizedBooking,
-  isUsedBooking,
   isCollectedBooking,
   isPendingBooking,
   isConfirmedBooking,
@@ -78,12 +77,6 @@ describe("Status Checking Functions", () => {
       const booking = { status };
 
       expect(isAccessAuthorizedBooking(booking)).toBe(expected);
-    });
-  });
-
-  describe("isUsedBooking", () => {
-    test("keeps status 2 alias for backward compatibility", () => {
-      expect(isUsedBooking({ status: 2 })).toBe(true);
     });
   });
 
