@@ -143,7 +143,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
     }).as("getReservation");
   }
 
-  function waitForReservationCalendar(labId) {
+  function waitForReservationCalendar(labId, expectedReservations = 1) {
     // Ensure the intended lab is selected in the reservation form.
     // If the same value is already selected, toggle through another option so onChange always fires
     // and selectedLab gets refreshed with metadata-enriched fields (resourceType/maxConcurrentUsers).
@@ -170,8 +170,12 @@ describe("FMU Concurrent Calendar Bookings", () => {
 
     // Wait for reservation pipeline after lab selection.
     cy.wait("@getReservationCount", { timeout: 10000 });
-    cy.wait("@getReservationByIndex", { timeout: 10000 });
-    cy.wait("@getReservation", { timeout: 10000 });
+    for (let i = 0; i < expectedReservations; i += 1) {
+      cy.wait("@getReservationByIndex", { timeout: 10000 });
+    }
+    for (let i = 0; i < expectedReservations; i += 1) {
+      cy.wait("@getReservation", { timeout: 10000 });
+    }
 
     // Wait for the calendar/time section to be fully rendered.
     cy.get("#time-select", { timeout: 10000 }).should("be.visible");
@@ -224,12 +228,12 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getMetadata");
 
       // Wait for bookings to load
-      waitForReservationCalendar(5);
+      waitForReservationCalendar(5, 2);
 
       // The time select should contain occupancy notation
       // FMU with maxConcurrentUsers=3 → slots show (N/3)
       cy.get("#time-select").should("be.visible");
-      cy.get("#time-select option").then(($options) => {
+      cy.get("#time-select option").should(($options) => {
         // At least some options should contain the occupancy pattern (N/3)
         const occupancyOptions = $options.filter((_, el) => /\(\d+\/3\)/.test(el.textContent));
         expect(occupancyOptions.length).to.be.greaterThan(0);
@@ -242,10 +246,10 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      waitForReservationCalendar(5);
+      waitForReservationCalendar(5, 2);
 
       // At least one slot must show partial occupancy (0 < N < 3) and remain selectable.
-      cy.get("#time-select option").then(($options) => {
+      cy.get("#time-select option").should(($options) => {
         const occupiedNotFull = $options.filter((_, el) => {
           if (el.disabled) return false;
           const match = /\((\d+)\/(\d+)\)/.exec(el.textContent || "");
@@ -285,10 +289,10 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      waitForReservationCalendar(6);
+      waitForReservationCalendar(6, 1);
 
       cy.get("#time-select").should("be.visible");
-      cy.get("#time-select option").then(($options) => {
+      cy.get("#time-select option").should(($options) => {
         // Regular labs should NOT have (N/M) notation
         const occupancyOptions = $options.filter((_, el) => /\(\d+\/\d+\)/.test(el.textContent));
         expect(occupancyOptions.length).to.equal(0);
@@ -301,7 +305,7 @@ describe("FMU Concurrent Calendar Bookings", () => {
       cy.wait("@getAllLabs");
       cy.wait("@getLab");
       cy.wait("@getMetadata");
-      waitForReservationCalendar(6);
+      waitForReservationCalendar(6, 1);
 
       cy.get("#time-select").should("be.visible");
       // Verify that at least one option is disabled (the booked slot)
