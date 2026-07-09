@@ -332,13 +332,13 @@ describe("LabDetail", () => {
       expect(demoLink).toHaveAttribute("target", "_blank");
     });
 
-    test("shows 'Lab currently in use' when demoEnabled is true but lab is unavailable", () => {
+    test("shows 'Lab currently reserved' when demoEnabled is true but lab is unavailable", () => {
       useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
       useCheckAvailable.mockReturnValue({ data: { isAvailable: false } });
 
       render(<LabDetail id="lab-123" />);
 
-      expect(screen.getByText(/Lab currently in use/i)).toBeInTheDocument();
+      expect(screen.getByText(/Lab currently reserved/i)).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
     });
 
@@ -346,7 +346,7 @@ describe("LabDetail", () => {
       render(<LabDetail id="lab-123" />);
 
       expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
-      expect(screen.queryByText(/Lab currently in use/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Lab currently reserved/i)).not.toBeInTheDocument();
     });
 
     test("shows Try Demo button when availability data is not yet loaded", () => {

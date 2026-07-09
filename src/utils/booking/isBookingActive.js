@@ -2,7 +2,7 @@
  * Determines if a user has an active booking that is currently running.
  * A booking is active if:
  * 1. The current time is between the start time and end time
- * 2. The booking status is "CONFIRMED" (status 1) or "IN_USE" (status 2)
+ * 2. The booking status is CONFIRMED (1) or ACCESS_AUTHORIZED (2)
  * 
  * @param {Array} bookingInfo - Array of booking objects with start, end, and status
  * @returns {boolean} - True if there's an active booking right now
@@ -16,7 +16,7 @@ export default function isBookingActive(bookingInfo) {
     return bookingInfo.some(b => {
       if (!b.start || !b.end) return false;
       
-      // Confirmed and in-use bookings can be active while their reservation window is open.
+      // Confirmed and access-authorized bookings can be active while their reservation window is open.
       // Support both string and number status formats
       if (b.status !== "1" && b.status !== 1 && b.status !== "2" && b.status !== 2) {
         return false;

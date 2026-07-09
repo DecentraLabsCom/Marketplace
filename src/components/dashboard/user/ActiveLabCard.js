@@ -82,14 +82,14 @@ export default function ActiveLabCard({
     now < endTimeUnix;
   const effectiveStatusDisplay = isTemporallyActive && isConfirmedBooking(booking)
     ? {
-        text: "In Use",
-        className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
-        icon: "InUse",
+        text: "Access Window Open",
+        className: "bg-booking-access-authorized-bg text-booking-access-authorized-text border-booking-access-authorized-border",
+        icon: "AccessWindowOpen",
       }
     : getBookingStatusDisplay(booking);
   const statusIcon = effectiveStatusDisplay?.icon;
   const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
-  const statusTextIcon = !shouldRenderIcon && statusIcon === "InUse" ? "OK" : statusIcon;
+  const statusTextIcon = !shouldRenderIcon && statusIcon === "AccessWindowOpen" ? "OK" : statusIcon;
 
   return (
     <div className='flex xl:flex-row flex-wrap justify-center xl:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>

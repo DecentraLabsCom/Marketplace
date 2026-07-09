@@ -159,7 +159,7 @@ export default function LabDetail({ id }) {
               <div className="mt-3 w-2/3 mx-auto">
                 {demoAvailData?.isAvailable === false ? (
                   <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
-                    Lab currently in use
+                    Lab currently reserved
                   </p>
                 ) : (
                   <a

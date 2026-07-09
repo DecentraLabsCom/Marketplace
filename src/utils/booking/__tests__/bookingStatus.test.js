@@ -5,7 +5,7 @@
  * Focuses on business logic, edge cases, and critical date calculations.
  *
  * Test Behaviors:
- * - Status checking functions (cancelled, used, pending, confirmed)
+ * - Status checking functions (cancelled, access authorized, pending, confirmed)
  * - Display utilities (text, color, icon mapping)
  * - Date validation with multiple fallback strategies
  * - Past booking calculation with edge cases
@@ -18,7 +18,7 @@ import {
   BOOKING_STATE,
   normalizeBookingStatusState,
   isCancelledBooking,
-  isUsedBooking,
+  isAccessAuthorizedBooking,
   isCollectedBooking,
   isPendingBooking,
   isConfirmedBooking,
@@ -66,7 +66,7 @@ describe("Status Checking Functions", () => {
     });
   });
 
-  describe("isUsedBooking", () => {
+  describe("isAccessAuthorizedBooking", () => {
     test.each([
       [2, true],
       ["2", true],
@@ -76,7 +76,7 @@ describe("Status Checking Functions", () => {
     ])("returns %s for status=%s", (status, expected) => {
       const booking = { status };
 
-      expect(isUsedBooking(booking)).toBe(expected);
+      expect(isAccessAuthorizedBooking(booking)).toBe(expected);
     });
   });
 
@@ -121,7 +121,7 @@ describe("Display Utilities", () => {
     test.each([
       [0, "Pending"],
       [1, "Confirmed"],
-      [2, "In Use"],
+      [2, "Access Authorized"],
       [3, "Collected"],
       [4, "Cancelled"],
       [99, "Unknown"],
@@ -146,7 +146,7 @@ describe("Display Utilities", () => {
       expect(getBookingStatusText({ status: 1, end: pastEnd })).toBe("Expired");
     });
 
-    test("returns Completed for in-use booking whose end is in the past", () => {
+    test("returns Completed for access-authorized booking whose end is in the past", () => {
       const pastEnd = Math.floor(Date.now() / 1000) - 60;
       expect(getBookingStatusText({ status: 2, end: pastEnd })).toBe("Completed");
     });
@@ -178,7 +178,7 @@ describe("Display Utilities", () => {
         expect(getBookingStatusColor({ status })).toBe(expected);
       });
 
-      test("returns completed color for in-use booking whose end is in the past", () => {
+      test("returns completed color for access-authorized booking whose end is in the past", () => {
         const pastEnd = Math.floor(Date.now() / 1000) - 60;
         expect(getBookingStatusColor({ status: 2, end: pastEnd })).toBe(
           "text-neutral-600"
@@ -195,7 +195,7 @@ describe("Display Utilities", () => {
       expect(display.icon).toBe(faCheck);
     });
 
-    test("returns completed display for in-use booking whose end is in the past", () => {
+    test("returns completed display for access-authorized booking whose end is in the past", () => {
       const pastEnd = Math.floor(Date.now() / 1000) - 60;
       const display = getBookingStatusDisplay({ status: 2, end: pastEnd });
 
@@ -407,7 +407,7 @@ describe("Filtering by Display Mode", () => {
       const bookings = [
         createBooking(0, futureTimestamp, futureTimestamp + 3600), // pending future
         createBooking(1, futureTimestamp, futureTimestamp + 3600), // confirmed future
-        createBooking(2, futureTimestamp, futureTimestamp + 3600), // used future
+        createBooking(2, futureTimestamp, futureTimestamp + 3600), // access authorized future
       ];
 
       const result = filterBookingsByDisplayMode(bookings, "user-dashboard");
@@ -465,9 +465,9 @@ describe("Filtering by Display Mode", () => {
       );
     });
 
-    test("shows used and collected bookings", () => {
+    test("shows access-authorized and collected bookings", () => {
       const bookings = [
-        createBooking(2, pastTimestamp, pastTimestamp + 3600), // used
+        createBooking(2, pastTimestamp, pastTimestamp + 3600), // access authorized
         createBooking(3, pastTimestamp, pastTimestamp + 3600), // collected
       ];
 

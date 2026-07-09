@@ -179,7 +179,7 @@ describe('LabBookingItem', () => {
 
     expect(screen.queryByRole('button', { name: /Cancel Booking/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Request for Refund/i })).toBeInTheDocument();
-    expect(screen.getByText('In Use')).toBeInTheDocument();
+    expect(screen.getByText('Access Window Open')).toBeInTheDocument();
   });
 
   test('disables cancel button and shows spinner while cancellation is in progress', async () => {

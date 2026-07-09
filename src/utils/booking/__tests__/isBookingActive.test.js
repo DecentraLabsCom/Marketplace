@@ -6,7 +6,7 @@
  *
  * Test Behaviors:
  * - Active booking detection
- * - Status validation (confirmed and in-use)
+ * - Status validation (confirmed and access-authorized)
  * - Time boundary checks
  * - Invalid input handling
  */
@@ -73,7 +73,7 @@ describe("isBookingActive", () => {
       expect(isBookingActive(bookingInfo)).toBe(true);
     });
 
-    test("returns true when booking is active and in use", () => {
+    test("returns true when booking is active and access authorized", () => {
       jest.setSystemTime(new Date("2025-06-15T12:00:00"));
 
       const bookingStart = Math.floor(

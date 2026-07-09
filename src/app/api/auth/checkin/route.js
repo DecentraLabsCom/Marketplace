@@ -3,33 +3,34 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { keccak256, toUtf8Bytes } from 'ethers'
 import {
   BadRequestError,
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'
+import {
+  GatewayValidationError,
+  resolveGatewayBaseUrl,
+} from '@/utils/api/gatewayProxy'
 
-function normalizeAuthBase(authEndpoint) {
-  if (!authEndpoint || typeof authEndpoint !== 'string') {
-    return null
-  }
-  const trimmed = authEndpoint.endsWith('/') ? authEndpoint.slice(0, -1) : authEndpoint
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return null
-  }
-  if (!trimmed.endsWith('/auth')) {
-    return null
-  }
-  return trimmed
-}
-
-async function resolveAuthEndpoint(labId) {
+async function resolveAuthEndpoint(labId, authEndpoint) {
   if (!labId) {
-    return null
+    throw new BadRequestError('labId is required to verify auth endpoint')
   }
-  const contract = await getContractInstance()
-  const authURI = await contract.getLabAuthURI(Number(labId))
-  return normalizeAuthBase(authURI || '')
+  try {
+    const gatewayBase = await resolveGatewayBaseUrl({
+      labId,
+      gatewayUrl: authEndpoint,
+      requireLabMatch: true,
+    })
+    return `${gatewayBase}/auth`
+  } catch (error) {
+    if (error instanceof GatewayValidationError) {
+      throw new BadRequestError(error.message)
+    }
+    throw error
+  }
 }
 
 function normalizeOrganizationDomain(domain) {
@@ -84,6 +85,10 @@ function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
 
+function computeSamlAssertionHash(samlAssertion) {
+  return keccak256(toUtf8Bytes(samlAssertion))
+}
+
 export async function POST(req) {
   try {
     const session = await requireAuth()
@@ -98,7 +103,7 @@ export async function POST(req) {
       throw new BadRequestError('SSO session missing samlAssertion')
     }
 
-    const authBase = normalizeAuthBase(authEndpoint) || (await resolveAuthEndpoint(labId))
+    const authBase = await resolveAuthEndpoint(labId, authEndpoint)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }
@@ -124,6 +129,7 @@ export async function POST(req) {
     }
 
     const puc = getPucFromSession(session) || undefined
+    const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       userId,
       affiliation,
@@ -131,6 +137,10 @@ export async function POST(req) {
       puc,
       scope: 'booking:read',
       bookingInfoAllowed: true,
+      purpose: 'lab_access',
+      reservationKey,
+      labId,
+      samlAssertionHash,
     })
 
     const payload = {

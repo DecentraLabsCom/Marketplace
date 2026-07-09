@@ -52,6 +52,7 @@ describe('/api/auth/checkin route', () => {
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
 
     getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
@@ -64,6 +65,7 @@ describe('/api/auth/checkin route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         reservationKey: '0xabc',
+        labId: '10',
         authEndpoint: 'https://gateway.example.com/auth',
       }),
     })
@@ -78,6 +80,10 @@ describe('/api/auth/checkin route', () => {
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1@uned.es|targeted-user-1',
+        purpose: 'lab_access',
+        reservationKey: '0xabc',
+        labId: '10',
+        samlAssertionHash: expect.stringMatching(/^0x[a-fA-F0-9]{64}$/),
       })
     )
   })
@@ -93,6 +99,7 @@ describe('/api/auth/checkin route', () => {
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
 
     getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
@@ -105,6 +112,7 @@ describe('/api/auth/checkin route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         reservationKey: '0xabc',
+        labId: '10',
         authEndpoint: 'https://gateway.example.com/auth',
       }),
     })
@@ -121,5 +129,36 @@ describe('/api/auth/checkin route', () => {
         userId: 'user-2@uned.es',
       })
     )
+  })
+
+  test('rejects auth endpoint that does not match on-chain gateway', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+    })
+
+    const { POST } = await import('../api/auth/checkin/route.js')
+
+    const req = new Request('http://localhost/api/auth/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reservationKey: '0xabc',
+        labId: '10',
+        authEndpoint: 'https://evil.example.com/auth',
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Provided gatewayUrl does not match on-chain lab auth URI',
+      code: 'BAD_REQUEST',
+    })
   })
 })

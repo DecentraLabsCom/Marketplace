@@ -335,7 +335,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.nextBooking).toMatchObject({ labId: 'earlier' })
     })
 
-    it('identifies an active in-use booking (status 2, now within window)', () => {
+    it('identifies an active access-authorized booking (status 2, now within window)', () => {
       setupReservationsMock([
         { labId: '5', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
@@ -453,7 +453,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.cancelledBookings).toBe(1)
     })
 
-    it('counts in_use (status 2) booking within window as activeBookings', () => {
+    it('counts access-authorized status 2 booking within window as activeBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
@@ -461,7 +461,7 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.activeBookings).toBe(1)
     })
 
-    it('counts in_use (status 2) future booking as upcomingBookings', () => {
+    it('counts access-authorized status 2 future booking as upcomingBookings', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
@@ -522,13 +522,13 @@ describe('useBookingSpecializedQueries', () => {
       expect(result.current.data.nextBooking).toBeNull()
     })
 
-    it('returns activeBooking when in-use booking is now active', () => {
+    it('returns activeBooking when access-authorized booking is now active', () => {
       setupReservationsMock([
-        { labId: '10-in-use', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
+        { labId: '10-access-authorized', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
       const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
       expect(result.current.data.hasActiveBooking).toBe(true)
-      expect(result.current.data.activeBooking).toMatchObject({ labId: '10-in-use', status: 2 })
+      expect(result.current.data.activeBooking).toMatchObject({ labId: '10-access-authorized', status: 2 })
       expect(result.current.data.nextBooking).toBeNull()
     })
 

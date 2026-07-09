@@ -141,7 +141,7 @@ export function getReservationStatusText(status) {
     case 1:
       return 'Confirmed'
     case 2:
-      return 'In Use'
+      return 'Access Authorized'
     case 3:
       return 'Settled'
     case 4:

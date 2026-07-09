@@ -8,7 +8,7 @@ const toEpochSeconds = (value) => {
 
 export const isFinalBookingState = (state) =>
   state === BOOKING_STATE.CONFIRMED ||
-  state === BOOKING_STATE.IN_USE ||
+  state === BOOKING_STATE.ACCESS_AUTHORIZED ||
   state === BOOKING_STATE.COMPLETED ||
   state === BOOKING_STATE.COLLECTED ||
   state === BOOKING_STATE.CANCELLED

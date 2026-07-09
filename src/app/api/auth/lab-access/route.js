@@ -2,26 +2,18 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { keccak256, toUtf8Bytes } from 'ethers'
 import {
   BadRequestError,
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'
-
-function normalizeAuthBase(authEndpoint) {
-  if (!authEndpoint || typeof authEndpoint !== 'string') {
-    return null
-  }
-  const trimmed = authEndpoint.endsWith('/') ? authEndpoint.slice(0, -1) : authEndpoint
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    return null
-  }
-  if (!trimmed.endsWith('/auth')) {
-    return null
-  }
-  return trimmed
-}
+import {
+  GatewayValidationError,
+  resolveGatewayBaseUrl,
+} from '@/utils/api/gatewayProxy'
 
 function normalizeOrganizationDomain(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -59,13 +51,23 @@ function normalizeOrganizationDomain(domain) {
   return normalized
 }
 
-async function resolveAuthEndpoint(labId) {
+async function resolveAuthEndpoint(labId, authEndpoint) {
   if (!labId) {
-    return null
+    throw new BadRequestError('labId is required to verify auth endpoint')
   }
-  const contract = await getContractInstance()
-  const authURI = await contract.getLabAuthURI(Number(labId))
-  return normalizeAuthBase(authURI || '')
+  try {
+    const gatewayBase = await resolveGatewayBaseUrl({
+      labId,
+      gatewayUrl: authEndpoint,
+      requireLabMatch: true,
+    })
+    return `${gatewayBase}/auth`
+  } catch (error) {
+    if (error instanceof GatewayValidationError) {
+      throw new BadRequestError(error.message)
+    }
+    throw error
+  }
 }
 
 async function resolveInstitutionWallet(domain) {
@@ -76,6 +78,10 @@ async function resolveInstitutionWallet(domain) {
     return null
   }
   return wallet.toLowerCase()
+}
+
+function computeSamlAssertionHash(samlAssertion) {
+  return keccak256(toUtf8Bytes(samlAssertion))
 }
 
 function resolveUserId(session) {
@@ -101,7 +107,7 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO session')
     }
 
-    const authBase = normalizeAuthBase(authEndpoint) || (await resolveAuthEndpoint(labId))
+    const authBase = await resolveAuthEndpoint(labId, authEndpoint)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }
@@ -127,6 +133,7 @@ export async function POST(req) {
     }
 
     const puc = getPucFromSession(session) || undefined
+    const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       userId,
@@ -135,31 +142,81 @@ export async function POST(req) {
       puc,
       scope: 'booking:read',
       bookingInfoAllowed: true,
+      purpose: 'lab_access',
+      reservationKey,
+      labId,
+      samlAssertionHash,
     })
 
-    const payload = {
+    if (!includeBookingInfo) {
+      const response = await fetch(`${authBase}/saml-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          marketplaceToken,
+          samlAssertion: session.samlAssertion,
+          timestamp: Math.floor(Date.now() / 1000),
+        }),
+      })
+
+      const responseText = await response.text()
+      if (!response.ok) {
+        devLog.error('SSO lab access failed:', response.status, responseText)
+        return NextResponse.json(
+          { error: 'SSO lab access failed', details: responseText },
+          { status: response.status },
+        )
+      }
+
+      const data = responseText ? JSON.parse(responseText) : {}
+      return NextResponse.json(data, { status: 200 })
+    }
+
+    const consumerBackendBase = await resolveInstitutionalBackendUrl(affiliation)
+    if (!consumerBackendBase) {
+      throw new BadRequestError('Institution backend not registered')
+    }
+
+    const checkInPayload = {
       marketplaceToken,
       samlAssertion: session.samlAssertion,
-      timestamp: Math.floor(Date.now() / 1000),
-    }
-    if (includeBookingInfo) {
-      payload.labId = labId
-      payload.reservationKey = reservationKey
+      reservationKey,
+      labId,
+      institutionalProviderWallet,
+      puc,
     }
 
-    const authPath = includeBookingInfo ? 'saml-auth2' : 'saml-auth'
-
-    const response = await fetch(`${authBase}/${authPath}`, {
+    const checkInResponse = await fetch(`${consumerBackendBase}/auth/checkin-institutional`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(checkInPayload),
+    })
+
+    const checkInResponseText = await checkInResponse.text()
+    if (!checkInResponse.ok) {
+      devLog.error('Institutional access authorization failed:', checkInResponse.status, checkInResponseText)
+      return NextResponse.json(
+        { error: 'Institutional access authorization failed', details: checkInResponseText },
+        { status: checkInResponse.status },
+      )
+    }
+
+    const providerPayload = {
+      marketplaceToken,
+      reservationKey,
+      labId,
+    }
+    const response = await fetch(`${authBase}/access-credential`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(providerPayload),
     })
 
     const responseText = await response.text()
     if (!response.ok) {
-      devLog.error('SSO lab access failed:', response.status, responseText)
+      devLog.error('Provider access credential issuance failed:', response.status, responseText)
       return NextResponse.json(
-        { error: 'SSO lab access failed', details: responseText },
+        { error: 'Provider access credential issuance failed', details: responseText },
         { status: response.status },
       )
     }

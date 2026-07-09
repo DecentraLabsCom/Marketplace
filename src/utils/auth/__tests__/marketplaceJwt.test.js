@@ -409,6 +409,29 @@ describe("MarketplaceJwtService", () => {
       ).rejects.toThrow("Invalid institutionalProviderWallet address format");
     });
 
+    test("includes lab access binding claims when provided", async () => {
+      await MarketplaceJwtService.generateSamlAuthToken({
+        userId: "user-1",
+        affiliation: "uned.es",
+        institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+        purpose: "lab_access",
+        reservationKey: "0xabc",
+        labId: 42,
+        samlAssertionHash: "0x" + "a".repeat(64),
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purpose: "lab_access",
+          reservationKey: "0xabc",
+          labId: "42",
+          samlAssertionHash: "0x" + "a".repeat(64),
+        }),
+        validPrivateKey,
+        expect.objectContaining({ algorithm: "RS256" })
+      );
+    });
+
     test('uses default audience when none provided', async () => {
       // no env vars set
       await MarketplaceJwtService.generateSamlAuthToken({
