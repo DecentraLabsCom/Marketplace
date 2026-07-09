@@ -11,7 +11,7 @@
  * Expected payload (success):
  * {
  *   "status": "SUCCESS",
- *   "stableUserId": "uid=jgarcia,ou=people,o=uned,c=es",
+ *   "stableUserId": "user@institution.edu|targeted-user",
  *   "institutionId": "uned.es",
  *   "credentialId": "AbCdEf123456...",
  *   "aaguid": "00000000-0000-0000-0000-000000000000",

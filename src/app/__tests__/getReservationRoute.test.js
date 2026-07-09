@@ -43,7 +43,7 @@ const baseReservation = {
 describe('/api/contract/reservation/getReservation route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    requireAuth.mockResolvedValue({ userid: 'user@example.edu' })
+    requireAuth.mockResolvedValue({ puc: 'user@example.edu' })
   })
 
   test('labels status 2 as access authorized', async () => {

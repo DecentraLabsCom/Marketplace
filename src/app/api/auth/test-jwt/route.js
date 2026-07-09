@@ -75,7 +75,7 @@ export async function POST(request) {
     const mockSamlAttributes = {
       username: testUser.username,
       email: testUser.email || testUser.username,
-      uid: testUser.uid || testUser.username,
+      puc: testUser.puc || testUser.username,
       displayName: testUser.displayName || testUser.username,
       schacHomeOrganization: testUser.organization || 'test-org.edu',
       eduPersonScopedAffiliation: testUser.scopedAffiliation || 'member@test-org.edu'

@@ -33,7 +33,7 @@ describe('publicSessionUser', () => {
     expect(sanitized.internalToken).toBeUndefined()
   })
 
-  test('adds backwards-compatible aliases and copies ePPN to id', () => {
+  test('adds canonical aliases without deriving id from ePPN', () => {
     const sanitized = sanitizeSessionUserForClient({
       affiliation: 'uned.es',
       personalUniqueCode: 'puc-1',
@@ -42,6 +42,6 @@ describe('publicSessionUser', () => {
 
     expect(sanitized.schacHomeOrganization).toBe('uned.es')
     expect(sanitized.schacPersonalUniqueCode).toBe('puc-1')
-    expect(sanitized.id).toBe('user@uni.edu')
+    expect(sanitized.id).toBeUndefined()
   })
 })

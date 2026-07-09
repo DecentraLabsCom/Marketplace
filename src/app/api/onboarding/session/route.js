@@ -41,7 +41,7 @@ export async function GET() {
     }
 
     const userData = {
-      id: session.id,
+      eduPersonPrincipalName: session.eduPersonPrincipalName,
       eduPersonTargetedID: session.eduPersonTargetedID,
       email: session.email,
       name: session.name || session.displayName,
@@ -100,7 +100,7 @@ export async function GET() {
       expiresInSeconds: 15 * 60,
       subject: stableUserId,
       claims: {
-        userid: stableUserId,
+        puc: stableUserId,
         affiliation: userData.affiliation,
       },
     })

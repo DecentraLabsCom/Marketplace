@@ -49,8 +49,8 @@ describe('puc normalization', () => {
     ).toBe('alice@uned.es')
   })
 
-  test('getNormalizedPucFromSession lowercases fallback session id', () => {
-    expect(getNormalizedPucFromSession({ id: ' MixedCase-UserId ' })).toBe('mixedcase-userid')
+  test('getNormalizedPucFromSession ignores session id when SAML PUC fields are absent', () => {
+    expect(getNormalizedPucFromSession({ id: ' MixedCase-UserId ' })).toBeNull()
   })
 
   test('hashNormalizedPuc hashes canonical lowercase value', () => {

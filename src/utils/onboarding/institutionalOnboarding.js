@@ -6,7 +6,7 @@
  * GET /api/onboarding/session, then talks to the Institutional Backend
  * using Authorization: Bearer <jwt>.
  *
- * This module only exports enums and the stable-user-ID extraction logic
+ * This module only exports enums and the PUC extraction logic
  * that the API routes and the hook both need.
  *
  * @module utils/onboarding/institutionalOnboarding
@@ -44,13 +44,13 @@ export const OnboardingErrorCode = {
 }
 
 /**
- * Extracts the stable user identifier from SAML session data.
+ * Extracts the PUC from SAML session data.
  * R&S shared identifier, controlled by NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE:
  * - eduPersonPrincipalName
  * - eduPersonPrincipalName|eduPersonTargetedID
  * 
  * @param {Object} userData - User data from SAML session
- * @returns {string|null} Stable user identifier
+ * @returns {string|null} PUC
  */
 export function extractStableUserId(userData) {
   if (!userData) return null

@@ -83,7 +83,7 @@ describe('/api/institutions/provisionConsumer route', () => {
 
   test('returns 403 when session is not SSO', async () => {
     requireAuth.mockResolvedValue({
-      userid: 'user123',
+      puc: 'user123',
       // No samlAssertion
     });
 

@@ -4,24 +4,24 @@
  * NOTE: This is volatile — a persistent DB should replace it in production.
  */
 
-const credentialByUserId = new Map()
+const credentialByPuc = new Map()
 const credentialById = new Map()
 
 /**
  * Persist a verified credential record received from the institutional backend callback.
  * @param {Object} record
- * @param {string} record.userId
+ * @param {string} record.puc
  * @param {string} record.credentialId
  */
 export function saveCredential(record) {
-  if (!record?.userId || !record?.credentialId) return null
+  if (!record?.puc || !record?.credentialId) return null
   const normalized = {
     ...record,
     signCount: Number(record.signCount || 0),
     status: record.status || 'active',
     updatedAt: new Date().toISOString(),
   }
-  credentialByUserId.set(record.userId, normalized)
+  credentialByPuc.set(record.puc, normalized)
   credentialById.set(record.credentialId, normalized)
   return normalized
 }

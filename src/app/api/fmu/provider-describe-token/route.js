@@ -46,9 +46,9 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Marketplace JWT is not configured' }, { status: 503 })
     }
 
-    const userId = getPucFromSession(session) || session?.id || session?.eduPersonPrincipalName
+    const puc = getPucFromSession(session)
     const affiliation = session?.affiliation || session?.schacHomeOrganization || ''
-    if (!userId) {
+    if (!puc) {
       return NextResponse.json({ error: 'Missing SSO identity' }, { status: 401 })
     }
 
@@ -56,7 +56,7 @@ export async function GET(request) {
     const authBase = `${gatewayBaseUrl}/auth`
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
-      userId,
+      puc,
       affiliation,
       scope: 'fmu:describe',
       bookingInfoAllowed: false,

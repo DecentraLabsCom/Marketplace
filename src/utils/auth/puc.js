@@ -19,8 +19,8 @@ export function shouldIncludeEduPersonTargetedId() {
 /**
  * Normalize an identifier string.
  * Historically this was used for SCHAC Personal Unique Codes, but it now
- * also functions as a generic normalizer for whatever stable user ID we
- * derive from the SAML session (e.g. eduPersonTargetedID or session id).
+ * also functions as a generic normalizer for the stable PUC-compatible
+ * identifier derived from the SAML session.
  * If the value resembles a SCHAC PUC urn we still strip the urn semantics,
  * otherwise the trimmed string is returned verbatim.
  *
@@ -71,11 +71,6 @@ export function getNormalizedPucFromSession(session) {
       ? `${principalName}|${targetedId}`
       : principalName
     return stableId.toLowerCase()
-  }
-
-  // Session id is expected to already be the canonical shared identifier.
-  if (typeof session?.id === 'string' && session.id.trim()) {
-    return session.id.trim().toLowerCase()
   }
 
   return null

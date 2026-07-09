@@ -39,7 +39,7 @@ describe('callbackAuth', () => {
   test('returns unsigned callback URL when signature is optional and no secret exists', () => {
     const baseUrl = 'https://marketplace.example/api/onboarding/callback'
     const result = buildSignedOnboardingCallbackUrl(baseUrl, {
-      stableUserId: 'uid=one',
+      stableUserId: 'puc=one',
       institutionId: 'uned.es',
     })
     expect(result).toBe(baseUrl)
@@ -57,7 +57,7 @@ describe('callbackAuth', () => {
     const signedUrl = buildSignedOnboardingCallbackUrl(
       'https://marketplace.example/api/onboarding/callback',
       {
-        stableUserId: 'uid=abc',
+        stableUserId: 'puc=abc',
         institutionId: 'uned.es',
       }
     )
@@ -67,7 +67,7 @@ describe('callbackAuth', () => {
     expect(typeof token).toBe('string')
 
     const verification = verifyOnboardingCallbackToken(token, {
-      stableUserId: 'uid=abc',
+      stableUserId: 'puc=abc',
       institutionId: 'uned.es',
     })
     expect(verification.ok).toBe(true)
@@ -78,14 +78,14 @@ describe('callbackAuth', () => {
     const signedUrl = buildSignedOnboardingCallbackUrl(
       'https://marketplace.example/api/onboarding/callback',
       {
-        stableUserId: 'uid=abc',
+        stableUserId: 'puc=abc',
         institutionId: 'uned.es',
       }
     )
 
     const token = extractCallbackTokenFromRequest(createMockRequest(signedUrl))
     const verification = verifyOnboardingCallbackToken(token, {
-      stableUserId: 'uid=other',
+      stableUserId: 'puc=other',
     })
 
     expect(verification.ok).toBe(false)
@@ -94,7 +94,7 @@ describe('callbackAuth', () => {
 
   test('verifies HMAC signature with timestamp and body', () => {
     process.env.SESSION_SECRET = 'e'.repeat(64)
-    const rawBody = JSON.stringify({ status: 'SUCCESS', stableUserId: 'uid=abc' })
+    const rawBody = JSON.stringify({ status: 'SUCCESS', stableUserId: 'puc=abc' })
     const timestamp = Math.floor(Date.now() / 1000)
     const signature = computeOnboardingCallbackHmac({
       rawBody,

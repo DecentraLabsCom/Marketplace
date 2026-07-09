@@ -29,7 +29,7 @@ describe('institutionalOnboarding', () => {
   test('extractStableUserId follows R&S shared identifier semantics', () => {
     expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu' })).toBe('ep@uni.edu')
     expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu', eduPersonTargetedID: 't1' })).toBe('ep@uni.edu|t1')
-    expect(extractStableUserId({ id: 'justid' })).toBe('justid')
+    expect(extractStableUserId({ id: 'justid' })).toBeNull()
     expect(extractStableUserId({ email: 'a@uned.es' })).toBeNull()
     expect(extractStableUserId(null)).toBeNull()
   })

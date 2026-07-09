@@ -84,10 +84,6 @@ function computeSamlAssertionHash(samlAssertion) {
   return keccak256(toUtf8Bytes(samlAssertion))
 }
 
-function resolveUserId(session) {
-  return getPucFromSession(session) || session?.id || session?.eduPersonPrincipalName || null
-}
-
 function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
@@ -116,9 +112,9 @@ export async function POST(req) {
       throw new BadRequestError('Marketplace JWT is not configured')
     }
 
-    const userId = resolveUserId(session)
+    const puc = getPucFromSession(session)
     const affiliation = resolveAffiliation(session)
-    if (!userId || !affiliation) {
+    if (!puc || !affiliation) {
       throw new BadRequestError('Missing SSO identity data')
     }
 
@@ -132,14 +128,12 @@ export async function POST(req) {
       throw new BadRequestError('Institution wallet not registered')
     }
 
-    const puc = getPucFromSession(session) || undefined
     const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
-      userId,
+      puc,
       affiliation,
       institutionalProviderWallet,
-      puc,
       scope: 'booking:read',
       bookingInfoAllowed: true,
       purpose: 'lab_access',

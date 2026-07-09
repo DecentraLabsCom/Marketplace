@@ -2,8 +2,6 @@ const PUBLIC_SESSION_FIELDS = [
   'id',
   'eduPersonTargetedID',
   'eduPersonPrincipalName',
-  'uid',
-  'userid',
   'email',
   'name',
   'displayName',
@@ -34,16 +32,12 @@ export function sanitizeSessionUserForClient(sessionUser) {
     }
   }
 
-  // Backward-compatible aliases used in different parts of the app.
+  // Canonical aliases used in different parts of the app.
   if (!sanitized.schacPersonalUniqueCode && sanitized.personalUniqueCode) {
     sanitized.schacPersonalUniqueCode = sanitized.personalUniqueCode;
   }
   if (!sanitized.schacHomeOrganization && sanitized.affiliation) {
     sanitized.schacHomeOrganization = sanitized.affiliation;
-  }
-  // if ePPN is present but id missing, use it as id for convenience
-  if (sanitized.eduPersonPrincipalName && !sanitized.id) {
-    sanitized.id = sanitized.eduPersonPrincipalName;
   }
 
   return sanitized;

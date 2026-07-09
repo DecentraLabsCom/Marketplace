@@ -85,7 +85,12 @@ jest.mock('@/utils/dev/logger', () => ({
 // ── Test helpers ──────────────────────────────────────────────────────────────
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 
-const SESSION = { id: 'user-1', affiliation: 'uned.es' }
+const SESSION = {
+  id: 'legacy-user-id',
+  affiliation: 'uned.es',
+  eduPersonPrincipalName: 'user-1@uned.es',
+  eduPersonTargetedID: 'targeted-user-1',
+}
 const VALID_GATEWAY = 'https://sarlab.dia.uned.es'
 const VALID_FMU = 'BouncingBall.fmu'
 
@@ -199,8 +204,8 @@ describe('/api/fmu/provider-describe-token route', () => {
     await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('configured') })
   })
 
-  test('returns 401 when session has no userId', async () => {
-    mockRequireAuth.mockResolvedValue({ affiliation: 'uned.es' }) // no id field
+  test('returns 401 when session has no puc', async () => {
+    mockRequireAuth.mockResolvedValue({ affiliation: 'uned.es' })
 
     const { GET } = await import('../api/fmu/provider-describe-token/route.js')
 
@@ -245,7 +250,7 @@ describe('/api/fmu/provider-describe-token route', () => {
     })
   })
 
-  test('derives marketplace token userId from SAML stable id before session id', async () => {
+  test('uses only SAML-derived puc for marketplace token identity', async () => {
     mockRequireAuth.mockResolvedValue({
       id: 'legacy-user-id',
       affiliation: 'uned.es',
@@ -264,7 +269,7 @@ describe('/api/fmu/provider-describe-token route', () => {
     expect(res.status).toBe(200)
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-1@uned.es|targeted-user-1',
+        puc: 'user-1@uned.es|targeted-user-1',
       })
     )
   })

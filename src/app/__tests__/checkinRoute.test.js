@@ -40,7 +40,7 @@ describe('/api/auth/checkin route', () => {
     global.fetch = originalFetch
   })
 
-  test('uses composite session id when present', async () => {
+  test('uses SAML-derived composite puc when present', async () => {
     requireAuth.mockResolvedValue({
       id: 'user-1@uned.es|targeted-user-1',
       samlAssertion: 'assert',
@@ -80,7 +80,7 @@ describe('/api/auth/checkin route', () => {
 
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-1@uned.es|targeted-user-1',
+        puc: 'user-1@uned.es|targeted-user-1',
         purpose: 'lab_access',
         reservationKey: '0xabc',
         labId: '10',
@@ -89,7 +89,7 @@ describe('/api/auth/checkin route', () => {
     )
   })
 
-  test('falls back to eduPersonPrincipalName when composite session id is missing', async () => {
+  test('uses eduPersonPrincipalName as puc when targeted id is missing', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
@@ -127,12 +127,12 @@ describe('/api/auth/checkin route', () => {
 
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-2@uned.es',
+        puc: 'user-2@uned.es',
       })
     )
   })
 
-  test('derives token userid from SAML stable id instead of stale session id', async () => {
+  test('uses only SAML-derived puc and ignores stale session id', async () => {
     requireAuth.mockResolvedValue({
       id: 'legacy-user-id',
       samlAssertion: 'assert',
@@ -168,7 +168,6 @@ describe('/api/auth/checkin route', () => {
 
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-3@uned.es|targeted-user-3',
         puc: 'user-3@uned.es|targeted-user-3',
       })
     )

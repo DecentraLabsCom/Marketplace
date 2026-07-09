@@ -75,7 +75,7 @@ describe("MarketplaceJwtService", () => {
         const samlAttributes = {
           username: "testuser",
           email: "test@example.com",
-          uid: "uid123",
+          puc: "puc123",
           displayName: "Test User",
           schacHomeOrganization: "example.com",
           eduPersonAffiliation: "student",
@@ -89,9 +89,9 @@ describe("MarketplaceJwtService", () => {
         expect(token).toBe("mocked.jwt.token");
         expect(jwt.sign).toHaveBeenCalledWith(
           expect.objectContaining({
-            sub: "testuser",
+            sub: "puc123",
             email: "test@example.com",
-            uid: "testuser",
+            puc: "puc123",
             displayName: "Test User",
             schacHomeOrganization: "example.com",
             eduPersonScopedAffiliation: "student@example.com",
@@ -104,7 +104,7 @@ describe("MarketplaceJwtService", () => {
       });
 
       test("uses RS256 algorithm for signing", async () => {
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -120,6 +120,7 @@ describe("MarketplaceJwtService", () => {
       test("includes correct payload structure", async () => {
         const samlAttributes = {
           username: "testuser",
+          puc: "testuser",
           email: "test@example.com",
         };
 
@@ -129,7 +130,7 @@ describe("MarketplaceJwtService", () => {
 
         expect(payload).toHaveProperty("sub");
         expect(payload).toHaveProperty("email");
-        expect(payload).toHaveProperty("uid");
+        expect(payload).toHaveProperty("puc");
         expect(payload).toHaveProperty("displayName");
         expect(payload).toHaveProperty("schacHomeOrganization");
         expect(payload).toHaveProperty("eduPersonScopedAffiliation");
@@ -139,7 +140,7 @@ describe("MarketplaceJwtService", () => {
 
       test("includes issuer from environment variable", async () => {
         process.env.JWT_ISSUER = "test-marketplace";
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -153,7 +154,7 @@ describe("MarketplaceJwtService", () => {
       });
 
       test("uses default issuer when env var not set", async () => {
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -167,7 +168,7 @@ describe("MarketplaceJwtService", () => {
       });
 
       test("includes iat and exp timestamps", async () => {
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -177,7 +178,7 @@ describe("MarketplaceJwtService", () => {
       });
 
       test("calculates expiration correctly with default 1 minute", async () => {
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -188,7 +189,7 @@ describe("MarketplaceJwtService", () => {
 
       test("uses custom expiration from environment variable", async () => {
         process.env.JWT_EXPIRATION_MS = "600000"; // 10 minutes
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
@@ -199,21 +200,23 @@ describe("MarketplaceJwtService", () => {
     });
 
     describe("Attribute handling and fallbacks", () => {
-      test("uses username as uid claim", async () => {
+      test("uses explicit puc as identity claim", async () => {
         const samlAttributes = {
           username: "testuser",
+          puc: "puc-testuser",
         };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        expect(payload.uid).toBe("testuser");
-        expect(payload.sub).toBe("testuser");
+        expect(payload.puc).toBe("puc-testuser");
+        expect(payload.sub).toBe("puc-testuser");
       });
 
       test("uses username as fallback for displayName when not provided", async () => {
         const samlAttributes = {
           username: "testuser",
+          puc: "testuser",
         };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
@@ -225,6 +228,7 @@ describe("MarketplaceJwtService", () => {
       test("uses empty string for optional attributes when not provided", async () => {
         const samlAttributes = {
           username: "testuser",
+          puc: "testuser",
         };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
@@ -235,21 +239,23 @@ describe("MarketplaceJwtService", () => {
         expect(payload.eduPersonScopedAffiliation).toBe("");
       });
 
-      test("ignores provided uid and keeps username as uid claim", async () => {
+      test("uses provided puc claim independently from username", async () => {
         const samlAttributes = {
           username: "testuser",
-          uid: "custom-uid-123",
+          puc: "custom-puc-123",
         };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        expect(payload.uid).toBe("testuser");
+        expect(payload.puc).toBe("custom-puc-123");
+        expect(payload.sub).toBe("custom-puc-123");
       });
 
       test("prefers provided displayName over username fallback", async () => {
         const samlAttributes = {
           username: "testuser",
+          puc: "testuser",
           displayName: "Custom Display Name",
         };
 
@@ -263,7 +269,7 @@ describe("MarketplaceJwtService", () => {
         const samlAttributes = {
           username: "user123",
           email: "user@test.com",
-          uid: "uid456",
+          puc: "puc456",
           displayName: "Test User",
           schacHomeOrganization: "test.edu",
           eduPersonAffiliation: "faculty",
@@ -273,9 +279,9 @@ describe("MarketplaceJwtService", () => {
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        expect(payload.sub).toBe("user123");
+        expect(payload.sub).toBe("puc456");
         expect(payload.email).toBe("user@test.com");
-        expect(payload.uid).toBe("user123");
+        expect(payload.puc).toBe("puc456");
         expect(payload.displayName).toBe("Test User");
         expect(payload.schacHomeOrganization).toBe("test.edu");
         expect(payload.eduPersonScopedAffiliation).toBe("faculty@test.edu");
@@ -283,41 +289,41 @@ describe("MarketplaceJwtService", () => {
     });
 
     describe("Error handling and validation", () => {
-      test("throws error when username is missing", async () => {
+      test("throws error when puc is missing", async () => {
         const samlAttributes = {
           email: "test@example.com",
         };
 
         await expect(
           MarketplaceJwtService.generateJwtForUser(samlAttributes)
-        ).rejects.toThrow("Username is required for JWT generation");
+        ).rejects.toThrow("PUC is required for JWT generation");
       });
 
-      test("throws error when username is empty string", async () => {
+      test("throws error when puc is empty string", async () => {
         const samlAttributes = {
-          username: "",
+          puc: "",
         };
 
         await expect(
           MarketplaceJwtService.generateJwtForUser(samlAttributes)
-        ).rejects.toThrow("Username is required for JWT generation");
+        ).rejects.toThrow("PUC is required for JWT generation");
       });
 
       test("throws error when samlAttributes is null", async () => {
         await expect(
           MarketplaceJwtService.generateJwtForUser(null)
-        ).rejects.toThrow("Username is required for JWT generation");
+        ).rejects.toThrow("PUC is required for JWT generation");
       });
 
       test("throws error when samlAttributes is undefined", async () => {
         await expect(
           MarketplaceJwtService.generateJwtForUser(undefined)
-        ).rejects.toThrow("Username is required for JWT generation");
+        ).rejects.toThrow("PUC is required for JWT generation");
       });
 
       test("throws error when private key is not available", async () => {
         MarketplaceJwtService.privateKey = null;
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         // Can throw either message depending on test environment
         await expect(
@@ -330,7 +336,7 @@ describe("MarketplaceJwtService", () => {
           throw new Error("Invalid key format");
         });
 
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await expect(
           MarketplaceJwtService.generateJwtForUser(samlAttributes)
@@ -342,7 +348,7 @@ describe("MarketplaceJwtService", () => {
           throw "String error";
         });
 
-        const samlAttributes = { username: "testuser" };
+        const samlAttributes = { username: "testuser", puc: "testuser" };
 
         await expect(
           MarketplaceJwtService.generateJwtForUser(samlAttributes)
@@ -354,19 +360,17 @@ describe("MarketplaceJwtService", () => {
   describe("generateSamlAuthToken", () => {
     test("generates JWT with required SAML auth claims", async () => {
       const token = await MarketplaceJwtService.generateSamlAuthToken({
-        userId: "user-1",
+        puc: "puc-1",
         affiliation: "uned.es",
         institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
-        puc: "puc-1",
       });
 
       expect(token).toBe("mocked.jwt.token");
       expect(jwt.sign).toHaveBeenCalledWith(
         expect.objectContaining({
-          userid: "user-1",
+          puc: "puc-1",
           affiliation: "uned.es",
           institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
-          puc: "puc-1",
           bookingInfoAllowed: true,
           scope: "booking:read",
         }),
@@ -375,23 +379,23 @@ describe("MarketplaceJwtService", () => {
       );
     });
 
-    test("throws error when userId is missing", async () => {
+    test("throws error when puc is missing", async () => {
       await expect(
         MarketplaceJwtService.generateSamlAuthToken({
           affiliation: "uned.es",
         })
-      ).rejects.toThrow("userId is required for SAML auth token generation");
+      ).rejects.toThrow("puc is required for SAML auth token generation");
     });
 
     test("uses empty affiliation when missing", async () => {
       const token = await MarketplaceJwtService.generateSamlAuthToken({
-        userId: "user-1",
+        puc: "puc-1",
       });
 
       expect(token).toBe("mocked.jwt.token");
       expect(jwt.sign).toHaveBeenCalledWith(
         expect.objectContaining({
-          userid: "user-1",
+          puc: "puc-1",
           affiliation: "",
         }),
         validPrivateKey,
@@ -402,7 +406,7 @@ describe("MarketplaceJwtService", () => {
     test("throws error for invalid institutional wallet format", async () => {
       await expect(
         MarketplaceJwtService.generateSamlAuthToken({
-          userId: "user-1",
+          puc: "puc-1",
           affiliation: "uned.es",
           institutionalProviderWallet: "invalid-wallet",
         })
@@ -411,7 +415,7 @@ describe("MarketplaceJwtService", () => {
 
     test("includes lab access binding claims when provided", async () => {
       await MarketplaceJwtService.generateSamlAuthToken({
-        userId: "user-1",
+        puc: "puc-1",
         affiliation: "uned.es",
         institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
         purpose: "lab_access",
@@ -435,7 +439,7 @@ describe("MarketplaceJwtService", () => {
     test('uses default audience when none provided', async () => {
       // no env vars set
       await MarketplaceJwtService.generateSamlAuthToken({
-        userId: 'user-default',
+        puc: 'puc-default',
       });
 
       expect(jwt.sign).toHaveBeenCalledWith(
@@ -449,7 +453,7 @@ describe("MarketplaceJwtService", () => {
 
     test('passes audience and subject through to jwt.sign', async () => {
       await MarketplaceJwtService.generateSamlAuthToken({
-        userId: 'user-2',
+        puc: 'puc-2',
         affiliation: 'aff',
         institutionalProviderWallet: '0x1111111111111111111111111111111111111111',
         audience: 'custom-audience',
@@ -460,7 +464,7 @@ describe("MarketplaceJwtService", () => {
         expect.any(String),
         expect.objectContaining({
           audience: 'custom-audience',
-          subject: 'user-2',
+          subject: 'puc-2',
         })
       );
     });
@@ -595,6 +599,7 @@ describe("MarketplaceJwtService", () => {
     test("handles special characters in username", async () => {
       const samlAttributes = {
         username: "user@domain.com",
+        puc: "user@domain.com",
         email: "test+tag@example.com",
       };
 
@@ -612,6 +617,7 @@ describe("MarketplaceJwtService", () => {
       const longString = "a".repeat(1000);
       const samlAttributes = {
         username: "testuser",
+        puc: "testuser",
         email: longString,
         displayName: longString,
       };
@@ -629,6 +635,7 @@ describe("MarketplaceJwtService", () => {
     test("handles Unicode characters in attributes", async () => {
       const samlAttributes = {
         username: "testuser",
+        puc: "testuser",
         displayName: "测试用户 José García",
         schacHomeOrganization: "université.fr",
       };
@@ -645,6 +652,7 @@ describe("MarketplaceJwtService", () => {
     test("handles quotes and special characters in displayName", async () => {
       const samlAttributes = {
         username: "testuser",
+        puc: "testuser",
         displayName: "User with \"quotes\" and 'apostrophes'",
       };
 
@@ -656,7 +664,7 @@ describe("MarketplaceJwtService", () => {
     });
 
     test("generates different tokens for rapid successive calls", async () => {
-      const samlAttributes = { username: "testuser" };
+      const samlAttributes = { username: "testuser", puc: "testuser" };
 
       jwt.sign
         .mockReturnValueOnce("token1")
@@ -680,7 +688,7 @@ describe("MarketplaceJwtService", () => {
     });
 
     test("maintains consistent payload structure across multiple calls", async () => {
-      const samlAttributes = { username: "testuser" };
+      const samlAttributes = { username: "testuser", puc: "testuser" };
 
       await MarketplaceJwtService.generateJwtForUser(samlAttributes);
       await MarketplaceJwtService.generateJwtForUser(samlAttributes);

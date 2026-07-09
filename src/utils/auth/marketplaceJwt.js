@@ -96,7 +96,7 @@ class MarketplaceJwtService {
    * Generate a signed JWT token for user authentication with auth-service
    * 
    * @param {Object} samlAttributes - User attributes from SAML2 session
-   * @param {string} samlAttributes.username - User's username/identifier
+   * @param {string} samlAttributes.puc - User's PUC from the SAML session
    * @param {string} samlAttributes.email - User's email address
    * @param {string} samlAttributes.displayName - User's display name
    * @param {string} samlAttributes.schacHomeOrganization - User's home organization
@@ -117,16 +117,16 @@ class MarketplaceJwtService {
       }
 
       // Validate required attributes
-      if (!samlAttributes || !samlAttributes.username) {
-        throw new Error('Username is required for JWT generation');
+      if (!samlAttributes || !samlAttributes.puc) {
+        throw new Error('PUC is required for JWT generation');
       }
 
       // Create JWT payload with user information
       const payload = {
-        sub: samlAttributes.username,                                    // Subject (username)
+        sub: samlAttributes.puc,                                         // Subject (PUC)
         email: samlAttributes.email || '',                              // User email
-        uid: samlAttributes.username,                                   // User ID (R&S aligned)
-        displayName: samlAttributes.displayName || samlAttributes.username, // Display name
+        puc: samlAttributes.puc,
+        displayName: samlAttributes.displayName || samlAttributes.puc,   // Display name
         schacHomeOrganization: samlAttributes.schacHomeOrganization || '', // Home organization
         eduPersonScopedAffiliation: samlAttributes.eduPersonScopedAffiliation || '', // Scoped role
         iat: Math.floor(Date.now() / 1000),                            // Issued at
@@ -139,7 +139,7 @@ class MarketplaceJwtService {
         issuer: process.env.JWT_ISSUER || 'marketplace'
       });
 
-      devLog.log('✅ JWT generated successfully for user:', samlAttributes.username);
+      devLog.log('✅ JWT generated successfully for PUC:', samlAttributes.puc);
       devLog.log('JWT payload (sanitized):', {
         sub: payload.sub,
         email: payload.email ? '***@***.***' : '',
@@ -162,10 +162,9 @@ class MarketplaceJwtService {
    * Includes the claims expected by blockchain-services saml-auth2.
    *
    * @param {Object} params
-   * @param {string} params.userId - User ID matching SAML assertion
+   * @param {string} params.puc - Personal unique code matching SAML assertion
    * @param {string} [params.affiliation] - Institution domain (schacHomeOrganization)
    * @param {string} params.institutionalProviderWallet - Institution wallet address
-   * @param {string} [params.puc] - Personal unique code (optional)
    * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
    * @param {boolean} [params.bookingInfoAllowed] - Allow booking info claims
    * @param {string} [params.purpose] - Purpose binding for backend-side policy
@@ -175,10 +174,9 @@ class MarketplaceJwtService {
    * @returns {Promise<string>} Signed JWT token
    */
   async generateSamlAuthToken({
-    userId,
+    puc,
     affiliation,
     institutionalProviderWallet,
-    puc,
     scope = 'booking:read',
     bookingInfoAllowed = true,
     audience,
@@ -196,8 +194,8 @@ class MarketplaceJwtService {
         throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
 
-      if (!userId) {
-        throw new Error('userId is required for SAML auth token generation');
+      if (!puc) {
+        throw new Error('puc is required for SAML auth token generation');
       }
 
       if (institutionalProviderWallet) {
@@ -211,7 +209,7 @@ class MarketplaceJwtService {
       const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
 
       const payload = {
-        userid: userId,
+        puc,
         affiliation: affiliation || '',
         bookingInfoAllowed,
         scope,
@@ -221,10 +219,6 @@ class MarketplaceJwtService {
 
       if (institutionalProviderWallet) {
         payload.institutionalProviderWallet = institutionalProviderWallet;
-      }
-
-      if (puc) {
-        payload.puc = puc;
       }
 
       if (purpose) {
@@ -247,11 +241,11 @@ class MarketplaceJwtService {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
         audience: audience || process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
-        subject: userId,
+        subject: puc,
         jwtid: randomUUID(),
       });
 
-      devLog.log('INFO: SAML auth JWT generated successfully for user:', userId);
+      devLog.log('INFO: SAML auth JWT generated successfully for puc:', puc);
 
       return token;
     } catch (error) {

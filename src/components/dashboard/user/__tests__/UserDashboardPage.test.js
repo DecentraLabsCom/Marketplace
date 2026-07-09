@@ -38,7 +38,7 @@ const mockUser = {
     user: {
         name: 'Test User',
         email: 'test@example.com',
-        userid: '0x123',
+        puc: '0x123',
         affiliation: 'Test University'
     },
     isLoggedIn: true,
@@ -230,7 +230,7 @@ describe('UserDashboard - Unit Tests', () => {
                 isConnected: false,
                 user: {
                     ...mockUser.user,
-                    userid: 'sso-user-id'
+                    puc: 'sso-user-id'
                 }
             };
 

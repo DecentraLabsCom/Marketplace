@@ -591,7 +591,7 @@ describe("SSO Utilities", () => {
           attributes: {
             eduPersonTargetedID: "targeted-user-1",
             eduPersonPrincipalName: "user@university.edu",
-            uid: "ignored-uid",
+            puc: "ignored-puc",
             mail: "user@example.com",
             displayName: "Test User",
             schacHomeOrganization: "university.edu",
@@ -758,7 +758,7 @@ describe("SSO Utilities", () => {
           attributes: {
             eduPersonTargetedID: "targeted-user-4",
             eduPersonPrincipalName: "user@org.edu",
-            uid: "user123",
+            puc: "user123",
             mail: "user@example.com",
             displayName: "Test User",
             organizationName: ["University A", "University B"],
