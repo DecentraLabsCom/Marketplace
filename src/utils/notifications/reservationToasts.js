@@ -1,6 +1,7 @@
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 
 const RESERVATION_CONFIRM_DEDUPE_WINDOW_MS = 120000
+export const RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS = 10000
 
 export const RESERVATION_DENY_REASON = {
   PROVIDER_MANUAL: 1,
@@ -94,6 +95,7 @@ export const notifyReservationRequestAcceptedAwaitingOnChain = (addTemporaryNoti
     reservationToastIds.onchainPending(reservationKey),
     {
       dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
+      duration: RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS,
     }
   )
 }

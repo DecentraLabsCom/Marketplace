@@ -26,6 +26,7 @@ import devLog from '@/utils/dev/logger'
 import {
   notifyReservationConfirmed,
   notifyReservationRequestAcceptedAwaitingOnChain,
+  reservationToastIds,
 } from '@/utils/notifications/reservationToasts'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import {
@@ -218,7 +219,11 @@ export function useLabReservationState({
   userBookingsForLab = [],
   isSSO,
 } = {}) {
-  const { addTemporaryNotification } = useNotifications()
+  const {
+    addTemporaryNotification,
+    notifications = [],
+    removeNotification,
+  } = useNotifications()
   const {
     calculateReservationCost,
     formatPrice,
@@ -356,6 +361,22 @@ export function useLabReservationState({
   )
 
   const isTrackedSsoBookingFinal = isFinalBookingState(trackedSsoBookingState)
+
+  const dismissPendingOnChainToasts = useCallback((reservationKeys) => {
+    if (typeof removeNotification !== 'function' || !Array.isArray(notifications)) return
+
+    const pendingToastDedupeKeys = new Set(
+      reservationKeys
+        .map((reservationKey) => normalizeReservationKey(reservationKey))
+        .filter(Boolean)
+        .map((reservationKey) => reservationToastIds.onchainPending(reservationKey))
+    )
+    if (pendingToastDedupeKeys.size === 0) return
+
+    notifications
+      .filter((notification) => pendingToastDedupeKeys.has(notification?.dedupeKey))
+      .forEach((notification) => removeNotification(notification.id))
+  }, [notifications, removeNotification])
 
   const calendarUserBookingsForLab = useMemo(() => {
     const merged = [...reconciledBookingsForLab]
@@ -504,6 +525,7 @@ export function useLabReservationState({
     if (!isTrackedSsoBookingFinal) return
     if (confirmedSsoToastKeysRef.current.has(normalizedReservationKey)) return
 
+    dismissPendingOnChainToasts([normalizedReservationKey])
     notifyReservationConfirmed(addTemporaryNotification, normalizedReservationKey)
     confirmedSsoToastKeysRef.current.add(normalizedReservationKey)
   }, [
@@ -513,6 +535,7 @@ export function useLabReservationState({
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     addTemporaryNotification,
+    dismissPendingOnChainToasts,
     isTrackedSsoBookingFinal,
   ])
 
@@ -610,7 +633,16 @@ export function useLabReservationState({
       }
     }
 
-    const handleOnChainRegistered = (event) => invalidateTrackedQueries(event?.detail)
+    const handleOnChainRegistered = (event) => {
+      const detail = event?.detail || {}
+      dismissPendingOnChainToasts([
+        detail?.reservationKey,
+        activeSsoRequest?.reservationKey,
+        pendingData?.reservationKey,
+        pendingData?.optimisticId,
+      ])
+      invalidateTrackedQueries(detail)
+    }
     const handleDenied = (event) => {
       const detail = event?.detail || {}
       const eventReservationKey = normalizeReservationKey(detail?.reservationKey)
@@ -668,6 +700,7 @@ export function useLabReservationState({
     pendingData?.labId,
     bookingCacheUpdates,
     queryClient,
+    dismissPendingOnChainToasts,
   ])
 
   const handleDateChange = useCallback((newDate) => {

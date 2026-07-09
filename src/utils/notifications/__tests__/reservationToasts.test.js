@@ -12,6 +12,7 @@ import {
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
   notifyReservationTxReverted,
+  RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS,
   RESERVATION_DENY_REASON,
   reservationToastIds,
 } from '../reservationToasts'
@@ -225,6 +226,7 @@ describe('reservationToasts', () => {
       expect.objectContaining({
         dedupeKey: 'reservation-onchain-pending:reservation-sso-1',
         dedupeWindowMs: 120000,
+        duration: RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS,
       })
     )
   })

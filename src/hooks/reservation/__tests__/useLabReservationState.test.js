@@ -99,8 +99,10 @@ const renderHookWithClient = (callback, options = {}) =>
 
 describe("useLabReservationState", () => {
   const mockNotifications = {
+    notifications: [],
     addTemporaryNotification: jest.fn(),
     addErrorNotification: jest.fn(),
+    removeNotification: jest.fn(),
   };
 
   const mockLabToken = {
@@ -134,6 +136,7 @@ describe("useLabReservationState", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNotifications.notifications = [];
 
     useNotifications.mockReturnValue(mockNotifications);
     useLabCredit.mockReturnValue(mockLabToken);
@@ -822,6 +825,7 @@ describe("useLabReservationState", () => {
         null,
         expect.objectContaining({
           dedupeKey: "reservation-onchain-pending:sso-res-100",
+          duration: 10000,
         })
       );
 
@@ -848,6 +852,48 @@ describe("useLabReservationState", () => {
           String(call?.[1] || "").includes("Waiting for on-chain registration")
       );
       expect(fallbackCalls).toHaveLength(1);
+    });
+
+    test("removes accepted fallback toast when on-chain registration arrives first", async () => {
+      mockNotifications.notifications = [
+        {
+          id: "pending-toast-onchain",
+          dedupeKey: "reservation-onchain-pending:sso-res-onchain-1",
+        },
+      ];
+
+      const pendingRequest = {
+        reservationKey: "sso-res-onchain-1",
+        labId: "lab-1",
+        start: "1704110400",
+      };
+
+      const { result } = renderHookWithClient(() =>
+        useLabReservationState({
+          selectedLab: mockLab,
+          labBookings: [],
+          userBookingsForLab: [],
+          isSSO: true,
+        })
+      );
+
+      act(() => {
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
+      });
+
+      act(() => {
+        window.dispatchEvent(new CustomEvent("reservation-request-onchain", {
+          detail: {
+            reservationKey: "sso-res-onchain-1",
+            labId: "lab-1",
+          },
+        }));
+      });
+
+      await waitFor(() => {
+        expect(mockNotifications.removeNotification).toHaveBeenCalledWith("pending-toast-onchain");
+      });
     });
 
   });
@@ -902,6 +948,13 @@ describe("useLabReservationState", () => {
     });
 
     test("keeps toast, calendar and button aligned when stale pending copy and confirmed copy coexist", async () => {
+      mockNotifications.notifications = [
+        {
+          id: "pending-toast-1",
+          dedupeKey: "reservation-onchain-pending:sso-res-confirmed-2",
+        },
+      ];
+
       const pendingRequest = {
         reservationKey: "sso-res-confirmed-2",
         labId: "lab-1",
@@ -959,6 +1012,7 @@ describe("useLabReservationState", () => {
         );
       });
 
+      expect(mockNotifications.removeNotification).toHaveBeenCalledWith("pending-toast-1");
       expect(result.current.bookingStage).toBe("idle");
       expect(result.current.isFlowLocked).toBe(false);
       expect(result.current.reservationButtonState.label).toBe("Book Now");
