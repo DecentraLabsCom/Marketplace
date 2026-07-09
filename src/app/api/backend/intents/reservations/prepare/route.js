@@ -4,7 +4,7 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash, ACTION_CODES } from '@/utils/intents/signInstitutionalReservationIntent'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import { getSamlStableUserIdMode, normalizePuc } from '@/utils/auth/puc'
+import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import {
@@ -171,7 +171,7 @@ export async function POST(request) {
         payload: serializedPayload,
         signature: adminSignature,
         samlAssertion,
-        stableUserIdMode: getSamlStableUserIdMode(),
+        stableUserIdMode: getStableUserIdModeFromSession(session),
         returnUrl: returnUrl || null,
       })
 

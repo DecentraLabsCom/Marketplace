@@ -21,6 +21,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 
 /**
  * GET /api/onboarding/session
@@ -78,6 +79,7 @@ export async function GET() {
     // Build the response payload (same structure as what server would send to IB)
     const payload = {
       stableUserId,
+      stableUserIdMode: getStableUserIdModeFromSession(session),
       institutionId: userData.affiliation,
       displayName: userData.name || userData.email || stableUserId,
       attributes: JSON.stringify({

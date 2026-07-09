@@ -13,6 +13,11 @@ import {
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 30 })
 
+function buildBackendAudiences(targetAudience) {
+  const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
+  return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
+}
+
 /**
  * GET /api/fmu/provider-describe-token?fmuFileName=X&gatewayUrl=Y
  *
@@ -62,6 +67,7 @@ export async function GET(request) {
       scope: 'fmu:describe',
       bookingInfoAllowed: false,
       stableUserIdMode: getStableUserIdModeFromSession(session),
+      audience: buildBackendAudiences(gatewayBaseUrl),
     })
 
     devLog.log(`[fmu/provider-describe-token] Requesting describe token from ${authBase}/fmu/provider-describe-token`)

@@ -52,7 +52,7 @@ function normalizeOrganizationDomain(domain) {
   return normalized
 }
 
-async function resolveAuthEndpoint(labId, authEndpoint) {
+async function resolveAuthContext(labId, authEndpoint) {
   if (!labId) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
@@ -62,7 +62,10 @@ async function resolveAuthEndpoint(labId, authEndpoint) {
       gatewayUrl: authEndpoint,
       requireLabMatch: true,
     })
-    return `${gatewayBase}/auth`
+    return {
+      authBase: `${gatewayBase}/auth`,
+      audience: gatewayBase,
+    }
   } catch (error) {
     if (error instanceof GatewayValidationError) {
       throw new BadRequestError(error.message)
@@ -85,6 +88,11 @@ function computeSamlAssertionHash(samlAssertion) {
   return keccak256(toUtf8Bytes(samlAssertion))
 }
 
+function buildBackendAudiences(targetAudience) {
+  const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
+  return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
+}
+
 function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
@@ -104,7 +112,7 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO session')
     }
 
-    const authBase = await resolveAuthEndpoint(labId, authEndpoint)
+    const { authBase, audience: providerAudience } = await resolveAuthContext(labId, authEndpoint)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }
@@ -131,7 +139,7 @@ export async function POST(req) {
 
     const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
 
-    const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+    const commonTokenClaims = {
       puc,
       affiliation,
       institutionalProviderWallet,
@@ -142,9 +150,14 @@ export async function POST(req) {
       labId,
       samlAssertionHash,
       stableUserIdMode: getStableUserIdModeFromSession(session),
-    })
+    }
 
     if (!includeBookingInfo) {
+      const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+        ...commonTokenClaims,
+        audience: buildBackendAudiences(providerAudience),
+      })
+
       const response = await fetch(`${authBase}/saml-auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,8 +186,13 @@ export async function POST(req) {
       throw new BadRequestError('Institution backend not registered')
     }
 
+    const consumerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+      ...commonTokenClaims,
+      audience: buildBackendAudiences(consumerBackendBase),
+    })
+
     const checkInPayload = {
-      marketplaceToken,
+      marketplaceToken: consumerMarketplaceToken,
       samlAssertion: session.samlAssertion,
       reservationKey,
       labId,
@@ -197,8 +215,13 @@ export async function POST(req) {
       )
     }
 
+    const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+      ...commonTokenClaims,
+      audience: buildBackendAudiences(providerAudience),
+    })
+
     const providerPayload = {
-      marketplaceToken,
+      marketplaceToken: providerMarketplaceToken,
       reservationKey,
       labId,
     }

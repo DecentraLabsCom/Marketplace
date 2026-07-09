@@ -270,6 +270,7 @@ describe('/api/fmu/provider-describe-token route', () => {
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
         puc: 'user-1@uned.es|targeted-user-1',
+        audience: [VALID_GATEWAY, 'blockchain-services'],
       })
     )
   })

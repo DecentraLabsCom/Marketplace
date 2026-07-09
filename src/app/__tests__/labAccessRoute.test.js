@@ -122,7 +122,9 @@ describe('/api/auth/lab-access route', () => {
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
-    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('consumer-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
     resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     getContractInstance.mockResolvedValue({
@@ -165,6 +167,16 @@ describe('/api/auth/lab-access route', () => {
       2,
       'https://gateway.example.com/auth/access-credential',
       expect.objectContaining({ method: 'POST' })
+    )
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).marketplaceToken).toBe('consumer-marketplace-token')
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body).marketplaceToken).toBe('provider-marketplace-token')
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ audience: ['https://consumer.example.com', 'blockchain-services'] })
+    )
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ audience: ['https://gateway.example.com', 'blockchain-services'] })
     )
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -237,7 +249,9 @@ describe('/api/auth/lab-access route', () => {
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
-    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('consumer-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
     resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
 
     getContractInstance.mockResolvedValue({

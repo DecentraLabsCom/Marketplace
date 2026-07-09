@@ -261,6 +261,32 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
+  test('actions/prepare: sends principal mode when targeted ID is absent even if composite mode is configured', async () => {
+    process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal_targeted_id'
+    requireAuth.mockResolvedValueOnce({
+      id: 'alice@uned.es',
+      eduPersonPrincipalName: 'alice@uned.es',
+      samlAssertion: '<Assertion>test</Assertion>',
+      schacHomeOrganization: 'uni.example',
+    })
+
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.LAB_UPDATE,
+      backendUrl: 'https://ib.example',
+      payload: {
+        labId: 101,
+        price: 7,
+      },
+    })
+
+    const res = await actionPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
+      stableUserIdMode: 'principal',
+    }))
+  })
+
   test('actions/prepare: cancellation action resolves reservation snapshot before signing', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
       action: ACTION_CODES.CANCEL_BOOKING,
@@ -394,6 +420,30 @@ describe('Intent prepare routes integration', () => {
     expect(res.status).toBe(200)
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
       pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
+    }))
+  })
+
+  test('reservations/prepare: sends principal mode when targeted ID is absent even if composite mode is configured', async () => {
+    process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal_targeted_id'
+    requireAuth.mockResolvedValueOnce({
+      id: 'alice@uned.es',
+      eduPersonPrincipalName: 'alice@uned.es',
+      samlAssertion: '<Assertion>test</Assertion>',
+      schacHomeOrganization: 'uni.example',
+    })
+
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
+      stableUserIdMode: 'principal',
     }))
   })
 

@@ -15,7 +15,7 @@ import {
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
-async function resolveAuthEndpoint(labId, authEndpoint) {
+async function resolveAuthContext(labId, authEndpoint) {
   if (!labId) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
@@ -25,7 +25,10 @@ async function resolveAuthEndpoint(labId, authEndpoint) {
       gatewayUrl: authEndpoint,
       requireLabMatch: true,
     })
-    return `${gatewayBase}/auth`
+    return {
+      authBase: `${gatewayBase}/auth`,
+      audience: gatewayBase,
+    }
   } catch (error) {
     if (error instanceof GatewayValidationError) {
       throw new BadRequestError(error.message)
@@ -86,6 +89,11 @@ function computeSamlAssertionHash(samlAssertion) {
   return keccak256(toUtf8Bytes(samlAssertion))
 }
 
+function buildBackendAudiences(targetAudience) {
+  const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
+  return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
+}
+
 export async function POST(req) {
   try {
     const session = await requireAuth()
@@ -100,7 +108,7 @@ export async function POST(req) {
       throw new BadRequestError('SSO session missing samlAssertion')
     }
 
-    const authBase = await resolveAuthEndpoint(labId, authEndpoint)
+    const { authBase, audience } = await resolveAuthContext(labId, authEndpoint)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }
@@ -137,6 +145,7 @@ export async function POST(req) {
       labId,
       samlAssertionHash,
       stableUserIdMode: getStableUserIdModeFromSession(session),
+      audience: buildBackendAudiences(audience),
     })
 
     const payload = {
