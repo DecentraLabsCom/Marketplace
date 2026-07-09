@@ -245,6 +245,30 @@ describe('/api/fmu/provider-describe-token route', () => {
     })
   })
 
+  test('derives marketplace token userId from SAML stable id before session id', async () => {
+    mockRequireAuth.mockResolvedValue({
+      id: 'legacy-user-id',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+      eduPersonTargetedID: 'targeted-user-1',
+    })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ token: 'signed.gateway.jwt', expiresIn: 60 }),
+    })
+
+    const { GET } = await import('../api/fmu/provider-describe-token/route.js')
+
+    const res = await GET(buildRequest({ fmuFileName: VALID_FMU, gatewayUrl: VALID_GATEWAY }))
+
+    expect(res.status).toBe(200)
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1@uned.es|targeted-user-1',
+      })
+    )
+  })
+
   test('calls gateway with marketplace JWT as Authorization header', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

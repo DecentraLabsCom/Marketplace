@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { getPucFromSession } from '@/utils/webauthn/service'
 import { createRateLimiter } from '@/utils/api/rateLimit'
 import { GatewayValidationError, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
 import {
@@ -45,7 +46,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Marketplace JWT is not configured' }, { status: 503 })
     }
 
-    const userId = session?.id || session?.eduPersonPrincipalName
+    const userId = getPucFromSession(session) || session?.id || session?.eduPersonPrincipalName
     const affiliation = session?.affiliation || session?.schacHomeOrganization || ''
     if (!userId) {
       return NextResponse.json({ error: 'Missing SSO identity' }, { status: 401 })

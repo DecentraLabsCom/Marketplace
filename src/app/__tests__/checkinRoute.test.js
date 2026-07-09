@@ -46,6 +46,7 @@ describe('/api/auth/checkin route', () => {
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
+      eduPersonTargetedID: 'targeted-user-1',
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
@@ -127,6 +128,48 @@ describe('/api/auth/checkin route', () => {
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-2@uned.es',
+      })
+    )
+  })
+
+  test('derives token userid from SAML stable id instead of stale session id', async () => {
+    requireAuth.mockResolvedValue({
+      id: 'legacy-user-id',
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-3@uned.es',
+      eduPersonTargetedID: 'targeted-user-3',
+    })
+
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+
+    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+
+    const { POST } = await import('../api/auth/checkin/route.js')
+
+    const req = new Request('http://localhost/api/auth/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reservationKey: '0xabc',
+        labId: '10',
+        authEndpoint: 'https://gateway.example.com/auth',
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-3@uned.es|targeted-user-3',
+        puc: 'user-3@uned.es|targeted-user-3',
       })
     )
   })

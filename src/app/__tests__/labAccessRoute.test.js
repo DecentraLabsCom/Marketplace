@@ -118,6 +118,7 @@ describe('/api/auth/lab-access route', () => {
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
+      eduPersonTargetedID: 'targeted-user-1',
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
@@ -221,6 +222,54 @@ describe('/api/auth/lab-access route', () => {
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-2@uned.es',
+      })
+    )
+  })
+
+  test('derives token userid from SAML stable id instead of stale session id', async () => {
+    requireAuth.mockResolvedValue({
+      id: 'legacy-user-id',
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-3@uned.es',
+      eduPersonTargetedID: 'targeted-user-3',
+    })
+
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
+
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+      })
+      .mockResolvedValueOnce(buildSuccessfulResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+
+    const req = new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labId: '10',
+        reservationKey: '0xabc',
+        authEndpoint: 'https://gateway.example.com/auth',
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-3@uned.es|targeted-user-3',
+        puc: 'user-3@uned.es|targeted-user-3',
       })
     )
   })

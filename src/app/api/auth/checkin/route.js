@@ -78,7 +78,7 @@ async function resolveInstitutionWallet(domain) {
 }
 
 function resolveUserId(session) {
-  return session?.id || session?.eduPersonPrincipalName || null
+  return getPucFromSession(session) || session?.id || session?.eduPersonPrincipalName || null
 }
 
 function resolveAffiliation(session) {
