@@ -133,6 +133,12 @@ const parseOptionalNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const normalizeMetadataResourceType = (value) => {
+  if (value === 1 || value === '1') return 'fmu'
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return normalized === 'fmu' ? 'fmu' : 'lab'
+}
+
 const splitCsv = (value) => {
   if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean)
   if (typeof value !== 'string') return []
@@ -396,7 +402,7 @@ export async function POST(req) {
     const normalizedUnavailableWindows = sanitizeUnavailableWindows(unavailableWindows)
     const normalizedTerms = sanitizeTermsOfUse(termsOfUse)
     const normalizedTimezone = typeof timezone === 'string' ? timezone.trim() : ''
-    const normalizedResourceType = typeof resourceType === 'string' ? resourceType.trim().toLowerCase() : ''
+    const normalizedResourceType = normalizeMetadataResourceType(resourceType)
     const normalizedFmuFileName = typeof fmuFileName === 'string' ? fmuFileName.trim() : ''
     const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
     const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
@@ -470,7 +476,7 @@ export async function POST(req) {
         { trait_type: "unavailableWindows", value: normalizedUnavailableWindows },
         { trait_type: "termsOfUse", value: normalizedTerms },
         { trait_type: "timezone", value: normalizedTimezone },
-        ...(normalizedResourceType ? [{ trait_type: "resourceType", value: normalizedResourceType }] : []),
+        { trait_type: "resourceType", value: normalizedResourceType },
         ...(normalizedResourceType === 'fmu' && normalizedFmuFileName ? [{ trait_type: "fmuFileName", value: normalizedFmuFileName }] : []),
         ...(fmiVersion ? [{ trait_type: "fmiVersion", value: fmiVersion }] : []),
         ...(simulationType ? [{ trait_type: "simulationType", value: simulationType }] : []),

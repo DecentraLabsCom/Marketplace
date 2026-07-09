@@ -102,6 +102,8 @@ export default function LabReservation({ id }) {
     allowedDurations,
     allowCustomDateRange,
     periodEndDate,
+    periodEndMinDate,
+    periodEndMaxDate,
     calendarUserBookingsForLab,
     totalCost,
     ssoBookingStage,
@@ -366,6 +368,8 @@ export default function LabReservation({ id }) {
               allowedDurations={allowedDurations}
               allowCustomDateRange={allowCustomDateRange}
               periodEndDate={periodEndDate}
+              periodEndMinDate={periodEndMinDate}
+              periodEndMaxDate={periodEndMaxDate}
               onPeriodEndDateChange={handlePeriodEndDateChange}
               minDate={minDate}
               maxDate={maxDate}

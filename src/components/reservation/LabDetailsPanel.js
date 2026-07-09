@@ -43,6 +43,8 @@ export default function LabDetailsPanel({
   allowedDurations,
   allowCustomDateRange,
   periodEndDate,
+  periodEndMinDate,
+  periodEndMaxDate,
   onPeriodEndDateChange,
   minDate,
   maxDate,
@@ -82,6 +84,8 @@ export default function LabDetailsPanel({
           allowedDurations={allowedDurations}
           allowCustomDateRange={allowCustomDateRange}
           periodEndDate={periodEndDate}
+          periodEndMinDate={periodEndMinDate}
+          periodEndMaxDate={periodEndMaxDate}
           onPeriodEndDateChange={onPeriodEndDateChange}
           minDate={minDate}
           maxDate={maxDate}
@@ -109,6 +113,8 @@ LabDetailsPanel.propTypes = {
   allowedDurations: PropTypes.array,
   allowCustomDateRange: PropTypes.bool,
   periodEndDate: PropTypes.instanceOf(Date),
+  periodEndMinDate: PropTypes.instanceOf(Date),
+  periodEndMaxDate: PropTypes.instanceOf(Date),
   onPeriodEndDateChange: PropTypes.func,
   minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]).isRequired,
   maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),

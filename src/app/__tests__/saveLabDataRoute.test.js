@@ -162,5 +162,6 @@ describe('/api/provider/saveLabData route', () => {
       minDurationDays: 7,
       maxDurationDays: 14,
     }))
+    expect(attributes.resourceType).toBe('lab')
   })
 })

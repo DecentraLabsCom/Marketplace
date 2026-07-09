@@ -58,6 +58,8 @@ export default function BookingCalendarSection({
   allowedDurations = [],
   allowCustomDateRange = false,
   periodEndDate,
+  periodEndMinDate,
+  periodEndMaxDate,
   onPeriodEndDateChange,
   minDate,
   maxDate,
@@ -95,8 +97,9 @@ export default function BookingCalendarSection({
 
   const filterUnavailableDays = useMemo(() => {
     if (!lab) return undefined
-    return (day) => !isDayFullyUnavailable({ date: day, lab, interval: duration })
-  }, [lab, duration])
+    const interval = isCalendarPeriod ? duration * 24 * 60 : duration
+    return (day) => !isDayFullyUnavailable({ date: day, lab, interval })
+  }, [lab, duration, isCalendarPeriod])
 
   const unavailableDayClassName = useMemo(() => {
     if (!lab) return undefined
@@ -107,9 +110,10 @@ export default function BookingCalendarSection({
       const dayStart = new Date(day)
       dayStart.setHours(0, 0, 0, 0)
       if (dayStart < today) return ''
-      return isDayFullyUnavailable({ date: day, lab, interval: duration }) ? 'unavailable-day' : ''
+      const interval = isCalendarPeriod ? duration * 24 * 60 : duration
+      return isDayFullyUnavailable({ date: day, lab, interval }) ? 'unavailable-day' : ''
     }
-  }, [lab, duration])
+  }, [lab, duration, isCalendarPeriod])
 
   const periodOptions = useMemo(() => {
     const toOption = (duration) => {
@@ -183,8 +187,8 @@ export default function BookingCalendarSection({
               id="period-end-date"
               type="date"
               className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-              min={toDateInputValue(date)}
-              max={toDateInputValue(maxDate)}
+              min={toDateInputValue(periodEndMinDate || date)}
+              max={toDateInputValue(periodEndMaxDate || maxDate)}
               value={toDateInputValue(periodEndDate)}
               onChange={(event) => onPeriodEndDateChange?.(fromDateInputValue(event.target.value))}
             />
@@ -257,6 +261,8 @@ BookingCalendarSection.propTypes = {
   allowedDurations: PropTypes.array,
   allowCustomDateRange: PropTypes.bool,
   periodEndDate: PropTypes.instanceOf(Date),
+  periodEndMinDate: PropTypes.instanceOf(Date),
+  periodEndMaxDate: PropTypes.instanceOf(Date),
   onPeriodEndDateChange: PropTypes.func,
   minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]).isRequired,
   maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),

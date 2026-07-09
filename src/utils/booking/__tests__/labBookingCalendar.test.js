@@ -1094,4 +1094,35 @@ describe("isDayFullyUnavailable", () => {
 
     expect(result).toBe(true);
   });
+
+  test("calendar-period days are not blocked by daily hours unless the full period is unavailable", () => {
+    const date = new Date("2026-03-02T12:00:00"); // Monday
+    const closes = Math.floor(new Date("2026-04-30T00:00:00").getTime() / 1000);
+
+    expect(isDayFullyUnavailable({
+      date,
+      interval: 7 * 24 * 60,
+      lab: {
+        bookingMode: "calendar-period",
+        availableDays: ["MONDAY"],
+        availableHours: { start: "09:00", end: "17:00" },
+        closes,
+      },
+    })).toBe(false);
+
+    expect(isDayFullyUnavailable({
+      date,
+      interval: 7 * 24 * 60,
+      lab: {
+        bookingMode: "calendar-period",
+        availableDays: ["MONDAY"],
+        availableHours: { start: "09:00", end: "17:00" },
+        unavailableWindows: [{
+          startUnix: Math.floor(new Date("2026-03-05T00:00:00").getTime() / 1000),
+          endUnix: Math.floor(new Date("2026-03-06T00:00:00").getTime() / 1000),
+        }],
+        closes,
+      },
+    })).toBe(true);
+  });
 });

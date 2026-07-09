@@ -389,6 +389,7 @@ describe("useLabReservationState", () => {
     test("calculates calendar-period cost from custom start and end dates", async () => {
       const longLab = {
         ...mockLab,
+        closes: Math.floor(new Date("2026-12-31T00:00:00").getTime() / 1000),
         bookingMode: "calendar-period",
         allowedDurations: [{ unit: "day", value: 1 }],
         periodRules: { allowCustomDateRange: true, minDurationDays: 1, maxDurationDays: 90 },
@@ -419,6 +420,43 @@ describe("useLabReservationState", () => {
           end: Math.floor(new Date("2026-03-09T00:00:00").getTime() / 1000),
         }
       );
+    });
+
+    test("clamps custom calendar-period end date to configured min and max", async () => {
+      const longLab = {
+        ...mockLab,
+        closes: Math.floor(new Date("2026-12-31T00:00:00").getTime() / 1000),
+        bookingMode: "calendar-period",
+        allowedDurations: [{ unit: "day", value: 7 }],
+        periodRules: { allowCustomDateRange: true, minDurationDays: 7, maxDurationDays: 30 },
+      };
+
+      const { result } = renderHookWithClient(() =>
+        useLabReservationState({
+          selectedLab: longLab,
+          labBookings: [],
+          isSSO: false,
+        })
+      );
+
+      await waitFor(() => expect(result.current.isCalendarPeriod).toBe(true));
+
+      act(() => {
+        result.current.handleDateChange(new Date("2026-03-02T00:00:00"));
+      });
+      act(() => {
+        result.current.handlePeriodEndDateChange(new Date("2026-03-03T00:00:00"));
+      });
+
+      expect(result.current.periodEndDate).toEqual(new Date("2026-03-09T00:00:00"));
+      expect(result.current.duration).toBe(7);
+
+      act(() => {
+        result.current.handlePeriodEndDateChange(new Date("2026-05-01T00:00:00"));
+      });
+
+      expect(result.current.periodEndDate).toEqual(new Date("2026-04-01T00:00:00"));
+      expect(result.current.duration).toBe(30);
     });
   });
 

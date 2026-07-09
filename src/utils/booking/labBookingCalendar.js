@@ -173,6 +173,11 @@ const resolveAvailabilityInterval = (lab, interval) => {
   return slotDurations.length > 0 ? Math.min(...slotDurations) : 30
 }
 
+const isCalendarPeriodBooking = (lab) => {
+  const mode = String(lab?.bookingMode || '').trim().toLowerCase()
+  return mode === 'calendar-period' || mode === 'calendar_period' || mode === 'period'
+}
+
 const hasStructurallyAvailableSlot = ({
   dayStart,
   dayEnd,
@@ -226,6 +231,8 @@ export const isDayFullyUnavailable = ({ date, lab, interval }) => {
   const timezone = typeof lab?.timezone === 'string' ? lab.timezone.trim() : undefined
   const opensUnix = toUnixSeconds(lab?.opens)
   const closesUnix = toUnixSeconds(lab?.closes)
+  const isCalendarPeriod = isCalendarPeriodBooking(lab)
+  const durationMinutes = resolveAvailabilityInterval(lab, interval)
   const availableDays = Array.isArray(lab?.availableDays)
     ? lab.availableDays.map(day => day?.toUpperCase?.()).filter(Boolean)
     : []
@@ -240,6 +247,20 @@ export const isDayFullyUnavailable = ({ date, lab, interval }) => {
   dayEnd.setHours(23, 59, 59, 999)
   const dayStartUnix = Math.floor(dayStart.getTime() / 1000)
   const dayEndUnix = Math.floor(dayEnd.getTime() / 1000)
+
+  if (isCalendarPeriod) {
+    const periodEndUnix = dayStartUnix + Math.max(1, durationMinutes) * 60
+    const weekday = getCalendarWeekday(date)
+    const outsideDayAvailability = availableDays.length > 0 && !availableDays.includes(weekday)
+    const outsideGlobalWindow =
+      (Number.isFinite(opensUnix) && dayStartUnix < opensUnix) ||
+      (Number.isFinite(closesUnix) && periodEndUnix > closesUnix)
+    const inMaintenanceWindow = unavailableWindows.some((window) =>
+      dayStartUnix < window.endUnix && periodEndUnix > window.startUnix
+    )
+
+    return outsideDayAvailability || outsideGlobalWindow || inMaintenanceWindow
+  }
 
   // No slot can start before opens or end after closes.
   if (Number.isFinite(opensUnix) && dayEndUnix <= opensUnix) return true
@@ -263,7 +284,7 @@ export const isDayFullyUnavailable = ({ date, lab, interval }) => {
     return !hasStructurallyAvailableSlot({
       dayStart,
       dayEnd,
-      durationMinutes: resolveAvailabilityInterval(lab, interval),
+      durationMinutes,
       timezone,
       availableDays,
       hasDailyHours,

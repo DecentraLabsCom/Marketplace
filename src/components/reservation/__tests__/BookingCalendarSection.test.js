@@ -415,6 +415,8 @@ describe("BookingCalendarSection", () => {
           allowedDurations={longLab.allowedDurations}
           allowCustomDateRange={true}
           periodEndDate={new Date("2025-11-08T00:00:00")}
+          periodEndMinDate={new Date("2025-11-02T00:00:00")}
+          periodEndMaxDate={new Date("2025-11-30T00:00:00")}
           onPeriodEndDateChange={onPeriodEndDateChange}
           isSSO={false}
           formatPrice={jest.fn((price, unit) => `${price}-${unit}`)}
@@ -426,6 +428,8 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByText("1 week")).toBeInTheDocument();
       expect(screen.getByText("1 30-day month")).toBeInTheDocument();
       expect(screen.getByLabelText("End date:")).toHaveValue("2025-11-08");
+      expect(screen.getByLabelText("End date:")).toHaveAttribute("min", "2025-11-02");
+      expect(screen.getByLabelText("End date:")).toHaveAttribute("max", "2025-11-30");
       expect(screen.queryByLabelText("Starting time:")).not.toBeInTheDocument();
       expect(screen.getByText("100-day credits / day")).toBeInTheDocument();
 

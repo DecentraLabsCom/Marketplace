@@ -53,6 +53,47 @@ const addDaysAtStartOfDay = (value, days) => {
 
 const resolvePeriodRules = (lab) => lab?.periodRules || {}
 
+const startOfDay = (value) => {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+const minDateByTime = (...dates) => {
+  const valid = dates.filter((date) => date instanceof Date && !isNaN(date.getTime()))
+  if (!valid.length) return null
+  return valid.reduce((selected, current) => (
+    current.getTime() < selected.getTime() ? current : selected
+  ))
+}
+
+const resolvePeriodBounds = ({ startDate, rules, maxDate }) => {
+  const minDays = Math.max(1, Math.trunc(Number(rules?.minDurationDays)) || 1)
+  const maxDaysRaw = Math.trunc(Number(rules?.maxDurationDays))
+  const start = startOfDay(startDate)
+  const minEndDate = addDaysAtStartOfDay(start, minDays)
+  const ruleMaxEndDate = Number.isFinite(maxDaysRaw) && maxDaysRaw > 0
+    ? addDaysAtStartOfDay(start, Math.max(minDays, maxDaysRaw))
+    : null
+  const labMaxEndDate = maxDate instanceof Date && !isNaN(maxDate.getTime())
+    ? startOfDay(maxDate)
+    : null
+  const maxEndDate = minDateByTime(ruleMaxEndDate, labMaxEndDate)
+
+  return { minEndDate, maxEndDate }
+}
+
+const clampDate = (value, minDate, maxDate) => {
+  let resolved = startOfDay(value)
+  if (minDate instanceof Date && !isNaN(minDate.getTime()) && resolved < minDate) {
+    resolved = new Date(minDate)
+  }
+  if (maxDate instanceof Date && !isNaN(maxDate.getTime()) && resolved > maxDate) {
+    resolved = new Date(maxDate)
+  }
+  return resolved
+}
+
 const safeParseDate = (value, fallback = new Date()) => {
   if (value === undefined || value === null) return fallback
   if (value instanceof Date && !isNaN(value)) return value
@@ -262,6 +303,28 @@ export function useLabReservationState({
 
     return { minDate: min, maxDate: max }
   }, [selectedLab])
+
+  const { periodEndMinDate, periodEndMaxDate } = useMemo(() => {
+    if (!isCalendarPeriod) return { periodEndMinDate: null, periodEndMaxDate: null }
+    const bounds = resolvePeriodBounds({ startDate: date, rules: periodRules, maxDate })
+    return {
+      periodEndMinDate: bounds.minEndDate,
+      periodEndMaxDate: bounds.maxEndDate,
+    }
+  }, [isCalendarPeriod, date, periodRules, maxDate])
+
+  useEffect(() => {
+    if (!isCalendarPeriod) return
+    const fallbackEnd = addDaysAtStartOfDay(date, duration)
+    const nextEnd = clampDate(periodEndDate || fallbackEnd, periodEndMinDate, periodEndMaxDate)
+    if (!periodEndDate || nextEnd.getTime() !== periodEndDate.getTime()) {
+      setPeriodEndDate(nextEnd)
+    }
+    const nextDuration = Math.max(1, Math.round((nextEnd.getTime() - startOfDay(date).getTime()) / 86400000))
+    if (nextDuration !== duration) {
+      setDuration(nextDuration)
+    }
+  }, [isCalendarPeriod, date, duration, periodEndDate, periodEndMinDate, periodEndMaxDate])
 
   const availableTimes = useMemo(() => {
     if (!selectedLab) return []
@@ -610,32 +673,34 @@ export function useLabReservationState({
   const handleDateChange = useCallback((newDate) => {
     setDate(newDate)
     if (isCalendarPeriod) {
-      setPeriodEndDate(addDaysAtStartOfDay(newDate, duration))
+      const { minEndDate, maxEndDate } = resolvePeriodBounds({ startDate: newDate, rules: periodRules, maxDate })
+      setPeriodEndDate(clampDate(addDaysAtStartOfDay(newDate, duration), minEndDate, maxEndDate))
     }
-  }, [isCalendarPeriod, duration])
+  }, [isCalendarPeriod, duration, periodRules, maxDate])
 
   const handlePeriodEndDateChange = useCallback((newEndDate) => {
     if (!newEndDate) return
-    const normalizedStart = new Date(date)
-    normalizedStart.setHours(0, 0, 0, 0)
-    const normalizedEnd = new Date(newEndDate)
-    normalizedEnd.setHours(0, 0, 0, 0)
+    const normalizedStart = startOfDay(date)
+    const { minEndDate, maxEndDate } = resolvePeriodBounds({ startDate: normalizedStart, rules: periodRules, maxDate })
+    const normalizedEnd = clampDate(newEndDate, minEndDate, maxEndDate)
     if (normalizedEnd <= normalizedStart) {
-      setPeriodEndDate(addDaysAtStartOfDay(normalizedStart, 1))
-      setDuration(1)
+      const fallbackEnd = minEndDate || addDaysAtStartOfDay(normalizedStart, 1)
+      setPeriodEndDate(fallbackEnd)
+      setDuration(Math.max(1, Math.round((fallbackEnd.getTime() - normalizedStart.getTime()) / 86400000)))
       return
     }
     const days = Math.round((normalizedEnd.getTime() - normalizedStart.getTime()) / 86400000)
     setPeriodEndDate(normalizedEnd)
     setDuration(days)
-  }, [date])
+  }, [date, periodRules, maxDate])
 
   const handleDurationChange = useCallback((newDuration) => {
     setDuration(newDuration)
     if (isCalendarPeriod) {
-      setPeriodEndDate(addDaysAtStartOfDay(date, newDuration))
+      const { minEndDate, maxEndDate } = resolvePeriodBounds({ startDate: date, rules: periodRules, maxDate })
+      setPeriodEndDate(clampDate(addDaysAtStartOfDay(date, newDuration), minEndDate, maxEndDate))
     }
-  }, [isCalendarPeriod, date])
+  }, [isCalendarPeriod, date, periodRules, maxDate])
 
   const handleTimeChange = useCallback((newTime) => {
     setSelectedTime(newTime)
@@ -671,6 +736,8 @@ export function useLabReservationState({
     periodRules,
     allowCustomDateRange,
     periodEndDate,
+    periodEndMinDate,
+    periodEndMaxDate,
     calendarUserBookingsForLab,
     totalCost,
     bookingStage: effectiveBookingStage,
