@@ -4,6 +4,7 @@ import {
   getNormalizedPucFromSession,
   hashNormalizedPuc,
   getPucHashFromSession,
+  getStableUserIdModeFromSession,
 } from '../puc'
 
 describe('puc normalization', () => {
@@ -47,6 +48,26 @@ describe('puc normalization', () => {
         eduPersonTargetedID: ' Targeted-Alice ',
       })
     ).toBe('alice@uned.es')
+  })
+
+  test('getStableUserIdModeFromSession reports the mode actually used', () => {
+    process.env = {
+      ...originalEnv,
+      NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE: 'principal_targeted_id',
+    }
+
+    expect(
+      getStableUserIdModeFromSession({
+        eduPersonPrincipalName: 'Alice@UNED.ES ',
+        eduPersonTargetedID: ' Targeted-Alice ',
+      })
+    ).toBe('principal_targeted_id')
+
+    expect(
+      getStableUserIdModeFromSession({
+        eduPersonPrincipalName: 'Alice@UNED.ES ',
+      })
+    ).toBe('principal')
   })
 
   test('getNormalizedPucFromSession ignores session id when SAML PUC fields are absent', () => {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { createRateLimiter } from '@/utils/api/rateLimit'
 import { GatewayValidationError, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
 import {
@@ -60,6 +61,7 @@ export async function GET(request) {
       affiliation,
       scope: 'fmu:describe',
       bookingInfoAllowed: false,
+      stableUserIdMode: getStableUserIdModeFromSession(session),
     })
 
     devLog.log(`[fmu/provider-describe-token] Requesting describe token from ${authBase}/fmu/provider-describe-token`)

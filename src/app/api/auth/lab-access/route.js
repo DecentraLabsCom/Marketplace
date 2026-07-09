@@ -3,6 +3,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { keccak256, toUtf8Bytes } from 'ethers'
 import {
@@ -140,6 +141,7 @@ export async function POST(req) {
       reservationKey,
       labId,
       samlAssertionHash,
+      stableUserIdMode: getStableUserIdModeFromSession(session),
     })
 
     if (!includeBookingInfo) {

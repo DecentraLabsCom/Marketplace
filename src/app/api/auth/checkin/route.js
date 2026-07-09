@@ -3,6 +3,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { keccak256, toUtf8Bytes } from 'ethers'
 import {
   BadRequestError,
@@ -135,6 +136,7 @@ export async function POST(req) {
       reservationKey,
       labId,
       samlAssertionHash,
+      stableUserIdMode: getStableUserIdModeFromSession(session),
     })
 
     const payload = {

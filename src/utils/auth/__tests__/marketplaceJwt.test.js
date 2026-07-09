@@ -422,6 +422,7 @@ describe("MarketplaceJwtService", () => {
         reservationKey: "0xabc",
         labId: 42,
         samlAssertionHash: "0x" + "a".repeat(64),
+        stableUserIdMode: "principal",
       });
 
       expect(jwt.sign).toHaveBeenCalledWith(
@@ -430,6 +431,7 @@ describe("MarketplaceJwtService", () => {
           reservationKey: "0xabc",
           labId: "42",
           samlAssertionHash: "0x" + "a".repeat(64),
+          stableUserIdMode: "principal",
         }),
         validPrivateKey,
         expect.objectContaining({ algorithm: "RS256" })

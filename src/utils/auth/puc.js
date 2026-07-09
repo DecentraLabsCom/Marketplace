@@ -76,6 +76,19 @@ export function getNormalizedPucFromSession(session) {
   return null
 }
 
+export function getStableUserIdModeFromSession(session) {
+  const principalNameRaw = session?.eduPersonPrincipalName
+  const targetedIdRaw = session?.eduPersonTargetedID
+  const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
+  const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
+
+  if (!principalName) return null
+
+  return shouldIncludeEduPersonTargetedId() && targetedId
+    ? SAML_STABLE_USER_ID_MODES.PRINCIPAL_TARGETED_ID
+    : SAML_STABLE_USER_ID_MODES.PRINCIPAL
+}
+
 export function hashNormalizedPuc(value) {
   const normalized = normalizePuc(value)
   if (!normalized) return null

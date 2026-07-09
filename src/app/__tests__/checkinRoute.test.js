@@ -85,6 +85,7 @@ describe('/api/auth/checkin route', () => {
         reservationKey: '0xabc',
         labId: '10',
         samlAssertionHash: expect.stringMatching(/^0x[a-fA-F0-9]{64}$/),
+        stableUserIdMode: 'principal_targeted_id',
       })
     )
   })

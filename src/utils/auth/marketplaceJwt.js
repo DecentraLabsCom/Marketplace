@@ -171,6 +171,7 @@ class MarketplaceJwtService {
    * @param {string} [params.reservationKey] - Reservation key bound to this token
    * @param {string|number} [params.labId] - Lab id bound to this token
    * @param {string} [params.samlAssertionHash] - Keccak256 hash of the SAML assertion
+   * @param {string} [params.stableUserIdMode] - PUC derivation mode used by Marketplace
    * @returns {Promise<string>} Signed JWT token
    */
   async generateSamlAuthToken({
@@ -184,6 +185,7 @@ class MarketplaceJwtService {
     reservationKey,
     labId,
     samlAssertionHash,
+    stableUserIdMode,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -235,6 +237,10 @@ class MarketplaceJwtService {
 
       if (samlAssertionHash) {
         payload.samlAssertionHash = samlAssertionHash;
+      }
+
+      if (stableUserIdMode) {
+        payload.stableUserIdMode = stableUserIdMode;
       }
 
       const token = jwt.sign(payload, this.privateKey, {
