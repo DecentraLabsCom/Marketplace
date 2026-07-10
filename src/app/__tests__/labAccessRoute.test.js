@@ -31,11 +31,6 @@ jest.mock('@/utils/onboarding/institutionalBackend', () => ({
 describe('/api/auth/lab-access route', () => {
   const originalFetch = global.fetch
 
-  const buildSuccessfulResponse = () => ({
-    ok: true,
-    text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com/guacamole/' }),
-  })
-
   const buildAccessCodeResponse = () => ({
     ok: true,
     text: async () => JSON.stringify({ accessCode: 'opaque-code', labURL: 'https://lab.example.com/guacamole/' }),
@@ -142,7 +137,6 @@ describe('/api/auth/lab-access route', () => {
         ok: true,
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
-      .mockResolvedValueOnce(buildSuccessfulResponse())
       .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
@@ -176,7 +170,6 @@ describe('/api/auth/lab-access route', () => {
     )
     expect(JSON.parse(global.fetch.mock.calls[0][1].body).marketplaceToken).toBe('consumer-marketplace-token')
     expect(JSON.parse(global.fetch.mock.calls[1][1].body).marketplaceToken).toBe('provider-marketplace-token')
-    expect(global.fetch.mock.calls[2][1].headers['X-Marketplace-Authorization']).toBe('Bearer provider-marketplace-token')
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ audience: ['https://consumer.example.com', 'blockchain-services'] })
@@ -210,9 +203,7 @@ describe('/api/auth/lab-access route', () => {
       getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
-    global.fetch
-      .mockResolvedValueOnce(buildSuccessfulResponse())
-      .mockResolvedValueOnce(buildAccessCodeResponse())
+    global.fetch.mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
     const res = await POST(new Request('http://localhost/api/auth/lab-access', {
@@ -222,7 +213,7 @@ describe('/api/auth/lab-access route', () => {
     }))
 
     expect(res.status).toBe(200)
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
     expect(global.fetch).toHaveBeenCalledWith(
       'https://gateway.example.com/auth/authorize-and-issue',
       expect.objectContaining({ method: 'POST' }),
@@ -233,8 +224,6 @@ describe('/api/auth/lab-access route', () => {
       reservationKey: '0xabc',
       labId: '10',
     })
-    expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({ token: 'jwt' })
-    expect(global.fetch.mock.calls[1][1].headers['X-Marketplace-Authorization']).toBe('Bearer marketplace-token')
   })
 
   test('keeps FMU credentials as JWTs and does not invoke the Guacamole handoff', async () => {
@@ -288,7 +277,6 @@ describe('/api/auth/lab-access route', () => {
         ok: true,
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
-      .mockResolvedValueOnce(buildSuccessfulResponse())
       .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
@@ -342,7 +330,6 @@ describe('/api/auth/lab-access route', () => {
         ok: true,
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
-      .mockResolvedValueOnce(buildSuccessfulResponse())
       .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
@@ -390,7 +377,6 @@ describe('/api/auth/lab-access route', () => {
         ok: true,
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
-      .mockResolvedValueOnce(buildSuccessfulResponse())
       .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
@@ -470,7 +456,6 @@ describe('/api/auth/lab-access route', () => {
         ok: true,
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
-      .mockResolvedValueOnce(buildSuccessfulResponse())
       .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')

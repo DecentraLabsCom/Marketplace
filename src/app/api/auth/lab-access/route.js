@@ -113,41 +113,6 @@ function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
 
-async function issueLabAccessCode(authBase, authResponse, marketplaceToken) {
-  if (!authResponse?.token || !authResponse?.labURL) {
-    throw new Error('Authentication service returned an invalid access credential')
-  }
-  if (!marketplaceToken) {
-    throw new Error('Marketplace authentication is required to issue an access code')
-  }
-  const response = await fetch(`${authBase}/access-code/issue`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Marketplace-Authorization': `Bearer ${marketplaceToken}`,
-    },
-    body: JSON.stringify({ token: authResponse.token }),
-  })
-  const responseText = await response.text()
-  if (!response.ok) {
-    devLog.error('Access-code issuance failed:', response.status, responseText)
-    throw new Error('Access-code issuance failed')
-  }
-  const data = responseText ? JSON.parse(responseText) : {}
-  if (!data.accessCode || !data.labURL) {
-    throw new Error('Access-code issuance returned an invalid response')
-  }
-  return { accessCode: data.accessCode, labURL: data.labURL }
-}
-
-function isGuacamoleAccess(authResponse) {
-  try {
-    return new URL(authResponse?.labURL).pathname.startsWith('/guacamole')
-  } catch {
-    return false
-  }
-}
-
 export async function POST(req) {
   try {
     const session = await requireAuth()
@@ -231,10 +196,7 @@ export async function POST(req) {
         )
       }
       const authResponse = responseText ? JSON.parse(responseText) : {}
-      const access = isGuacamoleAccess(authResponse)
-        ? await issueLabAccessCode(authBase, authResponse, marketplaceToken)
-        : authResponse
-      return NextResponse.json(access, { status: 200 })
+      return NextResponse.json(authResponse, { status: 200 })
     }
 
     const consumerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
@@ -294,10 +256,7 @@ export async function POST(req) {
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
-    const access = isGuacamoleAccess(data)
-      ? await issueLabAccessCode(authBase, data, providerMarketplaceToken)
-      : data
-    return NextResponse.json(access, { status: 200 })
+    return NextResponse.json(data, { status: 200 })
   } catch (error) {
     return handleGuardError(error)
   }
