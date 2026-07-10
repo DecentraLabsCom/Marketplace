@@ -33,12 +33,12 @@ describe('/api/auth/lab-access route', () => {
 
   const buildSuccessfulResponse = () => ({
     ok: true,
-    text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
+    text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com/guacamole/' }),
   })
 
   const buildAccessCodeResponse = () => ({
     ok: true,
-    text: async () => JSON.stringify({ accessCode: 'opaque-code', labURL: 'https://lab.example.com' }),
+    text: async () => JSON.stringify({ accessCode: 'opaque-code', labURL: 'https://lab.example.com/guacamole/' }),
   })
 
   beforeEach(() => {
@@ -161,7 +161,7 @@ describe('/api/auth/lab-access route', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
       accessCode: 'opaque-code',
-      labURL: 'https://lab.example.com',
+      labURL: 'https://lab.example.com/guacamole/',
     })
 
     expect(global.fetch).toHaveBeenNthCalledWith(
@@ -176,6 +176,7 @@ describe('/api/auth/lab-access route', () => {
     )
     expect(JSON.parse(global.fetch.mock.calls[0][1].body).marketplaceToken).toBe('consumer-marketplace-token')
     expect(JSON.parse(global.fetch.mock.calls[1][1].body).marketplaceToken).toBe('provider-marketplace-token')
+    expect(global.fetch.mock.calls[2][1].headers['X-Marketplace-Authorization']).toBe('Bearer provider-marketplace-token')
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ audience: ['https://consumer.example.com', 'blockchain-services'] })
@@ -232,6 +233,38 @@ describe('/api/auth/lab-access route', () => {
       reservationKey: '0xabc',
       labId: '10',
     })
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({ token: 'jwt' })
+    expect(global.fetch.mock.calls[1][1].headers['X-Marketplace-Authorization']).toBe('Bearer marketplace-token')
+  })
+
+  test('keeps FMU credentials as JWTs and does not invoke the Guacamole handoff', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => JSON.stringify({ token: 'fmu-jwt', labURL: 'https://lab.example.com/fmu/model' }),
+    })
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10', reservationKey: '0xabc' }),
+    }))
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ token: 'fmu-jwt', labURL: 'https://lab.example.com/fmu/model' })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
   test('uses eduPersonPrincipalName as puc when targeted id is missing', async () => {
@@ -274,7 +307,7 @@ describe('/api/auth/lab-access route', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
       accessCode: 'opaque-code',
-      labURL: 'https://lab.example.com',
+      labURL: 'https://lab.example.com/guacamole/',
     })
 
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
@@ -374,7 +407,7 @@ describe('/api/auth/lab-access route', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
       accessCode: 'opaque-code',
-      labURL: 'https://lab.example.com',
+      labURL: 'https://lab.example.com/guacamole/',
     })
 
     expect(getLabAuthURI).toHaveBeenCalledWith(10)
@@ -456,7 +489,7 @@ describe('/api/auth/lab-access route', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
       accessCode: 'opaque-code',
-      labURL: 'https://lab.example.com',
+      labURL: 'https://lab.example.com/guacamole/',
     })
 
     expect(global.fetch).toHaveBeenNthCalledWith(

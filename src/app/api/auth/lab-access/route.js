@@ -113,14 +113,20 @@ function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
 
-async function issueLabAccessCode(authBase, authResponse) {
+async function issueLabAccessCode(authBase, authResponse, marketplaceToken) {
   if (!authResponse?.token || !authResponse?.labURL) {
     throw new Error('Authentication service returned an invalid access credential')
   }
+  if (!marketplaceToken) {
+    throw new Error('Marketplace authentication is required to issue an access code')
+  }
   const response = await fetch(`${authBase}/access-code/issue`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: authResponse.token, labURL: authResponse.labURL }),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Marketplace-Authorization': `Bearer ${marketplaceToken}`,
+    },
+    body: JSON.stringify({ token: authResponse.token }),
   })
   const responseText = await response.text()
   if (!response.ok) {
@@ -132,6 +138,14 @@ async function issueLabAccessCode(authBase, authResponse) {
     throw new Error('Access-code issuance returned an invalid response')
   }
   return { accessCode: data.accessCode, labURL: data.labURL }
+}
+
+function isGuacamoleAccess(authResponse) {
+  try {
+    return new URL(authResponse?.labURL).pathname.startsWith('/guacamole')
+  } catch {
+    return false
+  }
 }
 
 export async function POST(req) {
@@ -217,7 +231,9 @@ export async function POST(req) {
         )
       }
       const authResponse = responseText ? JSON.parse(responseText) : {}
-      const access = await issueLabAccessCode(authBase, authResponse)
+      const access = isGuacamoleAccess(authResponse)
+        ? await issueLabAccessCode(authBase, authResponse, marketplaceToken)
+        : authResponse
       return NextResponse.json(access, { status: 200 })
     }
 
@@ -278,7 +294,9 @@ export async function POST(req) {
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
-    const access = await issueLabAccessCode(authBase, data)
+    const access = isGuacamoleAccess(data)
+      ? await issueLabAccessCode(authBase, data, providerMarketplaceToken)
+      : data
     return NextResponse.json(access, { status: 200 })
   } catch (error) {
     return handleGuardError(error)
