@@ -8,10 +8,19 @@ import devLog from '@/utils/dev/logger'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-export function buildLabAccessUrl(labURL, token) {
-  const redirectUrl = new URL(String(labURL || ''))
-  redirectUrl.searchParams.set('jwt', String(token || ''))
-  return redirectUrl.toString()
+export function submitLabAccessCode(labURL, accessCode) {
+  const labUrl = new URL(String(labURL || ''))
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = `${labUrl.origin}/auth/access`
+  form.target = '_self'
+  const input = document.createElement('input')
+  input.type = 'hidden'
+  input.name = 'access_code'
+  input.value = String(accessCode || '')
+  form.appendChild(input)
+  document.body.appendChild(form)
+  form.submit()
 }
 
 async function resolveActiveReservationKey(labId) {
@@ -130,10 +139,9 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
       });
 
       // Handle successful authentication
-      if (authResult.token && authResult.labURL) {
+      if (authResult.accessCode && authResult.labURL) {
         devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
-        // Prefer assign to avoid replacing history unexpectedly during tests
-        window.location.assign(buildLabAccessUrl(authResult.labURL, authResult.token));
+        submitLabAccessCode(authResult.labURL, authResult.accessCode);
       } else if (authResult.error) {
         // Handle authentication errors returned by the service
         setErrorMessage(authResult.error);

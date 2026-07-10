@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import LabAccess, { buildLabAccessUrl } from '../LabAccess'
+import LabAccess, { submitLabAccessCode } from '../LabAccess'
 
 const mockAuthenticateLabAccessSSO = jest.fn()
 const mockGetAuthErrorMessage = jest.fn(() => 'Connection failed. Please try again.')
@@ -68,7 +68,7 @@ describe('LabAccess', () => {
   test('authenticates through the institutional flow on success', async () => {
     useUser.mockReturnValue({ isSSO: true })
     mockAuthenticateLabAccessSSO.mockResolvedValue({
-      token: 'jwt-token',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
     })
 
@@ -108,15 +108,17 @@ describe('LabAccess', () => {
     expect(await screen.findByText('Connection failed. Please try again.')).toBeInTheDocument()
   })
 
-  test('preserves existing query params when building the redirect URL', () => {
-    expect(buildLabAccessUrl('https://lab.example.com/run?mode=remote', 'jwt-token'))
-      .toBe('https://lab.example.com/run?mode=remote&jwt=jwt-token')
+  test('submits an opaque access code to the gateway exchange endpoint', () => {
+    const submit = jest.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+    submitLabAccessCode('https://lab.example.com/run?mode=remote', 'opaque-code')
+    expect(submit).toHaveBeenCalled()
+    submit.mockRestore()
   })
 
   test('resolves the active reservation key before authenticating when Home does not provide one', async () => {
     useUser.mockReturnValue({ isSSO: true })
     mockAuthenticateLabAccessSSO.mockResolvedValue({
-      token: 'jwt-token',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
     })
 

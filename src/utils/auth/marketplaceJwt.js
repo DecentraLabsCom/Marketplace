@@ -159,12 +159,12 @@ class MarketplaceJwtService {
 
   /**
    * Generate a signed JWT token for SAML auth-service access.
-   * Includes the claims expected by blockchain-services saml-auth2.
+   * Includes the claims expected by blockchain-services authorize-and-issue.
    *
    * @param {Object} params
    * @param {string} params.puc - Personal unique code matching SAML assertion
    * @param {string} [params.affiliation] - Institution domain (schacHomeOrganization)
-   * @param {string} params.institutionalProviderWallet - Institution wallet address
+   * @param {string} params.payerInstitutionWallet - Payer institution wallet address
    * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
    * @param {boolean} [params.bookingInfoAllowed] - Allow booking info claims
    * @param {string} [params.purpose] - Purpose binding for backend-side policy
@@ -177,7 +177,7 @@ class MarketplaceJwtService {
   async generateSamlAuthToken({
     puc,
     affiliation,
-    institutionalProviderWallet,
+    payerInstitutionWallet,
     scope = 'booking:read',
     bookingInfoAllowed = true,
     audience,
@@ -200,10 +200,10 @@ class MarketplaceJwtService {
         throw new Error('puc is required for SAML auth token generation');
       }
 
-      if (institutionalProviderWallet) {
-        const trimmed = institutionalProviderWallet.trim();
+      if (payerInstitutionWallet) {
+        const trimmed = payerInstitutionWallet.trim();
         if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
-          throw new Error('Invalid institutionalProviderWallet address format');
+          throw new Error('Invalid payerInstitutionWallet address format');
         }
       }
 
@@ -219,8 +219,8 @@ class MarketplaceJwtService {
         exp: expSec,
       };
 
-      if (institutionalProviderWallet) {
-        payload.institutionalProviderWallet = institutionalProviderWallet;
+      if (payerInstitutionWallet) {
+        payload.payerInstitutionWallet = payerInstitutionWallet;
       }
 
       if (purpose) {

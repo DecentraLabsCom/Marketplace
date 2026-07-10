@@ -7,11 +7,11 @@ description: >-
 
 ### 🌍 About DecentraLabs
 
-DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://nebsyst.com/) in collaboration with international academic partners such as [UNED](https://www.uned.es/) and [Blockchain@UBC](https://blockchain.ubc.ca/). The project aims to redefine how online laboratories (OLs) are shared, accessed, and sustained across borders. By leveraging decentralized technologies (including smart contracts, token-based incentives, and federated authentication), DecentraLabs builds an open, interoperable, and sustainable infrastructure for scientific experimentation, education, and research and fosters an innovative ecosystem where knowledge is democratized and shared across global communities. All core components are open source and developed with transparency, inclusion, and public good in mind.
+DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://nebsyst.com/) in collaboration with international academic partners such as [UNED](https://www.uned.es/) and [Blockchain@UBC](https://blockchain.ubc.ca/). The current implementation uses federated institutional authentication, internal non-refundable service credits and managed institutional wallets. Wallet-based consumer reservations and external `$LAB` token flows are historical/proposed designs, not the active Marketplace flow.
 
 ### 🧪 DecentraLabs Marketplace
 
-The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive EUR-denominated settlement for usage. At the same time, students, teachers, and researchers around the world can discover, reserve, and interact with real lab equipment remotely, using only a crypto wallet or institutional Single Sign-On (SSO).
+The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive EUR-denominated settlement for usage. In the implemented flow, students, teachers and researchers authenticate through institutional Single Sign-On (SSO); reservations are funded with internal service credits and settled through institution-managed accounts.
 
 Each lab can be offered for free or for a fee, at the discretion of the provider. Access is controlled via smart contracts and enforced through a secure, tokenized infrastructure. This ensures transparency, verifiability, and fair rewards for contributors; all without centralized intermediaries.
 
@@ -31,7 +31,7 @@ Leverage a decentralized, tamper-proof system without intermediaries.
 
 Explore a growing catalog of online labs, from electronics to robotics.
 
-Authenticate using your crypto wallet or institutional SSO (e.g., eduGAIN).
+Authenticate using institutional SSO (e.g., eduGAIN). Consumer wallet login is not part of the current reservation flow.
 
 Make reservations using prepaid service credits, with smart-contract-backed guarantees.
 

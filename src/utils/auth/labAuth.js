@@ -10,7 +10,7 @@ import devLog from '@/utils/dev/logger'
  * @param {string|number} params.labId - Lab ID to access
  * @param {string} [params.reservationKey] - Optional reservation key for validation
  * @param {string} [params.authEndpoint] - Optional auth endpoint override
- * @returns {Promise<Object>} Authentication result with token and labURL or error
+ * @returns {Promise<Object>} Authentication result with one-time accessCode and labURL or error
  * @throws {Error} If any step of the SSO authentication process fails
  */
 export const authenticateLabAccessSSO = async ({

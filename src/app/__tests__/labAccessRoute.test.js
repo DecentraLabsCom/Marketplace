@@ -36,6 +36,11 @@ describe('/api/auth/lab-access route', () => {
     text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
   })
 
+  const buildAccessCodeResponse = () => ({
+    ok: true,
+    text: async () => JSON.stringify({ accessCode: 'opaque-code', labURL: 'https://lab.example.com' }),
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
     global.fetch = jest.fn()
@@ -138,6 +143,7 @@ describe('/api/auth/lab-access route', () => {
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
       .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -154,7 +160,7 @@ describe('/api/auth/lab-access route', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      token: 'jwt',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com',
     })
 
@@ -190,6 +196,44 @@ describe('/api/auth/lab-access route', () => {
     )
   })
 
+  test('uses authorize-and-issue once when consumer and provider share a backend', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch
+      .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10', reservationKey: '0xabc' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gateway.example.com/auth/authorize-and-issue',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({
+      marketplaceToken: 'marketplace-token',
+      samlAssertion: 'assert',
+      reservationKey: '0xabc',
+      labId: '10',
+    })
+  })
+
   test('uses eduPersonPrincipalName as puc when targeted id is missing', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
@@ -212,6 +256,7 @@ describe('/api/auth/lab-access route', () => {
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
       .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -228,7 +273,7 @@ describe('/api/auth/lab-access route', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      token: 'jwt',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com',
     })
 
@@ -265,6 +310,7 @@ describe('/api/auth/lab-access route', () => {
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
       .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -288,7 +334,7 @@ describe('/api/auth/lab-access route', () => {
     )
   })
 
-  test('authenticates via saml-auth2 with labId only', async () => {
+  test('authenticates via the provider access credential endpoint with labId only', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
@@ -312,6 +358,7 @@ describe('/api/auth/lab-access route', () => {
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
       .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -326,7 +373,7 @@ describe('/api/auth/lab-access route', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      token: 'jwt',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com',
     })
 
@@ -391,6 +438,7 @@ describe('/api/auth/lab-access route', () => {
         text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
       })
       .mockResolvedValueOnce(buildSuccessfulResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -407,7 +455,7 @@ describe('/api/auth/lab-access route', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      token: 'jwt',
+      accessCode: 'opaque-code',
       labURL: 'https://lab.example.com',
     })
 

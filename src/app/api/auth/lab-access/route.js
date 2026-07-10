@@ -93,8 +93,45 @@ function buildBackendAudiences(targetAudience) {
   return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
 }
 
+function normalizeBackendBase(endpoint) {
+  try {
+    const url = new URL(endpoint)
+    const normalizedPath = url.pathname.replace(/\/(auth|api)\/?$/i, '').replace(/\/$/, '')
+    return `${url.protocol}//${url.host}${normalizedPath}`.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+function isSameBackend(consumerBackendBase, providerAuthBase) {
+  const consumer = normalizeBackendBase(consumerBackendBase)
+  const provider = normalizeBackendBase(providerAuthBase)
+  return Boolean(consumer && provider && consumer === provider)
+}
+
 function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
+}
+
+async function issueLabAccessCode(authBase, authResponse) {
+  if (!authResponse?.token || !authResponse?.labURL) {
+    throw new Error('Authentication service returned an invalid access credential')
+  }
+  const response = await fetch(`${authBase}/access-code/issue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: authResponse.token, labURL: authResponse.labURL }),
+  })
+  const responseText = await response.text()
+  if (!response.ok) {
+    devLog.error('Access-code issuance failed:', response.status, responseText)
+    throw new Error('Access-code issuance failed')
+  }
+  const data = responseText ? JSON.parse(responseText) : {}
+  if (!data.accessCode || !data.labURL) {
+    throw new Error('Access-code issuance returned an invalid response')
+  }
+  return { accessCode: data.accessCode, labURL: data.labURL }
 }
 
 export async function POST(req) {
@@ -102,9 +139,7 @@ export async function POST(req) {
     const session = await requireAuth()
     const body = await req.json().catch(() => ({}))
     const { labId, reservationKey, authEndpoint } = body || {}
-    const includeBookingInfo = body?.includeBookingInfo !== false
-
-    if (includeBookingInfo && !labId && !reservationKey) {
+    if (!labId && !reservationKey) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
 
@@ -127,13 +162,13 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO identity data')
     }
 
-    let institutionalProviderWallet
+    let payerInstitutionWallet
     try {
-      institutionalProviderWallet = await resolveInstitutionWallet(affiliation)
+      payerInstitutionWallet = await resolveInstitutionWallet(affiliation)
     } catch (error) {
       throw new BadRequestError(error.message)
     }
-    if (!institutionalProviderWallet) {
+    if (!payerInstitutionWallet) {
       throw new BadRequestError('Institution wallet not registered')
     }
 
@@ -142,7 +177,7 @@ export async function POST(req) {
     const commonTokenClaims = {
       puc,
       affiliation,
-      institutionalProviderWallet,
+      payerInstitutionWallet,
       scope: 'booking:read',
       bookingInfoAllowed: true,
       purpose: 'lab_access',
@@ -152,38 +187,38 @@ export async function POST(req) {
       stableUserIdMode: getStableUserIdModeFromSession(session),
     }
 
-    if (!includeBookingInfo) {
+    const consumerBackendBase = await resolveInstitutionalBackendUrl(affiliation)
+    if (!consumerBackendBase) {
+      throw new BadRequestError('Institution backend not registered')
+    }
+
+    if (isSameBackend(consumerBackendBase, authBase)) {
       const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
         ...commonTokenClaims,
         audience: buildBackendAudiences(providerAudience),
       })
-
-      const response = await fetch(`${authBase}/saml-auth`, {
+      const response = await fetch(`${authBase}/authorize-and-issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           marketplaceToken,
           samlAssertion: session.samlAssertion,
+          reservationKey,
+          labId,
           timestamp: Math.floor(Date.now() / 1000),
         }),
       })
-
       const responseText = await response.text()
       if (!response.ok) {
-        devLog.error('SSO lab access failed:', response.status, responseText)
+        devLog.error('Combined access authorization failed:', response.status, responseText)
         return NextResponse.json(
-          { error: 'SSO lab access failed', details: responseText },
+          { error: 'Combined access authorization failed', details: responseText },
           { status: response.status },
         )
       }
-
-      const data = responseText ? JSON.parse(responseText) : {}
-      return NextResponse.json(data, { status: 200 })
-    }
-
-    const consumerBackendBase = await resolveInstitutionalBackendUrl(affiliation)
-    if (!consumerBackendBase) {
-      throw new BadRequestError('Institution backend not registered')
+      const authResponse = responseText ? JSON.parse(responseText) : {}
+      const access = await issueLabAccessCode(authBase, authResponse)
+      return NextResponse.json(access, { status: 200 })
     }
 
     const consumerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
@@ -196,7 +231,7 @@ export async function POST(req) {
       samlAssertion: session.samlAssertion,
       reservationKey,
       labId,
-      institutionalProviderWallet,
+      payerInstitutionWallet,
       puc,
     }
 
@@ -214,6 +249,7 @@ export async function POST(req) {
         { status: checkInResponse.status },
       )
     }
+    const checkInData = checkInResponseText ? JSON.parse(checkInResponseText) : {}
 
     const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       ...commonTokenClaims,
@@ -224,6 +260,7 @@ export async function POST(req) {
       marketplaceToken: providerMarketplaceToken,
       reservationKey,
       labId,
+      accessAuthorizationTxHash: checkInData.txHash,
     }
     const response = await fetch(`${authBase}/access-credential`, {
       method: 'POST',
@@ -241,7 +278,8 @@ export async function POST(req) {
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
-    return NextResponse.json(data, { status: 200 })
+    const access = await issueLabAccessCode(authBase, data)
+    return NextResponse.json(access, { status: 200 })
   } catch (error) {
     return handleGuardError(error)
   }

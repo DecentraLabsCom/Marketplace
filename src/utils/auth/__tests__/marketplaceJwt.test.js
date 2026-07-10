@@ -362,7 +362,7 @@ describe("MarketplaceJwtService", () => {
       const token = await MarketplaceJwtService.generateSamlAuthToken({
         puc: "puc-1",
         affiliation: "uned.es",
-        institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+        payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
       });
 
       expect(token).toBe("mocked.jwt.token");
@@ -370,7 +370,7 @@ describe("MarketplaceJwtService", () => {
         expect.objectContaining({
           puc: "puc-1",
           affiliation: "uned.es",
-          institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+          payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
           bookingInfoAllowed: true,
           scope: "booking:read",
         }),
@@ -408,16 +408,16 @@ describe("MarketplaceJwtService", () => {
         MarketplaceJwtService.generateSamlAuthToken({
           puc: "puc-1",
           affiliation: "uned.es",
-          institutionalProviderWallet: "invalid-wallet",
+        payerInstitutionWallet: "invalid-wallet",
         })
-      ).rejects.toThrow("Invalid institutionalProviderWallet address format");
+      ).rejects.toThrow("Invalid payerInstitutionWallet address format");
     });
 
     test("includes lab access binding claims when provided", async () => {
       await MarketplaceJwtService.generateSamlAuthToken({
         puc: "puc-1",
         affiliation: "uned.es",
-        institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+        payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
         purpose: "lab_access",
         reservationKey: "0xabc",
         labId: 42,
@@ -457,7 +457,7 @@ describe("MarketplaceJwtService", () => {
       await MarketplaceJwtService.generateSamlAuthToken({
         puc: 'puc-2',
         affiliation: 'aff',
-        institutionalProviderWallet: '0x1111111111111111111111111111111111111111',
+        payerInstitutionWallet: '0x1111111111111111111111111111111111111111',
         audience: 'custom-audience',
       });
 

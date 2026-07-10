@@ -123,13 +123,13 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO identity data')
     }
 
-    let institutionalProviderWallet
+    let payerInstitutionWallet
     try {
-      institutionalProviderWallet = await resolveInstitutionWallet(affiliation)
+      payerInstitutionWallet = await resolveInstitutionWallet(affiliation)
     } catch (error) {
       throw new BadRequestError(error.message)
     }
-    if (!institutionalProviderWallet) {
+    if (!payerInstitutionWallet) {
       throw new BadRequestError('Institution wallet not registered')
     }
 
@@ -137,7 +137,7 @@ export async function POST(req) {
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       puc,
       affiliation,
-      institutionalProviderWallet,
+      payerInstitutionWallet,
       scope: 'booking:read',
       bookingInfoAllowed: true,
       purpose: 'lab_access',
