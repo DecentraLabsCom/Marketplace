@@ -152,6 +152,7 @@ export default function ActiveLabCard({
               userWallet={userAddress} 
               hasActiveBooking={!!booking} 
               reservationKey={booking?.reservationKey}
+              resourceType={lab.resourceType}
             />
           )}
         </div>

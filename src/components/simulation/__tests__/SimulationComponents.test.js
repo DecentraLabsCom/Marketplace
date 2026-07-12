@@ -32,7 +32,13 @@ jest.mock("@/utils/hooks/authMode", () => ({
   useGetIsSSO: jest.fn(() => true),
 }));
 jest.mock("@/utils/auth/labAuth", () => ({
-  authenticateLabAccessSSO: jest.fn(async () => ({ token: "test-gateway-token" })),
+  authenticateLabAccessSSO: jest.fn(async () => ({
+    accessCode: "opaque-fmu-code",
+    labURL: "https://gateway.example.com/fmu/",
+  })),
+}));
+jest.mock("@/utils/auth/fmuAccess", () => ({
+  establishFmuGatewaySession: jest.fn(async () => "https://gateway.example.com"),
 }));
 
 // â”€â”€â”€ ParameterForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -295,9 +301,9 @@ describe("SimulationRunner", () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/simulations/proxy?"),
+        expect.stringContaining("https://gateway.example.com/fmu/api/v1/fmu/proxy/42?"),
         expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: "Bearer test-gateway-token" }),
+          credentials: "include",
         })
       );
     });
@@ -356,8 +362,8 @@ describe("SimulationRunner", () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        "/api/simulations/stream",
-        expect.objectContaining({ method: "POST" })
+        "https://gateway.example.com/fmu/api/v1/simulations/stream",
+        expect.objectContaining({ method: "POST", credentials: "include" })
       );
     });
   });

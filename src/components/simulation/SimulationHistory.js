@@ -7,7 +7,7 @@ import { resolveGatewayFeatureError } from './gatewayErrors'
 /**
  * SimulationHistory - shows a list of past simulation runs for a given lab.
  */
-export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onEnsureAuthToken, onLoadResult }) {
+export default function SimulationHistory({ labId, gatewayUrl, gatewaySessionOrigin, onEnsureGatewaySession, onLoadResult }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -20,17 +20,17 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
     setHistoryUnavailable(false)
 
     try {
-      let token = gatewayToken
-      if (!token && onEnsureAuthToken) {
-        token = await onEnsureAuthToken()
+      let gatewayOrigin = gatewaySessionOrigin
+      if (!gatewayOrigin && onEnsureGatewaySession) {
+        gatewayOrigin = await onEnsureGatewaySession()
       }
-      if (!token) {
+      if (!gatewayOrigin) {
         throw new Error('Authentication required to load simulation history')
       }
 
-      const qs = new URLSearchParams({ gatewayUrl, labId: labId ?? '', limit: '20', offset: '0' })
-      const res = await fetch(`/api/simulations/history?${qs.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const qs = new URLSearchParams({ labId: labId ?? '', limit: '20', offset: '0' })
+      const res = await fetch(`${gatewayOrigin}/fmu/api/v1/simulations/history?${qs.toString()}`, {
+        credentials: 'include',
       })
       if (!res.ok) {
         let payload = {}
@@ -54,7 +54,7 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
     } finally {
       setLoading(false)
     }
-  }, [gatewayUrl, labId, gatewayToken, onEnsureAuthToken])
+  }, [gatewayUrl, labId, gatewaySessionOrigin, onEnsureGatewaySession])
 
   useEffect(() => {
     fetchHistory()
@@ -134,8 +134,8 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
 SimulationHistory.propTypes = {
   labId: PropTypes.string,
   gatewayUrl: PropTypes.string,
-  gatewayToken: PropTypes.string,
-  onEnsureAuthToken: PropTypes.func,
+  gatewaySessionOrigin: PropTypes.string,
+  onEnsureGatewaySession: PropTypes.func,
   onLoadResult: PropTypes.func,
 }
 

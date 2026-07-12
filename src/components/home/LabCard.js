@@ -168,6 +168,7 @@ const LabCard = React.memo(function LabCard({
           id={id} 
           hasActiveBooking={activeBooking} 
           reservationKey={reservationKey}
+          resourceType={resourceType}
         />
       )}
     </Card>

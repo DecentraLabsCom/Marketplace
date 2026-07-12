@@ -5,6 +5,8 @@ import { useUser } from '@/context/UserContext'
 import { useReservation } from '@/hooks/booking/useBookings'
 import { authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
+import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
@@ -60,7 +62,7 @@ async function resolveActiveReservationKey(labId) {
  * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, hasActiveBooking, reservationKey = null }) {
+export default function LabAccess({ id, hasActiveBooking, reservationKey = null, resourceType = RESOURCE_TYPES.LAB }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [authURI, setAuthURI] = useState(null);
@@ -140,8 +142,16 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
 
       // Handle successful authentication
       if (authResult.accessCode && authResult.labURL) {
-        devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
-        submitLabAccessCode(authResult.labURL, authResult.accessCode);
+        if (getResourceType({ resourceType }) === RESOURCE_TYPES.FMU) {
+          await establishFmuGatewaySession(authResult.labURL, authResult.accessCode)
+          const qs = resolvedReservationKey
+            ? `?reservationKey=${encodeURIComponent(resolvedReservationKey)}`
+            : ''
+          window.location.assign(`/simulation/${encodeURIComponent(String(id))}${qs}`)
+        } else {
+          devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
+          submitLabAccessCode(authResult.labURL, authResult.accessCode);
+        }
       } else if (authResult.error) {
         // Handle authentication errors returned by the service
         setErrorMessage(authResult.error);
@@ -205,5 +215,6 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
 LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   hasActiveBooking: PropTypes.bool.isRequired,
-  reservationKey: PropTypes.string
+  reservationKey: PropTypes.string,
+  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 }
