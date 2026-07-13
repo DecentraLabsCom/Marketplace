@@ -1,7 +1,11 @@
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import {
+  institutionalBackendFetch,
+  normalizeInstitutionalBackendBaseUrl,
+} from '@/utils/api/gatewayProxy'
 
 function normalizeBackendUrl(backendUrl) {
-  return String(backendUrl || '').replace(/\/$/, '')
+  return normalizeInstitutionalBackendBaseUrl(backendUrl)
 }
 
 export function getIntentBackendApiKey() {
@@ -93,7 +97,7 @@ export async function requestIntentAuthorizationSession({
     [payloadKey]: payload,
   }
 
-  const res = await fetch(`${normalizeBackendUrl(backendUrl)}/intents/authorize`, {
+  const res = await institutionalBackendFetch(`${normalizeBackendUrl(backendUrl)}/intents/authorize`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -124,7 +128,7 @@ export async function notifyIntentRegistrationMined({
     blockNumber,
   }
 
-  const res = await fetch(
+  const res = await institutionalBackendFetch(
     `${normalizeBackendUrl(backendUrl)}/intents/${encodeURIComponent(requestId)}/registration-mined`,
     {
       method: 'POST',
@@ -166,7 +170,7 @@ export async function submitIntentExecutionToBackend({
     [payloadKey]: payload,
   }
 
-  const res = await fetch(`${normalizeBackendUrl(backendUrl)}/intents`, {
+  const res = await institutionalBackendFetch(`${normalizeBackendUrl(backendUrl)}/intents`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),

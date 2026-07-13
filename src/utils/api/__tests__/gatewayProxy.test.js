@@ -317,6 +317,76 @@ describe('gatewayProxy', () => {
     })
   })
 
+  describe('institutionalBackendFetch', () => {
+    let originalFetch
+    let dnsLookup
+
+    beforeEach(async () => {
+      process.env.NODE_ENV = 'production'
+      delete process.env.ALLOWED_GATEWAY_ORIGINS
+      delete process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS
+      jest.resetModules()
+      dnsLookup = require('node:dns/promises').lookup
+      dnsLookup.mockReset()
+      dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+      originalFetch = global.fetch
+      global.fetch = jest.fn().mockResolvedValue({ status: 200, headers: new Headers() })
+      mod = await import('../gatewayProxy')
+    })
+
+    afterEach(() => {
+      global.fetch = originalFetch
+      delete process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS
+    })
+
+    test('requires HTTPS in production', async () => {
+      await expect(
+        mod.institutionalBackendFetch('http://consumer.example.com/auth/checkin-institutional')
+      ).rejects.toThrow(/HTTPS/)
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test('rejects private DNS answers before sending institutional credentials', async () => {
+      dnsLookup.mockResolvedValue([{ address: '10.0.0.8', family: 4 }])
+
+      await expect(
+        mod.institutionalBackendFetch('https://consumer.example.com/auth/checkin-institutional')
+      ).rejects.toThrow(/DNS resolves to a private/)
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test('pins DNS and disables redirects for the credential-bearing request', async () => {
+      await mod.institutionalBackendFetch(
+        'https://consumer.example.com/auth/checkin-institutional',
+        { method: 'POST', body: '{}' },
+      )
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://consumer.example.com/auth/checkin-institutional',
+        expect.objectContaining({
+          method: 'POST',
+          redirect: 'manual',
+          dispatcher: expect.any(Object),
+        }),
+      )
+    })
+
+    test('does not follow even same-origin redirects with sensitive credentials', async () => {
+      global.fetch.mockResolvedValue({
+        status: 307,
+        headers: new Headers({ location: '/auth/other' }),
+      })
+
+      await expect(
+        mod.institutionalBackendFetch('https://consumer.example.com/auth/checkin-institutional', {
+          method: 'POST',
+          body: '{"marketplaceToken":"secret"}',
+        })
+      ).rejects.toThrow(/redirects are not allowed/)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
   // ─── buildGatewayTargetUrl ──────────────────────────────────────
 
   describe('buildGatewayTargetUrl', () => {

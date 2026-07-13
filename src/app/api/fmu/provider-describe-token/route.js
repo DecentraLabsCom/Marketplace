@@ -4,7 +4,7 @@ import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { createRateLimiter } from '@/utils/api/rateLimit'
-import { GatewayValidationError, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
+import { GatewayValidationError, gatewayFetch, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
 import {
   handleGuardError,
   requireAuth,
@@ -72,7 +72,7 @@ export async function GET(request) {
 
     devLog.log(`[fmu/provider-describe-token] Requesting describe token from ${authBase}/fmu/provider-describe-token`)
 
-    const tokenRes = await fetch(`${authBase}/fmu/provider-describe-token`, {
+    const tokenRes = await gatewayFetch(`${authBase}/fmu/provider-describe-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

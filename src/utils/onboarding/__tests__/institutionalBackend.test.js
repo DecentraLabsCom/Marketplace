@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import {
   resolveInstitutionalBackendUrl,
   hasInstitutionalBackend,
@@ -45,13 +49,15 @@ describe('institutionalBackend', () => {
     await expect(hasInstitutionalBackend('uned.es')).resolves.toBe(true)
   })
 
-  test('resolves by base domain when subdomain provided', async () => {
+  test('does not guess a registrable parent domain from the last two labels', async () => {
     mockContract.getSchacHomeOrganizationBackend
-      .mockResolvedValueOnce('')
-      .mockResolvedValueOnce('https://backend.uned.es')
+      .mockResolvedValue('')
 
-    const resolved = await resolveInstitutionalBackendUrl('mail.uned.es')
-    expect(resolved).toBe('https://backend.uned.es')
+    const resolved = await resolveInstitutionalBackendUrl('dept.university.ac.uk')
+    expect(resolved).toBeNull()
+    expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(1)
+    expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledWith('dept.university.ac.uk')
+    expect(mockContract.getSchacHomeOrganizationBackend).not.toHaveBeenCalledWith('ac.uk')
   })
 
   test('returns null if contract lookup fails', async () => {

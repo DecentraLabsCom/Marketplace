@@ -4,6 +4,7 @@
  */
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
+import { normalizeInstitutionalBackendBaseUrl } from '@/utils/api/gatewayProxy'
 
 /**
  * Resolves the backend URL from request parameters or environment
@@ -13,7 +14,8 @@ import devLog from '@/utils/dev/logger'
 export function resolveBackendUrl(request) {
   const { searchParams } = request.nextUrl
   const override = searchParams.get('backendUrl')
-  return override || process.env.INSTITUTION_BACKEND_URL || null
+  const candidate = override || process.env.INSTITUTION_BACKEND_URL || null
+  return candidate ? normalizeInstitutionalBackendBaseUrl(candidate) : null
 }
 
 /**

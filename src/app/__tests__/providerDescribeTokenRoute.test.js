@@ -56,6 +56,7 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 
 // ── Gateway proxy utils ───────────────────────────────────────────────────────
 const mockNormalizeGatewayBaseUrl = jest.fn()
+const mockGatewayFetch = jest.fn((...args) => global.fetch(...args))
 
 class GatewayValidationError extends Error {
   constructor(message) {
@@ -66,6 +67,7 @@ class GatewayValidationError extends Error {
 
 jest.mock('@/utils/api/gatewayProxy', () => ({
   normalizeGatewayBaseUrl: (...args) => mockNormalizeGatewayBaseUrl(...args),
+  gatewayFetch: (...args) => mockGatewayFetch(...args),
   GatewayValidationError,
 }))
 

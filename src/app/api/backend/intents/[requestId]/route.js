@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import { resolveBackendUrl, resolveForwardHeaders } from '@/utils/api/backendProxyHelpers'
+import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
 
 export async function GET(request, { params }) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request, { params }) {
     }
 
     const headers = await resolveForwardHeaders(request)
-    const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+    const res = await institutionalBackendFetch(`${backendUrl}/intents/${encodeURIComponent(requestId)}`, {
       method: 'GET',
       headers,
       cache: 'no-store',

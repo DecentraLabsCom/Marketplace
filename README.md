@@ -102,6 +102,10 @@ We run **unit and integration tests** (Jest) and linting in CI on every push/PR.
 - `principal_targeted_id` (default): `eduPersonPrincipalName|eduPersonTargetedID` when `eduPersonTargetedID` is received, otherwise `eduPersonPrincipalName`.
 - `principal`: always use only `eduPersonPrincipalName`.
 
+### Institutional backend egress
+
+Marketplace treats institutional backend URLs discovered on-chain as untrusted input. In production they must use HTTPS, resolve only to public IP addresses, and cannot redirect credential-bearing requests. Set `ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS` to a comma-separated list of exact origins (for example, `https://institution-a.example,https://institution-b.example`) when deployment policy should restrict egress further. Origins must not include paths.
+
 ### Run E2E tests locally
 
 To run E2E tests locally (recommended):

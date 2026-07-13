@@ -5,7 +5,10 @@
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { requireAuth } from '@/utils/auth/guards'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
-import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import {
+  institutionalBackendFetch,
+  resolveInstitutionalBackendUrl,
+} from '@/utils/onboarding/institutionalBackend'
 
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
@@ -26,6 +29,7 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 
 jest.mock('@/utils/onboarding/institutionalBackend', () => ({
   resolveInstitutionalBackendUrl: jest.fn(),
+  institutionalBackendFetch: jest.fn((...args) => fetch(...args)),
 }))
 
 describe('/api/auth/lab-access route', () => {
@@ -169,6 +173,10 @@ describe('/api/auth/lab-access route', () => {
       1,
       'https://consumer.example.com/auth/checkin-institutional',
       expect.objectContaining({ method: 'POST' })
+    )
+    expect(institutionalBackendFetch).toHaveBeenCalledWith(
+      'https://consumer.example.com/auth/checkin-institutional',
+      expect.objectContaining({ method: 'POST' }),
     )
     expect(global.fetch).toHaveBeenNthCalledWith(
       2,

@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
-import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import {
+  institutionalBackendFetch,
+  resolveInstitutionalBackendUrl,
+} from '@/utils/onboarding/institutionalBackend'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { keccak256, toUtf8Bytes } from 'ethers'
@@ -291,11 +294,13 @@ export async function POST(req) {
       puc,
     }
 
-    const checkInResponse = await fetch(`${consumerBackendBase}/auth/checkin-institutional`, {
+    const checkInResponse = await institutionalBackendFetch(
+      `${consumerBackendBase}/auth/checkin-institutional`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(checkInPayload),
-    })
+      },
+    )
 
     const checkInResponseText = await checkInResponse.text()
     if (!checkInResponse.ok) {

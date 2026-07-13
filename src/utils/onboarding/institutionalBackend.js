@@ -13,6 +13,12 @@
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import {
+  institutionalBackendFetch,
+  normalizeInstitutionalBackendBaseUrl,
+} from '@/utils/api/gatewayProxy'
+
+export { institutionalBackendFetch }
 
 /**
  * Cache for resolved backend URLs to avoid repeated lookups
@@ -53,36 +59,16 @@ export async function resolveInstitutionalBackendUrl(institutionId) {
         return null
       }
 
-      let cleaned = rawUrl.trim()
-      while (cleaned.endsWith('/')) {
-        cleaned = cleaned.slice(0, -1)
-      }
-      if (cleaned.endsWith('/auth')) {
-        cleaned = cleaned.slice(0, -5)
-      }
-      return cleaned || null
+      return normalizeInstitutionalBackendBaseUrl(rawUrl)
     }
 
     // Try exact match first
     let backendUrl = await resolveBackend(normalizedId)
 
-    // Try without subdomain variations (e.g., "mail.uned.es" -> "uned.es")
-    let baseDomain = null
-    if (!backendUrl) {
-      const parts = normalizedId.split('.')
-      if (parts.length > 2) {
-        baseDomain = parts.slice(-2).join('.')
-        backendUrl = await resolveBackend(baseDomain)
-      }
-    }
-
     if (backendUrl) {
       backendCache.set(institutionId, backendUrl)
       if (normalizedId !== institutionId) {
         backendCache.set(normalizedId, backendUrl)
-      }
-      if (baseDomain) {
-        backendCache.set(baseDomain, backendUrl)
       }
       devLog.log('[InstitutionalBackend] Resolved backend for', institutionId, '->', backendUrl)
       return backendUrl
@@ -114,6 +100,7 @@ export function clearBackendCache() {
 
 export default {
   resolveInstitutionalBackendUrl,
+  institutionalBackendFetch,
   hasInstitutionalBackend,
   clearBackendCache,
 }

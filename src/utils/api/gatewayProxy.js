@@ -48,6 +48,13 @@ const ALLOWED_GATEWAY_ORIGINS = (process.env.ALLOWED_GATEWAY_ORIGINS || '')
   .map((entry) => entry.trim())
   .filter(Boolean)
 
+const ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS = (
+  process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS || ''
+)
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean)
+
 export class GatewayValidationError extends Error {
   constructor(message, status = 400) {
     super(message)
@@ -76,11 +83,8 @@ function isPrivateIp(hostname) {
   return PRIVATE_IP_BLOCKLIST.check(normalizedHost, family)
 }
 
-function assertGatewayHostAllowed(hostname, origin) {
+function assertPublicHostAllowed(hostname) {
   const lowerHost = normalizeHostnameForIpCheck(hostname)
-  if (ALLOWED_GATEWAY_ORIGINS.length > 0 && !ALLOWED_GATEWAY_ORIGINS.includes(origin)) {
-    throw new GatewayValidationError('Gateway origin is not in ALLOWED_GATEWAY_ORIGINS')
-  }
 
   if (process.env.NODE_ENV !== 'production') {
     return
@@ -95,6 +99,28 @@ function assertGatewayHostAllowed(hostname, origin) {
   if (lowerHost.endsWith('.local') || lowerHost.endsWith('.internal')) {
     throw new GatewayValidationError('Gateway host is not allowed')
   }
+}
+
+function assertGatewayHostAllowed(hostname, origin) {
+  if (ALLOWED_GATEWAY_ORIGINS.length > 0 && !ALLOWED_GATEWAY_ORIGINS.includes(origin)) {
+    throw new GatewayValidationError('Gateway origin is not in ALLOWED_GATEWAY_ORIGINS')
+  }
+  assertPublicHostAllowed(hostname)
+}
+
+function assertInstitutionalBackendAllowed(url) {
+  if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+    throw new GatewayValidationError('Institutional backend must use HTTPS in production')
+  }
+  if (
+    ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS.length > 0
+    && !ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS.includes(url.origin)
+  ) {
+    throw new GatewayValidationError(
+      'Institutional backend origin is not in ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS'
+    )
+  }
+  assertPublicHostAllowed(url.hostname)
 }
 
 async function resolvePublicGatewayAddress(hostname) {
@@ -117,6 +143,12 @@ async function assertGatewayUrlResolvesPublic(rawUrl) {
   const parsed = new URL(rawUrl)
   assertGatewayHostAllowed(parsed.hostname, parsed.origin)
   return resolvePublicGatewayAddress(parsed.hostname)
+}
+
+async function assertInstitutionalBackendResolvesPublic(url) {
+  assertInstitutionalBackendAllowed(url)
+  if (process.env.NODE_ENV !== 'production') return null
+  return resolvePublicGatewayAddress(url.hostname)
 }
 
 function pinnedAgent(url, resolved) {
@@ -163,6 +195,34 @@ export function normalizeGatewayBaseUrl(rawUrl) {
   }
 
   return `${origin}${path}`.replace(/\/+$/, '')
+}
+
+export function normalizeInstitutionalBackendBaseUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    throw new GatewayValidationError('Missing institutional backend URL')
+  }
+
+  let parsed
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    throw new GatewayValidationError('Invalid institutional backend URL format')
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new GatewayValidationError('Unsupported institutional backend protocol')
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new GatewayValidationError(
+      'Institutional backend URL must not contain credentials, query parameters or fragments'
+    )
+  }
+  assertInstitutionalBackendAllowed(parsed)
+
+  let path = parsed.pathname.replace(/\/+$/, '')
+  if (path.toLowerCase().endsWith('/auth')) {
+    path = path.slice(0, -5)
+  }
+  return `${parsed.origin}${path}`.replace(/\/+$/, '')
 }
 
 export function normalizeLabAccessUrl(rawUrl) {
@@ -238,6 +298,28 @@ export async function gatewayFetch(rawUrl, init = {}, redirectCount = 0) {
     delete redirectedInit.body
   }
   return gatewayFetch(redirected.toString(), redirectedInit, redirectCount + 1)
+}
+
+/**
+ * Fetch an on-chain-discovered institutional backend without ever forwarding
+ * credential-bearing requests across redirects. Production connections require
+ * HTTPS, public A/AAAA answers and a DNS-pinned dispatcher.
+ */
+export async function institutionalBackendFetch(rawUrl, init = {}) {
+  const url = new URL(rawUrl)
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new GatewayValidationError('Unsupported institutional backend protocol')
+  }
+  const resolved = await assertInstitutionalBackendResolvesPublic(url)
+  const response = await fetch(url.toString(), {
+    ...init,
+    redirect: 'manual',
+    ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+  })
+  if ([301, 302, 303, 307, 308].includes(response.status)) {
+    throw new GatewayValidationError('Institutional backend redirects are not allowed', 502)
+  }
+  return response
 }
 
 export function extractBearerHeader(request) {
