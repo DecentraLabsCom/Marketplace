@@ -4,9 +4,10 @@ import { createRateLimiter } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
-  extractBearerHeader,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
+import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -40,13 +41,17 @@ export async function GET(request) {
       `/fmu/api/v1/fmu/proxy/${encodeURIComponent(labId)}`,
       { reservationKey },
     )
-    const authorization = extractBearerHeader(request)
+    const gatewayHeaders = resolveFmuGatewayHeaders(request, {
+      labId,
+      reservationKey,
+      gatewayOrigin: gatewayBaseUrl,
+    })
 
     devLog.log(`[simulations/proxy] Proxying download to ${targetUrl}`)
 
-    const gatewayRes = await fetch(targetUrl, {
+    const gatewayRes = await gatewayFetch(targetUrl, {
       headers: {
-        ...(authorization ? { Authorization: authorization } : {}),
+        ...gatewayHeaders,
       },
       cache: 'no-store',
     })

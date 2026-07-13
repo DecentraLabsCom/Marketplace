@@ -7,7 +7,7 @@ import { resolveGatewayFeatureError } from './gatewayErrors'
 /**
  * SimulationHistory - shows a list of past simulation runs for a given lab.
  */
-export default function SimulationHistory({ labId, gatewayUrl, gatewaySessionOrigin, onEnsureGatewaySession, onLoadResult }) {
+export default function SimulationHistory({ labId, reservationKey, gatewayUrl, gatewaySessionOrigin, onEnsureGatewaySession, onFetchGateway, onLoadResult }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -28,10 +28,17 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewaySessionOri
         throw new Error('Authentication required to load simulation history')
       }
 
-      const qs = new URLSearchParams({ labId: labId ?? '', limit: '20', offset: '0' })
-      const res = await fetch(`${gatewayOrigin}/fmu/api/v1/simulations/history?${qs.toString()}`, {
-        credentials: 'include',
+      const qs = new URLSearchParams({
+        labId: labId ?? '',
+        reservationKey: reservationKey ?? '',
+        gatewayUrl,
+        limit: '20',
+        offset: '0',
       })
+      const path = `/api/simulations/history?${qs.toString()}`
+      const res = onFetchGateway
+        ? await onFetchGateway(path, { credentials: 'include' })
+        : await fetch(path, { credentials: 'include' })
       if (!res.ok) {
         let payload = {}
         try {
@@ -54,7 +61,7 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewaySessionOri
     } finally {
       setLoading(false)
     }
-  }, [gatewayUrl, labId, gatewaySessionOrigin, onEnsureGatewaySession])
+  }, [gatewayUrl, labId, reservationKey, gatewaySessionOrigin, onEnsureGatewaySession, onFetchGateway])
 
   useEffect(() => {
     fetchHistory()
@@ -133,9 +140,11 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewaySessionOri
 
 SimulationHistory.propTypes = {
   labId: PropTypes.string,
+  reservationKey: PropTypes.string,
   gatewayUrl: PropTypes.string,
   gatewaySessionOrigin: PropTypes.string,
   onEnsureGatewaySession: PropTypes.func,
+  onFetchGateway: PropTypes.func,
   onLoadResult: PropTypes.func,
 }
 

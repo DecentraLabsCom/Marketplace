@@ -33,7 +33,14 @@ describe('/api/auth/lab-access route', () => {
 
   const buildAccessCodeResponse = () => ({
     ok: true,
-    text: async () => JSON.stringify({ accessCode: 'opaque-code', labURL: 'https://lab.example.com/guacamole/' }),
+    status: 200,
+    headers: new Headers(),
+    text: async () => JSON.stringify({
+      accessCode: 'opaque-code',
+      labURL: 'https://lab.example.com/guacamole/',
+      resourceType: 'lab',
+      reservationKey: '0xabc',
+    }),
   })
 
   beforeEach(() => {
@@ -482,5 +489,98 @@ describe('/api/auth/lab-access route', () => {
       'https://gateway.example.com/auth/access-credential',
       expect.objectContaining({ method: 'POST' })
     )
+  })
+
+  test('honors Retry-After and retries only provider credential issuance', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('consumer-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ txHash: '0xtx', reservationKey: '0xcanonical' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'Retry-After': '0' }),
+        text: async () => JSON.stringify({ retryable: true, txHash: '0xtx' }),
+      })
+      .mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch).toHaveBeenCalledTimes(3)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/checkin-institutional'))).toHaveLength(1)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(2)
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body).reservationKey).toBe('0xcanonical')
+  })
+
+  test('does not repeat combined check-in when credential delivery is pending', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'Retry-After': '0' }),
+        text: async () => JSON.stringify({
+          retryable: true,
+          txHash: '0xtx',
+          reservationKey: '0xcanonical',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'Retry-After': '0' }),
+        text: async () => JSON.stringify({ retryable: true, txHash: '0xtx' }),
+      })
+      .mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/authorize-and-issue'))).toHaveLength(1)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(2)
+    const retryPayload = JSON.parse(global.fetch.mock.calls[1][1].body)
+    expect(retryPayload).toMatchObject({
+      marketplaceToken: 'marketplace-token',
+      reservationKey: '0xcanonical',
+      accessAuthorizationTxHash: '0xtx',
+    })
   })
 })

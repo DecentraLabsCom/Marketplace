@@ -1,5 +1,7 @@
 ﻿import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { BlockList, isIP } from 'node:net'
+import { lookup } from 'node:dns/promises'
+import { Agent } from 'undici'
 
 const PRIVATE_IP_BLOCKLIST = (() => {
   const list = new BlockList()
@@ -8,12 +10,38 @@ const PRIVATE_IP_BLOCKLIST = (() => {
   list.addSubnet('169.254.0.0', 16, 'ipv4')
   list.addSubnet('172.16.0.0', 12, 'ipv4')
   list.addSubnet('192.168.0.0', 16, 'ipv4')
+  list.addSubnet('0.0.0.0', 8, 'ipv4')
+  list.addSubnet('100.64.0.0', 10, 'ipv4')
+  list.addSubnet('192.0.0.0', 24, 'ipv4')
+  list.addSubnet('192.0.2.0', 24, 'ipv4')
+  list.addSubnet('192.31.196.0', 24, 'ipv4')
+  list.addSubnet('192.52.193.0', 24, 'ipv4')
+  list.addSubnet('192.88.99.0', 24, 'ipv4')
+  list.addSubnet('192.175.48.0', 24, 'ipv4')
+  list.addSubnet('198.18.0.0', 15, 'ipv4')
+  list.addSubnet('198.51.100.0', 24, 'ipv4')
+  list.addSubnet('203.0.113.0', 24, 'ipv4')
+  list.addSubnet('224.0.0.0', 4, 'ipv4')
+  list.addSubnet('240.0.0.0', 4, 'ipv4')
   list.addAddress('::', 'ipv6')
   list.addAddress('::1', 'ipv6')
+  list.addSubnet('5f00::', 16, 'ipv6')
+  list.addSubnet('64:ff9b::', 96, 'ipv6')
+  list.addSubnet('64:ff9b:1::', 48, 'ipv6')
+  list.addSubnet('100::', 64, 'ipv6')
+  list.addSubnet('2001::', 23, 'ipv6')
   list.addSubnet('fc00::', 7, 'ipv6')
   list.addSubnet('fe80::', 10, 'ipv6')
+  list.addSubnet('2001:db8::', 32, 'ipv6')
+  list.addSubnet('2002::', 16, 'ipv6')
+  list.addSubnet('2620:4f:8000::', 48, 'ipv6')
+  list.addSubnet('3fff::', 20, 'ipv6')
+  list.addSubnet('ff00::', 8, 'ipv6')
   return list
 })()
+
+const PINNED_AGENTS = new Map()
+const MAX_PINNED_AGENTS = 64
 
 const ALLOWED_GATEWAY_ORIGINS = (process.env.ALLOWED_GATEWAY_ORIGINS || '')
   .split(',')
@@ -69,6 +97,47 @@ function assertGatewayHostAllowed(hostname, origin) {
   }
 }
 
+async function resolvePublicGatewayAddress(hostname) {
+  const normalizedHost = normalizeHostnameForIpCheck(hostname)
+  const literalVersion = isIP(normalizedHost)
+  const addresses = literalVersion
+    ? [{ address: normalizedHost, family: literalVersion }]
+    : await lookup(normalizedHost, { all: true, verbatim: true }).catch((error) => {
+      throw new GatewayValidationError(`Gateway DNS resolution failed: ${error.code || error.message}`, 502)
+    })
+
+  if (!addresses.length || addresses.some(({ address }) => isPrivateIp(address))) {
+    throw new GatewayValidationError('Gateway DNS resolves to a private, loopback, link-local or reserved address')
+  }
+  return addresses[0]
+}
+
+async function assertGatewayUrlResolvesPublic(rawUrl) {
+  if (process.env.NODE_ENV !== 'production') return null
+  const parsed = new URL(rawUrl)
+  assertGatewayHostAllowed(parsed.hostname, parsed.origin)
+  return resolvePublicGatewayAddress(parsed.hostname)
+}
+
+function pinnedAgent(url, resolved) {
+  const key = `${url.protocol}//${url.host}|${resolved.address}|${resolved.family}`
+  let agent = PINNED_AGENTS.get(key)
+  if (agent) return agent
+
+  agent = new Agent({
+    connect: {
+      lookup: (_hostname, _options, callback) => callback(null, resolved.address, resolved.family),
+    },
+  })
+  PINNED_AGENTS.set(key, agent)
+  if (PINNED_AGENTS.size > MAX_PINNED_AGENTS) {
+    const [oldestKey, oldestAgent] = PINNED_AGENTS.entries().next().value
+    PINNED_AGENTS.delete(oldestKey)
+    void oldestAgent.close()
+  }
+  return agent
+}
+
 export function normalizeGatewayBaseUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== 'string') {
     throw new GatewayValidationError('Missing gatewayUrl')
@@ -111,6 +180,42 @@ export function buildGatewayTargetUrl(baseUrl, routePath, query = null) {
   return url.toString()
 }
 
+/**
+ * Fetch a validated gateway URL while pinning the DNS result used by the
+ * connection. Redirects are manual, same-origin only, and revalidated.
+ */
+export async function gatewayFetch(rawUrl, init = {}, redirectCount = 0) {
+  const url = new URL(rawUrl)
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new GatewayValidationError('Unsupported gatewayUrl protocol')
+  }
+  assertGatewayHostAllowed(url.hostname, url.origin)
+  const resolved = await assertGatewayUrlResolvesPublic(url)
+  const response = await fetch(url.toString(), {
+    ...init,
+    redirect: 'manual',
+    ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+  })
+
+  if (![301, 302, 303, 307, 308].includes(response.status)) return response
+  if (redirectCount >= 3) {
+    throw new GatewayValidationError('Gateway redirected too many times', 502)
+  }
+  const location = response.headers.get('location')
+  if (!location) return response
+  const redirected = new URL(location, url)
+  if (redirected.origin !== url.origin) {
+    throw new GatewayValidationError('Cross-origin gateway redirects are not allowed', 502)
+  }
+
+  const redirectedInit = { ...init }
+  if (response.status === 303 && String(init.method || 'GET').toUpperCase() !== 'HEAD') {
+    redirectedInit.method = 'GET'
+    delete redirectedInit.body
+  }
+  return gatewayFetch(redirected.toString(), redirectedInit, redirectCount + 1)
+}
+
 export function extractBearerHeader(request) {
   const authorization = request.headers.get('authorization') || request.headers.get('Authorization')
   if (!authorization) return null
@@ -127,6 +232,7 @@ export async function resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch
     if (!normalizedFromRequest) {
       throw new GatewayValidationError('Missing labId or gatewayUrl')
     }
+    await assertGatewayUrlResolvesPublic(normalizedFromRequest)
     return normalizedFromRequest
   }
 
@@ -147,5 +253,6 @@ export async function resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch
     throw new GatewayValidationError('Provided gatewayUrl does not match on-chain lab auth URI')
   }
 
+  await assertGatewayUrlResolvesPublic(normalizedOnChain)
   return normalizedOnChain
 }

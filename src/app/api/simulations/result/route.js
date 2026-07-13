@@ -4,9 +4,10 @@ import { createRateLimiter } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
-  extractBearerHeader,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
+import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
 
@@ -24,6 +25,7 @@ export async function GET(request) {
     const simId = searchParams.get('simId')
     const labId = searchParams.get('labId')
     const gatewayUrl = searchParams.get('gatewayUrl')
+    const reservationKey = searchParams.get('reservationKey')
 
     if (!simId) {
       return NextResponse.json({ error: 'Missing simId' }, { status: 400 })
@@ -34,11 +36,15 @@ export async function GET(request) {
 
     const gatewayBaseUrl = await resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch: true })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, `/fmu/api/v1/simulations/${encodeURIComponent(simId)}/result`)
-    const authorization = extractBearerHeader(request)
+    const gatewayHeaders = resolveFmuGatewayHeaders(request, {
+      labId,
+      reservationKey,
+      gatewayOrigin: gatewayBaseUrl,
+    })
 
-    const gatewayRes = await fetch(targetUrl, {
+    const gatewayRes = await gatewayFetch(targetUrl, {
       headers: {
-        ...(authorization ? { Authorization: authorization } : {}),
+        ...gatewayHeaders,
       },
       cache: 'no-store',
     })

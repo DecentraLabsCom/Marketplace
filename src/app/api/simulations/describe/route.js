@@ -5,6 +5,7 @@ import {
   GatewayValidationError,
   buildGatewayTargetUrl,
   extractBearerHeader,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
@@ -43,7 +44,7 @@ export async function GET(request) {
 
     devLog.log(`[simulations/describe] Proxying to ${targetUrl}`)
 
-    const gatewayRes = await fetch(targetUrl, {
+    const gatewayRes = await gatewayFetch(targetUrl, {
       headers: {
         ...(authorization ? { Authorization: authorization } : {}),
       },

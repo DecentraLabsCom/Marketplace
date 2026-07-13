@@ -24,6 +24,7 @@ jest.mock('@/utils/api/gatewayProxy', () => {
     resolveGatewayBaseUrl: jest.fn(),
     buildGatewayTargetUrl: jest.fn(),
     extractBearerHeader: jest.fn(),
+    gatewayFetch: jest.fn((...args) => fetch(...args)),
   }
 })
 
@@ -51,7 +52,7 @@ describe('POST /api/simulations/run', () => {
     gatewayProxy = await import('@/utils/api/gatewayProxy')
     gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../run/route')
     POST = mod.POST
   })
@@ -318,7 +319,7 @@ describe('POST /api/simulations/stream', () => {
     gatewayProxy = await import('@/utils/api/gatewayProxy')
     gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../stream/route')
     POST = mod.POST
   })
@@ -384,7 +385,7 @@ describe('GET /api/simulations/history', () => {
     gatewayProxy = await import('@/utils/api/gatewayProxy')
     gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../history/route')
     GET = mod.GET
   })
@@ -430,7 +431,7 @@ describe('GET /api/simulations/result', () => {
     gatewayProxy = await import('@/utils/api/gatewayProxy')
     gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../result/route')
     GET = mod.GET
   })

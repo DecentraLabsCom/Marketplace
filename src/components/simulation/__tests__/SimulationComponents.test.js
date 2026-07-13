@@ -35,6 +35,8 @@ jest.mock("@/utils/auth/labAuth", () => ({
   authenticateLabAccessSSO: jest.fn(async () => ({
     accessCode: "opaque-fmu-code",
     labURL: "https://gateway.example.com/fmu/",
+    resourceType: "fmu",
+    reservationKey: "0xabc",
   })),
 }));
 jest.mock("@/utils/auth/fmuAccess", () => ({
@@ -221,6 +223,8 @@ describe("DownloadButtons", () => {
 // â”€â”€â”€ SimulationRunner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import SimulationRunner from "../SimulationRunner";
+import { authenticateLabAccessSSO } from "@/utils/auth/labAuth";
+import { establishFmuGatewaySession } from "@/utils/auth/fmuAccess";
 
 const fmuLab = {
   id: "42",
@@ -267,6 +271,8 @@ function mockNdjsonResponse(events) {
 describe("SimulationRunner", () => {
   beforeEach(() => {
     global.fetch = jest.fn();
+    authenticateLabAccessSSO.mockClear();
+    establishFmuGatewaySession.mockClear();
   });
 
   test("renders simulation header with lab name", () => {
@@ -301,7 +307,7 @@ describe("SimulationRunner", () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("https://gateway.example.com/fmu/api/v1/fmu/proxy/42?"),
+        expect.stringContaining("/api/simulations/proxy?"),
         expect.objectContaining({
           credentials: "include",
         })
@@ -311,14 +317,15 @@ describe("SimulationRunner", () => {
   });
 
   test("shows regenerate action when proxy ticket is expired or used", async () => {
-    global.fetch.mockResolvedValueOnce({
+    const expiredResponse = {
       ok: false,
       status: 401,
       json: async () => ({
         error: "Gateway error (401)",
         details: JSON.stringify({ code: "SESSION_TICKET_ALREADY_USED", error: "ticket already used" }),
       }),
-    });
+    };
+    global.fetch.mockResolvedValueOnce(expiredResponse).mockResolvedValueOnce(expiredResponse);
 
     render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
     fireEvent.click(screen.getByRole("button", { name: /Download Proxy FMU/i }));
@@ -327,6 +334,7 @@ describe("SimulationRunner", () => {
       expect(screen.getByRole("button", { name: /Regenerate Proxy FMU/i })).toBeInTheDocument();
     });
     expect(screen.getByText(/ticket expired or already used/i)).toBeInTheDocument();
+    expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
   });
 
   test("renders input parameter form for input variables only", () => {
@@ -362,10 +370,35 @@ describe("SimulationRunner", () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        "https://gateway.example.com/fmu/api/v1/simulations/stream",
+        "/api/simulations/stream",
         expect.objectContaining({ method: "POST", credentials: "include" })
       );
     });
+    expect(authenticateLabAccessSSO).not.toHaveBeenCalled();
+    expect(establishFmuGatewaySession).not.toHaveBeenCalled();
+  });
+
+  test("reauthenticates once with the canonical lab auth context after a 401", async () => {
+    global.fetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce(
+        mockNdjsonResponse([
+          { type: "started", simId: "abc123" },
+          { type: "completed", simulationTime: 0.1, outputVariables: [], fmiType: "CoSimulation" },
+        ])
+      );
+
+    render(<SimulationRunner lab={{ ...fmuLab, accessURI: "https://gateway.example.com/fmu" }} reservationKey="0xabc" />);
+    fireEvent.click(screen.getByText("Run Simulation"));
+
+    await waitFor(() => expect(screen.getByText("Results")).toBeInTheDocument());
+    expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
+    expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
+      labId: "42",
+      reservationKey: "0xabc",
+      authEndpoint: null,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   test("shows results after successful streaming run", async () => {

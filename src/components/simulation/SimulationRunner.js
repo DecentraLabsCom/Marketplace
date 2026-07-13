@@ -40,11 +40,12 @@ async function readNdjsonStream(response, onEvent) {
   if (buffer.trim()) onEvent(JSON.parse(buffer))
 }
 
-function resolveAuthEndpoint(accessUri) {
-  const trimmed = String(accessUri || '').replace(/\/+$/, '')
-  if (!trimmed) return ''
-  if (trimmed.endsWith('/auth')) return trimmed
-  return `${trimmed}/auth`
+function resolveGatewayOrigin(accessUri) {
+  try {
+    return new URL(String(accessUri || '')).origin
+  } catch {
+    return ''
+  }
 }
 
 export default function SimulationRunner({ lab, reservationKey }) {
@@ -87,16 +88,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
 
-  const ensureGatewaySession = useCallback(async () => {
-    if (gatewaySessionOrigin) return gatewaySessionOrigin
+  const reauthenticateGatewaySession = useCallback(async () => {
     if (authPromiseRef.current) return authPromiseRef.current
 
-    const gatewayUrl = lab.accessURI || ''
-    const authEndpoint = resolveAuthEndpoint(gatewayUrl)
     const labId = String(lab.id ?? lab.tokenId ?? '')
-
-    if (!authEndpoint || !labId) {
-      throw new Error('Missing gateway auth endpoint or labId')
+    if (!labId) {
+      throw new Error('Missing labId')
     }
 
     const authPromise = (async () => {
@@ -106,15 +103,28 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const authData = await authenticateLabAccessSSO({
         labId,
         reservationKey,
-        authEndpoint,
+        // Deliberately omit accessURI-derived endpoints. The Marketplace API
+        // resolves and validates the canonical on-chain authURI for labId.
+        authEndpoint: null,
       })
 
       const accessCode = authData?.accessCode
       const labURL = authData?.labURL
-      if (!accessCode || !labURL) {
+      if (!accessCode || !labURL || authData?.resourceType !== 'fmu') {
         throw new Error('Gateway authentication did not return an FMU access code')
       }
-      const gatewayOrigin = await establishFmuGatewaySession(labURL, accessCode)
+      const canonicalReservationKey = authData?.reservationKey || reservationKey
+      if (!canonicalReservationKey || (
+        reservationKey && String(canonicalReservationKey).toLowerCase() !== String(reservationKey).toLowerCase()
+      )) {
+        throw new Error('Gateway returned a different FMU reservation context')
+      }
+      const gatewayOrigin = await establishFmuGatewaySession({
+        labURL,
+        accessCode,
+        labId,
+        reservationKey: canonicalReservationKey,
+      })
       setGatewaySessionOrigin(gatewayOrigin)
       return gatewayOrigin
     })()
@@ -125,7 +135,31 @@ export default function SimulationRunner({ lab, reservationKey }) {
     } finally {
       authPromiseRef.current = null
     }
-  }, [gatewaySessionOrigin, isSSO, lab.accessURI, lab.id, lab.tokenId, reservationKey])
+  }, [isSSO, lab.id, lab.tokenId, reservationKey])
+
+  const ensureGatewaySession = useCallback(async () => {
+    if (gatewaySessionOrigin) return gatewaySessionOrigin
+    const gatewayOrigin = resolveGatewayOrigin(lab.accessURI)
+    if (!gatewayOrigin) {
+      throw new Error('Lab gateway URL not available')
+    }
+    // The FMU handoff normally established this HttpOnly session immediately
+    // before navigation. Its validity can only be checked by the gateway, so
+    // optimistically reuse it instead of minting another credential.
+    setGatewaySessionOrigin(gatewayOrigin)
+    return gatewayOrigin
+  }, [gatewaySessionOrigin, lab.accessURI])
+
+  const fetchGateway = useCallback(async (path, init = {}) => {
+    await ensureGatewaySession()
+    let response = await fetch(path, init)
+    if (response.status !== 401) return response
+
+    setGatewaySessionOrigin(null)
+    await reauthenticateGatewaySession()
+    response = await fetch(path, init)
+    return response
+  }, [ensureGatewaySession, reauthenticateGatewaySession])
 
   const handleRun = useCallback(async () => {
     setSimState(SIM_STATE.RUNNING)
@@ -136,8 +170,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     try {
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
-
-      const gatewayOrigin = await ensureGatewaySession()
 
       const reqOptions = { ...options }
       if (isModelExchange) {
@@ -153,7 +185,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         options: reqOptions,
       }
 
-      const res = await fetch(`${gatewayOrigin}/fmu/api/v1/simulations/stream`, {
+      const res = await fetchGateway('/api/simulations/stream', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -214,16 +246,21 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setErrorMsg(err.message)
       setSimState(SIM_STATE.ERROR)
     }
-  }, [ensureGatewaySession, isModelExchange, lab, options, parameters, reservationKey, solver])
+  }, [fetchGateway, isModelExchange, lab, options, parameters, reservationKey, solver])
 
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
     const labId = String(lab.id ?? lab.tokenId ?? '')
     if (!gatewayUrl || !labId) return
     try {
-      const gatewayOrigin = await ensureGatewaySession()
-      const res = await fetch(
-        `${gatewayOrigin}/fmu/api/v1/simulations/${encodeURIComponent(simId)}/result?labId=${encodeURIComponent(labId)}`,
+      const resultQuery = new URLSearchParams({
+        simId: String(simId),
+        labId,
+        reservationKey: String(reservationKey || ''),
+        gatewayUrl,
+      })
+      const res = await fetchGateway(
+        `/api/simulations/result?${resultQuery.toString()}`,
         { credentials: 'include' },
       )
       if (!res.ok) {
@@ -252,7 +289,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setErrorMsg(err?.message || 'Unable to load historical simulation result')
       setSimState(SIM_STATE.ERROR)
     }
-  }, [ensureGatewaySession, lab])
+  }, [fetchGateway, lab, reservationKey])
 
   const resolveProxyError = useCallback((status, payload) => {
     const detailsRaw = payload?.details
@@ -285,12 +322,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setProxyDownloadMessage(null)
 
     try {
-      const gatewayOrigin = await ensureGatewaySession()
       const qs = new URLSearchParams({
+        labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey: String(reservationKey),
+        gatewayUrl: String(lab.accessURI || ''),
       })
-      const labId = encodeURIComponent(String(lab.id ?? lab.tokenId ?? ''))
-      const response = await fetch(`${gatewayOrigin}/fmu/api/v1/fmu/proxy/${labId}?${qs.toString()}`, {
+      const response = await fetchGateway(`/api/simulations/proxy?${qs.toString()}`, {
         credentials: 'include',
       })
       if (!response.ok) {
@@ -325,7 +362,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setProxyDownloadState('error')
       setProxyDownloadMessage(err?.message || 'Unable to download proxy FMU')
     }
-  }, [ensureGatewaySession, lab.id, lab.tokenId, reservationKey, resolveProxyError])
+  }, [fetchGateway, lab.id, lab.tokenId, reservationKey, resolveProxyError])
 
   if (!fmuMeta || !fmuMeta.fmuFileName) {
     return (
@@ -390,9 +427,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
       {showHistory && (
         <SimulationHistory
           labId={String(lab.id ?? lab.tokenId ?? '')}
+          reservationKey={reservationKey}
           gatewayUrl={gatewayUrl}
           gatewaySessionOrigin={gatewaySessionOrigin}
           onEnsureGatewaySession={ensureGatewaySession}
+          onFetchGateway={fetchGateway}
           onLoadResult={handleLoadResult}
         />
       )}

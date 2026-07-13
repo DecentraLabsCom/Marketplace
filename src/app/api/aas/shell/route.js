@@ -4,6 +4,7 @@ import { createRateLimiter } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
@@ -94,7 +95,7 @@ export async function GET(request) {
     devLog.log(`[aas/shell] Fetching shell from ${shellUrl}`)
 
     // Fetch shell — if it returns 404, the lab has no AAS configured
-    const shellRes = await fetch(shellUrl, { cache: 'no-store' })
+    const shellRes = await gatewayFetch(shellUrl, { cache: 'no-store' })
 
     if (shellRes.status === 404) {
       return NextResponse.json({ notFound: true }, { status: 404 })
@@ -120,7 +121,7 @@ export async function GET(request) {
     let nameplate = null
     try {
       devLog.log(`[aas/shell] Fetching nameplate from ${nameplateUrl}`)
-      const npRes = await fetch(nameplateUrl, { cache: 'no-store' })
+      const npRes = await gatewayFetch(nameplateUrl, { cache: 'no-store' })
       if (npRes.ok) {
         const npData = await npRes.json()
         nameplate = extractProperties(npData?.submodelElements)
@@ -133,7 +134,7 @@ export async function GET(request) {
     let simulationInfo = null
     try {
       devLog.log(`[aas/shell] Fetching simulationModels from ${simulationModelsUrl}`)
-      const smRes = await fetch(simulationModelsUrl, { cache: 'no-store' })
+      const smRes = await gatewayFetch(simulationModelsUrl, { cache: 'no-store' })
       if (smRes.ok) {
         const smData = await smRes.json()
         const props = extractCollectionProperties(smData?.submodelElements, 'SimulationModel')

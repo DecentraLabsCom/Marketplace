@@ -70,6 +70,8 @@ describe('LabAccess', () => {
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
+      resourceType: 'lab',
+      reservationKey: '0xabc',
     })
 
     render(<LabAccess id="123" hasActiveBooking reservationKey="rk-1" />)
@@ -120,6 +122,8 @@ describe('LabAccess', () => {
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
+      resourceType: 'lab',
+      reservationKey: '0xabc',
     })
 
     render(<LabAccess id="123" hasActiveBooking reservationKey={null} />)

@@ -17,6 +17,9 @@
 jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   getContractInstance: jest.fn(),
 }))
+jest.mock('node:dns/promises', () => ({
+  lookup: jest.fn(),
+}))
 
 const { getContractInstance } = require('@/app/api/contract/utils/contractInstance')
 
@@ -190,7 +193,10 @@ describe('gatewayProxy', () => {
 
       test('allows public IP addresses', () => {
         expect(() => mod.normalizeGatewayBaseUrl('https://8.8.8.8')).not.toThrow()
-        expect(() => mod.normalizeGatewayBaseUrl('https://203.0.113.1')).not.toThrow()
+      })
+
+      test('blocks reserved documentation addresses', () => {
+        expect(() => mod.normalizeGatewayBaseUrl('https://203.0.113.1')).toThrow(/private network/)
       })
 
       test('allows public IPv6 addresses', () => {
@@ -240,6 +246,76 @@ describe('gatewayProxy', () => {
           /ALLOWED_GATEWAY_ORIGINS/
         )
       })
+    })
+  })
+
+  describe('gatewayFetch DNS pinning and redirects', () => {
+    let originalFetch
+    let dnsLookup
+
+    beforeEach(async () => {
+      process.env.NODE_ENV = 'production'
+      jest.resetModules()
+      dnsLookup = require('node:dns/promises').lookup
+      dnsLookup.mockReset()
+      dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+      originalFetch = global.fetch
+      global.fetch = jest.fn()
+      mod = await import('../gatewayProxy')
+    })
+
+    afterEach(() => {
+      global.fetch = originalFetch
+    })
+
+    test('rejects a hostname if any DNS answer is private', async () => {
+      dnsLookup.mockResolvedValue([
+        { address: '93.184.216.34', family: 4 },
+        { address: '10.0.0.8', family: 4 },
+      ])
+
+      await expect(mod.gatewayFetch('https://gateway.example.com/fmu')).rejects.toThrow(
+        /DNS resolves to a private/
+      )
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test('pins the validated DNS answer for the connection', async () => {
+      global.fetch.mockResolvedValue({ status: 200, headers: new Headers() })
+
+      await mod.gatewayFetch('https://gateway.example.com/fmu')
+
+      expect(dnsLookup).toHaveBeenCalledWith('gateway.example.com', { all: true, verbatim: true })
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://gateway.example.com/fmu',
+        expect.objectContaining({ redirect: 'manual', dispatcher: expect.any(Object) })
+      )
+    })
+
+    test('rejects a cross-origin redirect', async () => {
+      global.fetch.mockResolvedValue({
+        status: 302,
+        headers: new Headers({ location: 'https://other.example/fmu' }),
+      })
+
+      await expect(mod.gatewayFetch('https://gateway.example.com/fmu')).rejects.toThrow(
+        /Cross-origin gateway redirects/
+      )
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    test('revalidates DNS for each same-origin redirect', async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          status: 302,
+          headers: new Headers({ location: '/fmu/redirected' }),
+        })
+        .mockResolvedValueOnce({ status: 200, headers: new Headers() })
+
+      await mod.gatewayFetch('https://gateway.example.com/fmu')
+
+      expect(dnsLookup).toHaveBeenCalledTimes(2)
+      expect(global.fetch).toHaveBeenCalledTimes(2)
     })
   })
 

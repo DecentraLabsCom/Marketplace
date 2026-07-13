@@ -13,6 +13,7 @@ import {
 } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
@@ -113,6 +114,62 @@ function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
 
+const PROVIDER_CREDENTIAL_ATTEMPTS = 3
+const MAX_RETRY_AFTER_MS = 5_000
+
+function parseResponseJson(responseText) {
+  if (!responseText) return {}
+  try {
+    return JSON.parse(responseText)
+  } catch {
+    return {}
+  }
+}
+
+function isRetryableProviderPending(response, responseText) {
+  return response.status === 503 && parseResponseJson(responseText).retryable === true
+}
+
+function retryAfterMilliseconds(response) {
+  const raw = response.headers?.get?.('retry-after')
+  if (!raw) return 1_000
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(MAX_RETRY_AFTER_MS, Math.ceil(seconds * 1_000))
+  }
+  const retryAt = Date.parse(raw)
+  if (!Number.isFinite(retryAt)) return 1_000
+  return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, retryAt - Date.now()))
+}
+
+async function issueProviderCredential(authBase, providerPayload) {
+  for (let attempt = 1; attempt <= PROVIDER_CREDENTIAL_ATTEMPTS; attempt += 1) {
+    const response = await gatewayFetch(`${authBase}/access-credential`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(providerPayload),
+    })
+    const responseText = await response.text()
+    if (!isRetryableProviderPending(response, responseText) || attempt === PROVIDER_CREDENTIAL_ATTEMPTS) {
+      return { response, responseText }
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryAfterMilliseconds(response)))
+  }
+  throw new Error('Provider credential retry loop ended unexpectedly')
+}
+
+function providerFailureResponse(response, responseText, message) {
+  devLog.error(`${message}:`, response.status, responseText)
+  const retryAfter = response.headers?.get?.('retry-after')
+  return NextResponse.json(
+    { error: message, details: responseText },
+    {
+      status: response.status,
+      ...(retryAfter ? { headers: { 'Retry-After': retryAfter } } : {}),
+    },
+  )
+}
+
 export async function POST(req) {
   try {
     const session = await requireAuth()
@@ -176,7 +233,7 @@ export async function POST(req) {
         ...commonTokenClaims,
         audience: buildBackendAudiences(providerAudience),
       })
-      const response = await fetch(`${authBase}/authorize-and-issue`, {
+      const response = await gatewayFetch(`${authBase}/authorize-and-issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,13 +246,34 @@ export async function POST(req) {
       })
       const responseText = await response.text()
       if (!response.ok) {
-        devLog.error('Combined access authorization failed:', response.status, responseText)
-        return NextResponse.json(
-          { error: 'Combined access authorization failed', details: responseText },
-          { status: response.status },
+        const pending = parseResponseJson(responseText)
+        if (!isRetryableProviderPending(response, responseText) || !pending.txHash) {
+          return providerFailureResponse(response, responseText, 'Combined access authorization failed')
+        }
+
+        // The combined endpoint has already submitted the consumer check-in.
+        // Continue only with credential issuance so that retrying cannot create
+        // a second consumer-side authorization transaction.
+        await new Promise((resolve) => setTimeout(resolve, retryAfterMilliseconds(response)))
+        const { response: credentialResponse, responseText: credentialText } = await issueProviderCredential(
+          authBase,
+          {
+            marketplaceToken,
+            reservationKey: pending.reservationKey || reservationKey,
+            labId,
+            accessAuthorizationTxHash: pending.txHash,
+          },
         )
+        if (!credentialResponse.ok) {
+          return providerFailureResponse(
+            credentialResponse,
+            credentialText,
+            'Provider access credential issuance failed',
+          )
+        }
+        return NextResponse.json(parseResponseJson(credentialText), { status: 200 })
       }
-      const authResponse = responseText ? JSON.parse(responseText) : {}
+      const authResponse = parseResponseJson(responseText)
       return NextResponse.json(authResponse, { status: 200 })
     }
 
@@ -227,7 +305,7 @@ export async function POST(req) {
         { status: checkInResponse.status },
       )
     }
-    const checkInData = checkInResponseText ? JSON.parse(checkInResponseText) : {}
+    const checkInData = parseResponseJson(checkInResponseText)
 
     const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       ...commonTokenClaims,
@@ -236,26 +314,16 @@ export async function POST(req) {
 
     const providerPayload = {
       marketplaceToken: providerMarketplaceToken,
-      reservationKey,
+      reservationKey: checkInData.reservationKey || reservationKey,
       labId,
       accessAuthorizationTxHash: checkInData.txHash,
     }
-    const response = await fetch(`${authBase}/access-credential`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(providerPayload),
-    })
-
-    const responseText = await response.text()
+    const { response, responseText } = await issueProviderCredential(authBase, providerPayload)
     if (!response.ok) {
-      devLog.error('Provider access credential issuance failed:', response.status, responseText)
-      return NextResponse.json(
-        { error: 'Provider access credential issuance failed', details: responseText },
-        { status: response.status },
-      )
+      return providerFailureResponse(response, responseText, 'Provider access credential issuance failed')
     }
 
-    const data = responseText ? JSON.parse(responseText) : {}
+    const data = parseResponseJson(responseText)
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
     return handleGuardError(error)

@@ -142,10 +142,23 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
 
       // Handle successful authentication
       if (authResult.accessCode && authResult.labURL) {
-        if (getResourceType({ resourceType }) === RESOURCE_TYPES.FMU) {
-          await establishFmuGatewaySession(authResult.labURL, authResult.accessCode)
-          const qs = resolvedReservationKey
-            ? `?reservationKey=${encodeURIComponent(resolvedReservationKey)}`
+        if (!['fmu', 'lab'].includes(authResult.resourceType)) {
+          throw new Error('Provider returned an unsupported access resource type')
+        }
+        const authorizedResourceType = getResourceType({ resourceType: authResult.resourceType })
+        const canonicalReservationKey = authResult.reservationKey || resolvedReservationKey
+        if (authorizedResourceType === RESOURCE_TYPES.FMU) {
+          if (!canonicalReservationKey) {
+            throw new Error('Provider did not return the canonical FMU reservationKey')
+          }
+          await establishFmuGatewaySession({
+            labURL: authResult.labURL,
+            accessCode: authResult.accessCode,
+            labId: id,
+            reservationKey: canonicalReservationKey,
+          })
+          const qs = canonicalReservationKey
+            ? `?reservationKey=${encodeURIComponent(canonicalReservationKey)}`
             : ''
           window.location.assign(`/simulation/${encodeURIComponent(String(id))}${qs}`)
         } else {

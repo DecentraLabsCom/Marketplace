@@ -4,6 +4,7 @@ import { createRateLimiter } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
@@ -59,7 +60,7 @@ export async function GET(request) {
 
     devLog.log(`[aas/package] Fetching AASX package from ${packageUrl}`)
 
-    const pkgRes = await fetch(packageUrl, { cache: 'no-store' })
+    const pkgRes = await gatewayFetch(packageUrl, { cache: 'no-store' })
 
     if (pkgRes.status === 404) {
       return NextResponse.json({ notFound: true }, { status: 404 })

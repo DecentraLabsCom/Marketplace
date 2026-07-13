@@ -12,6 +12,7 @@ import {
 } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
 
@@ -156,7 +157,7 @@ export async function POST(req) {
       puc,
     }
 
-    const response = await fetch(`${authBase}/checkin-institutional`, {
+    const response = await gatewayFetch(`${authBase}/checkin-institutional`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

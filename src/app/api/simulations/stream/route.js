@@ -3,9 +3,10 @@ import { createRateLimiter } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
-  extractBearerHeader,
+  gatewayFetch,
   resolveGatewayBaseUrl,
 } from '@/utils/api/gatewayProxy'
+import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -23,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { labId, gatewayUrl } = body
+    const { labId, reservationKey, gatewayUrl } = body
 
     if (!labId) {
       return new Response(JSON.stringify({ error: 'Missing required field: labId' }), {
@@ -34,15 +35,19 @@ export async function POST(request) {
 
     const gatewayBaseUrl = await resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch: true })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/stream')
-    const authorization = extractBearerHeader(request)
+    const gatewayHeaders = resolveFmuGatewayHeaders(request, {
+      labId,
+      reservationKey,
+      gatewayOrigin: gatewayBaseUrl,
+    })
 
     devLog.log(`[simulations/stream] Proxying to ${targetUrl} for lab ${labId}`)
 
-    const gatewayRes = await fetch(targetUrl, {
+    const gatewayRes = await gatewayFetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authorization ? { Authorization: authorization } : {}),
+        ...gatewayHeaders,
       },
       body: JSON.stringify(body),
       cache: 'no-store',
