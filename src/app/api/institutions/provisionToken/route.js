@@ -5,6 +5,10 @@ import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import { inferCountryFromDomain } from '@/utils/auth/sso';
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain';
 import devLog from '@/utils/dev/logger';
+import { ethers } from 'ethers';
+import { randomUUID } from 'node:crypto';
+import { defaultChain } from '@/utils/blockchain/networkConfig';
+import { getDiamondAddress } from '@/utils/intents/intentDomain';
 import {
   normalizeHttpsUrl,
   requireEmail,
@@ -14,7 +18,15 @@ import {
 
 export const runtime = 'nodejs';
 
-const LOCKED_FIELDS = ['providerName', 'providerEmail', 'providerCountry', 'providerOrganization'];
+const LOCKED_FIELDS = [
+  'providerName',
+  'providerEmail',
+  'providerCountry',
+  'providerOrganization',
+  'walletAddress',
+  'chainId',
+  'verifyingContract',
+];
 
 function deriveInstitutionLabel(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -48,15 +60,21 @@ export async function POST(request) {
 
     const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
     const audience = publicBaseUrl;
+    let walletAddress;
+    try {
+      walletAddress = ethers.getAddress(requireString(body.walletAddress, 'Institutional wallet address'));
+    } catch (error) {
+      throw new Error('Institutional wallet address must be a valid EVM address', { cause: error });
+    }
 
     const marketplaceBaseUrl = normalizeHttpsUrl(
       process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || request.nextUrl.origin,
       'Marketplace base URL'
     );
     const issuer = marketplaceBaseUrl;
-    const organizationCandidate = resolveInstitutionDomainFromSession(session, body.providerOrganization);
+    const organizationCandidate = resolveInstitutionDomainFromSession(session);
     if (!organizationCandidate) {
-      throw new ForbiddenError('Cannot derive institution domain from session or payload');
+      throw new ForbiddenError('Cannot derive institution domain from session');
     }
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(organizationCandidate);
 
@@ -89,6 +107,10 @@ export async function POST(request) {
       providerCountry,
       providerOrganization: organizationDomain,
       publicBaseUrl,
+      walletAddress,
+      chainId: defaultChain.id,
+      verifyingContract: ethers.getAddress(getDiamondAddress()),
+      registrationNonce: randomUUID(),
     };
 
     const { token, expiresAt } = await signProvisioningToken(payload, { issuer, audience, ttlSeconds });

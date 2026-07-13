@@ -33,6 +33,27 @@ export const resolveAuthorizationStatusBaseUrl = (authorizationUrl, backendUrl) 
   }
 }
 
+export const finalizeAuthorizedIntent = async (prepareData) => {
+  const response = await fetch('/api/backend/intents/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      kind: prepareData?.kind,
+      intent: prepareData?.intent,
+      adminSignature: prepareData?.adminSignature,
+      authorizationSessionId: prepareData?.authorizationSessionId,
+    }),
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const error = new Error(payload?.error || 'Failed to register authorized intent')
+    error.code = payload?.code || 'INTENT_FINALIZATION_FAILED'
+    throw error
+  }
+  return payload
+}
+
 export const pollIntentPresence = async (requestId, {
   backendUrl,
   authToken,
@@ -41,20 +62,24 @@ export const pollIntentPresence = async (requestId, {
   maxDelayMs = 800,
   stopOnUnexpected4xx = false,
 } = {}) => {
-  if (!backendUrl || !requestId) return 'unknown'
+  const isBrowser = typeof window !== 'undefined'
+  if ((!backendUrl && !isBrowser) || !requestId) return 'unknown'
 
   let delay = initialDelayMs
   const start = Date.now()
-  const normalizedBackend = backendUrl.replace(/\/$/, '')
+  const normalizedBackend = backendUrl?.replace(/\/$/, '')
 
   while (Date.now() - start <= maxDurationMs) {
     try {
       const headers = { 'Content-Type': 'application/json' }
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+      if (!isBrowser && typeof authToken === 'string' && authToken.trim().length > 0) {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
         headers.Authorization = value
       }
-      const res = await fetch(`${normalizedBackend}/intents/${requestId}`, {
+      const url = isBrowser
+        ? `/api/backend/intents/${encodeURIComponent(requestId)}`
+        : `${normalizedBackend}/intents/${encodeURIComponent(requestId)}`
+      const res = await fetch(url, {
         method: 'GET',
         headers,
       })
@@ -91,6 +116,7 @@ export async function awaitIntentAuthorization(prepareData, {
   resolveStatusBackendUrl,
   closePopupInFinally = false,
   stopOnUnexpected4xx = false,
+  finalizeFn = finalizeAuthorizedIntent,
 } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl)
   if (!authorizationUrl || !authorizationSessionId) {
@@ -231,6 +257,15 @@ export async function awaitIntentAuthorization(prepareData, {
   const normalized = (status?.status || '').toUpperCase()
   if (normalized === 'FAILED') {
     throw new Error(status?.error || 'Intent authorization failed')
+  }
+
+  if (normalized === 'SUCCESS') {
+    const finalized = await finalizeFn(prepareData)
+    status = {
+      ...status,
+      onChain: finalized?.onChain || null,
+      registrationNotification: finalized?.registrationNotification || null,
+    }
   }
 
   if (!closePopupInFinally) {

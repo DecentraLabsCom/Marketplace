@@ -23,4 +23,13 @@ describe('institutionDomain', () => {
 
     expect(resolveInstitutionDomainFromSession(session)).toBe('campus.edu')
   })
+
+  test('resolveInstitutionDomainFromSession ignores a caller-controlled domain override', () => {
+    const session = {
+      schacHomeOrganization: 'trusted.edu',
+      eduPersonScopedAffiliation: 'staff@trusted.edu',
+    }
+
+    expect(resolveInstitutionDomainFromSession(session, 'attacker.example')).toBe('trusted.edu')
+  })
 })

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { ethers, TypedDataEncoder } from 'ethers';
-import { getNextIntentNonce } from './intentNonceStore';
+import { deriveIntentNonce } from './intentNonceStore';
 import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
 
 export { INTENT_META_TYPES };
@@ -86,7 +86,7 @@ export async function buildReservationIntent({
     throw new Error('Invalid nowSec provided for reservation intent');
   }
   const resolvedRequestId = requestId || ethers.id(randomUUID());
-  const resolvedNonce = nonce !== undefined ? BigInt(nonce) : await getNextIntentNonce(signer);
+  const resolvedNonce = nonce !== undefined ? BigInt(nonce) : deriveIntentNonce(resolvedRequestId);
   const requestedAt = BigInt(resolvedNowSec);
   const expiresAt = BigInt(resolvedNowSec + expiresInSec);
 

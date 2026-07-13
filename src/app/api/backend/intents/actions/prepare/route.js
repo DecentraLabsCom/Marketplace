@@ -5,7 +5,7 @@ import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/i
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
-import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import { signIntentMeta, getAdminAddress } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
 import {
@@ -16,8 +16,9 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
-import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import devLog from '@/utils/dev/logger'
 
 function normalizeAction(action) {
@@ -78,10 +79,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}))
     const action = normalizeAction(body?.action)
     const payloadInput = body?.payload || {}
-    const backendUrl =
-      body?.backendUrl ||
-      payloadInput.backendUrl ||
-      process.env.INSTITUTION_BACKEND_URL
+    const backendUrl = await resolveInstitutionalBackendUrl(schacHomeOrganization)
     const returnUrl = body?.returnUrl || payloadInput.returnUrl || null
 
     if (action === null) {
@@ -142,22 +140,8 @@ export async function POST(request) {
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
 
-    let onChain = null
-    try {
-      onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
-    } catch (err) {
-      devLog.error('[API] On-chain action intent registration failed', err)
-      console.error('[API] On-chain action intent registration failed', err)
-      const onchain = extractOnchainErrorDetails(err)
-      return NextResponse.json(
-        {
-          error: 'Failed to register action intent on-chain',
-          details: err?.message || String(err),
-          onchain,
-        },
-        { status: 502 },
-      )
-    }
+    // Registration is deliberately deferred until WebAuthn succeeds.
+    const onChain = { status: 'awaiting_authorization', txHash: null, blockNumber: null }
 
     let authorization = null
     let backendAuth = null
@@ -231,8 +215,6 @@ export async function POST(request) {
       authorizationUrl,
       authorizationSessionId: authorization?.sessionId || null,
       authorizationExpiresAt: authorization?.expiresAt || null,
-      backendAuthToken: backendAuth?.token || null,
-      backendAuthExpiresAt: backendAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare action intent failed', error)

@@ -11,6 +11,7 @@ import {
 import { createPublicKey, randomUUID } from 'crypto';
 import marketplaceJwtService from './marketplaceJwt';
 import devLog from '@/utils/dev/logger';
+import { ethers } from 'ethers';
 
 const ALG = 'RS256';
 let cachedKeys = null;
@@ -92,8 +93,14 @@ export function normalizeHttpsUrl(url, label) {
   }
 
   const protocol = parsed.protocol.toLowerCase();
-  if (protocol !== 'https:' && protocol !== 'http:') {
-    throw new Error(`${label} must start with http:// or https://`);
+  const hostname = parsed.hostname.toLowerCase();
+  const loopbackHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+  const localDevelopmentHttp = process.env.NODE_ENV !== 'production' && protocol === 'http:' && loopbackHost;
+  if (protocol !== 'https:' && !localDevelopmentHttp) {
+    throw new Error(`${label} must use HTTPS`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error(`${label} must not include credentials`);
   }
 
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
@@ -134,6 +141,61 @@ export function extractBearerToken(authorizationHeader) {
   }
   const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : null;
+}
+
+export function buildProviderRegistrationChallenge(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Provisioning token payload is required');
+  }
+
+  const walletAddress = ethers.getAddress(requireString(payload.walletAddress, 'Token wallet address'));
+  const verifyingContract = ethers.getAddress(
+    requireString(payload.verifyingContract, 'Token verifying contract')
+  );
+  const providerOrganization = requireString(payload.providerOrganization, 'Provider organization').toLowerCase();
+  const publicBaseUrl = normalizeHttpsUrl(payload.publicBaseUrl, 'Public base URL');
+  const jti = requireString(payload.jti, 'Provisioning token ID');
+  const registrationNonce = requireString(payload.registrationNonce, 'Registration nonce');
+  const chainId = Number(payload.chainId);
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error('Token chain ID is invalid');
+  }
+
+  return [
+    'DecentraLabs Provider Registration v1',
+    `jti=${jti}`,
+    `registrationNonce=${registrationNonce}`,
+    `walletAddress=${walletAddress.toLowerCase()}`,
+    `providerOrganization=${providerOrganization}`,
+    `publicBaseUrl=${publicBaseUrl}`,
+    `chainId=${chainId}`,
+    `verifyingContract=${verifyingContract.toLowerCase()}`,
+  ].join('\n');
+}
+
+export function verifyProviderRegistrationProof({ payload, walletAddress, walletSignature } = {}) {
+  let requestedWallet;
+  let tokenWallet;
+  try {
+    requestedWallet = ethers.getAddress(requireString(walletAddress, 'Institutional wallet address'));
+    tokenWallet = ethers.getAddress(requireString(payload?.walletAddress, 'Token wallet address'));
+  } catch (error) {
+    throw new Error('Institutional wallet address is invalid', { cause: error });
+  }
+  if (requestedWallet !== tokenWallet) {
+    throw new Error('Institutional wallet does not match the provisioning token');
+  }
+  const signature = requireString(walletSignature, 'Institutional wallet signature');
+  let recoveredWallet;
+  try {
+    recoveredWallet = ethers.verifyMessage(buildProviderRegistrationChallenge(payload), signature);
+  } catch (error) {
+    throw new Error('Institutional wallet signature is invalid', { cause: error });
+  }
+  if (ethers.getAddress(recoveredWallet) !== tokenWallet) {
+    throw new Error('Institutional wallet signature does not prove token wallet ownership');
+  }
+  return true;
 }
 
 function normalizeAudienceValue(audience) {

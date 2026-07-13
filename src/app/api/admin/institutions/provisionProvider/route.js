@@ -9,10 +9,22 @@ import {
   requireString,
   signProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import { ethers } from 'ethers';
+import { randomUUID } from 'node:crypto';
+import { defaultChain } from '@/utils/blockchain/networkConfig';
+import { getDiamondAddress } from '@/utils/intents/intentDomain';
 
 export const runtime = 'nodejs';
 
-const LOCKED_FIELDS = ['providerName', 'providerEmail', 'providerCountry', 'providerOrganization'];
+const LOCKED_FIELDS = [
+  'providerName',
+  'providerEmail',
+  'providerCountry',
+  'providerOrganization',
+  'walletAddress',
+  'chainId',
+  'verifyingContract',
+];
 
 function optionalString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -37,6 +49,12 @@ export async function POST(request) {
     );
 
     const providerEmail = requireEmail(body.providerEmail, 'Provider email');
+    let walletAddress;
+    try {
+      walletAddress = ethers.getAddress(requireString(body.walletAddress, 'Institutional wallet address'));
+    } catch (error) {
+      throw new Error('Institutional wallet address must be a valid EVM address', { cause: error });
+    }
     const payload = {
       marketplaceBaseUrl,
       providerName: requireString(body.providerName, 'Provider name'),
@@ -45,6 +63,10 @@ export async function POST(request) {
       providerCountry: requireString(body.providerCountry, 'Provider country'),
       providerOrganization,
       publicBaseUrl,
+      walletAddress,
+      chainId: defaultChain.id,
+      verifyingContract: ethers.getAddress(getDiamondAddress()),
+      registrationNonce: randomUUID(),
       verificationMethod: 'manual_review',
       assuranceLevel: 'partner_verified',
       issuedReason: 'approved_partner_provider',

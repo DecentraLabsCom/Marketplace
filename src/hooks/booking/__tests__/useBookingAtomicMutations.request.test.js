@@ -58,6 +58,11 @@ const makeBookingMocks = (overrides = {}) => ({
   ...overrides,
 });
 
+const finalizeResponse = () => ({
+  ok: true,
+  json: () => Promise.resolve({}),
+});
+
 describe('institutional reservation request mutations', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,20 +96,22 @@ describe('institutional reservation request mutations', () => {
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
     pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' });
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-1',
-          authorizationSessionId: 'session-1',
-          backendUrl: 'https://institution.example',
-          onChain: { txHash: '0xREGISTER', blockNumber: 123 },
-          intent: {
-            meta: { requestId: 'req-1' },
-            payload: { reservationKey: 'rk-1' },
-          },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-1',
+            authorizationSessionId: 'session-1',
+            backendUrl: 'https://institution.example',
+            onChain: { txHash: '0xREGISTER', blockNumber: 123 },
+            intent: {
+              meta: { requestId: 'req-1' },
+              payload: { reservationKey: 'rk-1' },
+            },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
 
@@ -114,6 +121,7 @@ describe('institutional reservation request mutations', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/finalize', expect.any(Object));
     expect(global.window.open).toHaveBeenCalledWith('', 'intent-authorization', 'width=480,height=720');
     const popup = global.window.open.mock.results[0].value;
     expect(popup.document.write).toHaveBeenCalledWith(expect.stringContaining('Preparing authorization'));
@@ -147,19 +155,21 @@ describe('institutional reservation request mutations', () => {
       reservationKey: 'rk-final',
     });
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-int',
-          authorizationSessionId: 'session-int',
-          backendUrl: 'https://institution.example',
-          intent: {
-            meta: { requestId: 'req-int-1' },
-            payload: { reservationKey: 'rk-int-1' },
-          },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-int',
+            authorizationSessionId: 'session-int',
+            backendUrl: 'https://institution.example',
+            intent: {
+              meta: { requestId: 'req-int-1' },
+              payload: { reservationKey: 'rk-int-1' },
+            },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
 
@@ -192,19 +202,21 @@ describe('institutional reservation request mutations', () => {
       reservationKey: 'rk-denied-final',
     });
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-denied',
-          authorizationSessionId: 'session-denied',
-          backendUrl: 'https://institution.example',
-          intent: {
-            meta: { requestId: 'req-denied-1' },
-            payload: { reservationKey: 'rk-denied-initial' },
-          },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-denied',
+            authorizationSessionId: 'session-denied',
+            backendUrl: 'https://institution.example',
+            intent: {
+              meta: { requestId: 'req-denied-1' },
+              payload: { reservationKey: 'rk-denied-initial' },
+            },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
 

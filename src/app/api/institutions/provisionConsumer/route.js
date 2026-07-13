@@ -60,9 +60,9 @@ export async function POST(request) {
       'Marketplace base URL'
     );
     const issuer = marketplaceBaseUrl;
-    const organizationCandidate = resolveInstitutionDomainFromSession(session, body.consumerOrganization);
+    const organizationCandidate = resolveInstitutionDomainFromSession(session);
     if (!organizationCandidate) {
-      throw new ForbiddenError('Cannot derive institution domain from session or payload');
+      throw new ForbiddenError('Cannot derive institution domain from session');
     }
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(organizationCandidate);
 

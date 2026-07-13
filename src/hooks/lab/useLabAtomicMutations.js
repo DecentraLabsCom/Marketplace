@@ -125,8 +125,6 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
-      backendAuthToken: authToken,
-      backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
   throw createAuthorizationCancelledError('Authorization session unavailable');
@@ -142,7 +140,7 @@ const pollExecutedIntentForLabId = async (requestId, {
   initialDelayMs = 2_000,
   maxDelayMs = 5_000,
 } = {}) => {
-  if (!backendUrl || !requestId) return null;
+  if (!requestId) return null;
 
   const start = Date.now();
   let delay = initialDelayMs;
@@ -157,11 +155,7 @@ const pollExecutedIntentForLabId = async (requestId, {
 
     try {
       const headers = { 'Content-Type': 'application/json' };
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
-        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-        headers.Authorization = value;
-      }
-      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+      const res = await fetch(`/api/backend/intents/${encodeURIComponent(requestId)}`, {
         method: 'GET',
         headers,
         signal,

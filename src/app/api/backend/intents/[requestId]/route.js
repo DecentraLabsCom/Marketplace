@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { resolveBackendUrl, resolveForwardHeaders } from '@/utils/api/backendProxyHelpers'
+import { secureBackendJsonRequest } from '@/utils/api/secureBackendFetch'
 
 export async function GET(request, { params }) {
   try {
-    const backendUrl = resolveBackendUrl(request)
+    const session = await requireAuth()
+    const backendUrl = await resolveBackendUrl(session)
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
@@ -18,24 +21,27 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Missing requestId' }, { status: 400 })
     }
 
-    const headers = await resolveForwardHeaders(request)
-    const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+    const headers = await resolveForwardHeaders(backendUrl)
+    const response = await secureBackendJsonRequest(backendUrl, `/intents/${encodeURIComponent(requestId)}`, {
       method: 'GET',
       headers,
       cache: 'no-store',
     })
 
-    const payload = await res.json().catch(() => ({}))
-    if (!res.ok) {
+    const payload = response.data
+    if (!response.ok) {
       return NextResponse.json(
         { error: payload?.error || payload?.message || 'Failed to fetch intent status' },
-        { status: res.status },
+        { status: response.status },
       )
     }
 
     return NextResponse.json(payload, { status: 200 })
   } catch (error) {
     devLog.error('[API] Intent status proxy failed', error)
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error)
+    }
     return NextResponse.json(
       { error: error?.message || 'Failed to fetch intent status' },
       { status: 502 },

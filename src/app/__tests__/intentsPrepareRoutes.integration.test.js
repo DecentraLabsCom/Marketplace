@@ -79,6 +79,10 @@ jest.mock('@/app/api/contract/utils/institutionSession', () => ({
   resolveInstitutionAddressFromSession: jest.fn(),
 }))
 
+jest.mock('@/utils/onboarding/institutionalBackend', () => ({
+  resolveInstitutionalBackendUrl: jest.fn(),
+}))
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
@@ -95,6 +99,7 @@ import { buildReservationIntent, computeReservationAssertionHash } from '@/utils
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -141,6 +146,7 @@ describe('Intent prepare routes integration', () => {
     resolveIntentExecutorForInstitution.mockResolvedValue('0x00000000000000000000000000000000000000a1')
     getAdminAddress.mockResolvedValue('0x00000000000000000000000000000000000000a2')
     resolveChainNowSec.mockResolvedValue(1_700_000_000)
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://ib.example')
 
     buildActionIntent.mockResolvedValue({
       meta: { requestId: 'req-action-1', requestedAt: 1_700_000_000, expiresAt: 1_700_000_300 },
@@ -226,8 +232,9 @@ describe('Intent prepare routes integration', () => {
       backendUrl: 'https://ib.example',
       authorizationSessionId: 'auth-session-1',
       authorizationUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
-      backendAuthToken: 'backend-token',
     })
+    expect(payload).not.toHaveProperty('backendAuthToken')
+    expect(payload).not.toHaveProperty('backendAuthExpiresAt')
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: ACTION_CODES.LAB_ADD,
       assertionHash: '0xassertionhash',
@@ -259,6 +266,24 @@ describe('Intent prepare routes integration', () => {
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
       pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
     }))
+  })
+
+  test('actions/prepare: ignores a backend URL supplied by the browser', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.LAB_UPDATE,
+      backendUrl: 'http://169.254.169.254',
+      payload: { labId: 101, price: 7 },
+    })
+
+    const res = await actionPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(resolveInstitutionalBackendUrl).toHaveBeenCalledWith('uni.example')
+    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
+      backendUrl: 'https://ib.example',
+    }))
+    expect(payload.backendUrl).toBe('https://ib.example')
   })
 
   test('actions/prepare: sends principal mode when targeted ID is absent even if composite mode is configured', async () => {
@@ -351,8 +376,9 @@ describe('Intent prepare routes integration', () => {
       backendUrl: 'https://ib.example',
       authorizationSessionId: 'auth-session-1',
       authorizationUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
-      backendAuthToken: 'backend-token',
     })
+    expect(payload).not.toHaveProperty('backendAuthToken')
+    expect(payload).not.toHaveProperty('backendAuthExpiresAt')
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
       labId: 22,
       start: BigInt(nowSec + 1_000),
@@ -366,21 +392,34 @@ describe('Intent prepare routes integration', () => {
       returnUrl: 'https://market.example/callback',
       stableUserIdMode: 'principal',
     }))
-    expect(registerIntentOnChain).toHaveBeenCalledWith(
-      'reservation',
-      expect.any(Object),
-      expect.any(Object),
-      '0xadminsignature',
-      { waitForReceipt: false },
-    )
-    expect(payload.onChain).toEqual(expect.objectContaining({
-      txHash: '0xontx',
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
+    expect(payload.onChain).toEqual({
+      txHash: null,
       blockNumber: null,
-      status: 'submitted',
-    }))
+      status: 'awaiting_authorization',
+    })
   })
 
-  test('reservations/prepare: signals backend after registration receipt is mined', async () => {
+  test('reservations/prepare: ignores a backend URL supplied by the browser', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://attacker.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(resolveInstitutionalBackendUrl).toHaveBeenCalledWith('uni.example')
+    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
+      backendUrl: 'https://ib.example',
+    }))
+    expect(payload.backendUrl).toBe('https://ib.example')
+  })
+
+  test('reservations/prepare: never registers before WebAuthn authorization', async () => {
     registerIntentOnChain.mockResolvedValueOnce({
       txHash: '0xontx',
       wait: jest.fn().mockResolvedValue({ blockNumber: 777 }),
@@ -394,17 +433,9 @@ describe('Intent prepare routes integration', () => {
     })
 
     const res = await reservationPreparePOST(req)
-    await Promise.resolve()
-    await Promise.resolve()
-
     expect(res.status).toBe(200)
-    expect(notifyIntentRegistrationMined).toHaveBeenCalledWith({
-      backendUrl: 'https://ib.example',
-      backendAuthToken: 'backend-token',
-      requestId: 'req-reservation-1',
-      txHash: '0xontx',
-      blockNumber: 777,
-    })
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
+    expect(notifyIntentRegistrationMined).not.toHaveBeenCalled()
   })
 
   test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {
@@ -473,7 +504,7 @@ describe('Intent prepare routes integration', () => {
     })
   })
 
-  test('reservations/prepare: includes onchain error details when chain registration fails', async () => {
+  test('reservations/prepare: is unaffected by chain registration availability before authorization', async () => {
     registerIntentOnChain.mockRejectedValueOnce(new Error('chain boom'))
 
     const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
@@ -486,12 +517,9 @@ describe('Intent prepare routes integration', () => {
     const res = await reservationPreparePOST(req)
     const payload = await res.json()
 
-    expect(res.status).toBe(502)
-    expect(payload).toMatchObject({
-      error: 'Failed to register reservation intent on-chain',
-      details: 'chain boom',
-      onchain: { message: 'onchain-details' },
-    })
+    expect(res.status).toBe(200)
+    expect(payload.onChain.status).toBe('awaiting_authorization')
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
   })
 
   test('reservations/prepare: uses DIRECT_BOOKING action when institution owns the lab', async () => {
@@ -521,6 +549,8 @@ describe('Intent prepare routes integration', () => {
       action: 11, // ACTION_CODES.DIRECT_BOOKING
     }))
     expect(payload.kind).toBe('reservation')
+    expect(payload).not.toHaveProperty('backendAuthToken')
+    expect(payload).not.toHaveProperty('backendAuthExpiresAt')
   })
 
   test('reservations/prepare: uses REQUEST_BOOKING action when institution does not own the lab', async () => {

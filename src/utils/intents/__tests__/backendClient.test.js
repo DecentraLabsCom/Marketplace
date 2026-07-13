@@ -4,7 +4,13 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
   notifyIntentRegistrationMined,
+  notifyIntentRegistrationFailed,
 } from '../backendClient'
+import { secureBackendJsonRequest } from '@/utils/api/secureBackendFetch'
+
+jest.mock('@/utils/api/secureBackendFetch', () => ({
+  secureBackendJsonRequest: jest.fn(),
+}))
 
 describe('backendClient', () => {
   test('mapAuthorizationErrorCode maps known backend errors', () => {
@@ -45,10 +51,10 @@ describe('backendClient', () => {
   })
 
   test('notifyIntentRegistrationMined posts mined signal with backend auth headers', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    secureBackendJsonRequest.mockResolvedValue({
       ok: true,
       status: 202,
-      json: jest.fn().mockResolvedValue({ requestId: 'req-1', status: 'accepted' }),
+      data: { requestId: 'req-1', status: 'accepted' },
     })
 
     const result = await notifyIntentRegistrationMined({
@@ -59,8 +65,9 @@ describe('backendClient', () => {
       blockNumber: 123,
     })
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://ib.example/intents/req-1/registration-mined',
+    expect(secureBackendJsonRequest).toHaveBeenCalledWith(
+      'https://ib.example/',
+      '/intents/req-1/registration-mined',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -79,5 +86,30 @@ describe('backendClient', () => {
       status: 202,
       body: { requestId: 'req-1', status: 'accepted' },
     })
+  })
+
+  test('notifyIntentRegistrationFailed posts a terminal receipt signal', async () => {
+    secureBackendJsonRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { requestId: 'req-2', status: 'accepted' },
+    })
+
+    await notifyIntentRegistrationFailed({
+      backendUrl: 'https://ib.example',
+      backendAuthToken: 'backend-token',
+      requestId: 'req-2',
+      event: 'registration_reverted',
+      txHash: '0xdef',
+    })
+
+    expect(secureBackendJsonRequest).toHaveBeenCalledWith(
+      'https://ib.example',
+      '/intents/req-2/registration-failed',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ event: 'registration_reverted', txHash: '0xdef' }),
+      }),
+    )
   })
 })

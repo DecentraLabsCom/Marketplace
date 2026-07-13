@@ -56,6 +56,15 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     return value.trim();
   }),
   verifyProvisioningToken: jest.fn(),
+  verifyProviderRegistrationProof: jest.fn(),
+}));
+
+jest.mock('@/utils/blockchain/networkConfig', () => ({
+  defaultChain: { id: 11155111, name: 'Sepolia' },
+}));
+
+jest.mock('@/utils/intents/intentDomain', () => ({
+  getDiamondAddress: jest.fn(() => '0xe49a2f59631717691642f929E0FeF1f705866600'),
 }));
 
 jest.mock('@/utils/auth/marketplaceJwt', () => ({
@@ -83,12 +92,14 @@ jest.mock('next/headers', () => ({
 }));
 
 // Now import after mocks are set up
-import { verifyProvisioningToken } from '@/utils/auth/provisioningToken';
+import { verifyProviderRegistrationProof, verifyProvisioningToken } from '@/utils/auth/provisioningToken';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { headers } from 'next/headers';
 import { POST } from '../api/institutions/registerProvider/route.js';
 
 describe('/api/institutions/registerProvider route', () => {
+  const walletAddress = '0x1234567890123456789012345678901234567890';
+
   beforeEach(() => {
     jest.clearAllMocks();
     verifyProvisioningToken.mockResolvedValue({
@@ -98,12 +109,24 @@ describe('/api/institutions/registerProvider route', () => {
       providerCountry: 'ES',
       providerOrganization: 'example.edu',
       publicBaseUrl: 'https://auth.example.com/auth',
+      walletAddress,
+      chainId: 11155111,
+      verifyingContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      registrationNonce: 'registration-nonce-1',
+      jti: 'provider-token-1',
+    });
+    verifyProviderRegistrationProof.mockImplementation(({ payload, walletAddress: requestedWallet }) => {
+      if (payload.walletAddress.toLowerCase() !== requestedWallet.toLowerCase()) {
+        throw new Error('Institutional wallet does not match the provisioning token');
+      }
+      return true;
     });
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
         isLabProvider: jest.fn().mockResolvedValue(false),
         resolveSchacHomeOrganization: jest.fn().mockResolvedValue(null),
+        isProviderProvisioningTokenConsumed: jest.fn().mockResolvedValue(false),
       })
     );
   });
@@ -192,11 +215,10 @@ describe('/api/institutions/registerProvider route', () => {
     });
   });
 
-  test('executes addProvider and grantInstitutionRole with server signer', async () => {
+  test('executes atomic provider institution registration with server signer', async () => {
     const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
-    const walletAddress = '0x1234567890123456789012345678901234567890';
     const organization = 'Example.EDU';
     verifyProvisioningToken.mockResolvedValue({
       marketplaceBaseUrl: 'https://marketplace.example.com',
@@ -205,33 +227,27 @@ describe('/api/institutions/registerProvider route', () => {
       providerCountry: 'ES',
       providerOrganization: organization,
       publicBaseUrl: 'https://auth.example.com/auth',
+      walletAddress,
+      chainId: 11155111,
+      verifyingContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      registrationNonce: 'registration-nonce-2',
+      jti: 'provider-token-2',
     });
 
-    const addProviderTx = {
-      hash: '0xaddproviderhash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xaddproviderhash' }),
-    };
-
-    const grantRoleTx = {
-      hash: '0xgrantrolehash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
-    };
-
-    const backendTx = {
-      hash: '0xbackendhash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+    const registrationTx = {
+      hash: '0xregistrationhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xregistrationhash' }),
     };
 
     const readContract = {
       isLabProvider: jest.fn().mockResolvedValue(false),
       resolveSchacHomeOrganization: jest.fn().mockRejectedValue(new Error('Organization not found')),
       getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(null),
+      isProviderProvisioningTokenConsumed: jest.fn().mockResolvedValue(false),
     };
 
     const writeContract = {
-      addProvider: jest.fn().mockResolvedValue(addProviderTx),
-      grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
-      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(backendTx),
+      registerProviderInstitution: jest.fn().mockResolvedValue(registrationTx),
     };
 
     getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
@@ -241,7 +257,7 @@ describe('/api/institutions/registerProvider route', () => {
     const req = new Request('http://localhost/api/institutions/registerProvider', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress }),
+      body: JSON.stringify({ walletAddress, walletSignature: '0xwalletsignature' }),
     });
 
     const res = await POST(req);
@@ -251,21 +267,42 @@ describe('/api/institutions/registerProvider route', () => {
       walletAddress,
       organization: 'example.edu',
       backendUrl: 'https://auth.example.com',
-      txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
+      txHashes: ['0xregistrationhash'],
     });
 
-    expect(writeContract.addProvider).toHaveBeenCalledWith(
-      'Test Provider',
+    expect(verifyProviderRegistrationProof).toHaveBeenCalledWith(expect.objectContaining({
       walletAddress,
+      walletSignature: '0xwalletsignature',
+    }));
+    expect(writeContract.registerProviderInstitution).toHaveBeenCalledWith(
+      walletAddress,
+      'Test Provider',
       'test@example.com',
       'ES',
-      'https://auth.example.com/auth'
-    );
-    expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
-    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalledWith(
-      walletAddress,
       'example.edu',
+      'https://auth.example.com/auth',
       'https://auth.example.com',
+      expect.stringMatching(/^0x[a-fA-F0-9]{64}$/),
     );
+  });
+
+  test('rejects a body wallet that differs from the signed token wallet', async () => {
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
+    headers.mockResolvedValue(mockHeaders);
+
+    const req = new Request('http://localhost/api/institutions/registerProvider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        walletAddress: '0x9999999999999999999999999999999999999999',
+        walletSignature: '0xwalletsignature',
+      }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({ error: expect.stringMatching(/wallet/i) });
+    expect(getContractInstance).not.toHaveBeenCalled();
   });
 });

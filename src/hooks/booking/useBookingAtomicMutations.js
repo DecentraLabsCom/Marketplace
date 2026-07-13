@@ -166,8 +166,6 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
-      backendAuthToken: authToken,
-      backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
   throw createAuthorizationCancelledError('Authorization session unavailable');
@@ -260,8 +258,6 @@ export const useReservationRequestSSO = (options = {}) => {
           requestId,
           intent: prepareData.intent,
           authorization: authorizationStatus,
-          backendAuthToken: authToken,
-          backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
         }
       }
       throw createAuthorizationCancelledError('Authorization session unavailable')

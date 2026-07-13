@@ -35,8 +35,8 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     if (!url || typeof url !== 'string' || !url.trim()) {
       throw new Error(`${label} is required`);
     }
-    if (!url.startsWith('https://') && !url.startsWith('http://')) {
-      throw new Error(`${label} must use http:// or https://`);
+    if (!url.startsWith('https://')) {
+      throw new Error(`${label} must use HTTPS`);
     }
     return url;
   }),
@@ -52,6 +52,14 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     }
     return value.trim();
   }),
+}));
+
+jest.mock('@/utils/blockchain/networkConfig', () => ({
+  defaultChain: { id: 11155111, name: 'Sepolia' },
+}));
+
+jest.mock('@/utils/intents/intentDomain', () => ({
+  getDiamondAddress: jest.fn(() => '0xe49a2f59631717691642f929E0FeF1f705866600'),
 }));
 
 jest.mock('@/utils/auth/marketplaceJwt', () => ({
@@ -182,6 +190,7 @@ describe('/api/institutions/provisionToken route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         publicBaseUrl: 'https://auth.institution.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
         providerCountry: 'ES',
       }),
     });
@@ -206,6 +215,10 @@ describe('/api/institutions/provisionToken route', () => {
       publicBaseUrl: 'https://auth.institution.edu',
       providerOrganization: 'institution.edu',
       providerCountry: 'ES',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      chainId: 11155111,
+      verifyingContract: expect.stringMatching(/^0x[a-fA-F0-9]{40}$/),
+      registrationNonce: expect.any(String),
     });
 
     expect(signProvisioningToken).toHaveBeenCalledWith(
@@ -217,7 +230,44 @@ describe('/api/institutions/provisionToken route', () => {
     );
   });
 
-  test('accepts http publicBaseUrl in development', async () => {
+  test('ignores provider organization supplied by the browser', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      role: 'admin',
+      scopedRole: 'admin',
+      schacHomeOrganization: 'trusted.edu',
+      name: 'Trusted Institution',
+      email: 'admin@trusted.edu',
+    });
+
+    signProvisioningToken.mockResolvedValue({
+      token: 'mock-token',
+      expiresAt: new Date().toISOString(),
+    });
+
+    const { POST } = await import('../api/institutions/provisionToken/route.js');
+    const req = new Request('http://localhost/api/institutions/provisionToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publicBaseUrl: 'https://auth.trusted.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        providerOrganization: 'attacker.example',
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      payload: { providerOrganization: 'trusted.edu' },
+    });
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.objectContaining({ providerOrganization: 'trusted.edu' }),
+      expect.any(Object)
+    );
+  });
+
+  test('rejects non-loopback http publicBaseUrl', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'admin',
@@ -240,10 +290,34 @@ describe('/api/institutions/provisionToken route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         publicBaseUrl: 'http://auth.institution.edu', // http instead of https
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
     const res = await POST(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+  });
+
+  test('requires the institutional wallet before issuing a provider token', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      role: 'admin',
+      scopedRole: 'admin',
+      schacHomeOrganization: 'institution.edu',
+      email: 'admin@institution.edu',
+    });
+
+    const { POST } = await import('../api/institutions/provisionToken/route.js');
+    const req = new Request('http://localhost/api/institutions/provisionToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicBaseUrl: 'https://auth.institution.edu' }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({ error: expect.stringMatching(/wallet/i) });
+    expect(signProvisioningToken).not.toHaveBeenCalled();
   });
 });

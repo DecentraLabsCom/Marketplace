@@ -9,6 +9,7 @@ const INITIAL_FORM = {
   providerCountry: 'ES',
   providerOrganization: '',
   publicBaseUrl: '',
+  walletAddress: '',
   agreementId: '',
 };
 
@@ -73,6 +74,7 @@ export default function InviteTokenPage() {
           providerCountry: form.providerCountry.trim(),
           providerOrganization: form.providerOrganization.trim(),
           publicBaseUrl: form.publicBaseUrl.trim(),
+          walletAddress: form.walletAddress.trim(),
           agreementId: form.agreementId.trim() || undefined,
         }),
       });
@@ -195,6 +197,18 @@ export default function InviteTokenPage() {
               className="mt-1 w-full border rounded p-2 text-sm"
               value={form.agreementId}
               onChange={updateField('agreementId')}
+            />
+          </label>
+
+          <label className="block text-sm font-semibold text-gray-700 md:col-span-2">
+            Institutional wallet address
+            <input
+              className="mt-1 w-full border rounded p-2 text-sm font-mono"
+              value={form.walletAddress}
+              onChange={updateField('walletAddress')}
+              placeholder="0x…"
+              autoComplete="off"
+              required
             />
           </label>
 

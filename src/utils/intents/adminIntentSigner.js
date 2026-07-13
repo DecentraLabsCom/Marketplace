@@ -68,7 +68,7 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
   const errors = []
   const normalized = normalizeMeta(meta)
   const debug = isDebugEnabled()
-  let chainNonce = null
+  let nonceUsed = null
   let intentState = null
   let hasAdmin = null
   let chainTimestamp = null
@@ -112,9 +112,9 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
 
   try {
     const contract = await getContractInstance('diamond', true)
-    chainNonce = await contract.nextIntentNonce(normalized.signer)
-    if (normalized.nonce !== toBigInt(chainNonce)) {
-      errors.push(`nonce mismatch (chain=${chainNonce.toString()}, meta=${normalized.nonce.toString()})`)
+    nonceUsed = await contract.isIntentNonceUsed(normalized.signer, normalized.nonce)
+    if (nonceUsed) {
+      errors.push(`intent nonce already used (${normalized.nonce.toString()})`)
     }
 
     const intent = await contract.getIntent(normalized.requestId)
@@ -171,7 +171,7 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
       nonce: normalized.nonce?.toString?.(),
       payloadHash: shortHex(normalized.payloadHash),
       calculatedPayloadHash: shortHex(calculatedPayloadHash),
-      chainNonce: chainNonce?.toString?.(),
+      nonceUsed,
       intentState,
       hasAdmin,
       chainTimestamp: chainTimestamp?.toString?.(),
@@ -186,7 +186,7 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
     ok: errors.length === 0,
     errors,
     calculatedPayloadHash,
-    chainNonce,
+    nonceUsed,
     intentState,
     hasAdmin,
     chainTimestamp,

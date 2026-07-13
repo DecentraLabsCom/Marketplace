@@ -207,6 +207,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidBackendUrl",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInstitutionAddress",
     "inputs": []
   },
@@ -262,6 +267,11 @@
   },
   {
     "type": "error",
+    "name": "InsufficientLockedCredits",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidStatus",
     "inputs": []
   },
@@ -283,6 +293,16 @@
   {
     "type": "error",
     "name": "UnauthorizedInstitution",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAccount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
     "inputs": []
   },
   {
@@ -314,6 +334,11 @@
   {
     "type": "error",
     "name": "OnlyRenter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlySelf",
     "inputs": []
   },
   {
@@ -354,16 +379,6 @@
   {
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ZeroAccount",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ZeroAmount",
     "inputs": []
   },
   {
@@ -426,12 +441,23 @@
   },
   {
     "type": "error",
-    "name": "IntentNotPending",
-    "inputs": []
+    "name": "IntentNonceAlreadyUsed",
+    "inputs": [
+      {
+        "name": "signer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
-    "name": "InvalidNonce",
+    "name": "IntentNotPending",
     "inputs": []
   },
   {
@@ -631,6 +657,11 @@
   },
   {
     "type": "error",
+    "name": "InvalidProvisioningTokenId",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ProviderOwnsLabs",
     "inputs": [
       {
@@ -642,6 +673,17 @@
         "name": "labBalance",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ProvisioningTokenAlreadyConsumed",
+    "inputs": [
+      {
+        "name": "provisioningJti",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },
@@ -678,11 +720,6 @@
   {
     "type": "error",
     "name": "PucMissing",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InsufficientLockedCredits",
     "inputs": []
   },
   {
@@ -1094,19 +1131,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "registerSchacHomeOrganization",
-    "inputs": [
-      {
-        "name": "schacHomeOrganization",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -2111,6 +2135,11 @@
         "name": "en",
         "type": "uint32",
         "internalType": "uint32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [
@@ -2165,6 +2194,34 @@
   },
   {
     "type": "function",
+    "name": "captureInstitutionalTreasuryReservationLock",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "pucHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "checkInstitutionalTreasuryAvailability",
     "inputs": [
       {
@@ -2201,6 +2258,25 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInstitutionalReservationLockedCredits",
+    "inputs": [
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -2392,6 +2468,34 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lockInstitutionalTreasuryForReservation",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "pucHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -2748,19 +2852,24 @@
   },
   {
     "type": "function",
-    "name": "nextIntentNonce",
+    "name": "isIntentNonceUsed",
     "inputs": [
       {
         "name": "signer",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -4762,6 +4871,73 @@
   },
   {
     "type": "function",
+    "name": "isProviderProvisioningTokenConsumed",
+    "inputs": [
+      {
+        "name": "provisioningJti",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerProviderInstitution",
+    "inputs": [
+      {
+        "name": "_account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_email",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_country",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_organization",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_authURI",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_backendUrl",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_provisioningJti",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "removeProvider",
     "inputs": [
       {
@@ -6325,6 +6501,37 @@
   },
   {
     "type": "event",
+    "name": "InstitutionalReservationCreditsReleased",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "pucHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ProviderReceivableAccrued",
     "inputs": [
       {
@@ -6791,6 +6998,68 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InstitutionalReservationCreditsCaptured",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "pucHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InstitutionalReservationCreditsLocked",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "pucHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reservationKey",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -7555,6 +7824,43 @@
       },
       {
         "name": "_authURI",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProviderInstitutionRegistered",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "organizationHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "provisioningJti",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "organization",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "backendUrl",
         "type": "string",
         "indexed": false,
         "internalType": "string"

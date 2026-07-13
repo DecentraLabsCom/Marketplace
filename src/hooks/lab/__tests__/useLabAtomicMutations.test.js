@@ -59,6 +59,11 @@ const createWrapper = (queryClient) => {
   )
 }
 
+const finalizeResponse = () => ({
+  ok: true,
+  json: async () => ({}),
+})
+
 describe('institutional lab mutations', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -90,7 +95,7 @@ describe('institutional lab mutations', () => {
         intent: { meta: { requestId: 'req-1' }, payload: {} },
         backendAuthToken: 'auth-token-1',
       }),
-    })
+    }).mockResolvedValueOnce(finalizeResponse())
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -132,6 +137,7 @@ describe('institutional lab mutations', () => {
           backendAuthToken: 'auth-token-2',
         }),
       })
+      .mockResolvedValueOnce(finalizeResponse())
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ status: 'executed', labId: '77', txHash: '0xhash' }),
@@ -182,6 +188,7 @@ describe('institutional lab mutations', () => {
           backendAuthToken: 'auth-list',
         }),
       })
+      .mockResolvedValueOnce(finalizeResponse())
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -191,6 +198,7 @@ describe('institutional lab mutations', () => {
           backendAuthToken: 'auth-unlist',
         }),
       })
+      .mockResolvedValueOnce(finalizeResponse())
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -213,15 +221,17 @@ describe('institutional lab mutations', () => {
     pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-list-fail' })
     pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'backend timeout after execution window' })
 
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        authorizationUrl: 'https://backend.example/auth/list',
-        authorizationSessionId: 'auth-list-fail',
-        intent: { meta: { requestId: 'req-list-fail' }, payload: {} },
-        backendAuthToken: 'auth-list-fail',
-      }),
-    })
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: 'https://backend.example/auth/list',
+          authorizationSessionId: 'auth-list-fail',
+          intent: { meta: { requestId: 'req-list-fail' }, payload: {} },
+          backendAuthToken: 'auth-list-fail',
+        }),
+      })
+      .mockResolvedValueOnce(finalizeResponse())
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -270,6 +280,7 @@ describe('institutional lab mutations', () => {
           backendAuthToken: 'auth-update',
         }),
       })
+      .mockResolvedValueOnce(finalizeResponse())
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -279,6 +290,7 @@ describe('institutional lab mutations', () => {
           backendAuthToken: 'auth-delete',
         }),
       })
+      .mockResolvedValueOnce(finalizeResponse())
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -296,6 +308,6 @@ describe('institutional lab mutations', () => {
       await deleteResult.current.mutateAsync({ labId: '9', backendUrl: 'https://backend.example' })
     })
 
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenCalledTimes(4)
   })
 })

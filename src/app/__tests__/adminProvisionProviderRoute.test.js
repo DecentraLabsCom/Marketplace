@@ -54,6 +54,14 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
   }),
 }));
 
+jest.mock('@/utils/blockchain/networkConfig', () => ({
+  defaultChain: { id: 11155111, name: 'Sepolia' },
+}));
+
+jest.mock('@/utils/intents/intentDomain', () => ({
+  getDiamondAddress: jest.fn(() => '0xe49a2f59631717691642f929E0FeF1f705866600'),
+}));
+
 jest.mock('@/utils/auth/marketplaceJwt', () => ({
   __esModule: true,
   default: {
@@ -160,6 +168,7 @@ describe('/api/admin/institutions/provisionProvider route', () => {
         providerCountry: 'ES',
         providerOrganization: 'Partner.ORG',
         publicBaseUrl: 'https://gateway.partner.org/',
+        walletAddress: '0x1234567890123456789012345678901234567890',
         agreementId: 'AGR-2026-001',
       }),
     });
@@ -177,6 +186,10 @@ describe('/api/admin/institutions/provisionProvider route', () => {
         providerCountry: 'ES',
         providerOrganization: 'partner.org',
         publicBaseUrl: 'https://gateway.partner.org',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        chainId: 11155111,
+        verifyingContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+        registrationNonce: expect.any(String),
         verificationMethod: 'manual_review',
         assuranceLevel: 'partner_verified',
         agreementId: 'AGR-2026-001',

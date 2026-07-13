@@ -54,6 +54,10 @@ describe('InviteTokenPage', () => {
     await user.clear(screen.getByLabelText(/provider country/i));
     await user.type(screen.getByLabelText(/provider country/i), 'PT');
     await user.type(screen.getByLabelText(/public base url/i), 'https://gateway.partner.org');
+    await user.type(
+      screen.getByLabelText(/institutional wallet address/i),
+      '0x1234567890123456789012345678901234567890'
+    );
     await user.type(screen.getByLabelText(/agreement id/i), 'AGR-2026-001');
     await user.click(screen.getByRole('button', { name: /generate/i }));
 
@@ -75,6 +79,7 @@ describe('InviteTokenPage', () => {
       providerCountry: 'PT',
       providerOrganization: 'partner.org',
       publicBaseUrl: 'https://gateway.partner.org',
+      walletAddress: '0x1234567890123456789012345678901234567890',
       agreementId: 'AGR-2026-001',
     });
   });

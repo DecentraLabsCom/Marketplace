@@ -13,12 +13,103 @@
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
 
 /**
  * Cache for resolved backend URLs to avoid repeated lookups
  * @type {Map<string, string>}
  */
 const backendCache = new Map()
+
+function isPublicIpv4(address) {
+  const octets = address.split('.').map(Number)
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false
+  }
+  const [a, b] = octets
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false
+  if (a === 100 && b >= 64 && b <= 127) return false
+  if (a === 169 && b === 254) return false
+  if (a === 172 && b >= 16 && b <= 31) return false
+  if (a === 192 && b === 168) return false
+  if (a === 198 && (b === 18 || b === 19)) return false
+  if (a === 192 && b === 0) return false
+  if (a === 192 && b === 0 && octets[2] === 2) return false
+  if (a === 198 && b === 51 && octets[2] === 100) return false
+  if (a === 203 && b === 0 && octets[2] === 113) return false
+  return true
+}
+
+function isPublicIpAddress(rawAddress) {
+  const address = String(rawAddress || '').trim().toLowerCase().replace(/^\[|\]$/g, '')
+  const family = isIP(address)
+  if (family === 4) return isPublicIpv4(address)
+  if (family !== 6) return false
+  if (address === '::' || address === '::1') return false
+  if (address.startsWith('fc') || address.startsWith('fd')) return false
+  if (/^fe[89ab]/.test(address)) return false
+  if (address.startsWith('ff') || address.startsWith('2001:db8:')) return false
+  const mappedIpv4 = address.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/)?.[1]
+  return mappedIpv4 ? isPublicIpv4(mappedIpv4) : true
+}
+
+export async function resolveInstitutionalBackendTarget(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    throw new Error('Institutional backend URL is required')
+  }
+
+  let parsed
+  try {
+    parsed = new URL(rawUrl.trim())
+  } catch {
+    throw new Error('Institutional backend URL is invalid')
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('Institutional backend URL must use HTTPS')
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('Institutional backend URL must be a plain base URL')
+  }
+
+  const normalizedPath = parsed.pathname.replace(/\/+$/, '')
+  if (normalizedPath && normalizedPath !== '/auth') {
+    throw new Error('Institutional backend URL must not include an application path')
+  }
+
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local')) {
+    throw new Error('Institutional backend hostname must be public')
+  }
+
+  let addresses
+  if (isIP(hostname)) {
+    if (!isPublicIpAddress(hostname)) {
+      throw new Error('Institutional backend address must be public')
+    }
+    addresses = [{ address: hostname, family: isIP(hostname) }]
+  } else {
+    addresses = await lookup(hostname, { all: true, verbatim: true })
+    if (!Array.isArray(addresses) || addresses.length === 0) {
+      throw new Error('Institutional backend hostname did not resolve')
+    }
+    if (addresses.some(({ address }) => !isPublicIpAddress(address))) {
+      throw new Error('Institutional backend address must be public')
+    }
+  }
+
+  return {
+    baseUrl: `${parsed.origin}${normalizedPath}`,
+    hostname,
+    addresses: addresses.map(({ address, family }) => ({ address, family })),
+  }
+}
+
+export async function validateInstitutionalBackendUrl(rawUrl) {
+  const target = await resolveInstitutionalBackendTarget(rawUrl)
+  return target.baseUrl
+}
 
 /**
  * Resolves the Institutional Backend URL for a given institution.
@@ -53,14 +144,7 @@ export async function resolveInstitutionalBackendUrl(institutionId) {
         return null
       }
 
-      let cleaned = rawUrl.trim()
-      while (cleaned.endsWith('/')) {
-        cleaned = cleaned.slice(0, -1)
-      }
-      if (cleaned.endsWith('/auth')) {
-        cleaned = cleaned.slice(0, -5)
-      }
-      return cleaned || null
+      return validateInstitutionalBackendUrl(rawUrl)
     }
 
     // Try exact match first
@@ -114,6 +198,8 @@ export function clearBackendCache() {
 
 export default {
   resolveInstitutionalBackendUrl,
+  resolveInstitutionalBackendTarget,
+  validateInstitutionalBackendUrl,
   hasInstitutionalBackend,
   clearBackendCache,
 }

@@ -37,7 +37,7 @@ export async function pollIntentStatus(requestId, {
 
     try {
       const headers = { 'Content-Type': 'application/json' };
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+      if (!isBrowser && typeof authToken === 'string' && authToken.trim().length > 0) {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
@@ -47,22 +47,7 @@ export async function pollIntentStatus(requestId, {
         ? `/api/backend/intents/${requestId}`
         : `${backendUrl.replace(/\/$/, '')}/intents/${requestId}`
       
-      const params = new URLSearchParams()
-      if (isBrowser) {
-        params.set('requestId', requestId)
-      }
-      if (isBrowser && backendUrl) {
-        params.set('backendUrl', backendUrl)
-      }
-      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
-        params.set('useServerToken', '1')
-      }
-      
-      const url = params.toString()
-        ? `${baseUrl}?${params.toString()}`
-        : baseUrl
-      
-      const res = await fetch(url, {
+      const res = await fetch(baseUrl, {
         method: 'GET',
         headers,
         signal,

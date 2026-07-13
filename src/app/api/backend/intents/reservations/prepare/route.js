@@ -1,23 +1,25 @@
 import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
+import { randomUUID } from 'node:crypto'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash, ACTION_CODES } from '@/utils/intents/signInstitutionalReservationIntent'
+import { computeIntentReservationKey } from '@/utils/intents/reservationKey'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
 import { serializeIntent } from '@/utils/intents/serialize'
-import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import { signIntentMeta } from '@/utils/intents/adminIntentSigner'
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
-  notifyIntentRegistrationMined,
   mapAuthorizationErrorCode,
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
-import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import { calculateReservationTotal } from '@/utils/pricing/pricingUnits'
 import devLog from '@/utils/dev/logger'
@@ -39,7 +41,7 @@ export async function POST(request) {
   try {
     const session = await requireAuth()
     const body = await request.json()
-    const { labId, start, end, timeslot, backendUrl: backendUrlOverride, returnUrl } = body || {}
+    const { labId, start, end, timeslot, returnUrl } = body || {}
 
     if (labId === undefined || labId === null) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
@@ -97,7 +99,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
 
-    const backendUrl = backendUrlOverride || process.env.INSTITUTION_BACKEND_URL
+    const backendUrl = await resolveInstitutionalBackendUrl(schacHomeOrganization)
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
@@ -126,7 +128,16 @@ export async function POST(request) {
       : ACTION_CODES.REQUEST_BOOKING
 
     const price = calculateReservationTotal(pricePerSecond, parsedStart.value, parsedEnd.value)
-    const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), parsedStart.value])
+    const requestId = ethers.id(randomUUID())
+    const resourceType = labData?.base?.resourceType ?? labData?.resourceType ?? 0n
+    const reservationKey = computeIntentReservationKey({
+      labId,
+      start: parsedStart.value,
+      resourceType,
+      institutionAddress,
+      pucHash,
+      requestId,
+    })
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
     const intentPackage = await buildReservationIntent({
@@ -140,6 +151,7 @@ export async function POST(request) {
       end: parsedEnd.value,
       price,
       reservationKey,
+      requestId,
       nowSec: chainNowSec,
       action: bookingAction,
     })
@@ -148,22 +160,14 @@ export async function POST(request) {
 
     let authorization = null
     let backendAuth = null
-    let onChain = null
+    const onChain = { status: 'awaiting_authorization', txHash: null, blockNumber: null }
     try {
       backendAuth = await getIntentBackendAuthToken()
 
       const serializedMeta = serializeIntent(intentPackage.meta)
       const serializedPayload = serializeIntent(intentPackage.payload)
 
-      const registrationPromise = registerIntentOnChain(
-        'reservation',
-        intentPackage.meta,
-        intentPackage.payload,
-        adminSignature,
-        { waitForReceipt: false },
-      )
-
-      const authPromise = requestIntentAuthorizationSession({
+      const authResponse = await requestIntentAuthorizationSession({
         backendUrl,
         backendAuthToken: backendAuth.token,
         payloadKey: 'reservationPayload',
@@ -174,57 +178,6 @@ export async function POST(request) {
         stableUserIdMode: getStableUserIdModeFromSession(session),
         returnUrl: returnUrl || null,
       })
-
-      const [registrationResult, authResult] = await Promise.allSettled([
-        registrationPromise,
-        authPromise,
-      ])
-
-      if (registrationResult.status === 'rejected') {
-        const err = registrationResult.reason
-        devLog.error('[API] On-chain reservation intent registration submission failed', err)
-        console.error('[API] On-chain reservation intent registration submission failed', err)
-        const onchain = extractOnchainErrorDetails(err)
-        return NextResponse.json(
-          {
-            error: 'Failed to register reservation intent on-chain',
-            details: err?.message || String(err),
-            onchain,
-          },
-          { status: 502 },
-        )
-      }
-
-      const registrationSubmission = registrationResult.value || {}
-      onChain = {
-        txHash: registrationSubmission.txHash || null,
-        blockNumber: registrationSubmission.blockNumber || null,
-        status: 'submitted',
-      }
-      if (typeof registrationSubmission.wait === 'function') {
-        registrationSubmission.wait()
-          .then((receipt) => notifyIntentRegistrationMined({
-            backendUrl,
-            backendAuthToken: backendAuth.token,
-            requestId: intentPackage.meta.requestId,
-            txHash: registrationSubmission.txHash || null,
-            blockNumber: receipt?.blockNumber || null,
-          }))
-          .then((signalResult) => {
-            if (signalResult && !signalResult.ok) {
-              devLog.warn('[API] Reservation registration mined signal was not accepted', signalResult)
-            }
-          })
-          .catch((err) => {
-            devLog.warn('[API] Reservation registration mined signal skipped', err)
-          })
-      }
-
-      if (authResult.status === 'rejected') {
-        throw authResult.reason
-      }
-
-      const authResponse = authResult.value
       authorization = authResponse.data
       if (!authResponse.ok) {
         const authError =
@@ -277,8 +230,6 @@ export async function POST(request) {
       authorizationUrl,
       authorizationSessionId: authorization?.sessionId || null,
       authorizationExpiresAt: authorization?.expiresAt || null,
-      backendAuthToken: backendAuth?.token || null,
-      backendAuthExpiresAt: backendAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare reservation intent failed', error)

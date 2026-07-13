@@ -39,7 +39,7 @@ describe('authorizationOrchestrator', () => {
     ).toBe('https://institution.example')
   })
 
-  test('pollIntentPresence returns present when backend has the intent', async () => {
+  test('pollIntentPresence uses the authenticated Marketplace proxy without exposing a service token', async () => {
     global.fetch.mockResolvedValueOnce({ ok: true, status: 200 })
 
     const status = await pollIntentPresence('req-1', {
@@ -49,12 +49,10 @@ describe('authorizationOrchestrator', () => {
 
     expect(status).toBe('present')
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://institution.example/intents/req-1',
+      '/api/backend/intents/req-1',
       expect.objectContaining({
         method: 'GET',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-1',
-        }),
+        headers: { 'Content-Type': 'application/json' },
       })
     )
   })
@@ -100,6 +98,10 @@ describe('authorizationOrchestrator', () => {
       requestId: 'req-auth-1',
     })
 
+    const finalizeFn = jest.fn().mockResolvedValue({
+      onChain: { status: 'mined', txHash: '0xregistered' },
+      registrationNotification: 'accepted',
+    })
     const result = await awaitIntentAuthorization({
       authorizationUrl: 'https://institution.example/intents/authorize/session-1',
       authorizationSessionId: 'session-1',
@@ -108,9 +110,15 @@ describe('authorizationOrchestrator', () => {
     }, {
       closePopupInFinally: true,
       source: 'booking-intent-authorization',
+      finalizeFn,
     })
 
-    expect(result).toMatchObject({ status: 'SUCCESS', requestId: 'req-auth-1' })
+    expect(result).toMatchObject({
+      status: 'SUCCESS',
+      requestId: 'req-auth-1',
+      onChain: { status: 'mined', txHash: '0xregistered' },
+    })
+    expect(finalizeFn).toHaveBeenCalledTimes(1)
     expect(popup.close).toHaveBeenCalledTimes(1)
   })
 
@@ -148,6 +156,7 @@ describe('authorizationOrchestrator', () => {
       source: 'lab-intent-authorization',
       closePopupInFinally: false,
       stopOnUnexpected4xx: true,
+      finalizeFn: jest.fn().mockResolvedValue({ onChain: { status: 'mined' } }),
     })
 
     popup.closed = true

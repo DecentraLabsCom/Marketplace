@@ -52,6 +52,7 @@ export default function InstitutionInviteCard({
   const [expiresAt, setExpiresAt] = useState(null);
   const [payload, setPayload] = useState(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
   const [providerCountry, setProviderCountry] = useState('');
   // Guard: inferred-country pre-fill runs only once per session so the user
   // can clear/override the suggested value without it being re-applied.
@@ -82,6 +83,14 @@ export default function InstitutionInviteCard({
       notifyInstitutionPublicBaseUrlRequired(addTemporaryNotification);
       return;
     }
+    if (!walletAddress || !walletAddress.trim()) {
+      notifyInstitutionProvisioningGenerationFailed(
+        addTemporaryNotification,
+        'provider',
+        'Institutional wallet address is required.'
+      );
+      return;
+    }
 
     setLoading(true);
     try {
@@ -93,6 +102,7 @@ export default function InstitutionInviteCard({
         credentials: 'include',
         body: JSON.stringify({
           publicBaseUrl: publicBaseUrl.trim(),
+          walletAddress: walletAddress.trim(),
           providerCountry: providerCountry.trim() || detectedCountry || undefined,
         }),
       });
@@ -132,6 +142,7 @@ export default function InstitutionInviteCard({
     isInstitutionAdmin,
     addTemporaryNotification,
     publicBaseUrl,
+    walletAddress,
     providerCountry,
     detectedCountry,
   ]);
@@ -440,6 +451,18 @@ export default function InstitutionInviteCard({
               value={publicBaseUrl}
               onChange={(e) => setPublicBaseUrl(e.target.value)}
               placeholder="institution.example.edu"
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-gray-700">
+            Institutional wallet address
+            <input
+              className="mt-1 w-full border rounded p-2 text-sm font-mono"
+              type="text"
+              value={walletAddress}
+              onChange={(e) => setWalletAddress(e.target.value)}
+              placeholder="0x…"
+              autoComplete="off"
             />
           </label>
 

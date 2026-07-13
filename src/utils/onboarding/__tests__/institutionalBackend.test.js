@@ -2,8 +2,14 @@ import {
   resolveInstitutionalBackendUrl,
   hasInstitutionalBackend,
   clearBackendCache,
+  validateInstitutionalBackendUrl,
 } from '../institutionalBackend'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { lookup } from 'node:dns/promises'
+
+jest.mock('node:dns/promises', () => ({
+  lookup: jest.fn(),
+}))
 
 jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   __esModule: true,
@@ -30,6 +36,7 @@ describe('institutionalBackend', () => {
     clearBackendCache()
     getContractInstance.mockResolvedValue(mockContract)
     mockContract.getSchacHomeOrganizationBackend.mockReset()
+    lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
   })
 
   test('returns null when institutionId is missing', async () => {
@@ -69,5 +76,29 @@ describe('institutionalBackend', () => {
     expect(first).toBe('https://backend.uned.es')
     expect(second).toBe('https://backend.uned.es')
     expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(1)
+  })
+
+  test('rejects non-HTTPS backend URLs', async () => {
+    await expect(validateInstitutionalBackendUrl('http://backend.uned.es'))
+      .rejects.toThrow('HTTPS')
+  })
+
+  test('rejects literal private and link-local addresses', async () => {
+    await expect(validateInstitutionalBackendUrl('https://127.0.0.1'))
+      .rejects.toThrow('public')
+    await expect(validateInstitutionalBackendUrl('https://169.254.169.254'))
+      .rejects.toThrow('public')
+  })
+
+  test('rejects hostnames resolving to a private address', async () => {
+    lookup.mockResolvedValueOnce([{ address: '10.0.0.5', family: 4 }])
+
+    await expect(validateInstitutionalBackendUrl('https://backend.uned.es'))
+      .rejects.toThrow('public')
+  })
+
+  test('normalizes an HTTPS public backend base URL', async () => {
+    await expect(validateInstitutionalBackendUrl('https://backend.uned.es/auth/'))
+      .resolves.toBe('https://backend.uned.es/auth')
   })
 })

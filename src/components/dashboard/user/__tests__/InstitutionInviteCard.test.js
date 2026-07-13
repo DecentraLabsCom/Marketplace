@@ -86,6 +86,10 @@ describe('InstitutionInviteCard', () => {
       screen.getByLabelText(/Public base URL/i),
       'https://institution.example.edu'
     );
+    await user.type(
+      screen.getByLabelText(/Institutional wallet address/i),
+      '0x1234567890123456789012345678901234567890'
+    );
     await user.click(
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
     );
@@ -104,6 +108,10 @@ describe('InstitutionInviteCard', () => {
     await user.type(
       screen.getByLabelText(/Public base URL/i),
       'https://institution.example.edu'
+    );
+    await user.type(
+      screen.getByLabelText(/Institutional wallet address/i),
+      '0x1234567890123456789012345678901234567890'
     );
     // The country field may be pre-filled by domain inference (affiliation: 'uned.es' → 'ES').
     // Clear it first so the user's explicit value ('PT') is the only content.

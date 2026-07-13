@@ -36,27 +36,14 @@ export async function pollIntentAuthorizationStatus(sessionId, {
 
     try {
       const headers = { 'Content-Type': 'application/json' };
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+      if (!isBrowser && typeof authToken === 'string' && authToken.trim().length > 0) {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
       const baseUrl = isBrowser
         ? `/api/backend/intents/authorize/status/${sessionId}`
         : `${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`
-      const params = new URLSearchParams()
-      if (isBrowser) {
-        params.set('sessionId', sessionId)
-      }
-      if (isBrowser && backendUrl) {
-        params.set('backendUrl', backendUrl)
-      }
-      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
-        params.set('useServerToken', '1')
-      }
-      const url = params.toString()
-        ? `${baseUrl}?${params.toString()}`
-        : baseUrl
-      const res = await fetch(url, {
+      const res = await fetch(baseUrl, {
         method: 'GET',
         headers,
         signal,

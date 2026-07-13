@@ -1,4 +1,5 @@
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { secureBackendJsonRequest } from '@/utils/api/secureBackendFetch'
 
 function normalizeBackendUrl(backendUrl) {
   return String(backendUrl || '').replace(/\/$/, '')
@@ -93,17 +94,16 @@ export async function requestIntentAuthorizationSession({
     [payloadKey]: payload,
   }
 
-  const res = await fetch(`${normalizeBackendUrl(backendUrl)}/intents/authorize`, {
+  const response = await secureBackendJsonRequest(backendUrl, '/intents/authorize', {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   })
 
-  const data = await res.json().catch(() => ({}))
   return {
-    ok: res.ok,
-    status: res.status,
-    data,
+    ok: response.ok,
+    status: response.status,
+    data: response.data,
   }
 }
 
@@ -124,20 +124,64 @@ export async function notifyIntentRegistrationMined({
     blockNumber,
   }
 
-  const res = await fetch(
-    `${normalizeBackendUrl(backendUrl)}/intents/${encodeURIComponent(requestId)}/registration-mined`,
+  const response = await secureBackendJsonRequest(
+    backendUrl,
+    `/intents/${encodeURIComponent(requestId)}/registration-mined`,
+    { method: 'POST', headers, body: JSON.stringify(body) },
+  )
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: response.data,
+  }
+}
+
+export async function notifyIntentRegistrationFailed({
+  backendUrl,
+  backendAuthToken,
+  requestId,
+  event,
+  txHash = null,
+}) {
+  if (!requestId) {
+    throw new Error('requestId is required to notify registration failure')
+  }
+  if (!['registration_reverted', 'registration_dropped'].includes(event)) {
+    throw new Error('registration failure event must be reverted or dropped')
+  }
+  const response = await secureBackendJsonRequest(
+    backendUrl,
+    `/intents/${encodeURIComponent(requestId)}/registration-failed`,
     {
       method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+      headers: createIntentBackendHeaders(backendAuthToken),
+      body: JSON.stringify({ event, txHash }),
     },
   )
+  return { ok: response.ok, status: response.status, body: response.data }
+}
 
-  const responseBody = await res.json().catch(() => ({}))
+export async function getIntentAuthorizationStatus({
+  backendUrl,
+  backendAuthToken,
+  sessionId,
+}) {
+  if (!sessionId) {
+    throw new Error('authorization sessionId is required')
+  }
+  const response = await secureBackendJsonRequest(
+    backendUrl,
+    `/intents/authorize/status/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'GET',
+      headers: createIntentBackendHeaders(backendAuthToken),
+      cache: 'no-store',
+    },
+  )
   return {
-    ok: res.ok,
-    status: res.status,
-    body: responseBody,
+    ok: response.ok,
+    status: response.status,
+    data: response.data,
   }
 }
 
@@ -166,16 +210,15 @@ export async function submitIntentExecutionToBackend({
     [payloadKey]: payload,
   }
 
-  const res = await fetch(`${normalizeBackendUrl(backendUrl)}/intents`, {
+  const response = await secureBackendJsonRequest(backendUrl, '/intents', {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   })
 
-  const responseBody = await res.json().catch(() => ({}))
   return {
-    ok: res.ok,
-    status: res.status,
-    body: responseBody,
+    ok: response.ok,
+    status: response.status,
+    body: response.data,
   }
 }

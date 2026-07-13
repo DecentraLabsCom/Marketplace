@@ -38,6 +38,11 @@ jest.mock('@/context/OptimisticUIContext', () => ({
 
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../useBookingCacheUpdates');
 
+const finalizeResponse = () => ({
+  ok: true,
+  json: () => Promise.resolve({}),
+});
+
 function createWrapper() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -71,16 +76,18 @@ describe('institutional cancellation mutations', () => {
     const invalidateAllBookings = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-1',
-          authorizationSessionId: 'session-1',
-          backendUrl: 'https://institution.example',
-          intent: { meta: { requestId: 'req-1' }, payload: {} },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-1',
+            authorizationSessionId: 'session-1',
+            backendUrl: 'https://institution.example',
+            intent: { meta: { requestId: 'req-1' }, payload: {} },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useCancelReservationRequestSSO(), { wrapper });
@@ -100,16 +107,18 @@ describe('institutional cancellation mutations', () => {
     const invalidateAllBookings = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
 
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-2',
-          authorizationSessionId: 'session-2',
-          backendUrl: 'https://institution.example',
-          intent: { meta: { requestId: 'req-2' }, payload: {} },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-2',
+            authorizationSessionId: 'session-2',
+            backendUrl: 'https://institution.example',
+            intent: { meta: { requestId: 'req-2' }, payload: {} },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useCancelReservationRequest(), { wrapper });
@@ -118,21 +127,23 @@ describe('institutional cancellation mutations', () => {
       await result.current.mutateAsync({ reservationKey: 'rk-cancel-2', labId: '11' });
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(updateBooking).toHaveBeenCalledWith('rk-cancel-2', expect.objectContaining({ status: 'cancel-requested' }));
   });
 
   test('useCancelBooking delegates to the institutional path', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          authorizationUrl: 'https://institution.example/intents/authorize/session-3',
-          authorizationSessionId: 'session-3',
-          backendUrl: 'https://institution.example',
-          intent: { meta: { requestId: 'req-3' }, payload: {} },
-        }),
-    });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            authorizationUrl: 'https://institution.example/intents/authorize/session-3',
+            authorizationSessionId: 'session-3',
+            backendUrl: 'https://institution.example',
+            intent: { meta: { requestId: 'req-3' }, payload: {} },
+          }),
+      })
+      .mockResolvedValueOnce(finalizeResponse());
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useCancelBooking(), { wrapper });
