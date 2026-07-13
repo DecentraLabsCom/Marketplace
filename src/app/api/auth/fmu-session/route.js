@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, handleGuardError, BadRequestError } from '@/utils/auth/guards'
-import { gatewayFetch, resolveGatewayBaseUrl } from '@/utils/api/gatewayProxy'
+import {
+  GatewayValidationError,
+  gatewayFetch,
+  resolveLabAccessGateway,
+} from '@/utils/api/gatewayProxy'
 import {
   FMU_CONTEXT_COOKIE,
+  createFmuUserBinding,
   encodeFmuContexts,
   fmuContextCookieOptions,
   readFmuContexts,
@@ -17,15 +22,27 @@ function parseGatewaySession(setCookie) {
 
 export async function POST(request) {
   try {
-    await requireAuth()
+    const marketplaceSession = await requireAuth()
     const { accessCode, labURL, labId, reservationKey } = await request.json().catch(() => ({}))
     if (!accessCode || !labURL || !labId || !reservationKey) {
       throw new BadRequestError('accessCode, labURL, labId and reservationKey are required')
     }
 
-    const gatewayBase = await resolveGatewayBaseUrl({ labId })
+    let gatewayBase
+    try {
+      gatewayBase = await resolveLabAccessGateway({
+        labId,
+        gatewayUrl: labURL,
+        requireLabMatch: true,
+      })
+    } catch (error) {
+      if (error instanceof GatewayValidationError) {
+        throw new BadRequestError(error.message)
+      }
+      throw error
+    }
     if (new URL(gatewayBase).origin !== new URL(labURL).origin) {
-      throw new BadRequestError('FMU destination does not match the canonical lab gateway')
+      throw new BadRequestError('FMU destination does not match the canonical lab access gateway')
     }
     const gatewayResponse = await gatewayFetch(`${gatewayBase}/auth/access`, {
       method: 'POST',
@@ -49,6 +66,7 @@ export async function POST(request) {
       gatewayOrigin: gatewayBase,
       jti: session.jti,
       expiresAt: Math.floor(Date.now() / 1000) + session.maxAge,
+      userBinding: createFmuUserBinding(marketplaceSession),
     })
     const response = NextResponse.json({ gatewayOrigin: new URL(gatewayBase).origin })
     response.cookies.set(FMU_CONTEXT_COOKIE, encoded, fmuContextCookieOptions(contexts))

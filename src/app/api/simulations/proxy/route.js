@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import { createRateLimiter } from '@/utils/api/rateLimit'
+import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
-import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -23,6 +24,7 @@ export async function GET(request) {
   }
 
   try {
+    const userBinding = await requireFmuUserBinding()
     const { searchParams } = new URL(request.url)
     const labId = searchParams.get('labId')
     const reservationKey = searchParams.get('reservationKey')
@@ -35,7 +37,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing required parameter: reservationKey' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
     const targetUrl = buildGatewayTargetUrl(
       gatewayBaseUrl,
       `/fmu/api/v1/fmu/proxy/${encodeURIComponent(labId)}`,
@@ -45,6 +47,7 @@ export async function GET(request) {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,
+      userBinding,
     })
 
     devLog.log(`[simulations/proxy] Proxying download to ${targetUrl}`)
@@ -76,6 +79,7 @@ export async function GET(request) {
       },
     })
   } catch (error) {
+    if (error instanceof HttpError) return handleGuardError(error)
     if (error instanceof GatewayValidationError) {
       return NextResponse.json({ error: error.message }, { status: error.status || 400 })
     }

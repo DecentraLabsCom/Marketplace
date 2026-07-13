@@ -1,9 +1,10 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto'
 
 export const FMU_CONTEXT_COOKIE = 'marketplace_fmu_contexts'
 const MAX_CONTEXTS = 6
 const MAX_COOKIE_LENGTH = 3800
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/
+const USER_BINDING_PATTERN = /^[A-Za-z0-9_-]{43}$/
 
 function encryptionKey() {
   const secret = process.env.SESSION_SECRET
@@ -48,8 +49,25 @@ function rawCookie(request, name) {
   return null
 }
 
+export function createFmuUserBinding(session) {
+  const id = String(session?.id || '').trim()
+  const email = String(session?.email || '').trim().toLowerCase()
+  const identity = id ? `id\0${id}` : email ? `email\0${email}` : ''
+  if (!identity) throw new Error('Marketplace session identity is required for FMU access')
+  return createHmac('sha256', encryptionKey())
+    .update('marketplace-fmu-user-binding\0')
+    .update(identity)
+    .digest('base64url')
+}
+
 function activeContexts(contexts, now = Math.floor(Date.now() / 1000)) {
-  return contexts.filter((item) => item && Number(item.expiresAt) > now && item.jti && item.gatewayOrigin)
+  return contexts.filter((item) => (
+    item
+    && Number(item.expiresAt) > now
+    && item.jti
+    && item.gatewayOrigin
+    && USER_BINDING_PATTERN.test(String(item.userBinding || ''))
+  ))
 }
 
 function contextKey(context) {
@@ -63,13 +81,20 @@ export function readFmuContexts(request) {
 
 export function encodeFmuContexts(existing, context) {
   const key = contextKey(context)
-  let contexts = activeContexts(existing).filter((item) => contextKey(item) !== key)
+  const userBinding = String(context.userBinding || '')
+  if (!USER_BINDING_PATTERN.test(userBinding)) {
+    throw new Error('A valid Marketplace identity binding is required for FMU session storage')
+  }
+  let contexts = activeContexts(existing).filter((item) => (
+    item.userBinding === userBinding && contextKey(item) !== key
+  ))
   contexts.unshift({
     labId: String(context.labId || ''),
     reservationKey: String(context.reservationKey || ''),
     gatewayOrigin: new URL(context.gatewayOrigin).origin,
     jti: String(context.jti || ''),
     expiresAt: Number(context.expiresAt),
+    userBinding,
   })
   contexts = contexts.slice(0, MAX_CONTEXTS)
   let encoded = encrypt(contexts)
@@ -81,10 +106,13 @@ export function encodeFmuContexts(existing, context) {
   return { encoded, contexts }
 }
 
-export function findFmuContext(request, { labId, reservationKey, gatewayOrigin }) {
+export function findFmuContext(request, { labId, reservationKey, gatewayOrigin, userBinding }) {
+  const expectedUserBinding = String(userBinding || '')
+  if (!USER_BINDING_PATTERN.test(expectedUserBinding)) return null
   const expectedOrigin = new URL(gatewayOrigin).origin
   const expectedReservation = String(reservationKey || '').trim().toLowerCase()
   const matches = readFmuContexts(request).filter((item) => {
+    if (item.userBinding !== expectedUserBinding) return false
     if (new URL(item.gatewayOrigin).origin !== expectedOrigin) return false
     if (String(item.labId) !== String(labId)) return false
     if (expectedReservation) {
@@ -105,4 +133,14 @@ export function fmuContextCookieOptions(contexts) {
     path: '/api',
     maxAge: Math.max(1, maxExpiry - now),
   }
+}
+
+export function clearFmuContextCookie(cookieStore) {
+  cookieStore.set(FMU_CONTEXT_COOKIE, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api',
+    maxAge: 0,
+  })
 }

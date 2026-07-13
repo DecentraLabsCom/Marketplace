@@ -5,7 +5,7 @@ import {
   GatewayValidationError,
   buildGatewayTargetUrl,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
@@ -48,7 +48,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing required parameter: labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveGatewayBaseUrl({
+    const gatewayBaseUrl = await resolveLabAccessGateway({
       labId,
       gatewayUrl,
       requireLabMatch: Boolean(labId && gatewayUrl),

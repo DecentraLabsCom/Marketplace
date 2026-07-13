@@ -1,5 +1,10 @@
 import { GatewayValidationError, extractBearerHeader } from '@/utils/api/gatewayProxy'
-import { findFmuContext } from '@/utils/auth/fmuSessionStore'
+import { requireAuth } from '@/utils/auth/guards'
+import { createFmuUserBinding, findFmuContext } from '@/utils/auth/fmuSessionStore'
+
+export async function requireFmuUserBinding() {
+  return createFmuUserBinding(await requireAuth())
+}
 
 /**
  * Build the only credentials that may be forwarded to an FMU gateway.
@@ -10,12 +15,17 @@ import { findFmuContext } from '@/utils/auth/fmuSessionStore'
  */
 export function resolveFmuGatewayHeaders(
   request,
-  { labId, reservationKey, gatewayOrigin },
+  { labId, reservationKey, gatewayOrigin, userBinding },
 ) {
   const authorization = extractBearerHeader(request)
   if (authorization) return { Authorization: authorization }
 
-  const context = findFmuContext(request, { labId, reservationKey, gatewayOrigin })
+  const context = findFmuContext(request, {
+    labId,
+    reservationKey,
+    gatewayOrigin,
+    userBinding,
+  })
   if (!context) {
     throw new GatewayValidationError('FMU gateway session is missing or expired', 401)
   }

@@ -4,6 +4,7 @@
 
 import {
   FMU_CONTEXT_COOKIE,
+  createFmuUserBinding,
   encodeFmuContexts,
   findFmuContext,
   readFmuContexts,
@@ -29,6 +30,7 @@ describe('FMU Marketplace session contexts', () => {
       gatewayOrigin: 'https://gateway.example.com',
       jti,
       expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
     }
   }
 
@@ -48,11 +50,13 @@ describe('FMU Marketplace session contexts', () => {
       labId: '42',
       reservationKey: '0xaaa',
       gatewayOrigin: 'https://gateway.example.com',
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
     })).toMatchObject({ jti: 'session_identifier_aaaaaaaa' })
     expect(resolveFmuGatewayHeaders(request, {
       labId: '42',
       reservationKey: '0xbbb',
       gatewayOrigin: 'https://gateway.example.com',
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
     })).toEqual({ Cookie: 'FMU_SESSION=session_identifier_bbbbbbbb' })
   })
 
@@ -64,6 +68,7 @@ describe('FMU Marketplace session contexts', () => {
     expect(findFmuContext(request, {
       labId: '42',
       gatewayOrigin: 'https://gateway.example.com',
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
     })).toBeNull()
 
     const tampered = `${second.encoded[0] === 'A' ? 'B' : 'A'}${second.encoded.slice(1)}`
@@ -84,5 +89,28 @@ describe('FMU Marketplace session contexts', () => {
 
     expect(contexts).toHaveLength(6)
     expect(encoded.length).toBeLessThanOrEqual(3800)
+  })
+
+  test('binds contexts to the current Marketplace identity and rejects legacy contexts', () => {
+    const userOneBinding = createFmuUserBinding({ id: 'user-1' })
+    const userTwoBinding = createFmuUserBinding({ id: 'user-2' })
+    expect(userOneBinding).not.toBe(userTwoBinding)
+    expect(userOneBinding).not.toContain('user-1')
+
+    const stored = encodeFmuContexts([], context('0xaaa', 'session_identifier_aaaaaaaa'))
+    const request = requestWith(stored.encoded)
+    const lookup = {
+      labId: '42',
+      reservationKey: '0xaaa',
+      gatewayOrigin: 'https://gateway.example.com',
+    }
+
+    expect(findFmuContext(request, { ...lookup, userBinding: userOneBinding })).not.toBeNull()
+    expect(findFmuContext(request, { ...lookup, userBinding: userTwoBinding })).toBeNull()
+
+    expect(() => encodeFmuContexts([], {
+      ...context('0xbbb', 'session_identifier_bbbbbbbb'),
+      userBinding: undefined,
+    })).toThrow(/identity binding/i)
   })
 })

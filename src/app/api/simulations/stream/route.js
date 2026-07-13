@@ -1,12 +1,13 @@
 ﻿import devLog from '@/utils/dev/logger'
 import { createRateLimiter } from '@/utils/api/rateLimit'
+import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
-import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -23,6 +24,7 @@ export async function POST(request) {
   }
 
   try {
+    const userBinding = await requireFmuUserBinding()
     const body = await request.json()
     const { labId, reservationKey, gatewayUrl } = body
 
@@ -33,12 +35,13 @@ export async function POST(request) {
       })
     }
 
-    const gatewayBaseUrl = await resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/stream')
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,
+      userBinding,
     })
 
     devLog.log(`[simulations/stream] Proxying to ${targetUrl} for lab ${labId}`)
@@ -67,6 +70,7 @@ export async function POST(request) {
       headers: { 'Content-Type': 'application/x-ndjson' },
     })
   } catch (error) {
+    if (error instanceof HttpError) return handleGuardError(error)
     if (error instanceof GatewayValidationError) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: error.status || 400,

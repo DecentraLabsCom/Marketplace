@@ -11,6 +11,10 @@ jest.mock('@/utils/dev/logger', () => ({
   log: jest.fn(),
   error: jest.fn(),
 }))
+jest.mock('@/utils/auth/guards', () => {
+  const actual = jest.requireActual('@/utils/auth/guards')
+  return { ...actual, requireAuth: jest.fn() }
+})
 jest.mock('@/utils/api/gatewayProxy', () => {
   class MockGatewayValidationError extends Error {
     constructor(message, status = 400) {
@@ -21,7 +25,7 @@ jest.mock('@/utils/api/gatewayProxy', () => {
   }
   return {
     GatewayValidationError: MockGatewayValidationError,
-    resolveGatewayBaseUrl: jest.fn(),
+    resolveLabAccessGateway: jest.fn(),
     buildGatewayTargetUrl: jest.fn(),
     extractBearerHeader: jest.fn(),
     gatewayFetch: jest.fn((...args) => fetch(...args)),
@@ -29,6 +33,12 @@ jest.mock('@/utils/api/gatewayProxy', () => {
 })
 
 let gatewayProxy
+let authGuards
+
+async function setupAuthenticatedUser() {
+  authGuards = await import('@/utils/auth/guards')
+  authGuards.requireAuth.mockResolvedValue({ id: 'user-1' })
+}
 
 function buildUrl(base, routePath, query = null) {
   const url = new URL(`${base}${routePath}`)
@@ -49,8 +59,9 @@ describe('POST /api/simulations/run', () => {
   beforeEach(async () => {
     jest.resetModules()
     global.fetch = jest.fn()
+    await setupAuthenticatedUser()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../run/route')
@@ -89,7 +100,8 @@ describe('POST /api/simulations/run', () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
-    expect(gatewayProxy.resolveGatewayBaseUrl).toHaveBeenCalledWith({
+    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({
       labId: '1',
       gatewayUrl: undefined,
       requireLabMatch: true,
@@ -127,6 +139,27 @@ describe('POST /api/simulations/run', () => {
       'https://gw.example.com/fmu/api/v1/simulations/run',
       expect.objectContaining({ method: 'POST' })
     )
+  })
+
+  test('rejects an unauthenticated request before resolving the gateway', async () => {
+    authGuards.requireAuth.mockRejectedValueOnce(
+      new authGuards.UnauthorizedError('No valid session. Please log in.'),
+    )
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'completed' }),
+    })
+    const request = new Request('http://localhost/api/simulations/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '42', gatewayUrl: 'https://gw.example.com/auth' }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(401)
+    expect(gatewayProxy.resolveLabAccessGateway).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   test('forwards gateway error status', async () => {
@@ -206,7 +239,7 @@ describe('GET /api/simulations/describe', () => {
     jest.resetModules()
     global.fetch = jest.fn()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue(null)
     const mod = await import('../describe/route')
@@ -230,7 +263,7 @@ describe('GET /api/simulations/describe', () => {
   })
 
   test('returns 400 when gatewayUrl is missing', async () => {
-    gatewayProxy.resolveGatewayBaseUrl.mockRejectedValueOnce(
+    gatewayProxy.resolveLabAccessGateway.mockRejectedValueOnce(
       new gatewayProxy.GatewayValidationError('Missing labId or gatewayUrl', 400)
     )
     const request = new Request(
@@ -316,8 +349,9 @@ describe('POST /api/simulations/stream', () => {
   beforeEach(async () => {
     jest.resetModules()
     global.fetch = jest.fn()
+    await setupAuthenticatedUser()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../stream/route')
@@ -353,6 +387,7 @@ describe('POST /api/simulations/stream', () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
     expect(response.headers.get('Content-Type')).toContain('application/x-ndjson')
   })
 
@@ -382,8 +417,9 @@ describe('GET /api/simulations/history', () => {
   beforeEach(async () => {
     jest.resetModules()
     global.fetch = jest.fn()
+    await setupAuthenticatedUser()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../history/route')
@@ -416,6 +452,7 @@ describe('GET /api/simulations/history', () => {
     const response = await GET(request)
     const data = await response.json()
     expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
     expect(data.simulations).toHaveLength(1)
   })
 })
@@ -428,8 +465,9 @@ describe('GET /api/simulations/result', () => {
   beforeEach(async () => {
     jest.resetModules()
     global.fetch = jest.fn()
+    await setupAuthenticatedUser()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
     const mod = await import('../result/route')
@@ -471,6 +509,7 @@ describe('GET /api/simulations/result', () => {
     const response = await GET(request)
     const data = await response.json()
     expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
     expect(data.result.outputs.y).toEqual([1, 2])
   })
 })
@@ -514,8 +553,9 @@ describe('GET /api/simulations/proxy', () => {
   beforeEach(async () => {
     jest.resetModules()
     global.fetch = jest.fn()
+    await setupAuthenticatedUser()
     gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveGatewayBaseUrl.mockResolvedValue('https://gw.example.com')
+    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
     gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
     gatewayProxy.extractBearerHeader.mockReturnValue(null)
     const mod = await import('../proxy/route')
@@ -566,6 +606,7 @@ describe('GET /api/simulations/proxy', () => {
 
     const response = await GET(request)
     expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
     expect(response.headers.get('Content-Type')).toContain('application/octet-stream')
     expect(response.headers.get('Content-Disposition')).toContain('fmu-proxy-lab-42.fmu')
   })

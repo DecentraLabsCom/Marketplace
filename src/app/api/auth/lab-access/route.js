@@ -14,7 +14,7 @@ import {
 import {
   GatewayValidationError,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
 
 function normalizeOrganizationDomain(domain) {
@@ -58,7 +58,7 @@ async function resolveAuthContext(labId, authEndpoint) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
   try {
-    const gatewayBase = await resolveGatewayBaseUrl({
+    const gatewayBase = await resolveProviderAuthBackend({
       labId,
       gatewayUrl: authEndpoint,
       requireLabMatch: true,

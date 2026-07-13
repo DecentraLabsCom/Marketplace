@@ -437,7 +437,7 @@ describe('/api/auth/lab-access route', () => {
     const res = await POST(req)
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Provided gatewayUrl does not match on-chain lab auth URI',
+      error: 'Provided auth endpoint does not match on-chain provider auth URI',
       code: 'BAD_REQUEST',
     })
   })

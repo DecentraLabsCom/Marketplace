@@ -1,13 +1,14 @@
 ﻿import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import { createRateLimiter } from '@/utils/api/rateLimit'
+import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
-import { resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -24,6 +25,7 @@ export async function POST(request) {
   }
 
   try {
+    const userBinding = await requireFmuUserBinding()
     const body = await request.json()
     const { labId, reservationKey, parameters, options, gatewayUrl } = body
 
@@ -31,13 +33,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required field: labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/run')
 
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,
+      userBinding,
     })
 
     devLog.log(`[simulations/run] Proxying to ${targetUrl} for lab ${labId}`)
@@ -64,6 +67,7 @@ export async function POST(request) {
     const data = await gatewayRes.json()
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
+    if (error instanceof HttpError) return handleGuardError(error)
     if (error instanceof GatewayValidationError) {
       return NextResponse.json({ error: error.message }, { status: error.status || 400 })
     }

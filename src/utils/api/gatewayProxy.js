@@ -165,6 +165,30 @@ export function normalizeGatewayBaseUrl(rawUrl) {
   return `${origin}${path}`.replace(/\/+$/, '')
 }
 
+export function normalizeLabAccessUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    throw new GatewayValidationError('Missing lab access URI')
+  }
+
+  let parsed
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    throw new GatewayValidationError('Invalid lab access URI format')
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new GatewayValidationError('Unsupported lab access URI protocol')
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new GatewayValidationError('Lab access URI must not contain credentials, query parameters or fragments')
+  }
+
+  assertGatewayHostAllowed(parsed.hostname, parsed.origin)
+  const path = parsed.pathname.replace(/\/+$/, '')
+  return `${parsed.origin}${path}`
+}
+
 export function buildGatewayTargetUrl(baseUrl, routePath, query = null) {
   const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
   const normalizedPath = routePath.startsWith('/') ? routePath : `/${routePath}`
@@ -222,37 +246,75 @@ export function extractBearerHeader(request) {
   return authorization.startsWith('Bearer ') ? authorization : null
 }
 
-export async function resolveGatewayBaseUrl({ labId, gatewayUrl, requireLabMatch = true } = {}) {
-  let normalizedFromRequest = null
-  if (gatewayUrl) {
-    normalizedFromRequest = normalizeGatewayBaseUrl(gatewayUrl)
-  }
-
+function numericLabIdFrom(labId) {
   if (labId === undefined || labId === null || labId === '') {
-    if (!normalizedFromRequest) {
-      throw new GatewayValidationError('Missing labId or gatewayUrl')
-    }
-    await assertGatewayUrlResolvesPublic(normalizedFromRequest)
-    return normalizedFromRequest
+    throw new GatewayValidationError('Missing labId')
   }
-
   const numericLabId = Number(labId)
-  if (!Number.isFinite(numericLabId) || numericLabId < 0) {
+  if (!Number.isSafeInteger(numericLabId) || numericLabId < 0) {
     throw new GatewayValidationError('Invalid labId')
   }
+  return numericLabId
+}
+
+async function resolveOnChainEndpoint({
+  labId,
+  providedUrl,
+  requireLabMatch,
+  contractReader,
+  normalize,
+  missingMessage,
+  mismatchMessage,
+}) {
+  const numericLabId = numericLabIdFrom(labId)
+  const normalizedFromRequest = providedUrl ? normalize(providedUrl) : null
 
   const contract = await getContractInstance()
-  const authUri = await contract.getLabAuthURI(numericLabId)
-  if (!authUri) {
-    throw new GatewayValidationError('Lab has no configured gateway auth URI', 404)
+  const onChainUri = await contract[contractReader](numericLabId)
+  if (!onChainUri) {
+    throw new GatewayValidationError(missingMessage, 404)
   }
 
-  const normalizedOnChain = normalizeGatewayBaseUrl(String(authUri))
+  const normalizedOnChain = normalize(String(onChainUri))
 
   if (requireLabMatch && normalizedFromRequest && normalizedFromRequest !== normalizedOnChain) {
-    throw new GatewayValidationError('Provided gatewayUrl does not match on-chain lab auth URI')
+    throw new GatewayValidationError(mismatchMessage)
   }
 
   await assertGatewayUrlResolvesPublic(normalizedOnChain)
   return normalizedOnChain
+}
+
+export async function resolveProviderAuthBackend({ labId, gatewayUrl, requireLabMatch = true } = {}) {
+  return resolveOnChainEndpoint({
+    labId,
+    providedUrl: gatewayUrl,
+    requireLabMatch,
+    contractReader: 'getLabAuthURI',
+    normalize: normalizeGatewayBaseUrl,
+    missingMessage: 'Lab has no configured provider auth URI',
+    mismatchMessage: 'Provided auth endpoint does not match on-chain provider auth URI',
+  })
+}
+
+export async function resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch = true } = {}) {
+  if (labId === undefined || labId === null || labId === '') {
+    if (!gatewayUrl) {
+      throw new GatewayValidationError('Missing labId or lab access URI')
+    }
+    const accessUrl = normalizeLabAccessUrl(gatewayUrl)
+    await assertGatewayUrlResolvesPublic(accessUrl)
+    return new URL(accessUrl).origin
+  }
+
+  const accessUrl = await resolveOnChainEndpoint({
+    labId,
+    providedUrl: gatewayUrl,
+    requireLabMatch,
+    contractReader: 'getLabAccessURI',
+    normalize: normalizeLabAccessUrl,
+    missingMessage: 'Lab has no configured access URI',
+    mismatchMessage: 'Provided lab destination does not match on-chain lab access URI',
+  })
+  return new URL(accessUrl).origin
 }

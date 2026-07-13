@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { clearSessionCookies } from '@/utils/auth/sessionCookie'
+import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
 
 /**
  * Logs out the current user by clearing session cookies
@@ -13,6 +14,7 @@ import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 export async function GET() {
     const cookieStore = await cookies();
     clearSessionCookies(cookieStore);
+    clearFmuContextCookie(cookieStore);
     
     // Add a small delay to ensure cookie clearing is processed
     await new Promise(resolve => setTimeout(resolve, 100));

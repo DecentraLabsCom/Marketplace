@@ -13,7 +13,7 @@ import {
 import {
   GatewayValidationError,
   gatewayFetch,
-  resolveGatewayBaseUrl,
+  resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
 
 async function resolveAuthContext(labId, authEndpoint) {
@@ -21,7 +21,7 @@ async function resolveAuthContext(labId, authEndpoint) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
   try {
-    const gatewayBase = await resolveGatewayBaseUrl({
+    const gatewayBase = await resolveProviderAuthBackend({
       labId,
       gatewayUrl: authEndpoint,
       requireLabMatch: true,

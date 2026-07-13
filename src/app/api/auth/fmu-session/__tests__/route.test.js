@@ -3,7 +3,16 @@
  */
 
 import { requireAuth } from '@/utils/auth/guards'
-import { gatewayFetch, resolveGatewayBaseUrl } from '@/utils/api/gatewayProxy'
+import {
+  FMU_CONTEXT_COOKIE,
+  createFmuUserBinding,
+  readFmuContexts,
+} from '@/utils/auth/fmuSessionStore'
+import {
+  GatewayValidationError,
+  gatewayFetch,
+  resolveLabAccessGateway,
+} from '@/utils/api/gatewayProxy'
 
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
@@ -11,8 +20,14 @@ jest.mock('@/utils/auth/guards', () => {
 })
 
 jest.mock('@/utils/api/gatewayProxy', () => ({
+  GatewayValidationError: class GatewayValidationError extends Error {
+    constructor(message, status = 400) {
+      super(message)
+      this.status = status
+    }
+  },
   gatewayFetch: jest.fn(),
-  resolveGatewayBaseUrl: jest.fn(),
+  resolveLabAccessGateway: jest.fn(),
 }))
 
 describe('POST /api/auth/fmu-session', () => {
@@ -30,7 +45,7 @@ describe('POST /api/auth/fmu-session', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     requireAuth.mockResolvedValue({ id: 'user-1' })
-    resolveGatewayBaseUrl.mockResolvedValue('https://gateway.example.com')
+    resolveLabAccessGateway.mockResolvedValue('https://lite.lab.example')
     gatewayFetch.mockResolvedValue({
       status: 204,
       headers: new Headers({
@@ -46,16 +61,21 @@ describe('POST /api/auth/fmu-session', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         accessCode: 'opaque-code',
-        labURL: 'https://gateway.example.com/fmu/',
+        labURL: 'https://lite.lab.example/fmu/',
         labId: '42',
         reservationKey: '0xaaa',
       }),
     }))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ gatewayOrigin: 'https://gateway.example.com' })
+    await expect(response.json()).resolves.toEqual({ gatewayOrigin: 'https://lite.lab.example' })
+    expect(resolveLabAccessGateway).toHaveBeenCalledWith({
+      labId: '42',
+      gatewayUrl: 'https://lite.lab.example/fmu/',
+      requireLabMatch: true,
+    })
     expect(gatewayFetch).toHaveBeenCalledWith(
-      'https://gateway.example.com/auth/access',
+      'https://lite.lab.example/auth/access',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -67,9 +87,20 @@ describe('POST /api/auth/fmu-session', () => {
     expect(setCookie).toContain('SameSite=lax')
     expect(setCookie).not.toContain('session_identifier_aaaaaaaa')
     expect(setCookie).not.toContain('opaque-code')
+
+    const encoded = setCookie.match(/marketplace_fmu_contexts=([^;]+)/)?.[1]
+    const storedRequest = new Request('https://marketplace.example.com/api/simulations/history', {
+      headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
+    })
+    expect(readFmuContexts(storedRequest)).toEqual([
+      expect.objectContaining({ userBinding: createFmuUserBinding({ id: 'user-1' }) }),
+    ])
   })
 
   test('rejects a labURL whose origin differs from the on-chain gateway', async () => {
+    resolveLabAccessGateway.mockRejectedValueOnce(
+      new GatewayValidationError('Provided lab destination does not match on-chain lab access URI'),
+    )
     const { POST } = await import('../route')
     const response = await POST(new Request('https://marketplace.example.com/api/auth/fmu-session', {
       method: 'POST',
@@ -99,7 +130,7 @@ describe('POST /api/auth/fmu-session', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         accessCode: 'opaque-code',
-        labURL: 'https://gateway.example.com/fmu/',
+        labURL: 'https://lite.lab.example/fmu/',
         labId: '42',
         reservationKey: '0xaaa',
       }),
