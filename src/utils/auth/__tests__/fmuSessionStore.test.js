@@ -66,7 +66,7 @@ describe('FMU Marketplace session contexts', () => {
       gatewayOrigin: 'https://gateway.example.com',
     })).toBeNull()
 
-    const tampered = `${second.encoded.slice(0, -1)}${second.encoded.endsWith('A') ? 'B' : 'A'}`
+    const tampered = `${second.encoded[0] === 'A' ? 'B' : 'A'}${second.encoded.slice(1)}`
     expect(readFmuContexts(requestWith(tampered))).toEqual([])
   })
 

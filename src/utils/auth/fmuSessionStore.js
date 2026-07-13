@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 export const FMU_CONTEXT_COOKIE = 'marketplace_fmu_contexts'
 const MAX_CONTEXTS = 6
 const MAX_COOKIE_LENGTH = 3800
+const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/
 
 function encryptionKey() {
   const secret = process.env.SESSION_SECRET
@@ -24,6 +25,7 @@ function encrypt(value) {
 function decrypt(value) {
   try {
     const encoded = String(value || '')
+    if (!encoded || encoded.length % 4 === 1 || !BASE64URL_PATTERN.test(encoded)) return []
     const packed = Buffer.from(encoded, 'base64url')
     if (packed.toString('base64url') !== encoded) return []
     if (packed.length <= 28) return []
