@@ -150,6 +150,7 @@ describe('/api/auth/checkin route', () => {
     global.fetch.mockResolvedValue({
       ok: true,
       status: 202,
+      headers: new Headers({ 'Retry-After': '2' }),
       text: async () => JSON.stringify({ valid: true, queued: true, reason: 'CHECKIN_QUEUED' }),
     })
 
@@ -161,6 +162,7 @@ describe('/api/auth/checkin route', () => {
     }))
 
     expect(res.status).toBe(202)
+    expect(res.headers.get('Retry-After')).toBe('2')
     await expect(res.json()).resolves.toMatchObject({
       queued: true,
       reason: 'CHECKIN_QUEUED',

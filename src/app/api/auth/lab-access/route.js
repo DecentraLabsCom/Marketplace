@@ -250,7 +250,7 @@ export async function POST(req) {
       const responseText = await response.text()
       if (!response.ok) {
         const pending = parseResponseJson(responseText)
-        if (!isRetryableProviderPending(response, responseText) || !pending.txHash) {
+        if (!isRetryableProviderPending(response, responseText)) {
           return providerFailureResponse(response, responseText, 'Combined access authorization failed')
         }
 

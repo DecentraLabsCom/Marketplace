@@ -597,4 +597,48 @@ describe('/api/auth/lab-access route', () => {
       accessAuthorizationTxHash: '0xtx',
     })
   })
+
+  test('continues combined access authorization when pending check-in has no transaction hash', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'Retry-After': '0' }),
+        text: async () => JSON.stringify({
+          retryable: true,
+          reservationKey: '0xcanonical',
+        }),
+      })
+      .mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/authorize-and-issue'))).toHaveLength(1)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(1)
+    const retryPayload = JSON.parse(global.fetch.mock.calls[1][1].body)
+    expect(retryPayload).toMatchObject({
+      marketplaceToken: 'marketplace-token',
+      reservationKey: '0xcanonical',
+      labId: '10',
+    })
+    expect(retryPayload).not.toHaveProperty('accessAuthorizationTxHash')
+  })
 })

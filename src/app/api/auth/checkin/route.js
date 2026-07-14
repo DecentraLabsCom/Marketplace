@@ -174,7 +174,11 @@ export async function POST(req) {
 
     const data = responseText ? JSON.parse(responseText) : {}
     const responseStatus = Number.isInteger(response.status) ? response.status : 200
-    return NextResponse.json(data, { status: responseStatus })
+    const retryAfter = response.headers?.get?.('retry-after')
+    return NextResponse.json(data, {
+      status: responseStatus,
+      ...(retryAfter ? { headers: { 'Retry-After': retryAfter } } : {}),
+    })
   } catch (error) {
     return handleGuardError(error)
   }
