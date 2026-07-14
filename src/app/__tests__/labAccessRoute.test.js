@@ -146,7 +146,13 @@ describe('/api/auth/lab-access route', () => {
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify({ valid: true, reservationKey: '0xabc' }),
+        status: 202,
+        text: async () => JSON.stringify({
+          valid: true,
+          queued: true,
+          reason: 'CHECKIN_QUEUED',
+          reservationKey: '0xabc',
+        }),
       })
       .mockResolvedValueOnce(buildAccessCodeResponse())
 

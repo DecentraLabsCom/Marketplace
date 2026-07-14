@@ -134,6 +134,39 @@ describe('/api/auth/checkin route', () => {
     )
   })
 
+  test('preserves 202 when the backend accepts the check-in into its queue', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-queued@uned.es',
+    })
+
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 202,
+      text: async () => JSON.stringify({ valid: true, queued: true, reason: 'CHECKIN_QUEUED' }),
+    })
+
+    const { POST } = await import('../api/auth/checkin/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservationKey: '0xabc', labId: '10' }),
+    }))
+
+    expect(res.status).toBe(202)
+    await expect(res.json()).resolves.toMatchObject({
+      queued: true,
+      reason: 'CHECKIN_QUEUED',
+    })
+  })
+
   test('uses only SAML-derived puc and ignores stale session id', async () => {
     requireAuth.mockResolvedValue({
       id: 'legacy-user-id',

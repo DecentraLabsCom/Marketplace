@@ -173,7 +173,8 @@ export async function POST(req) {
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
-    return NextResponse.json(data, { status: 200 })
+    const responseStatus = Number.isInteger(response.status) ? response.status : 200
+    return NextResponse.json(data, { status: responseStatus })
   } catch (error) {
     return handleGuardError(error)
   }
