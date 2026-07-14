@@ -150,6 +150,8 @@ describe('/api/provider/saveLabData route', () => {
       displayUnit: 'week',
       billingMode: 'linear-duration',
     }))
+    expect(attributes.pricingUnit).toBeUndefined()
+    expect(attributes.pricingDisplayAmount).toBeUndefined()
     expect(attributes.bookingMode).toBe('calendar-period')
     expect(attributes.allowedDurationRange).toEqual({ unit: 'week', min: 1, max: 2 })
     expect(attributes.allowedDurations).toEqual([

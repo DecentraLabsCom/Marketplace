@@ -460,8 +460,6 @@ export async function POST(req) {
         { trait_type: "keywords", value: normalizedKeywords },
         ...(normalizedBookingMode === DEFAULT_BOOKING_MODE ? [{ trait_type: "timeSlots", value: normalizedTimeSlots }] : []),
         { trait_type: "pricing", value: normalizedPricing },
-        { trait_type: "pricingUnit", value: normalizedPricing.displayUnit },
-        { trait_type: "pricingDisplayAmount", value: normalizedPricing.displayAmount },
         { trait_type: "bookingMode", value: normalizedBookingMode },
         ...(normalizedAllowedDurationRange ? [{ trait_type: "allowedDurationRange", value: normalizedAllowedDurationRange }] : []),
         { trait_type: "allowedDurations", value: normalizedAllowedDurations },
