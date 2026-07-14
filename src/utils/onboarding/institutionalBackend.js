@@ -21,10 +21,15 @@ import {
 export { institutionalBackendFetch }
 
 /**
- * Cache for resolved backend URLs to avoid repeated lookups
- * @type {Map<string, string>}
+ * Cache for resolved backend URLs to avoid repeated lookups while still
+ * allowing on-chain revocations and endpoint changes to take effect.
+ * @type {Map<string, { url: string, expiresAt: number }>}
  */
 const backendCache = new Map()
+
+// Keep discovery fast without retaining a revoked or replaced backend for the
+// lifetime of the browser/server process.
+export const INSTITUTIONAL_BACKEND_CACHE_TTL_MS = 5 * 60 * 1000
 
 /**
  * Resolves the Institutional Backend URL for a given institution.
@@ -41,9 +46,14 @@ export async function resolveInstitutionalBackendUrl(institutionId) {
     return null
   }
 
-  // Check cache first
-  if (backendCache.has(institutionId)) {
-    return backendCache.get(institutionId)
+  // Check cache first, evicting expired entries before they can be used.
+  const now = Date.now()
+  const cached = backendCache.get(institutionId)
+  if (cached) {
+    if (cached.expiresAt > now) {
+      return cached.url
+    }
+    backendCache.delete(institutionId)
   }
 
   try {
@@ -66,9 +76,13 @@ export async function resolveInstitutionalBackendUrl(institutionId) {
     let backendUrl = await resolveBackend(normalizedId)
 
     if (backendUrl) {
-      backendCache.set(institutionId, backendUrl)
+      const cacheEntry = {
+        url: backendUrl,
+        expiresAt: now + INSTITUTIONAL_BACKEND_CACHE_TTL_MS,
+      }
+      backendCache.set(institutionId, cacheEntry)
       if (normalizedId !== institutionId) {
-        backendCache.set(normalizedId, backendUrl)
+        backendCache.set(normalizedId, cacheEntry)
       }
       devLog.log('[InstitutionalBackend] Resolved backend for', institutionId, '->', backendUrl)
       return backendUrl

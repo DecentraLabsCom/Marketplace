@@ -6,6 +6,7 @@ import {
   resolveInstitutionalBackendUrl,
   hasInstitutionalBackend,
   clearBackendCache,
+  INSTITUTIONAL_BACKEND_CACHE_TTL_MS,
 } from '../institutionalBackend'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 
@@ -34,6 +35,10 @@ describe('institutionalBackend', () => {
     clearBackendCache()
     getContractInstance.mockResolvedValue(mockContract)
     mockContract.getSchacHomeOrganizationBackend.mockReset()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   test('returns null when institutionId is missing', async () => {
@@ -65,15 +70,20 @@ describe('institutionalBackend', () => {
     await expect(resolveInstitutionalBackendUrl('uned.es')).resolves.toBeNull()
   })
 
-  test('uses cache after first resolution', async () => {
+  test('uses cache until the TTL and observes an on-chain backend change afterwards', async () => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
     mockContract.getSchacHomeOrganizationBackend.mockResolvedValueOnce('https://backend.uned.es')
 
     const first = await resolveInstitutionalBackendUrl('uned.es')
     mockContract.getSchacHomeOrganizationBackend.mockResolvedValueOnce('https://changed.example')
     const second = await resolveInstitutionalBackendUrl('uned.es')
+    jest.advanceTimersByTime(INSTITUTIONAL_BACKEND_CACHE_TTL_MS + 1)
+    const refreshed = await resolveInstitutionalBackendUrl('uned.es')
 
     expect(first).toBe('https://backend.uned.es')
     expect(second).toBe('https://backend.uned.es')
-    expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(1)
+    expect(refreshed).toBe('https://changed.example')
+    expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(2)
   })
 })
