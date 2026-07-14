@@ -258,11 +258,17 @@ export async function POST(req) {
         // Continue only with credential issuance so that retrying cannot create
         // a second consumer-side authorization transaction.
         await new Promise((resolve) => setTimeout(resolve, retryAfterMilliseconds(response)))
+        const canonicalReservationKey = pending.reservationKey || reservationKey
+        const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+          ...commonTokenClaims,
+          reservationKey: canonicalReservationKey,
+          audience: buildBackendAudiences(providerAudience),
+        })
         const { response: credentialResponse, responseText: credentialText } = await issueProviderCredential(
           authBase,
           {
-            marketplaceToken,
-            reservationKey: pending.reservationKey || reservationKey,
+            marketplaceToken: providerMarketplaceToken,
+            reservationKey: canonicalReservationKey,
             labId,
             accessAuthorizationTxHash: pending.txHash,
           },
@@ -311,15 +317,17 @@ export async function POST(req) {
       )
     }
     const checkInData = parseResponseJson(checkInResponseText)
+    const canonicalReservationKey = checkInData.reservationKey || reservationKey
 
     const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       ...commonTokenClaims,
+      reservationKey: canonicalReservationKey,
       audience: buildBackendAudiences(providerAudience),
     })
 
     const providerPayload = {
       marketplaceToken: providerMarketplaceToken,
-      reservationKey: checkInData.reservationKey || reservationKey,
+      reservationKey: canonicalReservationKey,
       labId,
       accessAuthorizationTxHash: checkInData.txHash,
     }

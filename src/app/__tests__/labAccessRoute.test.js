@@ -418,6 +418,10 @@ describe('/api/auth/lab-access route', () => {
     })
 
     expect(getLabAuthURI).toHaveBeenCalledWith(10)
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ reservationKey: '0xabc' })
+    )
     expect(global.fetch).toHaveBeenNthCalledWith(
       2,
       'https://gateway.example.com/auth/access-credential',
@@ -546,6 +550,10 @@ describe('/api/auth/lab-access route', () => {
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/checkin-institutional'))).toHaveLength(1)
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(2)
     expect(JSON.parse(global.fetch.mock.calls[1][1].body).reservationKey).toBe('0xcanonical')
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ reservationKey: '0xcanonical' })
+    )
   })
 
   test('does not repeat combined check-in when credential delivery is pending', async () => {
@@ -555,7 +563,9 @@ describe('/api/auth/lab-access route', () => {
       eduPersonPrincipalName: 'user-1@uned.es',
     })
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
-    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('combined-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
     resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
     getContractInstance.mockResolvedValue({
       getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
@@ -592,10 +602,14 @@ describe('/api/auth/lab-access route', () => {
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(2)
     const retryPayload = JSON.parse(global.fetch.mock.calls[1][1].body)
     expect(retryPayload).toMatchObject({
-      marketplaceToken: 'marketplace-token',
+      marketplaceToken: 'provider-marketplace-token',
       reservationKey: '0xcanonical',
       accessAuthorizationTxHash: '0xtx',
     })
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ reservationKey: '0xcanonical' })
+    )
   })
 
   test('continues combined access authorization when pending check-in has no transaction hash', async () => {
@@ -605,7 +619,9 @@ describe('/api/auth/lab-access route', () => {
       eduPersonPrincipalName: 'user-1@uned.es',
     })
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
-    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('combined-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
     resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
     getContractInstance.mockResolvedValue({
       getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
@@ -635,10 +651,14 @@ describe('/api/auth/lab-access route', () => {
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(1)
     const retryPayload = JSON.parse(global.fetch.mock.calls[1][1].body)
     expect(retryPayload).toMatchObject({
-      marketplaceToken: 'marketplace-token',
+      marketplaceToken: 'provider-marketplace-token',
       reservationKey: '0xcanonical',
       labId: '10',
     })
     expect(retryPayload).not.toHaveProperty('accessAuthorizationTxHash')
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ reservationKey: '0xcanonical' })
+    )
   })
 })
