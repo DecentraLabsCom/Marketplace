@@ -31,7 +31,7 @@
     "show-vercel-keys": "node scripts/show-keys-for-vercel.js",
     "update-vercel-env": "node scripts/update-vercel-env.js",
     "pre-commit": "node scripts/pre-commit-check.js",
-    "coverage:report": "node scripts/coverage-report.js"
+    "coverage:summary": "node scripts/coverage-report.js"
   },
   "dependencies": {
     "@base-org/account": "~2.5.4",

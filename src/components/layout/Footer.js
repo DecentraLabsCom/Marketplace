@@ -44,28 +44,32 @@ export default function Footer() {
           </div>
 
           {/* Center: Links */}
-          <nav aria-label="Legal and governance" className="flex flex-wrap gap-x-4 gap-y-2 justify-center items-center">
-            <Link href="/about" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              About
-            </Link>
-            <Link href="/faq" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              FAQ
-            </Link>
-            <Link href="/contact" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              Contact
-            </Link>
-            <Link href="/privacy" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              Privacy
-            </Link>
-            <Link href="/terms" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              Terms
-            </Link>
-            <Link href="/cookies" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              Cookies
-            </Link>
-            <Link href="/security" className="text-slate-100 hover:text-brand-primary transition font-semibold">
-              Security
-            </Link>
+          <nav aria-label="Legal and governance" className="flex flex-col items-center gap-1">
+            <div className="flex flex-wrap gap-x-4 justify-center items-center">
+              <Link href="/about" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+                About
+              </Link>
+              <Link href="/faq" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+                FAQ
+              </Link>
+              <Link href="/contact" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+                Contact
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-x-3 justify-center items-center text-xs leading-4">
+              <Link href="/privacy" className="text-slate-100 hover:text-brand-primary transition">
+                Privacy
+              </Link>
+              <Link href="/terms" className="text-slate-100 hover:text-brand-primary transition">
+                Terms
+              </Link>
+              <Link href="/cookies" className="text-slate-100 hover:text-brand-primary transition">
+                Cookies
+              </Link>
+              <Link href="/security" className="text-slate-100 hover:text-brand-primary transition">
+                Security
+              </Link>
+            </div>
           </nav>
 
           {/* Right: Social Media */}

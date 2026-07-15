@@ -85,6 +85,17 @@ describe('Footer', () => {
       })
     })
 
+    test('keeps primary links separate from smaller legal links', () => {
+      const nav = screen.getByRole('navigation', { name: 'Legal and governance' })
+      const rows = nav.querySelectorAll(':scope > div')
+
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toHaveTextContent('AboutFAQContact')
+      expect(rows[1]).toHaveTextContent('PrivacyTermsCookiesSecurity')
+      expect(rows[1]).toHaveClass('text-xs')
+      expect(rows[1]).not.toHaveClass('font-semibold')
+    })
+
     test('renders external social links with proper security attributes and hover classes', () => {
       const externalUrls = [
         'https://decentralabs.nebsyst.com',
