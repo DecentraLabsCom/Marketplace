@@ -83,6 +83,12 @@ jest.mock('@/utils/onboarding/institutionalBackend', () => ({
   resolveInstitutionalBackendUrl: jest.fn(),
 }))
 
+jest.mock('@/utils/api/rateLimit', () => ({
+  createRateLimiter: jest.fn(() => jest.fn(async () => ({ limited: false }))),
+  createRateLimitResponse: jest.fn(() => null),
+  clearRateLimitStoresForTests: jest.fn(),
+}))
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {

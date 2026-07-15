@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
@@ -9,7 +9,7 @@ import {
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 30 })
+const checkRate = createRateLimiter({ operation: 'aas-shell', windowMs: 60_000, maxRequests: 30 })
 
 /**
  * Base64url-encode an AAS / submodel ID for BaSyx V2 REST path segments.
@@ -61,10 +61,8 @@ function extractCollectionProperties(submodelElements, collectionIdShort) {
  * where `nameplate` is null if the provider has not yet synced the Nameplate submodel.
  */
 export async function GET(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return NextResponse.json({ error: 'Too many requests - please try again later' }, { status: 429 })
-  }
+  const rateLimitResponse = createRateLimitResponse(await checkRate(request))
+  if (rateLimitResponse) return rateLimitResponse
 
   try {
     const { searchParams } = new URL(request.url)

@@ -4,8 +4,10 @@ import {
 } from '@/utils/api/gatewayProxy'
 import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+const checkRate = createRateLimiter({ operation: 'metadata-document', windowMs: 60_000, maxRequests: 30 })
 
 const configuredMetadataOrigins = () => String(process.env.ALLOWED_METADATA_ORIGINS || '')
   .split(',')
@@ -49,6 +51,9 @@ const responseHeaders = (contentType, disposition) => ({
  * explicitly configured) are eligible.
  */
 export async function GET(request) {
+  const rateLimitResponse = createRateLimitResponse(await checkRate(request))
+  if (rateLimitResponse) return rateLimitResponse
+
   const { searchParams } = new URL(request.url)
   const uri = searchParams.get('uri')
   const labId = normalizeLabId(searchParams.get('labId'))

@@ -20,6 +20,9 @@ import {
   resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'auth-lab-access', windowMs: 60_000, maxRequests: 20 })
 
 function normalizeOrganizationDomain(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -181,6 +184,8 @@ function providerFailureResponse(response, responseText, message) {
 export async function POST(req) {
   try {
     const session = await requireAuth()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     const body = await req.json().catch(() => ({}))
     const { labId, reservationKey, authEndpoint } = body || {}
     if (!labId && !reservationKey) {

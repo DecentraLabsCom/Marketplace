@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
   buildGatewayTargetUrl,
@@ -9,7 +9,7 @@ import {
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
+const checkRate = createRateLimiter({ operation: 'aas-package', windowMs: 60_000, maxRequests: 20 })
 
 /**
  * Base64url-encode an AAS identifier for BaSyx V2 REST path segments.
@@ -35,10 +35,8 @@ function encodeAasId(id) {
  *   5xx  { error: ... }       — proxy or gateway error
  */
 export async function GET(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return NextResponse.json({ error: 'Too many requests - please try again later' }, { status: 429 })
-  }
+  const rateLimitResponse = createRateLimitResponse(await checkRate(request))
+  if (rateLimitResponse) return rateLimitResponse
 
   try {
     const { searchParams } = new URL(request.url)

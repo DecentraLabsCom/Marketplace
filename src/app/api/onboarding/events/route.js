@@ -13,6 +13,9 @@ import { onboardingEventBus } from '../_eventBus'
 import { getOnboardingResult } from '@/utils/onboarding'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'onboarding-events', windowMs: 60_000, maxRequests: 10 })
 
 const buildLookupKeys = ({ stableUserId, sessionId, institutionId }) => {
   const keys = []
@@ -24,7 +27,9 @@ const buildLookupKeys = ({ stableUserId, sessionId, institutionId }) => {
 
 export async function GET(request) {
   try {
-    await requireAuth()
+    const session = await requireAuth()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
   } catch (error) {
     return handleGuardError(error, request)
   }

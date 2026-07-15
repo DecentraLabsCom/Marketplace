@@ -32,6 +32,9 @@ import {
   getIscedCodesFromClassification,
 } from '@/constants/labClassifications'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-save-lab-data', windowMs: 60_000, maxRequests: 10 })
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const PERIOD_UNITS = ['day', 'week', 'month']
@@ -245,6 +248,8 @@ export async function POST(req) {
     // Require provider role (defense in depth; the smart contract enforces
     // _requireLabProvider on-chain as the primary gate).
     const session = await requireAuth();
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     requireProviderRole(session);
     
     const body = await req.json();

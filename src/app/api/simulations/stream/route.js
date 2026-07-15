@@ -1,5 +1,5 @@
 ﻿import devLog from '@/utils/dev/logger'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
@@ -10,22 +10,16 @@ import {
 import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
+const checkRate = createRateLimiter({ operation: 'simulation-stream', windowMs: 60_000, maxRequests: 10 })
 
 /**
  * POST /api/simulations/stream
  */
 export async function POST(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
   try {
     const userBinding = await requireFmuUserBinding()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
+    if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
     const { labId, reservationKey, gatewayUrl } = body
 

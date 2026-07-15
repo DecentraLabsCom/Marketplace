@@ -31,6 +31,9 @@ import {
 } from '@/utils/storage/fileSecurity'
 import { enforceTemporaryUploadQuota, TemporaryUploadLimitError } from '@/utils/storage/temporaryUploads'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-upload-file', windowMs: 60_000, maxRequests: 20 })
 
 const IMAGE_OPTIMIZATION = {
   minBytesToOptimize: 250 * 1024, // Keep small files untouched to preserve fidelity.
@@ -113,6 +116,8 @@ export async function POST(req) {
     // ===== AUTHENTICATION & AUTHORIZATION =====
     // Require a valid authenticated session
     const session = await requireAuth();
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     
     // Parse form data to get file and labId
     const formData = await req.formData();

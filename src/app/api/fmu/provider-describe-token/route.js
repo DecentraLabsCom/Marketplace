@@ -3,7 +3,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { GatewayValidationError, gatewayFetch, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
 import {
   handleGuardError,
@@ -12,7 +12,7 @@ import {
 } from '@/utils/auth/guards'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 30 })
+const checkRate = createRateLimiter({ operation: 'fmu-provider-describe-token', windowMs: 60_000, maxRequests: 30 })
 
 function buildBackendAudiences(targetAudience) {
   const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
@@ -29,14 +29,11 @@ function buildBackendAudiences(targetAudience) {
  * Returns { token, expiresIn } on success.
  */
 export async function GET(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return NextResponse.json({ error: 'Too many requests - please try again later' }, { status: 429 })
-  }
-
   try {
     const session = await requireAuth()
     requireProviderRole(session)
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
 
     const { searchParams } = new URL(request.url)
     const fmuFileName = searchParams.get('fmuFileName')

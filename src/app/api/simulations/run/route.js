@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
@@ -11,7 +11,7 @@ import {
 import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
+const checkRate = createRateLimiter({ operation: 'simulation-run', windowMs: 60_000, maxRequests: 10 })
 
 /**
  * POST /api/simulations/run
@@ -20,13 +20,10 @@ const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
  * Expects JSON body: { labId, reservationKey, parameters, options, gatewayUrl? }
  */
 export async function POST(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return NextResponse.json({ error: 'Too many requests - please try again later' }, { status: 429 })
-  }
-
   try {
     const userBinding = await requireFmuUserBinding()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
+    if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
     const { labId, reservationKey, parameters, options, gatewayUrl } = body
 

@@ -49,9 +49,13 @@ Open-source architecture, promoting transparency and collaboration.
 
 Marketplace runs as stateless Vercel functions in production. The on-chain intent registry uses a sequential anti-replay nonce per `signer`, so concurrent intent registrations from the same signer can collide if two functions read the same `nextIntentNonce(signer)` before the first registration is mined.
 
-The current implementation intentionally does not use an in-memory nonce lock, because that lock would not be shared across Vercel instances and would provide a false production guarantee. Until a durable coordinator is added, simultaneous reservations using the same signer may fail with `InvalidNonce` and must be retried.
+Intent preparation acquires a short-lived distributed lock in the configured Upstash/Vercel KV store, keyed by the normalized signer address. The lock covers nonce lookup, signing, transaction submission and receipt waiting, so another Vercel instance cannot read and submit the same pending nonce. Contention returns a retryable `409 INTENT_SIGNER_BUSY` response instead of sending a colliding transaction.
 
-The correct production fix is a distributed lock or queue per signer (Redis, KV, Postgres, or equivalent) or a persistent registration worker.
+Production must therefore provide `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or the equivalent `UPSTASH_REDIS_REST_*` / `SESSION_STORE_REST_*` pair). If the lock release request fails, the Redis TTL remains the safety net. A caller-supplied `requestId` is also carried into the signed intent when present, allowing retries to be reconciled against the contract's request ID.
+
+### Distributed API rate limiting
+
+Costly Marketplace routes use the same Redis REST coordinator with an operation-specific fixed window. Authenticated routes count IP, user and institution dimensions; unauthenticated or callback routes count the trusted Vercel client IP. Production fails closed with `503` if the coordinator is unavailable, rather than silently falling back to a per-instance counter. Responses include `Retry-After` when a limit is reached.
 
 ### Getting Started
 

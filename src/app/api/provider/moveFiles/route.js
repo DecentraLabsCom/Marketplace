@@ -24,6 +24,9 @@ import {
   validateLabId,
 } from '@/utils/storage/fileSecurity'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-move-files', windowMs: 60_000, maxRequests: 20 })
 
 const MAX_MOVE_ATTEMPTS = 3
 
@@ -41,6 +44,8 @@ export async function POST(req) {
     // ===== AUTHENTICATION =====
     // Require a valid authenticated session
     const session = await requireAuth();
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     
     const body = await req.json();
     const { filePaths, labId } = body;

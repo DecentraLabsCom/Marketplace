@@ -24,6 +24,9 @@ import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDom
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { getBaseUrl } from '@/utils/env/baseUrl'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'onboarding-session', windowMs: 60_000, maxRequests: 10 })
 
 /**
  * GET /api/onboarding/session
@@ -31,7 +34,7 @@ import { getBaseUrl } from '@/utils/env/baseUrl'
  * 
  * @returns {Response} JSON with user data for IB onboarding
  */
-export async function GET() {
+export async function GET(request = new Request('http://localhost/api/onboarding/session')) {
   try {
     const cookieStore = await cookies()
   const session = await getSessionFromCookies(cookieStore)
@@ -42,6 +45,9 @@ export async function GET() {
         { status: 401 }
       )
     }
+
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
 
     const userData = {
       eduPersonPrincipalName: session.eduPersonPrincipalName,

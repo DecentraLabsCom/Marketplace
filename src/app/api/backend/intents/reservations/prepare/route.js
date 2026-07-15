@@ -8,6 +8,11 @@ import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import {
+  IntentSignerBusyError,
+  IntentSignerUnavailableError,
+  withIntentSignerLock,
+} from '@/utils/intents/intentNonceStore'
+import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
   notifyIntentRegistrationMined,
@@ -24,6 +29,9 @@ import { calculateReservationTotal } from '@/utils/pricing/pricingUnits'
 import devLog from '@/utils/dev/logger'
 import { getCachedAdminAddress, getCachedIntentExecutorForInstitution } from './cache'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'intent-reservation-prepare', windowMs: 60_000, maxRequests: 10 })
 
 function parsePositiveBigInt(value, fieldName) {
   try {
@@ -40,6 +48,8 @@ function parsePositiveBigInt(value, fieldName) {
 export async function POST(request) {
   try {
     const session = await requireAuth()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
     const { labId, start, end, timeslot, returnUrl } = body || {}
 
@@ -131,99 +141,122 @@ export async function POST(request) {
     const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), parsedStart.value])
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
-    const intentPackage = await buildReservationIntent({
-      executor: executorAddress,
-      signer: adminAddress,
-      schacHomeOrganization,
-      pucHash,
-      assertionHash,
-      labId,
-      start: parsedStart.value,
-      end: parsedEnd.value,
-      price,
-      reservationKey,
-      nowSec: chainNowSec,
-      action: bookingAction,
-    })
-
-    const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
-
+    let intentPackage
+    let adminSignature
     let authorization = null
     let backendAuth = null
     let onChain = null
+    let authPromise
     try {
-      backendAuth = await getIntentBackendAuthToken()
-
-      const serializedMeta = serializeIntent(intentPackage.meta)
-      const serializedPayload = serializeIntent(intentPackage.payload)
-
-      const registrationPromise = registerIntentOnChain(
-        'reservation',
-        intentPackage.meta,
-        intentPackage.payload,
-        adminSignature,
-        { waitForReceipt: false },
-      )
-
-      const authPromise = requestIntentAuthorizationSession({
-        backendUrl,
-        backendAuthToken: backendAuth.token,
-        payloadKey: 'reservationPayload',
-        meta: serializedMeta,
-        payload: serializedPayload,
-        signature: adminSignature,
-        samlAssertion,
-        stableUserIdMode: getStableUserIdModeFromSession(session),
-        returnUrl: returnUrl || null,
+      const coordinated = await withIntentSignerLock(adminAddress, async () => {
+        const packageValue = await buildReservationIntent({
+          executor: executorAddress,
+          signer: adminAddress,
+          schacHomeOrganization,
+          pucHash,
+          assertionHash,
+          labId,
+          start: parsedStart.value,
+          end: parsedEnd.value,
+          price,
+          reservationKey,
+          nowSec: chainNowSec,
+          action: bookingAction,
+          requestId: body?.requestId,
+        })
+        const signature = await signIntentMeta(packageValue.meta, packageValue.typedData)
+        const authToken = await getIntentBackendAuthToken()
+        const serializedMeta = serializeIntent(packageValue.meta)
+        const serializedPayload = serializeIntent(packageValue.payload)
+        const authorizationPromise = requestIntentAuthorizationSession({
+          backendUrl,
+          backendAuthToken: authToken.token,
+          payloadKey: 'reservationPayload',
+          meta: serializedMeta,
+          payload: serializedPayload,
+          signature,
+          samlAssertion,
+          stableUserIdMode: getStableUserIdModeFromSession(session),
+          returnUrl: returnUrl || null,
+        })
+        const registrationSubmission = await registerIntentOnChain(
+          'reservation',
+          packageValue.meta,
+          packageValue.payload,
+          signature,
+          { waitForReceipt: false },
+        )
+        const receipt = typeof registrationSubmission?.wait === 'function'
+          ? await registrationSubmission.wait()
+          : null
+        return {
+          packageValue,
+          signature,
+          authToken,
+          authorizationPromise,
+          registrationSubmission,
+          receipt,
+        }
       })
 
-      const [registrationResult, authResult] = await Promise.allSettled([
-        registrationPromise,
-        authPromise,
-      ])
-
-      if (registrationResult.status === 'rejected') {
-        const err = registrationResult.reason
-        devLog.error('[API] On-chain reservation intent registration submission failed', err)
-        return publicErrorResponse({
-          status: 502,
-          code: 'RESERVATION_INTENT_ONCHAIN_FAILED',
-          message: 'The reservation request could not be registered.',
-          error: err,
-          context: 'reservation-intent-onchain',
-        })
-      }
-
-      const registrationSubmission = registrationResult.value || {}
+      intentPackage = coordinated.packageValue
+      adminSignature = coordinated.signature
+      backendAuth = coordinated.authToken
+      authPromise = coordinated.authorizationPromise
+      const registrationSubmission = coordinated.registrationSubmission || {}
       onChain = {
         txHash: registrationSubmission.txHash || null,
-        blockNumber: registrationSubmission.blockNumber || null,
-        status: 'submitted',
+        blockNumber: coordinated.receipt?.blockNumber || registrationSubmission.blockNumber || null,
+        status: coordinated.receipt ? 'confirmed' : 'submitted',
       }
-      if (typeof registrationSubmission.wait === 'function') {
-        registrationSubmission.wait()
-          .then((receipt) => notifyIntentRegistrationMined({
+      if (coordinated.receipt) {
+        try {
+          const signalResult = await notifyIntentRegistrationMined({
             backendUrl,
             backendAuthToken: backendAuth.token,
             requestId: intentPackage.meta.requestId,
             txHash: registrationSubmission.txHash || null,
-            blockNumber: receipt?.blockNumber || null,
-          }))
-          .then((signalResult) => {
-            if (signalResult && !signalResult.ok) {
-              devLog.warn('[API] Reservation registration mined signal was not accepted', signalResult)
-            }
+            blockNumber: coordinated.receipt.blockNumber || null,
           })
-          .catch((err) => {
-            devLog.warn('[API] Reservation registration mined signal skipped', err)
-          })
+          if (signalResult && !signalResult.ok) {
+            devLog.warn('[API] Reservation registration mined signal was not accepted', signalResult)
+          }
+        } catch (error) {
+          devLog.warn('[API] Reservation registration mined signal skipped', error)
+        }
       }
 
-      if (authResult.status === 'rejected') {
-        throw authResult.reason
+    } catch (err) {
+      if (err instanceof IntentSignerBusyError) {
+        return publicErrorResponse({
+          status: 409,
+          code: 'INTENT_SIGNER_BUSY',
+          message: 'Another intent is being processed. Please retry shortly.',
+          error: err,
+          context: 'reservation-intent-signer-busy',
+        })
       }
+      if (err instanceof IntentSignerUnavailableError) {
+        return publicErrorResponse({
+          status: 503,
+          code: 'INTENT_SIGNER_COORDINATOR_UNAVAILABLE',
+          message: 'The reservation request could not be coordinated. Please retry shortly.',
+          error: err,
+          context: 'reservation-intent-signer-coordinator',
+        })
+      }
+      devLog.error('[API] On-chain reservation intent registration failed', err)
+      return publicErrorResponse({
+        status: 502,
+        code: 'RESERVATION_INTENT_ONCHAIN_FAILED',
+        message: 'The reservation request could not be registered.',
+        error: err,
+        context: 'reservation-intent-onchain',
+      })
+    }
 
-      const authResponse = authResult.value
+    try {
+      const authResponse = await authPromise
       authorization = authResponse.data
       if (!authResponse.ok) {
         const authError =

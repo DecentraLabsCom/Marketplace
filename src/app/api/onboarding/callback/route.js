@@ -48,6 +48,9 @@ import {
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'onboarding-callback', windowMs: 60_000, maxRequests: 30 })
 
 function validateCallbackAuth({ request, body, rawBody, stableUserId }) {
   const required = isOnboardingCallbackSignatureRequired()
@@ -140,6 +143,12 @@ export async function POST(request) {
         { status: callbackAuth.status }
       )
     }
+
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, {
+      stableUserId,
+      institutionId: body?.institutionId,
+    }))
+    if (rateLimitResponse) return rateLimitResponse
 
     devLog.log('[Onboarding/Callback] Received callback:', {
       status: body.status,
@@ -272,7 +281,9 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     try {
-      await requireAuth()
+      const session = await requireAuth()
+      const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+      if (rateLimitResponse) return rateLimitResponse
     } catch (error) {
       return handleGuardError(error, request)
     }

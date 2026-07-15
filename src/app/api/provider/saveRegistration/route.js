@@ -8,6 +8,9 @@ import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-save-registration', windowMs: 60_000, maxRequests: 10 })
 
 /**
  * Saves provider registration to pending providers storage
@@ -21,6 +24,9 @@ import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publi
  */
 export async function POST(request) {
   try {
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request))
+    if (rateLimitResponse) return rateLimitResponse
+
     const body = await request.json();
 
     // Validate required fields

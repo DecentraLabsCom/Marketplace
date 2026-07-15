@@ -7,6 +7,9 @@ const mockCheckRate = jest.fn(() => ({ limited: false, remaining: 29 }))
 
 jest.mock('@/utils/api/rateLimit', () => ({
   createRateLimiter: jest.fn(() => mockCheckRate),
+  createRateLimitResponse: jest.fn((result) => result?.limited
+    ? Response.json({ error: 'Too many requests' }, { status: 429 })
+    : null),
 }))
 
 // ── Auth guards ───────────────────────────────────────────────────────────────

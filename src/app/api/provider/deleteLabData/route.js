@@ -19,6 +19,9 @@ import {
 } from '@/utils/auth/guards'
 import { resolveManagedLocalPath } from '@/utils/storage/fileSecurity'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-delete-lab-data', windowMs: 60_000, maxRequests: 10 })
 
 /**
  * Deletes lab data file from storage
@@ -32,6 +35,8 @@ export async function POST(req) {
     // ===== AUTHENTICATION =====
     // Require a valid authenticated session
     const session = await requireAuth();
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     
     const { labURI } = await req.json();
     

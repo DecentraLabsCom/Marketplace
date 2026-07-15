@@ -6,6 +6,11 @@ import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveInte
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import {
+  IntentSignerBusyError,
+  IntentSignerUnavailableError,
+  withIntentSignerLock,
+} from '@/utils/intents/intentNonceStore'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
 import {
@@ -21,6 +26,9 @@ import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDom
 import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'intent-action-prepare', windowMs: 60_000, maxRequests: 10 })
 
 function normalizeAction(action) {
   if (typeof action === 'number') return action
@@ -66,6 +74,8 @@ async function resolveCancellationReservationSnapshot(reservationKey) {
 export async function POST(request) {
   try {
     const session = await requireAuth()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
     const samlAssertion = session.samlAssertion
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const puc = getPucFromSession(session)
@@ -120,31 +130,61 @@ export async function POST(request) {
     const adminAddress = await getAdminAddress()
 
     const chainNowSec = await resolveChainNowSec()
-    const intentPackage = await buildActionIntent({
-      action,
-      executor: executorAddress,
-      signer: adminAddress,
-      schacHomeOrganization,
-      assertionHash: computeAssertionHash(samlAssertion),
-      pucHash,
-      labId: resolvedLabId ?? 0,
-      reservationKey,
-      uri: payloadInput.uri || '',
-      price: resolvedPrice ?? 0,
-      accessURI: payloadInput.accessURI || '',
-      accessKey: payloadInput.accessKey || '',
-      tokenURI: payloadInput.tokenURI || '',
-      resourceType: payloadInput.resourceType ?? 0,
-      maxBatch: resolvedMaxBatch ?? 0,
-      nowSec: chainNowSec,
-    })
-
-    const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
-
+    let intentPackage
+    let adminSignature
     let onChain = null
     try {
-      onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
+      const coordinated = await withIntentSignerLock(adminAddress, async () => {
+        const packageValue = await buildActionIntent({
+          action,
+          executor: executorAddress,
+          signer: adminAddress,
+          schacHomeOrganization,
+          assertionHash: computeAssertionHash(samlAssertion),
+          pucHash,
+          labId: resolvedLabId ?? 0,
+          reservationKey,
+          uri: payloadInput.uri || '',
+          price: resolvedPrice ?? 0,
+          accessURI: payloadInput.accessURI || '',
+          accessKey: payloadInput.accessKey || '',
+          tokenURI: payloadInput.tokenURI || '',
+          resourceType: payloadInput.resourceType ?? 0,
+          maxBatch: resolvedMaxBatch ?? 0,
+          nowSec: chainNowSec,
+          requestId: body?.requestId || payloadInput.requestId,
+        })
+        const signature = await signIntentMeta(packageValue.meta, packageValue.typedData)
+        const registration = await registerIntentOnChain(
+          'action',
+          packageValue.meta,
+          packageValue.payload,
+          signature,
+        )
+        return { packageValue, signature, registration }
+      })
+      intentPackage = coordinated.packageValue
+      adminSignature = coordinated.signature
+      onChain = coordinated.registration
     } catch (err) {
+      if (err instanceof IntentSignerBusyError) {
+        return publicErrorResponse({
+          status: 409,
+          code: 'INTENT_SIGNER_BUSY',
+          message: 'Another intent is being processed. Please retry shortly.',
+          error: err,
+          context: 'action-intent-signer-busy',
+        })
+      }
+      if (err instanceof IntentSignerUnavailableError) {
+        return publicErrorResponse({
+          status: 503,
+          code: 'INTENT_SIGNER_COORDINATOR_UNAVAILABLE',
+          message: 'The intent request could not be coordinated. Please retry shortly.',
+          error: err,
+          context: 'action-intent-signer-coordinator',
+        })
+      }
       devLog.error('[API] On-chain action intent registration failed', err)
       return publicErrorResponse({
         status: 502,

@@ -4,7 +4,7 @@ import { Container } from '@/components/ui'
 const CONTENT = {
   privacy: {
     title: 'Privacy notice',
-    intro: 'This operational notice explains what information the DecentraLabs Marketplace handles, why it is needed, and which parties may receive it. It is a transparency document and must be reviewed and completed by the responsible legal entity and DPO before being treated as a final legal notice.',
+    intro: 'This notice explains what information the DecentraLabs Marketplace handles, why it is needed, and which parties may receive it.',
     sections: [
       {
         heading: 'Information handled',
@@ -46,7 +46,7 @@ const CONTENT = {
   },
   terms: {
     title: 'Terms of use',
-    intro: 'These operational terms describe the main rules for using the Marketplace. They are a product transparency draft and require legal review before publication as binding contractual terms.',
+    intro: 'These operational terms describe the main rules for using the Marketplace.',
     sections: [
       {
         heading: 'Acceptable use',
@@ -108,7 +108,7 @@ const CONTENT = {
   },
   security: {
     title: 'Security and responsible disclosure',
-    intro: 'DecentraLabs applies security controls at the browser, API, gateway, institutional-backend and smart-contract boundaries. This page gives users and providers a practical summary; it is not a guarantee that every deployment has identical controls.',
+    intro: 'DecentraLabs applies security controls at the browser, API, gateway, institutional-backend and smart-contract boundaries. This page gives users and providers a practical summary.',
     sections: [
       {
         heading: 'Current controls',

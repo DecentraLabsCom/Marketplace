@@ -12,6 +12,9 @@ import {
 import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { GatewayValidationError } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'metadata', windowMs: 60_000, maxRequests: 60 })
 
 const PUBLIC_METADATA_MESSAGES = {
   INVALID_URI: 'The metadata reference is invalid.',
@@ -28,6 +31,9 @@ function metadataErrorMessage(error) {
 }
 
 export async function GET(request) {
+  const rateLimitResponse = createRateLimitResponse(await checkRate(request))
+  if (rateLimitResponse) return rateLimitResponse
+
   const { searchParams } = new URL(request.url)
   const metadataUri = searchParams.get('uri')
   const labId = searchParams.get('labId')

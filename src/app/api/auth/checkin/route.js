@@ -16,6 +16,9 @@ import {
   resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'auth-checkin', windowMs: 60_000, maxRequests: 20 })
 
 async function resolveAuthContext(labId, authEndpoint) {
   if (!labId) {
@@ -99,6 +102,8 @@ function buildBackendAudiences(targetAudience) {
 export async function POST(req) {
   try {
     const session = await requireAuth()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+    if (rateLimitResponse) return rateLimitResponse
     const body = await req.json().catch(() => ({}))
 
     const { reservationKey, labId, authEndpoint } = body || {}

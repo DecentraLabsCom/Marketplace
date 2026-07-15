@@ -24,6 +24,9 @@ import {
   resolveManagedLocalPath,
 } from '@/utils/storage/fileSecurity'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'provider-delete-file', windowMs: 60_000, maxRequests: 20 })
 
 /**
  * Deletes files for lab providers with support for local and cloud storage
@@ -37,6 +40,8 @@ export async function POST(req) {
         // ===== AUTHENTICATION =====
         // Require a valid authenticated session
         const session = await requireAuth();
+        const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
+        if (rateLimitResponse) return rateLimitResponse
         
         const formData = await req.formData();
         let filePath = formData.get('filePath'); 

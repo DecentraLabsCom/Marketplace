@@ -15,6 +15,9 @@ import { getOnboardingResult } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+
+const checkRate = createRateLimiter({ operation: 'onboarding-status', windowMs: 60_000, maxRequests: 30 })
 
 /**
  * GET /api/onboarding/status/[sessionId]
@@ -47,6 +50,9 @@ export async function GET(request, { params }) {
         { status: 401 }
       )
     }
+
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
+    if (rateLimitResponse) return rateLimitResponse
 
     devLog.log('[Onboarding/Status] Checking local cache for session:', sessionId)
 

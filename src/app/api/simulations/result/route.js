@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
-import { createRateLimiter } from '@/utils/api/rateLimit'
+import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { HttpError, handleGuardError } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
@@ -11,19 +11,16 @@ import {
 import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
-const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
+const checkRate = createRateLimiter({ operation: 'simulation-result', windowMs: 60_000, maxRequests: 20 })
 
 /**
  * GET /api/simulations/result?simId=...&labId=...&gatewayUrl=...
  */
 export async function GET(request) {
-  const { limited } = checkRate(request)
-  if (limited) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  }
-
   try {
     const userBinding = await requireFmuUserBinding()
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
+    if (rateLimitResponse) return rateLimitResponse
     const { searchParams } = new URL(request.url)
     const simId = searchParams.get('simId')
     const labId = searchParams.get('labId')
