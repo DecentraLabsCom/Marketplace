@@ -76,6 +76,51 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
     authURI: lab.providerAuthURI || "",
   }));
 
+  const publicLabs = normalizedLabs.map((lab) => {
+    const resourceTypeAttribute = lab.metadata?.attributes?.find(
+      (attribute) => attribute?.trait_type === "resourceType",
+    );
+
+    return {
+      id: Number(lab.id),
+      name: lab.metadata?.name || `Lab ${lab.id}`,
+      provider: lab.providerName || "Mock Provider",
+      image: lab.image || "",
+      price: String(lab.price || "0"),
+      priceUnit: lab.priceUnit || "hour",
+      category: lab.category || lab.metadata?.category || [],
+      rating: lab.rating || lab.reputation || null,
+      resourceType: lab.resourceType || resourceTypeAttribute?.value || 0,
+      isListed: lab.isListed ?? true,
+      demoEnabled: lab.demoEnabled === true,
+    };
+  });
+
+  cy.intercept("GET", "/api/market/labs*", (req) => {
+    const includeUnlisted = String(req.query?.includeUnlisted) === "true";
+    const cursor = Math.max(Number(req.query?.cursor || 0), 0);
+    const limit = Math.max(Number(req.query?.limit || 24), 1);
+    const visibleLabs = includeUnlisted
+      ? publicLabs
+      : publicLabs.filter((lab) => lab.isListed);
+    const pageLabs = visibleLabs.slice(cursor, cursor + limit);
+    const nextCursor = cursor + pageLabs.length < visibleLabs.length
+      ? String(cursor + pageLabs.length)
+      : null;
+
+    req.reply({
+      statusCode: 200,
+      body: {
+        labs: pageLabs,
+        totalLabs: visibleLabs.length,
+        returnedLabs: pageLabs.length,
+        cursor,
+        nextCursor,
+        snapshotAt: new Date().toISOString(),
+      },
+    });
+  }).as("getAllLabs");
+
   cy.intercept("GET", "/api/contract/lab/getAllLabs*", {
     body: normalizedLabs.map((lab) => Number(lab.id)),
   }).as("getAllLabs");

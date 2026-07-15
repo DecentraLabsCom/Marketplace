@@ -17,9 +17,11 @@ const Market = dynamic(() => import('@/components/home/Market'), {
 })
 
 export default async function HomePage() {
-  const initialMarketSnapshot = toPublicMarketSnapshot(
-    await getMarketLabsSnapshot({ includeUnlisted: false }),
-  )
+  const initialMarketSnapshot = process.env.E2E_TEST === 'true'
+    ? null
+    : toPublicMarketSnapshot(
+      await getMarketLabsSnapshot({ includeUnlisted: false }),
+    )
 
   return (
     <div>

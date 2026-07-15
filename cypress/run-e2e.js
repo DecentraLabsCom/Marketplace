@@ -65,7 +65,7 @@ function killProcessTree(pid) {
 }
 
 async function run() {
-  const childEnv = { ...process.env };
+  const childEnv = { ...process.env, E2E_TEST: 'true' };
   delete childEnv.ELECTRON_RUN_AS_NODE;
 
   const devServer = spawn('npm', ['run', 'dev'], {
