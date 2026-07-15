@@ -8,6 +8,7 @@ import {
   gatewayFetch,
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
 
@@ -53,20 +54,34 @@ export async function GET(request) {
 
     if (!gatewayRes.ok) {
       const errBody = await gatewayRes.text()
-      devLog.error(`[simulations/describe] Gateway returned ${gatewayRes.status}: ${errBody}`)
-      return NextResponse.json(
-        { error: `Gateway error (${gatewayRes.status})`, details: errBody },
-        { status: gatewayRes.status },
-      )
+      devLog.error(`[simulations/describe] Gateway returned ${gatewayRes.status}`, { bodyBytes: errBody.length })
+      return publicErrorResponse({
+        status: gatewayRes.status,
+        code: 'GATEWAY_REQUEST_FAILED',
+        message: 'The simulation model could not be described.',
+        error: new Error(`Gateway returned ${gatewayRes.status}`),
+        context: 'simulations-describe-gateway',
+      })
     }
 
     const data = await gatewayRes.json()
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
+      return publicErrorResponse({
+        status: error.status || 400,
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The simulation description parameters are invalid.',
+        error,
+        context: 'simulations-describe-validation',
+      })
     }
-    devLog.error('[simulations/describe] Proxy error:', error)
-    return NextResponse.json({ error: error.message || 'Internal proxy error' }, { status: 500 })
+    return publicErrorResponse({
+      status: 500,
+      code: 'SIMULATION_DESCRIBE_FAILED',
+      message: 'The simulation model could not be described.',
+      error,
+      context: 'simulations-describe',
+    })
   }
 }

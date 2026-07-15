@@ -31,19 +31,19 @@ jest.mock('@/components/ui/media/MediaDisplayWithFallback', () => {
 
 describe('DocsCarrousel', () => {
   // Test fixtures - mock data for different scenarios
-  const singleDoc = ['/docs/doc1.pdf'];
-  const multipleDocs = ['/docs/doc1.pdf', '/docs/doc2.pdf', '/docs/doc3.pdf'];
+  const singleDoc = ['https://docs.example.edu/doc1.pdf'];
+  const multipleDocs = ['https://docs.example.edu/doc1.pdf', 'https://docs.example.edu/doc2.pdf', 'https://docs.example.edu/doc3.pdf'];
 
   describe('Rendering', () => {
     test('should render the first document by default', () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       expect(screen.getByText('doc 1')).toBeInTheDocument();
-      expect(screen.getByText('/docs/doc1.pdf')).toBeInTheDocument();
+      expect(screen.getByText('/api/metadata/document?labId=7&uri=https%3A%2F%2Fdocs.example.edu%2Fdoc1.pdf')).toBeInTheDocument();
     });
 
     test('should not show navigation controls with a single document', () => {
-      render(<DocsCarrousel docs={singleDoc} />);
+      render(<DocsCarrousel docs={singleDoc} labId={7} />);
       
       // Navigation controls should be hidden when docs.length <= 1
       expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
@@ -51,22 +51,22 @@ describe('DocsCarrousel', () => {
     });
 
     test('should show navigation controls with multiple documents', () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
     });
 
     test('should render indicators for each document', () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const indicators = screen.getAllByRole('button', { name: /slide \d+/i });
       expect(indicators).toHaveLength(3);
     });
 
     test('should filter out null or undefined documents', () => {
-      const docsWithNull = ['/docs/doc1.pdf', null, '/docs/doc2.pdf'];
-      render(<DocsCarrousel docs={docsWithNull} />);
+      const docsWithNull = ['https://docs.example.edu/doc1.pdf', null, 'https://docs.example.edu/doc2.pdf'];
+      render(<DocsCarrousel docs={docsWithNull} labId={7} />);
       
       // Only valid documents should be rendered (filter removes null/undefined)
       const mediaDisplays = screen.getAllByTestId('media-display');
@@ -74,13 +74,13 @@ describe('DocsCarrousel', () => {
     });
 
     test('should apply custom maxHeight', () => {
-      const { container } = render(<DocsCarrousel docs={multipleDocs} maxHeight={300} />);
+      const { container } = render(<DocsCarrousel docs={multipleDocs} labId={7} maxHeight={300} />);
       
       expect(container.firstChild).toHaveStyle({ height: '300px' });
     });
 
     test('should use default height of 200px when maxHeight is not provided', () => {
-      const { container } = render(<DocsCarrousel docs={multipleDocs} />);
+      const { container } = render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       expect(container.firstChild).toHaveStyle({ height: '200px' });
     });
@@ -88,7 +88,7 @@ describe('DocsCarrousel', () => {
 
   describe('Navigation', () => {
     test('should navigate to next document when clicking Next button', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const nextButton = screen.getByRole('button', { name: /next/i });
       fireEvent.click(nextButton);
@@ -100,7 +100,7 @@ describe('DocsCarrousel', () => {
     });
 
     test('should navigate to previous document when clicking Previous button', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const nextButton = screen.getByRole('button', { name: /next/i });
       const prevButton = screen.getByRole('button', { name: /previous/i });
@@ -115,7 +115,7 @@ describe('DocsCarrousel', () => {
     });
 
     test('should navigate in a circular manner from last to first', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const nextButton = screen.getByRole('button', { name: /next/i });
       
@@ -130,7 +130,7 @@ describe('DocsCarrousel', () => {
     });
 
     test('should navigate in a circular manner from first to last', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const prevButton = screen.getByRole('button', { name: /previous/i });
       
@@ -142,7 +142,7 @@ describe('DocsCarrousel', () => {
     });
 
     test('should navigate directly to a document when clicking an indicator', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const indicators = screen.getAllByRole('button', { name: /slide \d+/i });
       
@@ -154,7 +154,7 @@ describe('DocsCarrousel', () => {
     });
 
     test('should update active indicator on navigation', async () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const indicators = screen.getAllByRole('button', { name: /slide \d+/i });
       
@@ -174,7 +174,7 @@ describe('DocsCarrousel', () => {
 
   describe('Accessibility', () => {
     test('should have proper ARIA labels on indicators', () => {
-      render(<DocsCarrousel docs={multipleDocs} />);
+      render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
       const indicators = screen.getAllByRole('button', { name: /slide \d+/i });
       

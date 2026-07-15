@@ -2,9 +2,9 @@
 
 Any lab that meets the requirements outlined in the previous section can be made remotely accessible using standard desktop software; no need to modify your existing applications or rebuild your setup from scratch.
 
-At DecentraLabs, we enable secure and controlled remote access to labs by allowing users to interact with the same desktop application that the institution already uses to operate the lab. This is done through a VPN-secured remote desktop session that is tightly controlled (restricted only to the lab application) and time-limited.
+At DecentraLabs, we enable secure and controlled remote access to labs by allowing users to interact with the same desktop application that the institution already uses to operate the lab. The Lab Gateway exposes a time-limited remote desktop session and enforces the authorization decision produced by the institutional backend. A separate VPN is not the Marketplace authentication mechanism.
 
-To simplify deployment, DecentraLabs provides a complete, ready-to-use **Lab Gateway** packaged as a Docker container: [https://github.com/DecentraLabsCom/lite-lab-gateway](https://github.com/DecentraLabsCom/Lab-Gateway). This solution can be installed easily on any operating system (Windows, Linux, macOS) and includes:
+To simplify deployment, DecentraLabs provides a complete, ready-to-use **Lab Gateway** packaged as a Docker container: [Lab Gateway](https://github.com/DecentraLabsCom/Lab-Gateway). The deployment mode depends on the provider setup; the canonical full path combines the gateway, the institution's backend and, where required, a Windows Lab Station. It includes:
 
 1. **Reverse Proxy Server**\
    Handles secure routing of incoming remote connections and ensures proper integration with the blockchain-based access management system.
@@ -15,4 +15,4 @@ Head to the Lab Gateway documentation to learn how to set up your lab to enable 
 
 In addition, an optional service is available ([DecentraLabsCom/lab-station](https://github.com/DecentraLabsCom/lab-station)) to automatically launch and close the lab control software based on the start and end of each remote session. This ensures a clean and controlled experience for every user, without requiring manual intervention from lab administrators.
 
-With this setup, your lab becomes a fully functional dOL (decentralized Online Lab), ready to be shared with the world.
+With this setup, your lab has the infrastructure required to be listed and accessed through the Marketplace. Publication still depends on institutional onboarding, authorized lab registration and the availability of the gateway/backend components.

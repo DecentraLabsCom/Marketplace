@@ -9,6 +9,7 @@
 
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import { timingSafeEqual } from 'crypto';
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const isTestJwtEndpointEnabled = () =>
   process.env.NODE_ENV !== 'production' ||
@@ -105,11 +106,13 @@ export async function POST(request) {
     return Response.json(response);
 
   } catch (error) {
-    return Response.json({
-      success: false,
-      error: error.message,
-      details: 'Check server logs for more information'
-    }, { status: 500 });
+    return publicErrorResponse({
+      status: 500,
+      code: 'JWT_TEST_FAILED',
+      message: 'The JWT test could not be completed.',
+      error,
+      context: 'auth-test-jwt',
+    });
   }
 }
 

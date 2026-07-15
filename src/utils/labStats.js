@@ -11,7 +11,7 @@ export const getLabRatingValue = (reputation) => {
   const score = parseNumber(reputation.score)
 
   if (totalEvents === null || score === null) return null
-  if (totalEvents <= 0) return 0
+  if (totalEvents <= 0) return null
 
   const ratio = (score / totalEvents + 1) / 2
   const rating = Math.max(0, Math.min(5, ratio * 5))

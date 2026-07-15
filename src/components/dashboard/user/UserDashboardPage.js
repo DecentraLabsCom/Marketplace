@@ -93,7 +93,6 @@ export default function UserDashboard() {
   // State for UI feedback only
   const [failedCancellations, setFailedCancellations] = useState(new Set());
   const [cancellationStates, setCancellationStates] = useState(new Map());
-  const [selectedBooking, setSelectedBooking] = useState(null);
   const cancellingKeysRef = useRef(new Set());
 
   const setCancellationStage = (reservationKey, stage) => {
@@ -146,9 +145,6 @@ export default function UserDashboard() {
   // Additional state variables
   const [userData, setUserData] = useState(null);
   const now = useCurrentTime({ intervalMs: 40000 });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedLabId, setSelectedLabId] = useState(null);
-
   const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking, lastBookingForDashboard } = useMemo(() => {
     if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
       return {
@@ -219,18 +215,6 @@ export default function UserDashboard() {
   }, [userBookings, now]);
   
       
-  const openModal = (type, labId, booking = null) => {
-    setSelectedLabId(labId);
-    setSelectedBooking(booking);
-    setIsModalOpen(type);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(null);
-    setSelectedLabId(null);
-    setSelectedBooking(null);
-  };
-
   const handleClearCancellationError = (reservationKey) => {
     setFailedCancellations(prev => {
       const newSet = new Set(prev);
@@ -267,7 +251,6 @@ export default function UserDashboard() {
     }
     cancellingKeysRef.current.add(booking.reservationKey);
 
-    setSelectedBooking(booking);
     const isPending = booking.status === 0 || booking.status === '0';
     setCancellationStage(booking.reservationKey, 'processing');
     notifyUserDashboardCancellationProcessing(
@@ -330,12 +313,6 @@ export default function UserDashboard() {
 
   // 🚀 React Query handles all transaction management automatically
   // No manual transaction state or confirmation handling needed
-
-  const handleRefund = async () => {
-    const bookingToRefund = selectedBooking;
-    closeModal();
-    await handleCancellation(bookingToRefund);
-  };
 
   // Calendar
   const today = new Date();
@@ -522,7 +499,6 @@ export default function UserDashboard() {
                   null
                 }
                 excludeBooking={activeBookingForDashboard || highlightedUpcomingBooking}
-                closeModal={closeModal}
               />
               
               {/* Vertical divider */}
@@ -538,14 +514,6 @@ export default function UserDashboard() {
                 currentTime={now}
                 isLoading={bookingsLoading && userBookings.length === 0}
                 type="past"
-                onRefund={(labId, booking) => openModal('refund', labId, booking)}
-                onConfirmRefund={handleRefund}
-                isModalOpen={isModalOpen}
-                selectedBooking={selectedBooking}
-                selectedLabId={selectedLabId}
-                isSSOUser={Boolean(isSSO)}
-                userInstitutionWallet={address}
-                closeModal={closeModal}
               />
             </div>
           </div>

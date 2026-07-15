@@ -23,7 +23,7 @@
  */
 
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LabGrid from "../LabGrid";
 
@@ -450,6 +450,33 @@ describe("LabGrid", () => {
         expect(screen.getByTestId("lab-card-lab-0")).toBeInTheDocument();
         expect(screen.getByTestId("lab-card-lab-49")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("Pagination", () => {
+    test("loads the next page through the explicit control", async () => {
+      const onLoadMore = jest.fn();
+      render(<LabGrid labs={mockLabs} hasMore onLoadMore={onLoadMore} />);
+
+      const button = await screen.findByRole("button", { name: "Load more labs" });
+      fireEvent.click(button);
+
+      expect(onLoadMore).toHaveBeenCalledTimes(1);
+    });
+
+    test("disables the control while the next page is loading", async () => {
+      render(
+        <LabGrid
+          labs={mockLabs}
+          hasMore
+          onLoadMore={jest.fn()}
+          loadingMore
+        />
+      );
+
+      expect(
+        await screen.findByRole("button", { name: "Loading more labs..." })
+      ).toBeDisabled();
     });
   });
 });

@@ -151,8 +151,22 @@ describe("LabDetail", () => {
 
       render(<LabDetail id="lab-123" />);
 
-      expect(formatPrice).toHaveBeenCalledWith("150");
+      expect(formatPrice).toHaveBeenCalledWith("150", "hour");
       expect(screen.getByText("$150 credits / hour")).toBeInTheDocument();
+    });
+
+    test("uses the configured non-hourly price unit", () => {
+      const formatPrice = jest.fn((price) => `$${price}`);
+      useLabCredit.mockReturnValue({ formatPrice });
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...mockLabData, pricing: { displayUnit: "week" } },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(formatPrice).toHaveBeenCalledWith("150", "week");
+      expect(screen.getByText("$150 credits / week")).toBeInTheDocument();
     });
   });
 
@@ -164,6 +178,21 @@ describe("LabDetail", () => {
       expect(screen.getByText("Lab age")).toBeInTheDocument();
       expect(screen.getByText("5.0")).toBeInTheDocument();
       expect(screen.getByText("0d")).toBeInTheDocument();
+    });
+
+    test("does not show a numeric rating when there are no events", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: {
+          ...mockLabData,
+          reputation: { score: 0, totalEvents: 0 },
+        },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("No ratings")).toBeInTheDocument();
+      expect(screen.queryByText("0.0")).not.toBeInTheDocument();
     });
   });
   describe("Booking Functionality", () => {

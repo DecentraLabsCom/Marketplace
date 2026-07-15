@@ -10,13 +10,15 @@ import { NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
-import { 
+import {
   requireAuth, 
   requireLabOwner, 
   handleGuardError,
   HttpError,
   BadRequestError
 } from '@/utils/auth/guards'
+import { resolveManagedLocalPath } from '@/utils/storage/fileSecurity'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 /**
  * Deletes lab data file from storage
@@ -41,12 +43,15 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const sanitizedLabURI = labURI.trim();
+    const sanitizedLabURI = labURI.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+    const labIdMatch = sanitizedLabURI.match(/^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-(\d+)\.json$/);
+    if (!labIdMatch || sanitizedLabURI.includes('/') || sanitizedLabURI.includes('\0')) {
+      throw new BadRequestError('Invalid lab data URI');
+    }
     
     // ===== AUTHORIZATION =====
     // Extract labId from URI and verify ownership
     // URI format: "Lab-{provider}-{labId}.json"
-    const labIdMatch = sanitizedLabURI.match(/-(\d+)\.json$/);
     if (labIdMatch && labIdMatch[1]) {
       const labId = labIdMatch[1];
       await requireLabOwner(session, labId);
@@ -61,7 +66,7 @@ export async function POST(req) {
 
     if (!isVercel) {
         // Local filesystem deletion
-        const filePath = path.join(process.cwd(), 'data', sanitizedLabURI);
+        const filePath = resolveManagedLocalPath(path.join(process.cwd(), 'data'), sanitizedLabURI);
         
         try {
           await fs.unlink(filePath);
@@ -80,21 +85,20 @@ export async function POST(req) {
             return NextResponse.json(
               { 
                 error: 'Lab data not found', 
-                message: `File ${sanitizedLabURI} does not exist`,
-                details: fsError.message 
+                message: 'The requested lab data was not found.',
+                code: 'LAB_DATA_NOT_FOUND',
               },
               { status: 404 }
             );
           }
-          
-          return NextResponse.json(
-            { 
-              error: 'Failed to delete lab data from local storage',
-              message: 'Internal server error during file deletion', 
-              details: fsError.message 
-            },
-            { status: 500 }
-          );
+
+          return publicErrorResponse({
+            status: 500,
+            code: 'LOCAL_LAB_DATA_DELETE_ERROR',
+            message: 'The lab data could not be deleted.',
+            error: fsError,
+            context: 'provider-delete-lab-data-local',
+          });
         }
     } else {
         // Vercel blob deletion
@@ -114,29 +118,28 @@ export async function POST(req) {
         } catch (blobError) {
             console.error('Vercel blob deletion error:', blobError);
             
-            return NextResponse.json(
-              { 
-                error: 'Failed to delete lab data from cloud storage',
-                message: 'Internal server error during blob deletion',
-                details: blobError.message 
-              },
-              { status: 500 }
-            );
+            return publicErrorResponse({
+              status: 500,
+              code: 'BLOB_LAB_DATA_DELETE_ERROR',
+              message: 'The lab data could not be deleted.',
+              error: blobError,
+              context: 'provider-delete-lab-data-blob',
+            });
         }
     }
 
   } catch (parseError) {
     // Handle authentication/authorization errors
     if (parseError instanceof HttpError) {
-      return handleGuardError(parseError);
+      return handleGuardError(parseError, req);
     }
     
-    console.error('Request parsing error:', parseError);
-    
-    return NextResponse.json({ 
-      error: 'Invalid request format',
-      message: 'Failed to parse request body. Expected valid JSON with labURI field.',
-      details: parseError.message 
-    }, { status: 400 });
+    return publicErrorResponse({
+      status: 400,
+      code: 'INVALID_REQUEST_FORMAT',
+      message: 'The request body is invalid.',
+      error: parseError,
+      context: 'provider-delete-lab-data-request',
+    });
   }
 }

@@ -250,7 +250,7 @@ export default function RegisterPage() {
                 </div>
 
                 <p className="text-gray-600 mb-6 leading-relaxed min-h-[80px]">
-                  List and share your institution&apos;s labs in the marketplace. Receive payouts for external reservations and expand your reach worldwide.
+                  List and share your institution&apos;s labs in the marketplace. Receive internal service-credit settlement for eligible reservations and expand your reach worldwide.
                 </p>
 
                 <div className="flex justify-center my-8">

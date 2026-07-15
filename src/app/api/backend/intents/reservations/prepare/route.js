@@ -16,12 +16,14 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
-import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import { calculateReservationTotal } from '@/utils/pricing/pricingUnits'
 import devLog from '@/utils/dev/logger'
 import { getCachedAdminAddress, getCachedIntentExecutorForInstitution } from './cache'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 function parsePositiveBigInt(value, fieldName) {
   try {
@@ -39,7 +41,7 @@ export async function POST(request) {
   try {
     const session = await requireAuth()
     const body = await request.json()
-    const { labId, start, end, timeslot, backendUrl: backendUrlOverride, returnUrl } = body || {}
+    const { labId, start, end, timeslot, returnUrl } = body || {}
 
     if (labId === undefined || labId === null) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
@@ -97,7 +99,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
 
-    const backendUrl = backendUrlOverride || process.env.INSTITUTION_BACKEND_URL
+    const backendUrl = await resolveInstitutionalBackendUrl(schacHomeOrganization)
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
@@ -183,16 +185,13 @@ export async function POST(request) {
       if (registrationResult.status === 'rejected') {
         const err = registrationResult.reason
         devLog.error('[API] On-chain reservation intent registration submission failed', err)
-        console.error('[API] On-chain reservation intent registration submission failed', err)
-        const onchain = extractOnchainErrorDetails(err)
-        return NextResponse.json(
-          {
-            error: 'Failed to register reservation intent on-chain',
-            details: err?.message || String(err),
-            onchain,
-          },
-          { status: 502 },
-        )
+        return publicErrorResponse({
+          status: 502,
+          code: 'RESERVATION_INTENT_ONCHAIN_FAILED',
+          message: 'The reservation request could not be registered.',
+          error: err,
+          context: 'reservation-intent-onchain',
+        })
       }
 
       const registrationSubmission = registrationResult.value || {}
@@ -232,10 +231,18 @@ export async function POST(request) {
           authorization?.message ||
           'Failed to create authorization session'
         const code = mapAuthorizationErrorCode(authError)
-        return NextResponse.json(
-          code ? { error: authError, code } : { error: authError },
-          { status: authResponse.status },
-        )
+        const message = code === 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'
+          ? 'No registered passkey was found for this account.'
+          : code === 'MISSING_PUC_FOR_WEBAUTHN'
+            ? 'The institutional identity could not be verified.'
+            : 'The institutional authorization request could not be created.'
+        return publicErrorResponse({
+          status: authResponse.status || 502,
+          code: code || 'INTENT_AUTHORIZATION_FAILED',
+          message,
+          error: new Error(String(authError)),
+          context: 'reservation-intent-authorization',
+        })
       }
 
       const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
@@ -253,11 +260,13 @@ export async function POST(request) {
       }
       authorization = normalizedAuthorization
     } catch (err) {
-      devLog.error('[API] Failed to request reservation authorization', err)
-      return NextResponse.json(
-        { error: err?.message || 'Failed to request authorization session' },
-        { status: 502 },
-      )
+      return publicErrorResponse({
+        status: 502,
+        code: 'INTENT_AUTHORIZATION_FAILED',
+        message: 'The institutional authorization request could not be created.',
+        error: err,
+        context: 'reservation-intent-authorization',
+      })
     }
 
     const intentForTransport = serializeIntent(intentPackage)
@@ -284,12 +293,15 @@ export async function POST(request) {
     devLog.error('[API] Prepare reservation intent failed', error)
 
     if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
-      return handleGuardError(error)
+      return handleGuardError(error, request)
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Failed to prepare reservation intent', code: 'INTENT_PREPARE_FAILED' },
-      { status: 500 },
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'INTENT_PREPARE_FAILED',
+      message: 'The reservation request could not be prepared.',
+      error,
+      context: 'reservation-intent-prepare',
+    })
   }
 }

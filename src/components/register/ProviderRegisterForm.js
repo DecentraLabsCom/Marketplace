@@ -203,10 +203,11 @@ export default function ProviderRegisterForm() {
 
             {/* Country Field with Flag Selector */}
             <div className="space-y-1 text-black">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="provider-country" className="block text-sm font-medium text-gray-700">
                 Country *
               </label>
               <ReactFlagsSelect
+                id="provider-country"
                 selected={selectedCountry}
                 onSelect={handleCountryChange}
                 searchable

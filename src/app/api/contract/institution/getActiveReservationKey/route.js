@@ -8,6 +8,7 @@ import {
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
@@ -54,17 +55,15 @@ export async function GET(request) {
     )
   } catch (error) {
     if (error instanceof BadRequestError) {
-      return handleGuardError(error)
+      return handleGuardError(error, request)
     }
 
-    console.error('Error getting active reservation key:', error)
-
-    return Response.json(
-      {
-        error: 'Failed to get active reservation key',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      },
-      { status: 500 },
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'ACTIVE_RESERVATION_LOOKUP_FAILED',
+      message: 'The active reservation could not be checked.',
+      error,
+      context: 'institution-active-reservation-key',
+    })
   }
 }

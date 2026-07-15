@@ -82,7 +82,7 @@ export async function POST(request) {
     }
 
     const cookieStore = await cookies();
-    clearSessionCookies(cookieStore);
+    await clearSessionCookies(cookieStore);
 
     return NextResponse.redirect("/");
   } catch (error) {

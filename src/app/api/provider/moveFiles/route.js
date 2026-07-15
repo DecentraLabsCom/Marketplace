@@ -7,7 +7,7 @@
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
-import { copy, del, list } from '@vercel/blob'
+import { copy, del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 import { 
@@ -16,39 +16,18 @@ import {
   handleGuardError,
   HttpError 
 } from '@/utils/auth/guards'
+import {
+  getSessionUploadNamespace,
+  isTrustedBlobUrl,
+  parseManagedFilePath,
+  resolveManagedLocalPath,
+  validateLabId,
+} from '@/utils/storage/fileSecurity'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const MAX_MOVE_ATTEMPTS = 3
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
-const normalizePathSeparators = (value = '') => String(value).replace(/\\/g, '/')
-
-const extractTempRelativePath = (filePath) => {
-  const normalizedInput = normalizePathSeparators(filePath)
-
-  if (normalizedInput.startsWith('http')) {
-    const url = new URL(normalizedInput)
-    const normalizedPathname = normalizePathSeparators(url.pathname)
-    const marker = '/data/temp/'
-    const markerIndex = normalizedPathname.indexOf(marker)
-    if (markerIndex === -1) {
-      throw new Error(`Invalid blob URL format: ${filePath}`)
-    }
-    const relative = normalizedPathname.substring(markerIndex + marker.length)
-    if (!relative) {
-      throw new Error(`Invalid blob URL temp path: ${filePath}`)
-    }
-    return decodeURIComponent(relative)
-  }
-
-  const marker = '/temp/'
-  const normalizedWithSlash = normalizedInput.startsWith('/') ? normalizedInput : `/${normalizedInput}`
-  const markerIndex = normalizedWithSlash.indexOf(marker)
-  if (markerIndex === -1) {
-    throw new Error(`Cannot extract path from: ${filePath}`)
-  }
-  return normalizedWithSlash.substring(markerIndex + marker.length)
-}
 
 /**
  * Moves files from temporary folder to lab-specific folder
@@ -77,7 +56,7 @@ export async function POST(req) {
       );
     }
 
-    if (!labId) {
+    if (labId === undefined || labId === null || labId === '') {
       return NextResponse.json(
         { 
           error: 'Missing required field: labId',
@@ -87,26 +66,43 @@ export async function POST(req) {
       );
     }
 
+    const normalizedLabId = validateLabId(labId)
+
     // ===== AUTHORIZATION =====
     // Verify the user owns the target lab
-    await requireLabOwner(session, labId);
+    await requireLabOwner(session, normalizedLabId);
+
+    const expectedNamespace = getSessionUploadNamespace(session)
+    const managedPaths = filePaths.map((filePath) => {
+      try {
+        const parsed = parseManagedFilePath(filePath)
+        if (parsed.kind !== 'temporary') return { error: 'Only temporary files can be moved' }
+        if (parsed.namespace !== expectedNamespace) return { error: 'Temporary file does not belong to the current session' }
+        if (parsed.sourceUrl && !isTrustedBlobUrl(parsed.sourceUrl)) return { error: 'Temporary blob origin is not trusted' }
+        return { parsed }
+      } catch {
+        return { error: 'Invalid managed temporary path' }
+      }
+    })
+    const invalidPath = managedPaths.find((entry) => entry.error)
+    if (invalidPath) {
+      return NextResponse.json(
+        { error: invalidPath.error, code: 'INVALID_TEMPORARY_PATH' },
+        { status: 403 },
+      )
+    }
 
     const isVercel = getIsVercel();
     const movedFiles = [];
     const errors = [];
 
-    for (const filePath of filePaths) {
+    for (const [index, filePath] of filePaths.entries()) {
       try {
-        // Validate that file is in temp folder
-        const normalizedFilePath = normalizePathSeparators(filePath)
-        if (!normalizedFilePath.includes('/temp/') && !normalizedFilePath.includes('temp/')) {
-          throw new Error(`File must be in temp folder: ${filePath}`);
-        }
-
-        const folderAndFile = extractTempRelativePath(filePath)
+        const parsed = managedPaths[index].parsed
+        const folderAndFile = `${parsed.folder}/${parsed.filename}`
 
         // Construct new path with labId
-        const newRelativePath = `/${labId}/${folderAndFile}`;
+        const newRelativePath = `/${normalizedLabId}/${folderAndFile}`;
 
         let moved = false
         let lastError = null
@@ -115,8 +111,8 @@ export async function POST(req) {
           try {
             if (!isVercel) {
               // Local development: move file in filesystem
-              const oldLocalPath = path.join('./public', normalizedFilePath.startsWith('/') ? normalizedFilePath.substring(1) : normalizedFilePath)
-              const newLocalPath = path.join(`./public/${labId}`, folderAndFile)
+              const oldLocalPath = resolveManagedLocalPath(path.join(process.cwd(), 'public'), parsed.relativePath)
+              const newLocalPath = resolveManagedLocalPath(path.join(process.cwd(), 'public'), `${normalizedLabId}/${folderAndFile}`)
 
               // Ensure destination directory exists
               await fs.mkdir(path.dirname(newLocalPath), { recursive: true })
@@ -135,9 +131,9 @@ export async function POST(req) {
               })
             } else {
               // Production: move file in Vercel Blob
-              const oldBlobPath = normalizedFilePath.startsWith('http')
-                ? filePath // Keep original URL, may include encoded path
-                : `data${normalizedFilePath}` // Convert relative path to blob path
+              const oldBlobPath = parsed.sourceUrl
+                ? parsed.sourceUrl.toString()
+                : parsed.blobPath
 
               const newBlobPath = `data${newRelativePath}`
 
@@ -176,27 +172,13 @@ export async function POST(req) {
         }
 
       } catch (fileError) {
-        devLog.error(`Error moving file ${filePath}:`, fileError);
-        errors.push({
-          filePath,
-          error: fileError.message
+        devLog.error(`Error moving file at index ${index}:`, {
+          error: sanitizeErrorForLog(fileError),
         });
-      }
-    }
-
-    // Try to clean up empty temp folder
-    if (!isVercel && filePaths.length > 0) {
-      try {
-        const tempPath = path.join('./public/temp');
-        // Check if temp folder exists and is empty
-        const tempContents = await fs.readdir(tempPath);
-        if (tempContents.length === 0) {
-          await fs.rmdir(tempPath);
-          devLog.info('🗑️ Cleaned up empty temp folder');
-        }
-      } catch (cleanupError) {
-        // Ignore cleanup errors - not critical
-        devLog.warn('Failed to cleanup temp folder:', cleanupError.message);
+        errors.push({
+          index,
+          error: 'The file could not be moved.',
+        });
       }
     }
 
@@ -238,18 +220,15 @@ export async function POST(req) {
   } catch (error) {
     // Handle authentication/authorization errors
     if (error instanceof HttpError) {
-      return handleGuardError(error);
+      return handleGuardError(error, req);
     }
     
-    console.error('Error in moveFiles endpoint:', error);
-    
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'MOVE_FILES_FAILED',
+      message: 'The file move request could not be completed.',
+      error,
+      context: 'provider-move-files',
+    });
   }
 }

@@ -1,35 +1,38 @@
 # Register as a provider
 
-### 🔭 Future Vision
+Provider onboarding follows the current institutional model. The Marketplace does not use a personal MetaMask login or a provider's personal wallet as the customer-facing registration mechanism.
 
-In the long term, DecentraLabs aims to support **federated Single Sign-On (SSO)** for institutional providers. This would allow us to automatically recognize verified university or research staff based on identity provider credentials (e.g., via [eduGAIN](https://edugain.org/)), streamlining the onboarding process and reducing the risk of fraud. Additionally, we envision a **DAO-based governance model** in which the community collectively decides who can join as a provider, ensuring openness, fairness, and transparency in provider approval.
+## Requirements
 
-Today, provider onboarding has two active paths:
+You need:
 
-1. **Marketplace self-service request (manual review)** for independent providers submitting the public registration form.
-2. **Institutional onboarding (partner flow)** for integrated institutions, where provisioning and registration can be automated through the institutional backend path.
+* an institutional SSO account;
+* an institutional role authorized to provision or manage provider access; and
+* an institutional backend with the public HTTPS origin and credentials required by the onboarding flow.
 
-### 📝 Marketplace Registration Flow (Manual Review)
+The institutional backend and its managed wallet are infrastructure controlled by the institution. They are not a per-provider wallet that each user must connect in the browser.
 
-At present, becoming a provider involves the following steps:
+## Institutional onboarding flow
 
-1. **Connect Your Wallet**\
-   Navigate to the DecentraLabs Marketplace and connect your Web3 wallet. This address will be used to identify you on-chain and manage your future interactions with the platform.
-2. **Submit a Registration Request**\
-   After connecting your wallet, fill out the _Register as a Provider_ form available on the platform. You’ll be asked to provide basic information:
-   * Wallet address (automatically filled)
-   * Contact email
-   * Institution or provider name
-   * Country of operation
-3. **Verification by the DecentraLabs Team**\
-   The team at **Nebulous Systems** receives your registration request and performs a manual review. This may involve verifying your institutional affiliation or checking public records.
-4. **Approval or Rejection**\
-   Based on the review, your request will either be:
-   * ✅ **Approved** – Your provider profile is **recorded on-chain** through our smart contracts, granting you access to provider-only features.
-   * ❌ **Rejected** – You will be notified by email if the request is denied, along with any relevant reasoning or next steps.
+1. Sign in to the Marketplace using **Institutional Login**.
+2. Open the `/register` page. Only an authorized institution staff member can provision institution-level access.
+3. Select **Provider** and enter the institution's public HTTPS base URL. The country field is optional when it is not supplied by the institution's identity attributes.
+4. Generate the short-lived provisioning token. The token is intended for the institution's provisioning or wallet dashboard and is not a permanent user credential.
+5. Apply the token through the institutional backend. The backend performs the institution/provider registration, configures the managed institutional wallet and enables the roles and capabilities required by the Lab Panel.
+6. After the institution is registered and the provider role is available, sign in again if necessary and open the **Lab Panel**.
 
-Once approved, you will be able to proceed with publishing and managing your labs through the decentralized infrastructure.
+For an institution already integrated with DecentraLabs, individual providers are assigned by the institution's administrator and reuse the institution's verified backend. A new provider therefore does not require adding another Marketplace allowlist entry or manually configuring a new blockchain endpoint.
 
-The image below shows the form in the DecentraLabs Marketplace to register your interest to become a lab provider.
+## What the Marketplace records
 
-<figure><img src="../.gitbook/assets/image (4).png" alt=""><figcaption></figcaption></figure>
+The provider account is associated with the institution and its authorized role. On-chain lab mutations are submitted through the configured institutional backend and managed wallet. The Marketplace does not ask the provider to choose a network, pay gas, or submit a direct personal-wallet transaction.
+
+Provider settlement uses internal service credits under the institution's configured account. These credits are not `$LAB`, ERC-20 payments, or cash-redeemable balances.
+
+## If your institution is not integrated
+
+Contact the institution administrator or DecentraLabs support. The first institution onboarding may require administrative verification of the backend origin, identity attributes and managed wallet. Once the institution is active, later providers from that institution use the existing registration.
+
+The old wallet-based self-service form and DAO approval flow are historical material and are not the active Marketplace onboarding path.
+
+<figure><img src="../.gitbook/assets/image (4).png" alt="Institutional provider onboarding"><figcaption></figcaption></figure>

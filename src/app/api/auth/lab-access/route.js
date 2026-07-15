@@ -19,6 +19,7 @@ import {
   gatewayFetch,
   resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 function normalizeOrganizationDomain(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -72,7 +73,7 @@ async function resolveAuthContext(labId, authEndpoint) {
     }
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      throw new BadRequestError(error.message)
+      throw new BadRequestError('The provider access endpoint is invalid.')
     }
     throw error
   }
@@ -162,15 +163,19 @@ async function issueProviderCredential(authBase, providerPayload) {
 }
 
 function providerFailureResponse(response, responseText, message) {
-  devLog.error(`${message}:`, response.status, responseText)
+  devLog.error(`${message}:`, {
+    status: response.status,
+    bodyBytes: responseText?.length || 0,
+  })
   const retryAfter = response.headers?.get?.('retry-after')
-  return NextResponse.json(
-    { error: message, details: responseText },
-    {
-      status: response.status,
-      ...(retryAfter ? { headers: { 'Retry-After': retryAfter } } : {}),
-    },
-  )
+  return publicErrorResponse({
+    status: Number.isInteger(response.status) ? response.status : 502,
+    code: 'INSTITUTIONAL_ACCESS_FAILED',
+    message,
+    error: new Error(`${message} (${response.status})`),
+    context: 'auth-lab-access-upstream',
+    headers: retryAfter ? { 'Retry-After': retryAfter } : {},
+  })
 }
 
 export async function POST(req) {
@@ -205,7 +210,7 @@ export async function POST(req) {
     try {
       payerInstitutionWallet = await resolveInstitutionWallet(affiliation)
     } catch (error) {
-      throw new BadRequestError(error.message)
+      throw new BadRequestError('Institution identity could not be resolved.')
     }
     if (!payerInstitutionWallet) {
       throw new BadRequestError('Institution wallet not registered')
@@ -310,11 +315,17 @@ export async function POST(req) {
 
     const checkInResponseText = await checkInResponse.text()
     if (!checkInResponse.ok) {
-      devLog.error('Institutional access authorization failed:', checkInResponse.status, checkInResponseText)
-      return NextResponse.json(
-        { error: 'Institutional access authorization failed', details: checkInResponseText },
-        { status: checkInResponse.status },
-      )
+      devLog.error('Institutional access authorization failed:', {
+        status: checkInResponse.status,
+        bodyBytes: checkInResponseText.length,
+      })
+      return publicErrorResponse({
+        status: Number.isInteger(checkInResponse.status) ? checkInResponse.status : 502,
+        code: 'INSTITUTIONAL_CHECKIN_FAILED',
+        message: 'Institutional access authorization failed.',
+        error: new Error(`Institutional check-in failed (${checkInResponse.status})`),
+        context: 'auth-lab-access-checkin',
+      })
     }
     const checkInData = parseResponseJson(checkInResponseText)
     const canonicalReservationKey = checkInData.reservationKey || reservationKey
@@ -339,6 +350,6 @@ export async function POST(req) {
     const data = parseResponseJson(responseText)
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
-    return handleGuardError(error)
+    return handleGuardError(error, req)
   }
 }

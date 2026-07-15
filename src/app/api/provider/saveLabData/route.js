@@ -23,6 +23,7 @@ import {
   HttpError,
   BadRequestError
 } from '@/utils/auth/guards'
+import { resolveManagedLocalPath } from '@/utils/storage/fileSecurity'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   CLASSIFICATION_SCHEMES,
@@ -30,24 +31,26 @@ import {
   getFordCodesFromClassification,
   getIscedCodesFromClassification,
 } from '@/constants/labClassifications'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const PERIOD_UNITS = ['day', 'week', 'month']
+const INTERNAL_LAB_URI_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-\d+\.json$/
 
 const extractInternalLabUri = (value) => {
   if (!value) return null
   const trimmed = String(value).trim()
   if (!trimmed) return null
-  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
+  if (INTERNAL_LAB_URI_PATTERN.test(trimmed)) {
     return trimmed
   }
   try {
     const parsed = new URL(trimmed)
     const param = parsed.searchParams.get('uri')
-    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
+    if (param && INTERNAL_LAB_URI_PATTERN.test(param)) {
       return param
     }
-    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/)
+    const match = parsed.pathname.match(/Lab-[A-Za-z0-9][A-Za-z0-9._-]*-\d+\.json$/)
     if (match) {
       return match[0]
     }
@@ -250,7 +253,7 @@ export async function POST(req) {
     // Validate required body structure
     if (!labData) {
       return NextResponse.json(
-        { 
+        {
           error: 'Missing required field: labData',
           code: 'MISSING_LAB_DATA'
         },
@@ -303,10 +306,9 @@ export async function POST(req) {
       );
     }
 
-    // Validate URI format for local files
-    if (uri.startsWith('Lab-') && !/^Lab-[\w-]+-\d+\.json$/.test(uri)) {
+    if (typeof uri !== 'string') {
       return NextResponse.json(
-        { 
+        {
           error: 'Invalid lab URI format. Expected: Lab-{provider}-{id}.json',
           code: 'INVALID_URI_FORMAT'
         },
@@ -314,9 +316,18 @@ export async function POST(req) {
       );
     }
 
-    // If a full blob URL was passed instead of the short Lab-*.json form, normalize it.
-    // This can happen when the on-chain URI (full URL) is forwarded from the client.
-    const normalizedUri = uri.startsWith('Lab-') ? uri : (extractInternalLabUri(uri) || uri);
+    // Only the controlled internal metadata filename is writable. This keeps
+    // both local paths and Blob keys inside the repository/data namespace.
+    const normalizedUri = extractInternalLabUri(uri)
+    if (!normalizedUri) {
+      return NextResponse.json(
+        {
+          error: 'Invalid lab URI format. Expected: Lab-{provider}-{id}.json',
+          code: 'INVALID_URI_FORMAT'
+        },
+        { status: 400 }
+      );
+    }
 
     // ===== AUTHORIZATION =====
     // Prefer explicit labId from request/body, fallback to extracting from URI.
@@ -326,6 +337,9 @@ export async function POST(req) {
 
     if (!labId) {
       throw new BadRequestError('Missing labId (provide labData.id/labData.labId or include it in the URI)');
+    }
+    if (labIdFromUri && String(labId) !== String(labIdFromUri)) {
+      throw new BadRequestError('labId does not match the metadata URI');
     }
 
     await requireLabOwner(session, labId);
@@ -347,7 +361,7 @@ export async function POST(req) {
     }
 
     const isVercel = getIsVercel();
-    const filePath = path.join(process.cwd(), 'data', normalizedUri);
+    const filePath = resolveManagedLocalPath(path.join(process.cwd(), 'data'), normalizedUri);
     const blobName = normalizedUri;
     let existingData = null;
     const timestamp = new Date().toISOString();
@@ -359,15 +373,13 @@ export async function POST(req) {
         existingData = JSON.parse(fileContent);
       } catch (error) {
         if (error.code !== 'ENOENT') {
-          console.error(`Error reading existing lab data for ${uri}:`, error);
-          return NextResponse.json(
-            { 
-              error: 'Failed to read existing lab data',
-              code: 'READ_ERROR',
-              details: process.env.NODE_ENV === 'development' ? error.message : undefined
-            }, 
-            { status: 500 }
-          );
+          return publicErrorResponse({
+            status: 500,
+            code: 'READ_ERROR',
+            message: 'The existing lab data could not be read.',
+            error,
+            context: 'provider-save-lab-data-read',
+          });
         }
         // ENOENT is fine - file doesn't exist yet
       }
@@ -379,14 +391,14 @@ export async function POST(req) {
         if (response.ok) {
           try {
             existingData = await response.json();
-          } catch (parseError) {
-            console.warn(`Failed to parse existing blob data for ${blobName}:`, parseError);
+      } catch (parseError) {
+            console.warn(`Failed to parse existing blob data for ${blobName}:`, sanitizeErrorForLog(parseError));
             existingData = null; // Treat as new file
           }
         }
         // Non-200 responses are fine - blob might not exist yet
       } catch (error) {
-        console.warn(`Failed to fetch existing blob data for ${blobName}:`, error.message);
+        console.warn(`Failed to fetch existing blob data for ${blobName}:`, sanitizeErrorForLog(error));
         // Continue with null existingData
       }
     }
@@ -532,15 +544,13 @@ export async function POST(req) {
                   { contentType: 'application/json', allowOverwrite: true, access: 'public' });
       }
     } catch (writeError) {
-      console.error(`Error writing lab data for ${uri}:`, writeError);
-      return NextResponse.json(
-        { 
-          error: 'Failed to save lab data',
-          code: 'WRITE_ERROR',
-          details: process.env.NODE_ENV === 'development' ? writeError.message : undefined
-        },
-        { status: 500 }
-      );
+      return publicErrorResponse({
+        status: 500,
+        code: 'WRITE_ERROR',
+        message: 'The lab data could not be saved.',
+        error: writeError,
+        context: 'provider-save-lab-data-write',
+      });
     }
 
     // Return success response optimized for React Query
@@ -569,30 +579,26 @@ export async function POST(req) {
   } catch (error) {
     // Handle authentication/authorization errors
     if (error instanceof HttpError) {
-      return handleGuardError(error);
+      return handleGuardError(error, req);
     }
-    
-    console.error('Error in saveLabData endpoint:', error);
-    
+
     // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        { 
-          error: 'Invalid JSON in request body',
-          code: 'INVALID_JSON',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 400 }
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_JSON',
+        message: 'The request body is invalid.',
+        error,
+        context: 'provider-save-lab-data-json',
+      });
     }
     
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      }, 
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'The lab data request could not be completed.',
+      error,
+      context: 'provider-save-lab-data',
+    });
   }
 }

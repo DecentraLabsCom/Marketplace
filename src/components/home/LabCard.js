@@ -10,6 +10,7 @@ import { useLabCredit } from '@/context/LabCreditContext'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
 
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
 
@@ -20,7 +21,7 @@ const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: fa
  * @param {string|number} props.id - Unique lab identifier
  * @param {string} props.name - Lab name/title
  * @param {string} props.provider - Lab provider address
- * @param {string|number} props.price - Lab price per hour
+ * @param {string|number} props.price - Lab price in the configured display unit
  * @param {string} props.auth - Authentication requirements
  * @param {boolean} props.activeBooking - Whether user has active booking
  * @param {boolean} [props.isListed=true] - Whether the lab is currently listed
@@ -40,8 +41,10 @@ const LabCard = React.memo(function LabCard({
   isListed = true,
   image = '',
   imagePriority = false,
+  rating = null,
   reputation = null,
   createdAt = null,
+  priceUnit = 'hour',
   resourceType = RESOURCE_TYPES.LAB,
   demoEnabled = false
 }) {
@@ -54,7 +57,7 @@ const LabCard = React.memo(function LabCard({
   }, []);
 
   const { formatPrice } = useLabCredit();
-  const ratingValue = getLabRatingValue(reputation);
+  const ratingValue = getLabRatingValue(rating ?? reputation);
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const ageLabel = getLabAgeLabel(createdAt);
   const statsLabel = [ratingLabel ? `Rating ${ratingLabel}/5` : null, ageLabel ? `Age ${ageLabel}` : null]
@@ -62,6 +65,11 @@ const LabCard = React.memo(function LabCard({
     .join(' | ');
   
   const reservationKey = isSSO && activeBooking ? (activeBookingKey || null) : null;
+  const pricePresentation = formatPricePerUnit({
+    price,
+    unit: priceUnit,
+    formatPrice,
+  });
  
   return (
     <Card 
@@ -151,17 +159,20 @@ const LabCard = React.memo(function LabCard({
         </div>
         <div className="md:flex md:justify-between md:items-center min-[700px]:block md:mt-4">
           <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
-          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} credits / hour</p> 
+          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{pricePresentation.text}</p>
         </div>
       </div>
 
-      <Link href={`/lab/${id}`}>
-        <div className="absolute inset-0 flex items-center justify-center opacity-0
+      <Link
+        href={`/lab/${id}`}
+        aria-label={isFmu ? 'Explore Simulation' : 'Explore Lab'}
+        className="absolute inset-0 flex items-center justify-center opacity-0
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
-          text-white text-lg font-bold">
-          <FontAwesomeIcon icon={faSearch} className="mr-2" />
-          {isFmu ? 'Explore Simulation' : 'Explore Lab'}
-        </div>
+          focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset
+          text-white text-lg font-bold"
+      >
+        <FontAwesomeIcon icon={faSearch} className="mr-2" />
+        {isFmu ? 'Explore Simulation' : 'Explore Lab'}
       </Link>
       {isClient && isSSO && (
         <LabAccess 
@@ -186,6 +197,10 @@ LabCard.propTypes = {
   isListed: PropTypes.bool,
   image: PropTypes.string,
   imagePriority: PropTypes.bool,
+  rating: PropTypes.shape({
+    score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
   reputation: PropTypes.shape({
     score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

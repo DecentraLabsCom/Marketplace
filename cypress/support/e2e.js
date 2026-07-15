@@ -5,6 +5,7 @@
  * Used to configure global behaviors and custom commands.
  */
 import "./commands";
+import "@cypress/code-coverage/support";
 
 /**
  * Global Cypress configuration

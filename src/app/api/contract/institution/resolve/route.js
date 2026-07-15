@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
 import devLog from '@/utils/dev/logger';
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 /**
  * Normalize schacHomeOrganization-style domains using the same rules
@@ -65,10 +66,13 @@ export async function GET(request) {
     try {
       normalized = normalizeOrganizationDomain(domain);
     } catch (err) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 400 },
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_INSTITUTION_DOMAIN',
+        message: 'The institution domain is invalid.',
+        error: err,
+        context: 'institution-resolve-validation',
+      });
     }
 
     const contract = await getContractInstance();
@@ -127,13 +131,13 @@ export async function GET(request) {
       { status: 200 },
     );
   } catch (error) {
-    devLog.error('Error in institution/resolve:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-      },
-      { status: 500 },
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'INSTITUTION_RESOLVE_FAILED',
+      message: 'The institution could not be resolved.',
+      error,
+      context: 'institution-resolve',
+    });
   }
 }
 

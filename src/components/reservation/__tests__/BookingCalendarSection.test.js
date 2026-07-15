@@ -138,6 +138,8 @@ describe("BookingCalendarSection", () => {
     forceRefresh: 0,
     isSSO: false,
     formatPrice: jest.fn((price) => price),
+    totalCost: 1500n,
+    formatTokenAmount: jest.fn(() => "1.50"),
   };
 
   beforeEach(() => {
@@ -317,6 +319,9 @@ describe("BookingCalendarSection", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={true} />);
 
       expect(screen.queryByTestId("lab-token-info")).not.toBeInTheDocument();
+      expect(screen.getByText("Unit price:")).toBeInTheDocument();
+      expect(screen.getByText("Total cost:")).toBeInTheDocument();
+      expect(screen.getByText("1.50 credits")).toBeInTheDocument();
     });
 
     test("passes correct props to LabCreditInfo", () => {

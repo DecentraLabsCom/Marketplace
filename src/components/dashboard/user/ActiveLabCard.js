@@ -164,7 +164,7 @@ export default function ActiveLabCard({
         
         {lab.docs && lab.docs.length > 0 && (
           <div className="flex-1">
-            <DocsCarrousel docs={lab.docs} maxHeight={320} />
+            <DocsCarrousel docs={lab.docs} labId={lab.id} maxHeight={320} />
           </div>
         )}
         

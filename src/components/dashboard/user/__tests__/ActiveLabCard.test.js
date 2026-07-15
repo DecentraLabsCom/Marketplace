@@ -293,11 +293,11 @@ describe("ActiveLabCard", () => {
       const onBookingAction = jest.fn();
       renderCard({
         isActive: true,
-        actionLabel: "Request for Refund",
+        actionLabel: "Cancel Booking",
         onBookingAction,
       });
 
-      expect(screen.getByRole("button", { name: "Request for Refund" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cancel Booking" })).toBeInTheDocument();
     });
 
     test("triggers onBookingAction with booking payload", () => {

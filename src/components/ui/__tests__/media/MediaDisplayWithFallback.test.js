@@ -114,6 +114,30 @@ describe('MediaDisplayWithFallback', () => {
         expect(link).toHaveAttribute('target', '_blank');
       });
     });
+
+    test('sandboxes document frames and suppresses the referrer', async () => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        headers: { get: jest.fn((name) => name === 'Content-Type' ? 'application/pdf' : '') },
+      });
+
+      await act(async () => {
+        render(
+          <MediaDisplayWithFallback
+            mediaPath="/safe.pdf"
+            mediaType="doc"
+            title="Safe document"
+          />
+        );
+      });
+
+      await waitFor(() => {
+        const frame = screen.getByTitle('Safe document');
+        expect(frame).toHaveAttribute('sandbox', 'allow-downloads');
+        expect(frame).toHaveAttribute('referrerpolicy', 'no-referrer');
+        expect(frame).toHaveAttribute('allow', '');
+      });
+    });
   });
 
   /**

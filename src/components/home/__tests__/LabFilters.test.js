@@ -152,7 +152,6 @@ describe("LabFilters - unit tests", () => {
       expect(searchInput).toHaveValue("test query");
     });
 
-    // Search on Enter key dispatches input event which is handled by parent
     test("triggers search on Enter key press", async () => {
       const user = userEvent.setup();
       const searchInputRef = { current: null };
@@ -161,11 +160,14 @@ describe("LabFilters - unit tests", () => {
 
       const searchInput = screen.getByPlaceholderText(/type here/i);
       searchInputRef.current = searchInput;
+      const dispatchEvent = jest.spyOn(searchInput, "dispatchEvent");
 
       await user.type(searchInput, "test{Enter}");
 
-      // Enter key handler is internal, just verify it doesn't crash
       expect(searchInput).toHaveValue("test");
+      expect(dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "input", bubbles: true })
+      );
     });
 
     // Search button dispatches input event for parent to handle
@@ -247,6 +249,26 @@ describe("LabFilters - unit tests", () => {
       await user.click(toggleButton);
 
       expect(defaultProps.onShowUnlistedChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe("Reset", () => {
+    test("keeps the default layout unchanged by hiding reset until needed", () => {
+      render(<LabFilters {...defaultProps} />);
+
+      expect(screen.queryByRole("button", { name: /reset filters/i })).not.toBeInTheDocument();
+    });
+
+    test("renders and invokes reset after a filter becomes active", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<LabFilters {...defaultProps} />);
+
+      await user.selectOptions(screen.getByLabelText(/filter by category/i), "Biology");
+      rerender(<LabFilters {...defaultProps} selectedCategory="Biology" />);
+      const resetButton = screen.getByRole("button", { name: /reset filters/i });
+      await user.click(resetButton);
+
+      expect(defaultProps.onReset).toHaveBeenCalledTimes(1);
     });
   });
 

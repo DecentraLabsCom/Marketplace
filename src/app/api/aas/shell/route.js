@@ -7,6 +7,7 @@ import {
   gatewayFetch,
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 30 })
 
@@ -108,11 +109,14 @@ export async function GET(request) {
     }
     if (!shellRes.ok) {
       const errBody = await shellRes.text()
-      devLog.error(`[aas/shell] Shell fetch error ${shellRes.status}: ${errBody}`)
-      return NextResponse.json(
-        { error: `Gateway error (${shellRes.status})` },
-        { status: shellRes.status },
-      )
+      devLog.error(`[aas/shell] Shell fetch error ${shellRes.status}`, { bodyBytes: errBody.length })
+      return publicErrorResponse({
+        status: Number.isInteger(shellRes.status) ? shellRes.status : 502,
+        code: 'AAS_GATEWAY_REQUEST_FAILED',
+        message: 'The laboratory model could not be loaded.',
+        error: new Error(`AAS gateway returned ${shellRes.status}`),
+        context: 'aas-shell-gateway',
+      })
     }
 
     const shell = await shellRes.json()
@@ -151,9 +155,20 @@ export async function GET(request) {
     return NextResponse.json({ shell, nameplate, simulationInfo }, { status: 200 })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
+      return publicErrorResponse({
+        status: error.status || 400,
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The laboratory model request is invalid.',
+        error,
+        context: 'aas-shell-validation',
+      })
     }
-    devLog.error('[aas/shell] Proxy error:', error)
-    return NextResponse.json({ error: error.message || 'Internal proxy error' }, { status: 500 })
+    return publicErrorResponse({
+      status: 500,
+      code: 'AAS_REQUEST_FAILED',
+      message: 'The laboratory model could not be loaded.',
+      error,
+      context: 'aas-shell',
+    })
   }
 }

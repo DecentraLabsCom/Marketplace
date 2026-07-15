@@ -14,9 +14,23 @@ import getIsVercel from '@/utils/isVercel'
 import { 
   requireAuth, 
   requireLabOwner, 
+  requireProviderRole,
   handleGuardError,
   HttpError 
 } from '@/utils/auth/guards'
+import {
+  buildStoredFilename,
+  detectUploadContentType,
+  getContentTypesForFolder,
+  getSessionUploadNamespace,
+  isContentTypeAllowed,
+  MAX_UPLOAD_BYTES,
+  resolveManagedLocalPath,
+  validateDestinationFolder,
+  validateLabId,
+} from '@/utils/storage/fileSecurity'
+import { enforceTemporaryUploadQuota, TemporaryUploadLimitError } from '@/utils/storage/temporaryUploads'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const IMAGE_OPTIMIZATION = {
   minBytesToOptimize: 250 * 1024, // Keep small files untouched to preserve fidelity.
@@ -103,13 +117,27 @@ export async function POST(req) {
     // Parse form data to get file and labId
     const formData = await req.formData();
     const file = formData.get('file');
-    const destinationFolder = formData.get('destinationFolder');
-    const labId = formData.get('labId');
+    const destinationFolder = String(formData.get('destinationFolder') || '').trim();
+    const labId = String(formData.get('labId') || '').trim();
+    const isTemporaryUpload = labId === 'temp';
+    let temporaryNamespace = null;
 
-    // Validate labId and authorize ownership (skip for temp folder uploads during lab creation)
-    if (labId && labId !== 'temp') {
+    // Temporary uploads are still provider operations and are isolated to the
+    // current authenticated session. They never use a shared /temp namespace.
+    if (isTemporaryUpload) {
+      requireProviderRole(session);
+      temporaryNamespace = getSessionUploadNamespace(session);
+    } else if (labId) {
+      try {
+        validateLabId(labId);
+      } catch (validationError) {
+        return NextResponse.json(
+          { error: validationError.message, code: 'INVALID_LAB_ID' },
+          { status: 400 },
+        );
+      }
       await requireLabOwner(session, labId);
-    } else if (!labId) {
+    } else {
       // If no labId provided, this is an error - we need to know where to save
       return NextResponse.json(
         { 
@@ -119,8 +147,6 @@ export async function POST(req) {
         { status: 400 }
       );
     }
-    // Note: labId === 'temp' is allowed without ownership check (for new lab creation flow)
-
     // Validate required fields
     if (!file) {
       return NextResponse.json(
@@ -142,14 +168,24 @@ export async function POST(req) {
       );
     }
 
-    // Validate file size (5MB limit)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
+    let normalizedDestinationFolder;
+    try {
+      normalizedDestinationFolder = validateDestinationFolder(destinationFolder);
+    } catch (validationError) {
+      return NextResponse.json(
+        { error: validationError.message, code: 'INVALID_DESTINATION_FOLDER' },
+        { status: 400 },
+      );
+    }
+
+    // Validate the declared size before reading, then validate the actual byte
+    // length below. The client-provided MIME type is never trusted.
+    if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
         { 
-          error: `File too large. Maximum size is ${maxSize / (1024 * 1024)}MB`,
+          error: `File too large. Maximum size is ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
           code: 'FILE_TOO_LARGE',
-          maxSize: maxSize,
+          maxSize: MAX_UPLOAD_BYTES,
           fileSize: file.size
         }, 
         { status: 413 } // Payload Too Large
@@ -168,53 +204,43 @@ export async function POST(req) {
     }
 
     // Sanitize file name (remove potentially dangerous characters)
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    
     const isVercel = getIsVercel();
     const timestamp = new Date().toISOString();
-
-    // Dynamic Content-Type Detection
-    let detectedContentType = file.type;
-
-    // Fallback: If file.type is not available or is generic, try to infer from the file extension
-    if (!detectedContentType || detectedContentType === 'application/octet-stream') {
-        const ext = sanitizedFileName.split('.').pop()?.toLowerCase();
-        switch (ext) {
-            case 'pdf': detectedContentType = 'application/pdf'; break;
-            case 'jpg':
-            case 'jpeg': detectedContentType = 'image/jpeg'; break;
-            case 'png': detectedContentType = 'image/png'; break;
-            case 'gif': detectedContentType = 'image/gif'; break;
-            case 'webp': detectedContentType = 'image/webp'; break;
-            case 'svg': detectedContentType = 'image/svg+xml'; break;
-            default: detectedContentType = 'application/octet-stream';
-        }
-    }
-
-    // Validate file type based on destination folder
-    const allowedTypes = {
-      'images': ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
-      'docs': ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    };
-
-    if (allowedTypes[destinationFolder] && !allowedTypes[destinationFolder].includes(detectedContentType)) {
-      return NextResponse.json(
-        { 
-          error: `Invalid file type for ${destinationFolder}. Allowed types: ${allowedTypes[destinationFolder].join(', ')}`,
-          code: 'INVALID_FILE_TYPE',
-          detectedType: detectedContentType,
-          allowedTypes: allowedTypes[destinationFolder]
-        }, 
-        { status: 415 } // Unsupported Media Type
-      );
-    }
-
-    const localFilePath = path.join(`./public/${labId || 'temp'}`, destinationFolder, sanitizedFileName);
-    const relativePath = `/${labId || 'temp'}/${destinationFolder}/${sanitizedFileName}`;
 
     try {
       const buffer = await file.arrayBuffer();
       const sourceBuffer = Buffer.from(buffer);
+      if (sourceBuffer.length > MAX_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { error: 'File too large', code: 'FILE_TOO_LARGE', maxSize: MAX_UPLOAD_BYTES },
+          { status: 413 },
+        );
+      }
+      const detectedContentType = detectUploadContentType(sourceBuffer, String(file.type || ''));
+      if (!isContentTypeAllowed(normalizedDestinationFolder, detectedContentType)) {
+        return NextResponse.json(
+          {
+            error: `Invalid file type for ${normalizedDestinationFolder}`,
+            code: 'INVALID_FILE_TYPE',
+            detectedType: detectedContentType,
+            allowedTypes: getContentTypesForFolder(normalizedDestinationFolder),
+          },
+          { status: 415 },
+        );
+      }
+      if (isTemporaryUpload) {
+        await enforceTemporaryUploadQuota({
+          publicRoot: path.join(process.cwd(), 'public'),
+          namespace: temporaryNamespace,
+          isVercel,
+          incomingBytes: sourceBuffer.length,
+        });
+      }
+      const storedFileName = buildStoredFilename(file.name, detectedContentType);
+      const relativePath = isTemporaryUpload
+        ? `temp/${temporaryNamespace}/${normalizedDestinationFolder}/${storedFileName}`
+        : `${labId}/${normalizedDestinationFolder}/${storedFileName}`;
+      const localFilePath = resolveManagedLocalPath(path.join(process.cwd(), 'public'), relativePath);
       let uploadBuffer = sourceBuffer;
       let optimization = {
         applied: false,
@@ -224,7 +250,7 @@ export async function POST(req) {
       };
 
       if (shouldOptimizeImageUpload({
-        destinationFolder,
+        destinationFolder: normalizedDestinationFolder,
         contentType: detectedContentType,
         fileSize: sourceBuffer.length,
       })) {
@@ -239,8 +265,8 @@ export async function POST(req) {
           };
         } catch (optimizationError) {
           devLog.warn('Image optimization failed; uploading original file', {
-            fileName: sanitizedFileName,
-            error: optimizationError?.message,
+            fileName: storedFileName,
+            error: sanitizeErrorForLog(optimizationError),
           });
         }
       }
@@ -250,13 +276,13 @@ export async function POST(req) {
       if (!isVercel) {
         // Local development: save to public folder and return relative path
         await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-        await fs.writeFile(localFilePath, uploadBuffer);
-        filePath = relativePath; // For local, use relative path
+        await fs.writeFile(localFilePath, uploadBuffer, { flag: 'wx' });
+        filePath = `/${relativePath}`; // For local, use relative path
       } else {
         // Production: upload to Vercel Blob and return full blob URL
         const blobPath = `data${relativePath}`;
-        const blob = await put(blobPath, uploadBuffer, 
-                  { contentType: detectedContentType, allowOverwrite: true, access: 'public' });
+        const blob = await put(blobPath, uploadBuffer,
+                  { contentType: detectedContentType, allowOverwrite: false, access: 'public' });
         filePath = blob.url; // ✅ Return the full blob URL for production
         devLog.info(`📤 File uploaded to blob: ${blob.url}`);
       }
@@ -266,7 +292,7 @@ export async function POST(req) {
           message: 'File uploaded successfully',
           filePath: filePath, // ✅ Now returns full blob URL in production, relative path locally
           originalName: file.name,
-          sanitizedName: sanitizedFileName,
+          sanitizedName: storedFileName,
           size: uploadBuffer.length,
           originalSize: file.size,
           contentType: detectedContentType,
@@ -278,44 +304,50 @@ export async function POST(req) {
       );
 
     } catch (uploadError) {
-      console.error('Error during file upload:', uploadError);
-      return NextResponse.json(
-        {
-          error: 'Failed to upload file',
-          code: 'UPLOAD_ERROR',
-          details: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
-        },
-        { status: 500 }
-      );
+      if (uploadError instanceof TemporaryUploadLimitError) {
+        return NextResponse.json(
+          { error: uploadError.message, code: uploadError.code },
+          { status: 413 },
+        );
+      }
+      if (uploadError.message === 'SVG uploads are not allowed' || uploadError.message === 'File content type could not be verified') {
+        return NextResponse.json(
+          { error: uploadError.message, code: 'INVALID_FILE_CONTENT' },
+          { status: 415 },
+        );
+      }
+      return publicErrorResponse({
+        status: 500,
+        code: 'UPLOAD_ERROR',
+        message: 'The file could not be uploaded.',
+        error: uploadError,
+        context: 'provider-upload-file',
+      });
     }
 
   } catch (error) {
     // Handle authentication/authorization errors
     if (error instanceof HttpError) {
-      return handleGuardError(error);
+      return handleGuardError(error, req);
     }
-    
-    console.error('Error in uploadFile endpoint:', error);
     
     // Handle form data parsing errors
     if (error.message?.includes('FormData')) {
-      return NextResponse.json(
-        {
-          error: 'Invalid form data',
-          code: 'INVALID_FORM_DATA',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 400 }
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_FORM_DATA',
+        message: 'The uploaded form data is invalid.',
+        error,
+        context: 'provider-upload-file-form-data',
+      });
     }
     
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'The upload request could not be completed.',
+      error,
+      context: 'provider-upload-file',
+    });
   }
 }

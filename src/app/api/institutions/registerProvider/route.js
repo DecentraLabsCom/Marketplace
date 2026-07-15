@@ -10,6 +10,7 @@ import {
   requireString,
   verifyProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -125,7 +126,7 @@ export async function POST(request) {
     try {
       payload = await verifyProvisioningToken(provisioningToken, { issuer: marketplaceBaseUrl });
     } catch (error) {
-      devLog.warn('[API] registerProvider: Invalid provisioning token', error);
+      devLog.warn('[API] registerProvider: Invalid provisioning token', sanitizeErrorForLog(error));
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -174,10 +175,13 @@ export async function POST(request) {
 
       normalizedBackendUrl = deriveBackendUrlFromAuthURI(authValidation.normalized);
     } catch (error) {
-      return NextResponse.json(
-        { error: error.message || 'Invalid provisioning token payload' },
-        { status: 400 }
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_PROVISIONING_TOKEN',
+        message: error.message || 'Invalid provisioning token payload',
+        error,
+        context: 'institution-register-provider-token',
+      });
     }
 
     // Check if provider already exists and prepare transaction data
@@ -296,19 +300,22 @@ export async function POST(request) {
     );
 
   } catch (error) {
-    devLog.error('[API] registerProvider: Error', error);
+    devLog.error('[API] registerProvider: Error', sanitizeErrorForLog(error));
     
     // Check for specific contract errors
     if (error.message?.includes('already exists') || error.message?.includes('AccessControlUnauthorizedAccount')) {
       return NextResponse.json(
-        { error: 'Provider registration failed: ' + error.message },
+        { error: 'Provider registration could not be completed', code: 'PROVIDER_REGISTRATION_CONFLICT' },
         { status: 409 }
       );
     }
 
-    return NextResponse.json(
-      { error: 'Failed to register provider' },
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'PROVIDER_REGISTRATION_FAILED',
+      message: 'The provider registration could not be completed.',
+      error,
+      context: 'institution-register-provider',
+    });
   }
 }

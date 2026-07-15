@@ -72,7 +72,11 @@ describe('Footer', () => {
       const internalLinks = [
         { name: 'About', href: '/about' },
         { name: 'FAQ', href: '/faq' },
-        { name: 'Contact', href: '/contact' }
+        { name: 'Contact', href: '/contact' },
+        { name: 'Privacy', href: '/privacy' },
+        { name: 'Terms', href: '/terms' },
+        { name: 'Cookies', href: '/cookies' },
+        { name: 'Security', href: '/security' }
       ]
 
       internalLinks.forEach(({ name, href }) => {
@@ -117,7 +121,7 @@ describe('Footer', () => {
 
     test('verifies all navigation links are keyboard accessible', () => {
       const allLinks = screen.getAllByRole('link')
-      expect(allLinks.length).toBe(6) // 3 internal navigation + 3 external social
+      expect(allLinks.length).toBe(10) // 7 internal navigation + 3 external social
     })
   })
 })

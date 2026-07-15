@@ -66,7 +66,7 @@ describe('userDashboardToasts', () => {
     ])
     expect(calls[4]).toEqual([
       'success',
-      'Booking cancelled successfully.',
+      'Booking cancelled. Eligible service credits returned to the institutional account; no cash refund.',
       null,
       expect.objectContaining({
         dedupeKey: 'user-dashboard-cancellation-confirmed:res-123',

@@ -26,6 +26,8 @@ import BookingCalendarSection from '@/components/reservation/BookingCalendarSect
  * @param {number} props.forceRefresh - Key for forcing re-render
  * @param {boolean} props.isSSO - Whether user is SSO
  * @param {Function} props.formatPrice - Price formatting function
+ * @param {bigint} props.totalCost - Current reservation cost in raw credits
+ * @param {Function} props.formatTokenAmount - Formats raw credits for display
  * @returns {JSX.Element} Lab details panel with carousel and booking controls
  */
 export default function LabDetailsPanel({
@@ -50,7 +52,9 @@ export default function LabDetailsPanel({
   maxDate,
   forceRefresh,
   isSSO,
-  formatPrice
+  formatPrice,
+  totalCost = 0n,
+  formatTokenAmount = (value) => String(value ?? 0)
 }) {
   if (!lab) return null
 
@@ -92,6 +96,8 @@ export default function LabDetailsPanel({
           forceRefresh={forceRefresh}
           isSSO={isSSO}
           formatPrice={formatPrice}
+          totalCost={totalCost}
+          formatTokenAmount={formatTokenAmount}
         />
       </div>
     </div>
@@ -120,5 +126,7 @@ LabDetailsPanel.propTypes = {
   maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
   forceRefresh: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]).isRequired,
   isSSO: PropTypes.bool.isRequired,
-  formatPrice: PropTypes.func.isRequired
+  formatPrice: PropTypes.func.isRequired,
+  totalCost: PropTypes.any,
+  formatTokenAmount: PropTypes.func
 }

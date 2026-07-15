@@ -1,5 +1,6 @@
 import { getContractInstance } from './contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const VALIDATORS = {
   number(value, name, { min, max } = {}) {
@@ -83,14 +84,14 @@ export function createContractHandler({
         const handled = onError(error, arguments[0] ?? request)
         if (handled) return handled
       }
-      console.error(`Contract route error [${method}]:`, error)
-      return json(
-        {
-          error: `Failed to call ${method}`,
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        },
-        { status: 500 }
-      )
+      return publicErrorResponse({
+        status: 500,
+        code: 'CONTRACT_CALL_FAILED',
+        message: 'The requested blockchain operation could not be completed.',
+        error,
+        context: `contract-${method || 'unknown'}`,
+        headers,
+      })
     }
   }
 

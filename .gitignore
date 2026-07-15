@@ -30,6 +30,8 @@
 !scripts/generate-jwt-keys.js
 !scripts/update-vercel-env.js
 !scripts/show-keys-for-vercel.js
+!scripts/coverage-report.js
+!scripts/pre-commit-check.js
 
 # next.js
 /.next/

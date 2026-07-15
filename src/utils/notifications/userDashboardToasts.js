@@ -80,7 +80,7 @@ export const notifyUserDashboardCancellationConfirmed = (
     'success',
     options?.isRequest
       ? 'Reservation request cancelled successfully.'
-      : 'Booking cancelled successfully.',
+      : 'Booking cancelled. Eligible service credits returned to the institutional account; no cash refund.',
     userDashboardToastIds.cancellationConfirmed(reservationKey),
     {
       dedupeWindowMs: 120000,

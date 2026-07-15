@@ -19,7 +19,7 @@ When a user connects to a lab through the marketplace and initiates a session, t
    * Which lab instance should be routed
    * When the access period starts and ends
 
-Once validated, the `blockchain-services` authentication module issues a signed **JWT token** containing all the necessary information (lab ID, user ID, time window, etc.), which is used by the lab gateway to allow or deny access accordingly. This architecture ensures that only authorized users can access specific labs, within their allocated time slots, all with full auditability and blockchain-backed verification.
+Once validated, the `blockchain-services` authentication module issues a short-lived signed **JWT token** containing the necessary access context (lab ID, institutional user reference and time window). The Lab Gateway validates that token and allows or denies the remote session accordingly. The browser does not receive provider credentials or a personal-wallet authorization request.
 
 #### Summary of the Flow
 

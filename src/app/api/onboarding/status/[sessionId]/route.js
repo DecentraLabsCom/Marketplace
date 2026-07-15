@@ -13,6 +13,8 @@ import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { getOnboardingResult } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
 
 /**
  * GET /api/onboarding/status/[sessionId]
@@ -38,7 +40,7 @@ export async function GET(request, { params }) {
 
     // Verify user has SSO session
     const cookieStore = await cookies()
-    const session = getSessionFromCookies(cookieStore)
+    const session = await getSessionFromCookies(cookieStore)
     if (!session || !session.isSSO) {
       return NextResponse.json(
         { error: 'SSO session required' },
@@ -52,10 +54,7 @@ export async function GET(request, { params }) {
     const localResult = getOnboardingResult(`session:${sessionId}`)
     if (localResult) {
       devLog.log('[Onboarding/Status] Found result in local cache')
-      return NextResponse.json({
-        source: 'callback',
-        ...localResult,
-      })
+      return NextResponse.json(toPublicOnboardingResult(localResult, 'callback'))
     }
 
     // No callback received yet - browser should check IB directly
@@ -67,10 +66,13 @@ export async function GET(request, { params }) {
     })
 
   } catch (error) {
-    devLog.error('[Onboarding/Status] Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to check onboarding status' },
-      { status: 500 }
-    )
+    devLog.error('[Onboarding/Status] Error:', sanitizeErrorForLog(error))
+    return publicErrorResponse({
+      status: 500,
+      code: 'ONBOARDING_STATUS_FAILED',
+      message: 'The onboarding status could not be checked.',
+      error,
+      context: 'onboarding-status',
+    })
   }
 }

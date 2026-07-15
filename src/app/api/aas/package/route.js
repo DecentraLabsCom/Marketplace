@@ -7,6 +7,7 @@ import {
   gatewayFetch,
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
 
@@ -73,11 +74,14 @@ export async function GET(request) {
     }
     if (!pkgRes.ok) {
       const errBody = await pkgRes.text()
-      devLog.error(`[aas/package] Package fetch error ${pkgRes.status}: ${errBody}`)
-      return NextResponse.json(
-        { error: `Gateway error (${pkgRes.status})` },
-        { status: pkgRes.status },
-      )
+      devLog.error(`[aas/package] Package fetch error ${pkgRes.status}`, { bodyBytes: errBody.length })
+      return publicErrorResponse({
+        status: Number.isInteger(pkgRes.status) ? pkgRes.status : 502,
+        code: 'AAS_GATEWAY_REQUEST_FAILED',
+        message: 'The laboratory package could not be downloaded.',
+        error: new Error(`AAS package gateway returned ${pkgRes.status}`),
+        context: 'aas-package-gateway',
+      })
     }
 
     const aasx = await pkgRes.arrayBuffer()
@@ -94,9 +98,20 @@ export async function GET(request) {
     })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
+      return publicErrorResponse({
+        status: error.status || 400,
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The laboratory package request is invalid.',
+        error,
+        context: 'aas-package-validation',
+      })
     }
-    devLog.error('[aas/package] Proxy error:', error)
-    return NextResponse.json({ error: error.message || 'Internal proxy error' }, { status: 500 })
+    return publicErrorResponse({
+      status: 500,
+      code: 'AAS_REQUEST_FAILED',
+      message: 'The laboratory package could not be downloaded.',
+      error,
+      context: 'aas-package',
+    })
   }
 }

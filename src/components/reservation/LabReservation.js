@@ -120,6 +120,7 @@ export default function LabReservation({ id }) {
     markSsoRequestSent,
     resetSsoReservationFlow,
     formatPrice,
+    formatTokenAmount,
     reservationRequestMutation,
   } = useLabReservationState({
     selectedLab,
@@ -338,8 +339,9 @@ export default function LabReservation({ id }) {
         )}
 
         <div className="mb-6">
-          <label className="block text-lg font-semibold mb-2">Select the lab:</label>
+          <label htmlFor="reservation-lab-select" className="block text-lg font-semibold mb-2">Select the lab:</label>
           <select
+            id="reservation-lab-select"
             className="w-full p-3 border-2 bg-gray-800 text-white rounded"
             value={selectedLab?.id || ""}
             onChange={handleLabChange}
@@ -376,6 +378,8 @@ export default function LabReservation({ id }) {
               forceRefresh={forceRefresh}
               isSSO={isSSO}
               formatPrice={formatPrice}
+              totalCost={totalCost}
+              formatTokenAmount={formatTokenAmount}
             />
 
             <div className="flex flex-col items-center">

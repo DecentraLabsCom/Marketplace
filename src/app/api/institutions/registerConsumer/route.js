@@ -9,6 +9,7 @@ import {
   requireString,
   verifyProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -75,7 +76,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { walletAddress, backendUrl } = body;
+    const { walletAddress } = body;
 
     const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
     const marketplaceBaseUrl = normalizeHttpsUrl(
@@ -86,7 +87,7 @@ export async function POST(request) {
     try {
       payload = await verifyProvisioningToken(provisioningToken, { issuer: marketplaceBaseUrl });
     } catch (error) {
-      devLog.warn('[API] registerConsumer: Invalid provisioning token', error);
+      devLog.warn('[API] registerConsumer: Invalid provisioning token', sanitizeErrorForLog(error));
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -117,19 +118,19 @@ export async function POST(request) {
       const normalizedTokenAudience = tokenAudience
         ? normalizeHttpsUrl(tokenAudience, 'Public base URL')
         : null;
-      normalizedBackendUrl = normalizeBackendUrl(backendUrl)
-        || (normalizedTokenAudience ? normalizeBackendUrl(normalizedTokenAudience) : null);
-      if (backendUrl && !normalizedBackendUrl) {
-        return NextResponse.json(
-          { error: 'Invalid backendUrl format (must be http:// or https:// and a base URL)' },
-          { status: 400 }
-        );
-      }
+      // The backend destination is a locked provisioning-token claim. Any
+      // backendUrl sent by blockchain-services is deliberately ignored.
+      normalizedBackendUrl = normalizedTokenAudience
+        ? normalizeBackendUrl(normalizedTokenAudience)
+        : null;
     } catch (error) {
-      return NextResponse.json(
-        { error: error.message || 'Invalid provisioning token payload' },
-        { status: 400 }
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_PROVISIONING_TOKEN',
+        message: error.message || 'Invalid provisioning token payload',
+        error,
+        context: 'institution-register-consumer-token',
+      });
     }
 
     // Normalize organization domain to lowercase for consistency
@@ -231,19 +232,22 @@ export async function POST(request) {
     );
 
   } catch (error) {
-    devLog.error('[API] registerConsumer: Error', error);
+    devLog.error('[API] registerConsumer: Error', sanitizeErrorForLog(error));
     
     // Check for specific contract errors
     if (error.message?.includes('already exists') || error.message?.includes('AccessControlUnauthorizedAccount')) {
       return NextResponse.json(
-        { error: 'Consumer registration failed: ' + error.message },
+        { error: 'Consumer registration could not be completed', code: 'CONSUMER_REGISTRATION_CONFLICT' },
         { status: 409 }
       );
     }
 
-    return NextResponse.json(
-      { error: 'Failed to register consumer institution' },
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'CONSUMER_REGISTRATION_FAILED',
+      message: 'The consumer institution registration could not be completed.',
+      error,
+      context: 'institution-register-consumer',
+    });
   }
 }

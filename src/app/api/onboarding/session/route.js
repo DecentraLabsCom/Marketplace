@@ -22,6 +22,8 @@ import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
+import { publicErrorResponse } from '@/utils/security/publicError'
+import { getBaseUrl } from '@/utils/env/baseUrl'
 
 /**
  * GET /api/onboarding/session
@@ -32,7 +34,7 @@ import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 export async function GET() {
   try {
     const cookieStore = await cookies()
-    const session = getSessionFromCookies(cookieStore)
+  const session = await getSessionFromCookies(cookieStore)
     
     if (!session || !session.isSSO) {
       return NextResponse.json(
@@ -69,7 +71,7 @@ export async function GET() {
     }
 
     // Build the callback URL for the IB
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://decentralabs.io'
+    const baseUrl = getBaseUrl()
     const unsignedCallbackUrl = `${baseUrl}/api/onboarding/callback`
     const callbackUrl = buildSignedOnboardingCallbackUrl(unsignedCallbackUrl, {
       stableUserId,
@@ -120,18 +122,17 @@ export async function GET() {
       meta: {
         stableUserId,
         institutionId: userData.affiliation,
-        email: userData.email,
-        displayName: payload.displayName,
-        backendAuthToken: onboardingAuth.token,
         backendAuthExpiresAt: onboardingAuth.expiresAt,
       },
     })
 
   } catch (error) {
-    devLog.error('[Onboarding/Session] Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to get session data', details: error.message },
-      { status: 500 }
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'ONBOARDING_SESSION_FAILED',
+      message: 'The onboarding session could not be prepared.',
+      error,
+      context: 'onboarding-session',
+    })
   }
 }

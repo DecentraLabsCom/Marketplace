@@ -16,9 +16,11 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
-import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 function normalizeAction(action) {
   if (typeof action === 'number') return action
@@ -78,10 +80,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}))
     const action = normalizeAction(body?.action)
     const payloadInput = body?.payload || {}
-    const backendUrl =
-      body?.backendUrl ||
-      payloadInput.backendUrl ||
-      process.env.INSTITUTION_BACKEND_URL
+    const backendUrl = await resolveInstitutionalBackendUrl(schacHomeOrganization)
     const returnUrl = body?.returnUrl || payloadInput.returnUrl || null
 
     if (action === null) {
@@ -147,16 +146,13 @@ export async function POST(request) {
       onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
     } catch (err) {
       devLog.error('[API] On-chain action intent registration failed', err)
-      console.error('[API] On-chain action intent registration failed', err)
-      const onchain = extractOnchainErrorDetails(err)
-      return NextResponse.json(
-        {
-          error: 'Failed to register action intent on-chain',
-          details: err?.message || String(err),
-          onchain,
-        },
-        { status: 502 },
-      )
+      return publicErrorResponse({
+        status: 502,
+        code: 'ACTION_INTENT_ONCHAIN_FAILED',
+        message: 'The action request could not be registered.',
+        error: err,
+        context: 'action-intent-onchain',
+      })
     }
 
     let authorization = null
@@ -186,10 +182,18 @@ export async function POST(request) {
           authorization?.message ||
           'Failed to create authorization session'
         const code = mapAuthorizationErrorCode(authError)
-        return NextResponse.json(
-          code ? { error: authError, code } : { error: authError },
-          { status: authResponse.status },
-        )
+        const message = code === 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'
+          ? 'No registered passkey was found for this account.'
+          : code === 'MISSING_PUC_FOR_WEBAUTHN'
+            ? 'The institutional identity could not be verified.'
+            : 'The institutional authorization request could not be created.'
+        return publicErrorResponse({
+          status: authResponse.status || 502,
+          code: code || 'INTENT_AUTHORIZATION_FAILED',
+          message,
+          error: new Error(String(authError)),
+          context: 'action-intent-authorization',
+        })
       }
 
       const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
@@ -207,11 +211,13 @@ export async function POST(request) {
       }
       authorization = normalizedAuthorization
     } catch (err) {
-      devLog.error('[API] Failed to request intent authorization', err)
-      return NextResponse.json(
-        { error: err?.message || 'Failed to request authorization session' },
-        { status: 502 },
-      )
+      return publicErrorResponse({
+        status: 502,
+        code: 'INTENT_AUTHORIZATION_FAILED',
+        message: 'The institutional authorization request could not be created.',
+        error: err,
+        context: 'action-intent-authorization',
+      })
     }
 
     const intentForTransport = serializeIntent(intentPackage)
@@ -238,12 +244,15 @@ export async function POST(request) {
     devLog.error('[API] Prepare action intent failed', error)
 
     if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
-      return handleGuardError(error)
+      return handleGuardError(error, request)
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Failed to prepare action intent', code: 'INTENT_PREPARE_FAILED' },
-      { status: 500 },
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'INTENT_PREPARE_FAILED',
+      message: 'The action request could not be prepared.',
+      error,
+      context: 'action-intent-prepare',
+    })
   }
 }

@@ -16,14 +16,8 @@ import { DashboardSectionSkeleton } from '@/components/skeletons';
  * @param {boolean} props.isLoading - Loading state
  * @param {string} props.type - Type of bookings ('upcoming' or 'past')
  * @param {Function} props.onCancel - Callback for booking cancellation (upcoming only)
- * @param {Function} props.onRefund - Callback for refund request (past only)
- * @param {Function} props.onConfirmRefund - Callback for refund confirmation (past only)
  * @param {Function} props.onClearError - Callback to clear cancellation errors
- * @param {boolean} props.isModalOpen - Whether refund modal is open
- * @param {Function} props.closeModal - Callback to close modal
  * @param {Set} props.failedCancellations - Set of failed cancellation keys
- * @param {Object|null} props.selectedBooking - Currently selected booking for modal
- * @param {string|null} props.selectedLabId - Currently selected lab ID for modal
  * @returns {JSX.Element} Bookings list component
  */
 export default function BookingsList({ 
@@ -32,17 +26,9 @@ export default function BookingsList({
   isLoading, 
   type = 'upcoming',
   onCancel,
-  onRefund,
-  onConfirmRefund,
   onClearError,
-  isModalOpen,
-  closeModal,
   failedCancellations = new Set(),
   cancellationStates = new Map(),
-  selectedBooking = null,
-  selectedLabId = null,
-  isSSOUser = false,
-  userInstitutionWallet = null,
   excludeReservationKey = null,
   excludeBooking = null
 }) {
@@ -234,10 +220,6 @@ export default function BookingsList({
                 booking: booking,
                 startTime,
                 endTime,
-                isModalOpen: false,
-                closeModal,
-                isSSOUser,
-                userInstitutionWallet,
               };
 
               // Add type-specific props
@@ -248,12 +230,6 @@ export default function BookingsList({
                   ? cancellationStates.get(booking.reservationKey)
                   : null;
                 itemProps.cancelState = cancelState || null;
-              } else {
-                itemProps.onRefund = onRefund;
-                itemProps.onConfirmRefund = onConfirmRefund;
-                itemProps.isModalOpen = isModalOpen === 'refund' && 
-                  selectedLabId === booking.lab.id && 
-                  selectedBooking?.reservationKey === booking.reservationKey;
               }
 
               return <LabBookingItem key={bookingKey} {...itemProps} />;
@@ -285,17 +261,9 @@ BookingsList.propTypes = {
   isLoading: PropTypes.bool.isRequired,
   type: PropTypes.oneOf(['upcoming', 'past']).isRequired,
   onCancel: PropTypes.func,
-  onRefund: PropTypes.func,
-  onConfirmRefund: PropTypes.func,
   onClearError: PropTypes.func,
-  isModalOpen: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
-  closeModal: PropTypes.func.isRequired,
   failedCancellations: PropTypes.instanceOf(Set),
   cancellationStates: PropTypes.instanceOf(Map),
-  selectedBooking: PropTypes.object,
-  selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  isSSOUser: PropTypes.bool,
-  userInstitutionWallet: PropTypes.string,
   excludeReservationKey: PropTypes.string,
   excludeBooking: PropTypes.shape({
     reservationKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

@@ -9,6 +9,24 @@ const isExternalUrl = (path) => (
   typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))
 )
 
+const isAllowedExternalDocumentUrl = (path) => {
+  if (typeof path !== 'string' || !path.startsWith('https://')) return false
+  try {
+    const origin = new URL(path).origin
+    const configuredOrigins = String(process.env.NEXT_PUBLIC_ALLOWED_DOCUMENT_ORIGINS || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+    return configuredOrigins.includes(origin)
+  } catch {
+    return false
+  }
+}
+
+const isSameOriginPath = (path) => (
+  typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
+)
+
 const isGatewayLabContentImage = (path) => (
   typeof path === 'string' && path.includes('/lab-content/')
 )
@@ -55,6 +73,7 @@ export default function MediaDisplayWithFallback({
   const [currentDocSrc, setCurrentDocSrc] = useState(''); // The final URL for the iframe src
   const [isLoadingDoc, setIsLoadingDoc] = useState(true); // True when fetching/determining doc URL
   const [hasDocError, setHasDocError] = useState(false); // True if all doc fallbacks failed
+  const [isDownloadOnly, setIsDownloadOnly] = useState(false);
   // 0: Initial/External check, 1: Vercel Blob attempt, 2: Local attempt, 3: All failed
   const [docAttemptPhase, setDocAttemptPhase] = useState(0); 
 
@@ -62,6 +81,9 @@ export default function MediaDisplayWithFallback({
   const getSourceUrl = (path, attemptBlob, isVercelEnv) => {
     // Clean path by removing leading slash if present, for consistent concatenation
     const cleanedPath = typeof path === 'string' ? path.replace(/^\//, '') : '';
+
+    // Same-origin document proxies/local files must never be rewritten to Blob.
+    if (isSameOriginPath(path)) return path
 
     // 1. If it's already an external URL (http/https), return it directly.
     if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
@@ -90,6 +112,7 @@ export default function MediaDisplayWithFallback({
     setCurrentDocSrc('');
     setIsLoadingDoc(true);
     setHasDocError(false);
+    setIsDownloadOnly(false);
     setDocAttemptPhase(0); // Always start from the first attempt phase
   }, [mediaPath, mediaType]);
 
@@ -110,8 +133,12 @@ export default function MediaDisplayWithFallback({
 
       // --- Determine URL based on phase and type ---
       if (docAttemptPhase === 0) { // Phase 0: External URL check
-        if (typeof mediaPath === 'string' && (mediaPath.startsWith('http://') 
-          || mediaPath.startsWith('https://'))) {
+        if (isExternalUrl(mediaPath)) {
+          if (!isAllowedExternalDocumentUrl(mediaPath)) {
+            setHasDocError(true)
+            setIsLoadingDoc(false)
+            return
+          }
           urlToAttempt = mediaPath;
           // Since we can't fetch external URLs reliably, we'll set it directly for iframe
           setCurrentDocSrc(urlToAttempt);
@@ -159,6 +186,14 @@ export default function MediaDisplayWithFallback({
         }
 
         const contentType = response.headers.get('Content-Type');
+        const contentDisposition = response.headers.get('Content-Disposition') || '';
+        if (/\battachment\b/i.test(contentDisposition)) {
+          setCurrentDocSrc(urlToAttempt);
+          setIsDownloadOnly(true);
+          setIsLoadingDoc(false);
+          setHasDocError(false);
+          return;
+        }
         if (!contentType || !contentType.includes('application/pdf')) {
           throw new Error(`Expected Content-Type 'application/pdf', but received '${contentType || 'none'}' 
             for ${urlToAttempt}`);
@@ -291,6 +326,19 @@ export default function MediaDisplayWithFallback({
     // Only render the iframe or link once a valid currentDocSrc has been determined and no error
     if (currentDocSrc) {
       if (mediaType === 'doc') {
+        if (isDownloadOnly) {
+          return (
+            <div className="flex items-center justify-center rounded-lg bg-gray-100 p-4 text-center" style={{ height: height, width: width }}>
+              <a
+                href={currentDocSrc}
+                download
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                Download document
+              </a>
+            </div>
+          );
+        }
         return (
           <iframe 
             src={currentDocSrc} // Use the URL determined by the fetch logic
@@ -298,6 +346,9 @@ export default function MediaDisplayWithFallback({
             height={height} 
             width={width} 
             className={className}
+            sandbox="allow-downloads"
+            referrerPolicy="no-referrer"
+            allow=""
             onError={() => {
               setHasDocError(true);
               setIsLoadingDoc(false);

@@ -9,6 +9,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 /**
  * Retrieves a specific reservation by its key
@@ -21,7 +22,7 @@ export async function GET(request) {
     // Authentication check - reservation data requires login
     await requireAuth();
   } catch (error) {
-    return handleGuardError(error);
+    return handleGuardError(error, request);
   }
 
   const url = new URL(request.url);
@@ -221,10 +222,12 @@ export async function GET(request) {
     }
     
     // For other errors, return 500
-    return Response.json({ 
-      error: 'Failed to fetch reservation',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      reservationKey 
-    }, {status: 500 });
+    return publicErrorResponse({
+      status: 500,
+      code: 'RESERVATION_FETCH_FAILED',
+      message: 'The reservation could not be loaded.',
+      error,
+      context: 'contract-get-reservation',
+    });
   }
 }

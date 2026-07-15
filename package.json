@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x",
+    "npm": ">=10"
+  },
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
+    "test:critical": "jest --ci --runInBand src/app/__tests__ src/app/api src/utils/intents src/utils/webauthn",
     "cy:open": "node cypress/run-cypress.js open",
     "cy:run": "node cypress/run-cypress.js run",
     "test:e2e": "node cypress/run-e2e.js run",
@@ -46,7 +51,6 @@
     "@vercel/blob": "^2.5.0",
     "cookie": "^1.1.1",
     "date-fns": "^4.4.0",
-    "decentralabs-marketplace": "file:",
     "eslint-plugin-drizzle": "^0.2.3",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",

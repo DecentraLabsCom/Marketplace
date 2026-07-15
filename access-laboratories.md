@@ -37,9 +37,9 @@ Before you can reserve and access a laboratory, you need:
 
 ### 1. Sign in with Your Institution
 
-Navigate to the [DecentraLabs Marketplace](https://marketplace.decentralabs.com) and use **Institutional Login**.
+Navigate to the [DecentraLabs Marketplace](https://marketplace-decentralabs.vercel.app) and use **Institutional Login**.
 
-After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization.
+After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
 ---
 
@@ -59,6 +59,8 @@ Open the laboratory details page to review:
 * provider information;
 * booking and access requirements.
 
+The normal catalogue contains listed laboratories. An unlisted lab may appear only when the explicit discovery filter is enabled; it is not eligible for public booking.
+
 ---
 
 ### 3. Reserve a Time Slot
@@ -75,7 +77,7 @@ The marketplace shows:
 * estimated credit usage;
 * reservation constraints or conflicts.
 
-Submit the reservation request to continue.
+Submit the reservation request to continue. Any eligible cancellation before the access period returns the applicable internal credits to the institutional account; this is not a cash refund.
 
 ---
 

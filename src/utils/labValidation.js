@@ -5,7 +5,7 @@
  * @param {string} localLab.name - Lab name (required)
  * @param {string|Array<string>} localLab.category - Lab category or categories (required, can be string or array)
  * @param {string} localLab.description - Lab description (required)
- * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string|number} localLab.price - Lab price in the configured unit (required, must be >= 0)
  * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL format)
  * @param {number} localLab.opens - Lab opening date (Unix seconds)
  * @param {number} localLab.closes - Lab closing date (Unix seconds)
@@ -213,7 +213,7 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
  * Quick validation for lab data in simplified setup mode
  * Validates only essential fields required for basic lab registration
  * @param {Object} localLab - Lab data object to validate
- * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string|number} localLab.price - Lab price in the configured unit (required, must be >= 0)
  * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL or external URI format)
  * @returns {Object} Object containing validation errors (empty if all valid)
  */

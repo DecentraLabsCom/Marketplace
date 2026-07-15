@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { FaSignInAlt } from 'react-icons/fa'
 import { useUser } from '@/context/UserContext'
@@ -17,19 +17,67 @@ const InstitutionalLogin = dynamic(() => import('@/components/auth/Institutional
  */
 export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const toggleModal = () => setIsModalOpen(!isModalOpen);
+  const dialogRef = useRef(null)
+  const previousFocusRef = useRef(null)
+  const toggleModal = () => setIsModalOpen((open) => !open);
 
   const { isLoggedIn } = useUser();
 
-  // Close modal on Escape key press
+  // Keep keyboard focus inside the dialog and return it to the trigger on close.
   useEffect(() => {
+    if (!isModalOpen) return undefined
+
+    previousFocusRef.current = document.activeElement
+    const dialog = dialogRef.current
+    const focusableSelector = [
+      'a[href]',
+      'area[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',')
+
+    dialog?.focus()
+
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setIsModalOpen(false);
-    };
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setIsModalOpen(false)
+        return
+      }
 
-    if (isModalOpen) window.addEventListener('keydown', handleKeyDown);
+      if (event.key !== 'Tab' || !dialog) return
 
-    return () => window.removeEventListener('keydown', handleKeyDown);
+      const focusable = Array.from(dialog.querySelectorAll(focusableSelector))
+      if (focusable.length === 0) {
+        event.preventDefault()
+        dialog.focus()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+      if (previousFocusRef.current instanceof HTMLElement) {
+        previousFocusRef.current.focus()
+      }
+    }
   }, [isModalOpen]);
 
   if (isLoggedIn) {
@@ -51,8 +99,13 @@ export default function Login() {
       {/* Modal */}
       {isModalOpen && (
         <div 
+          ref={dialogRef}
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 animate-fadeIn transition starting:opacity-0 opacity-100 sm:items-center sm:p-4"
-          onClick={toggleModal}
+          onClick={() => setIsModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Institutional Login"
+          tabIndex={-1}
         >
           <Card 
             variant="modal"

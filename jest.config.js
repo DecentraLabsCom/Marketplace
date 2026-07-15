@@ -23,23 +23,15 @@ const customJestConfig = {
     "!src/contracts/**", // generated ABI bundles, not part of app logic
     "!src/utils/blockchain/networkConfig.js", // environment mapping constants
     "!src/utils/dev/**", // dev-only helpers and fixture data
-    "!src/utils/intents/**", // experimental intent helpers not exercised in CI
-    "!src/utils/webauthn/**", // webauthn client/server glue not run in Jest
     "!src/**/*.config.js",
-    "!src/app/**/layout.js",
-    "!src/app/**/page.js",
-    "!src/app/**/loading.js",
-    "!src/app/**/error.js",
-    "!src/app/**/not-found.js",
-    "!src/app/api/**",
   ],
 
   coverageThreshold: {
     global: {
-      branches: 52,
-      functions: 56,
-      lines: 64,
-      statements: 63,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
     },
   },
 

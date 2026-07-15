@@ -4,60 +4,41 @@
  */
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
-import { normalizeInstitutionalBackendBaseUrl } from '@/utils/api/gatewayProxy'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { requireAuth } from '@/utils/auth/guards'
 
 /**
- * Resolves the backend URL from request parameters or environment
- * @param {Request} request - Next.js request object
- * @returns {string|null} Backend URL or null if not configured
+ * Resolves the backend URL from the authenticated session's institution.
+ * Client query parameters are deliberately ignored.
+ * @returns {Promise<{backendUrl: string|null, session: Object, institutionDomain: string|null}>}
  */
-export function resolveBackendUrl(request) {
-  const { searchParams } = request.nextUrl
-  const override = searchParams.get('backendUrl')
-  const candidate = override || process.env.INSTITUTION_BACKEND_URL || null
-  return candidate ? normalizeInstitutionalBackendBaseUrl(candidate) : null
+export async function resolveBackendUrlForSession() {
+  const session = await requireAuth()
+  const institutionDomain = resolveInstitutionDomainFromSession(session)
+  const backendUrl = institutionDomain
+    ? await resolveInstitutionalBackendUrl(institutionDomain)
+    : null
+
+  return { backendUrl, session, institutionDomain }
 }
 
 /**
- * Determines if the server should generate its own token instead of forwarding client token
- * @param {Request} request - Next.js request object
- * @returns {boolean} True if server should use its own token
- */
-export function shouldUseServerToken(request) {
-  const { searchParams } = request.nextUrl
-  return searchParams.get('useServerToken') === '1'
-}
-
-/**
- * Resolves headers for forwarding to institutional backend
- * Handles authorization token (client or server-generated) and API key
- * @param {Request} request - Next.js request object
+ * Resolves server-generated credentials for forwarding to the canonical
+ * institutional backend. Client authorization and API-key headers are ignored.
  * @returns {Promise<Object>} Headers object for backend request
  */
-export async function resolveForwardHeaders(request) {
+export async function resolveForwardHeaders() {
   const headers = { 'Content-Type': 'application/json' }
-  
-  // Handle authorization token
-  const rawAuth = request.headers.get('authorization')
-  const normalizedAuth = rawAuth && rawAuth.trim().length > 0 ? rawAuth.trim() : null
-  const looksInvalid =
-    !normalizedAuth ||
-    /^bearer\s+null$/i.test(normalizedAuth) ||
-    /^bearer\s+undefined$/i.test(normalizedAuth)
-  
-  if (normalizedAuth && !looksInvalid && !shouldUseServerToken(request)) {
-    headers.Authorization = normalizedAuth
-  } else {
-    try {
-      const backendAuth = await marketplaceJwtService.generateIntentBackendToken()
-      headers.Authorization = `Bearer ${backendAuth.token}`
-    } catch (error) {
-      devLog.warn('[API] Failed to generate intent backend token for proxy', error)
-    }
+
+  try {
+    const backendAuth = await marketplaceJwtService.generateIntentBackendToken()
+    headers.Authorization = `Bearer ${backendAuth.token}`
+  } catch (error) {
+    devLog.warn('[API] Failed to generate intent backend token for proxy', error)
   }
-  
-  // Handle API key
-  const apiKey = request.headers.get('x-api-key') || process.env.INSTITUTION_BACKEND_SP_API_KEY
+
+  const apiKey = process.env.INSTITUTION_BACKEND_SP_API_KEY
   if (apiKey) {
     headers['x-api-key'] = apiKey
   }

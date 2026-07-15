@@ -1,29 +1,32 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { unstable_cache } from 'next/cache';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { buildEnrichedLab, collectMetadataImages } from '@/hooks/lab/labEnrichmentHelpers';
-import getIsVercel from '@/utils/isVercel';
+import { isLocalMetadataUri, loadMetadataDocument } from '@/utils/metadata/metadataPolicy';
+import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins';
+import { toPublicMarketLab } from '@/utils/market/publicLabDto';
+import {
+  DEFAULT_MARKET_PAGE_SIZE,
+  getNextMarketCursor,
+  parseMarketPageParams,
+} from '@/utils/market/marketPagination';
 
-const MARKET_LABS_LIMIT = 100;
 const MARKET_SNAPSHOT_REVALIDATE_SECONDS = 60;
-const METADATA_FETCH_TIMEOUT_MS = 2000;
 const DETAIL_CONCURRENCY = 8;
+const MEASURED_CONTRACT_METHODS = new Set([
+  'getLabsPaginated',
+  'getLabProviders',
+  'getLab',
+  'ownerOf',
+  'isTokenListed',
+  'getLabReputation',
+  'isLabProvider',
+  'getRegisteredSchacHomeOrganizations',
+  'getSchacHomeOrganizationBackend',
+]);
 
 const toFiniteNumber = (value, fallback = 0) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
-};
-
-const fetchWithTimeout = async (url, options = {}, timeoutMs = METADATA_FETCH_TIMEOUT_MS) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
 };
 
 const parseLabIdsFromPaginated = (result) => {
@@ -52,13 +55,21 @@ const parseLabIdsFromPaginated = (result) => {
   return normalized;
 };
 
+const parseTotalLabs = (result, cursor, pageSize) => {
+  const candidate = result?.total ?? result?.[1];
+  const parsed = toFiniteNumber(candidate, NaN);
+  if (Number.isSafeInteger(parsed) && parsed >= 0) {
+    return parsed;
+  }
+
+  return cursor + pageSize;
+};
+
 const transformLab = (rawLab, labId) => ({
   labId: toFiniteNumber(rawLab?.[0], labId),
   base: {
     uri: String(rawLab?.[1]?.[0] || ''),
     price: rawLab?.[1]?.[1] ? rawLab[1][1].toString() : '0',
-    accessURI: String(rawLab?.[1]?.[2] || ''),
-    accessKey: String(rawLab?.[1]?.[3] || ''),
     createdAt: rawLab?.[1]?.[4] ? toFiniteNumber(rawLab[1][4], 0) : 0,
     resourceType: rawLab?.[1]?.[5] ? toFiniteNumber(rawLab[1][5], 0) : 0,
   },
@@ -79,9 +90,6 @@ const parseProviders = (providersRaw) => {
   return providersRaw.map((provider) => ({
     account: provider?.account ? String(provider.account) : '',
     name: String(provider?.base?.name || provider?.name || ''),
-    email: String(provider?.base?.email || provider?.email || ''),
-    country: String(provider?.base?.country || provider?.country || ''),
-    authURI: String(provider?.base?.authURI || provider?.authURI || ''),
   }));
 };
 
@@ -98,42 +106,6 @@ const createProviderLookup = (providers) => {
       return byAccount.get(String(ownerAddress).toLowerCase()) || null;
     },
   };
-};
-
-const getBlobMetadataUrl = (metadataUri) => {
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
-  if (!baseUrl) return null;
-
-  const trimmedBase = baseUrl.replace(/\/+$/, '');
-  const trimmedUri = String(metadataUri || '').replace(/^\/+/, '');
-  return `${trimmedBase}/data/${trimmedUri}`;
-};
-
-const loadMetadataDocument = async (metadataUri) => {
-  if (!metadataUri) return null;
-
-  try {
-    if (metadataUri.startsWith('Lab-')) {
-      if (!getIsVercel()) {
-        const filePath = path.join(process.cwd(), 'data', metadataUri);
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(fileContent);
-      }
-
-      const blobUrl = getBlobMetadataUrl(metadataUri);
-      if (!blobUrl) return null;
-
-      const response = await fetchWithTimeout(blobUrl, { cache: 'no-store' });
-      if (!response.ok) return null;
-      return await response.json();
-    }
-
-    const response = await fetchWithTimeout(metadataUri, { cache: 'no-store' });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
 };
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
@@ -157,28 +129,82 @@ const mapWithConcurrency = async (items, concurrency, mapper) => {
   return results;
 };
 
-const getMarketLabsSnapshotUncached = async ({ includeUnlisted = false } = {}) => {
+const createMeasuredContract = (contract, metrics) => new Proxy(contract, {
+  get(target, property, receiver) {
+    const value = Reflect.get(target, property, receiver);
+    if (typeof value !== 'function' || !MEASURED_CONTRACT_METHODS.has(String(property))) {
+      return value;
+    }
+
+    return (...args) => {
+      metrics.rpcCalls += 1;
+      return value.apply(target, args);
+    };
+  },
+});
+
+const createEmptySnapshot = ({ cursor, limit, metrics = null } = {}) => ({
+  labs: [],
+  totalLabs: 0,
+  returnedLabs: 0,
+  cursor,
+  limit,
+  nextCursor: null,
+  snapshotAt: new Date().toISOString(),
+  ...(metrics ? { metrics } : {}),
+});
+
+const getMarketLabsSnapshotUncached = async ({
+  includeUnlisted = false,
+  cursor = 0,
+  limit = DEFAULT_MARKET_PAGE_SIZE,
+} = {}) => {
+  const startedAt = Date.now();
+  const metrics = {
+    durationMs: 0,
+    rpcCalls: 0,
+    metadataFetches: 0,
+    requestedLabs: 0,
+    returnedLabs: 0,
+  };
   const contract = await getContractInstance();
+  const measuredContract = createMeasuredContract(contract, metrics);
 
   const [paginatedLabsResult, providersResult] = await Promise.allSettled([
-    contract.getLabsPaginated(0, MARKET_LABS_LIMIT),
-    contract.getLabProviders(),
+    measuredContract.getLabsPaginated(cursor, limit),
+    measuredContract.getLabProviders(),
   ]);
 
   if (paginatedLabsResult.status !== 'fulfilled') {
-    return { labs: [], totalLabs: 0, snapshotAt: new Date().toISOString() };
+    metrics.durationMs = Date.now() - startedAt;
+    return createEmptySnapshot({ cursor, limit, metrics });
   }
 
   const labIds = parseLabIdsFromPaginated(paginatedLabsResult.value);
+  const totalLabs = parseTotalLabs(paginatedLabsResult.value, cursor, labIds.length);
+  metrics.requestedLabs = labIds.length;
   const providers = providersResult.status === 'fulfilled' ? parseProviders(providersResult.value) : [];
   const providerMapping = createProviderLookup(providers);
+  const providerMetadataOriginCache = new Map();
+
+  const getProviderMetadataOrigins = async (ownerAddress, labId) => {
+    const cacheKey = ownerAddress ? String(ownerAddress).toLowerCase() : `lab:${labId}`;
+    if (!providerMetadataOriginCache.has(cacheKey)) {
+      providerMetadataOriginCache.set(cacheKey, resolveProviderMetadataOrigins({
+        labId,
+        ownerAddress,
+        contract: measuredContract,
+      }).catch(() => []));
+    }
+    return providerMetadataOriginCache.get(cacheKey);
+  };
 
   const labs = await mapWithConcurrency(labIds, DETAIL_CONCURRENCY, async (labId) => {
     const [labResult, ownerResult, listedResult, reputationResult] = await Promise.allSettled([
-      contract.getLab(labId),
-      contract.ownerOf(labId),
-      contract.isTokenListed(labId),
-      contract.getLabReputation(labId),
+      measuredContract.getLab(labId),
+      measuredContract.ownerOf(labId),
+      measuredContract.isTokenListed(labId),
+      measuredContract.getLabReputation(labId),
     ]);
 
     if (labResult.status !== 'fulfilled') {
@@ -186,8 +212,10 @@ const getMarketLabsSnapshotUncached = async ({ includeUnlisted = false } = {}) =
     }
 
     const lab = transformLab(labResult.value, labId);
-    const listingFailed = listedResult.status !== 'fulfilled';
-    const isListed = listingFailed ? true : Boolean(listedResult.value);
+    // A listing status that cannot be read is not evidence that the lab is
+    // public. Keep the public catalogue fail-closed, while still allowing an
+    // explicit includeUnlisted request to inspect the item with isListed=false.
+    const isListed = listedResult.status === 'fulfilled' && Boolean(listedResult.value);
 
     if (!includeUnlisted && !isListed) {
       return null;
@@ -198,11 +226,18 @@ const getMarketLabsSnapshotUncached = async ({ includeUnlisted = false } = {}) =
       ? transformReputation(reputationResult.value)
       : null;
     const metadata = lab?.base?.uri
-      ? await loadMetadataDocument(lab.base.uri)
+      ? await (async () => {
+        metrics.metadataFetches += 1;
+        return loadMetadataDocument(lab.base.uri, {
+          additionalAllowedOrigins: isLocalMetadataUri(lab.base.uri)
+            ? []
+            : await getProviderMetadataOrigins(ownerAddress, labId),
+        }).catch(() => null);
+      })()
       : null;
     const imageUrls = collectMetadataImages(metadata);
 
-    return buildEnrichedLab({
+    const enrichedLab = buildEnrichedLab({
       lab,
       metadata,
       isListed,
@@ -214,34 +249,61 @@ const getMarketLabsSnapshotUncached = async ({ includeUnlisted = false } = {}) =
       includeProviderFallback: true,
       providerInfoSelector: (providerInfo) => ({
         name: providerInfo.name,
-        email: providerInfo.email,
-        country: providerInfo.country,
-        account: providerInfo.account,
       }),
     });
+
+    return toPublicMarketLab(enrichedLab);
   });
 
   const normalizedLabs = labs.filter(Boolean);
+  metrics.returnedLabs = normalizedLabs.length;
+  metrics.durationMs = Date.now() - startedAt;
+
   return {
     labs: normalizedLabs,
-    totalLabs: normalizedLabs.length,
+    totalLabs,
+    returnedLabs: normalizedLabs.length,
+    cursor,
+    limit,
+    nextCursor: getNextMarketCursor({
+      cursor,
+      sourceCount: labIds.length,
+      total: totalLabs,
+    }),
     snapshotAt: new Date().toISOString(),
+    metrics,
   };
 };
 
 const getCachedMarketLabsSnapshot = unstable_cache(
-  async (includeUnlisted = false) => getMarketLabsSnapshotUncached({ includeUnlisted }),
-  ['market-labs-snapshot-v1'],
+  async (includeUnlisted = false, cursor = 0, limit = DEFAULT_MARKET_PAGE_SIZE) => (
+    getMarketLabsSnapshotUncached({ includeUnlisted, cursor, limit })
+  ),
+  ['market-labs-snapshot-v2'],
   {
     revalidate: MARKET_SNAPSHOT_REVALIDATE_SECONDS,
     tags: ['market-labs-snapshot'],
-  }
+  },
 );
 
-export async function getMarketLabsSnapshot({ includeUnlisted = false } = {}) {
+export const toPublicMarketSnapshot = (snapshot) => ({
+  labs: Array.isArray(snapshot?.labs) ? snapshot.labs : [],
+  totalLabs: Number.isFinite(Number(snapshot?.totalLabs)) ? Number(snapshot.totalLabs) : 0,
+  returnedLabs: Number.isFinite(Number(snapshot?.returnedLabs))
+    ? Number(snapshot.returnedLabs)
+    : Array.isArray(snapshot?.labs) ? snapshot.labs.length : 0,
+  cursor: Number.isSafeInteger(Number(snapshot?.cursor)) ? Number(snapshot.cursor) : 0,
+  limit: Number.isSafeInteger(Number(snapshot?.limit)) ? Number(snapshot.limit) : DEFAULT_MARKET_PAGE_SIZE,
+  nextCursor: snapshot?.nextCursor ?? null,
+  snapshotAt: snapshot?.snapshotAt || new Date().toISOString(),
+});
+
+export async function getMarketLabsSnapshot({ includeUnlisted = false, cursor, limit } = {}) {
+  const page = parseMarketPageParams({ cursor, limit });
+
   try {
-    return await getCachedMarketLabsSnapshot(Boolean(includeUnlisted));
+    return await getCachedMarketLabsSnapshot(Boolean(includeUnlisted), page.cursor, page.limit);
   } catch {
-    return { labs: [], totalLabs: 0, snapshotAt: new Date().toISOString() };
+    return createEmptySnapshot(page);
   }
 }

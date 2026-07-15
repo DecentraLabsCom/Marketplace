@@ -9,7 +9,7 @@ import React, { useMemo, useState, useCallback, useEffect, useTransition } from 
 import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
-import { useLabsForMarket } from '@/hooks/lab/useLabs'
+import { usePublicMarketLabs } from '@/hooks/lab/useLabs'
 import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
@@ -17,7 +17,7 @@ import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import useCurrentTime from '@/hooks/useCurrentTime'
 
-export default function Market({ initialLabs = [] }) {
+export default function Market({ initialMarketSnapshot = null }) {
   const { isLoggedIn, address, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   const now = useCurrentTime({ intervalMs: 20000 });
@@ -25,17 +25,10 @@ export default function Market({ initialLabs = [] }) {
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
   const [isFilterTransitionPending, startFilterTransition] = useTransition();
-  const snapshotLabs = useMemo(
-    () => (Array.isArray(initialLabs) ? initialLabs : []),
-    [initialLabs]
-  );
-
-  // Always run the live query so listing/unlisting state changes are reflected immediately
-  // (optimistic state, cache invalidations after list/unlist actions all work correctly).
-  // The SSR snapshot is used as a loading placeholder until the live query resolves.
-  const labsQuery = useLabsForMarket({ 
+  const labsQuery = usePublicMarketLabs({
     includeUnlisted: showUnlisted,
-    enabled: true
+    enabled: true,
+    initialData: initialMarketSnapshot,
   });
   
   const {
@@ -43,32 +36,24 @@ export default function Market({ initialLabs = [] }) {
     isLoading: labsInitialLoading,
     isFetching: labsFetching,
     isError: labsError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = labsQuery;
-  
-  // Prefer live data (fresh, reflects latest listing state and images).
-  // Fall back to SSR snapshot while the live query is still loading.
-  const labsArray = useMemo(() => {
-    if (labsData?.labs) {
-      return labsData.labs;
-    }
-    if (!showUnlisted && snapshotLabs.length > 0) {
-      return snapshotLabs;
-    }
-    return [];
-  }, [labsData?.labs, showUnlisted, snapshotLabs]);
-  
-  // Suppress the loading state when snapshot data is available as a stand-in.
-  const labsLoading = useMemo(() => {
-    if (!labsData?.labs && !showUnlisted && snapshotLabs.length > 0) {
-      return false;
-    }
-    return labsInitialLoading || (labsFetching && labsArray.length === 0);
-  }, [labsData?.labs, showUnlisted, snapshotLabs.length, labsInitialLoading, labsFetching, labsArray.length]);
+
+  const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
+  const labsLoading = labsInitialLoading || (labsFetching && labsArray.length === 0);
 
   // Memoize labs to prevent infinite re-renders
   const labs = useMemo(() => labsArray, [labsArray]);
   // Only surface an error when there is nothing at all to display
   const shouldShowLabsError = labsError && labsArray.length === 0;
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage?.();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // React Query for user bookings scoped to institutional sessions.
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
@@ -163,7 +148,7 @@ export default function Market({ initialLabs = [] }) {
   }, []);
 
   return (
-    <Container as="main" padding="sm">
+    <Container padding="sm">
       {isHydrated ? (
         <LabFilters
           categories={categories}
@@ -190,6 +175,9 @@ export default function Market({ initialLabs = [] }) {
         labs={searchFilteredLabs}
         loading={labsLoading}
         error={shouldShowLabsError}
+        hasMore={Boolean(hasNextPage)}
+        onLoadMore={handleLoadMore}
+        loadingMore={Boolean(isFetchingNextPage)}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
     </Container>
@@ -197,5 +185,10 @@ export default function Market({ initialLabs = [] }) {
 }
 
 Market.propTypes = {
-  initialLabs: PropTypes.array,
+  initialMarketSnapshot: PropTypes.shape({
+    labs: PropTypes.array,
+    cursor: PropTypes.number,
+    nextCursor: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    snapshotAt: PropTypes.string,
+  }),
 }

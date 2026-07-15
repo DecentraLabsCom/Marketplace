@@ -73,6 +73,12 @@ export const labQueryKeys = {
   labById: (labId) => ['labs', 'specialized', 'byId', labId],
 };
 
+// Public marketplace catalogue query keys
+export const marketQueryKeys = {
+  all: () => ['market'],
+  publicLabs: (includeUnlisted = false) => ['market', 'public-labs', Boolean(includeUnlisted)],
+};
+
 // User query keys
 export const userQueryKeys = {
   all: () => ['users'],
@@ -99,7 +105,9 @@ export const providerQueryKeys = {
 // Metadata query keys
 export const metadataQueryKeys = {
   all: () => ['metadata'],
-  byUri: (uri) => ['metadata', uri],
+  byUri: (uri, labId = null) => labId !== null && labId !== undefined && labId !== ''
+    ? ['metadata', 'lab', String(labId), uri]
+    : ['metadata', uri],
 };
 
 // Lab image query keys

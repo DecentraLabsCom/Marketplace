@@ -92,8 +92,8 @@ jest.mock("@/components/ui", () => ({
  * Mock Next.js Link component as plain anchor
  */
 jest.mock("next/link", () => {
-  return function MockLink({ href, children }) {
-    return <a href={href}>{children}</a>;
+  return function MockLink({ href, children, ...props }) {
+    return <a href={href} {...props}>{children}</a>;
   };
 });
 
@@ -185,7 +185,7 @@ describe("LabCard - Basic Rendering", () => {
     renderLabCard();
 
     expect(screen.getByText("â‚¬15.75 credits / hour")).toBeInTheDocument();
-    expect(mockFormatPrice).toHaveBeenCalledWith(15.75);
+    expect(mockFormatPrice).toHaveBeenCalledWith(15.75, "hour");
   });
 
   // Test: Complete component structure
@@ -523,7 +523,19 @@ describe("LabCard - Price Formatting", () => {
   test("handles zero price correctly", () => {
     renderLabCard({ price: 0 });
 
-    expect(screen.getByText("â‚¬0.00 credits / hour")).toBeInTheDocument();
+    expect(screen.getByText("Free")).toBeInTheDocument();
+  });
+
+  test("shows the configured non-hourly price unit", () => {
+    const mockFormatPrice = jest.fn((price) => `â‚¬${Number(price).toFixed(2)}`);
+    mockUseLabCredit.mockReturnValue({
+      formatPrice: mockFormatPrice,
+    });
+
+    renderLabCard({ price: 100, priceUnit: "day" });
+
+    expect(screen.getByText("â‚¬100.00 credits / day")).toBeInTheDocument();
+    expect(mockFormatPrice).toHaveBeenCalledWith(100, "day");
   });
 
   test("handles large price values", () => {
@@ -562,7 +574,7 @@ describe("LabCard - Price Formatting", () => {
 
     renderLabCard({ price: 33.33 });
 
-    expect(mockFormatPrice).toHaveBeenCalledWith(33.33);
+    expect(mockFormatPrice).toHaveBeenCalledWith(33.33, "hour");
   });
 });
 
@@ -738,7 +750,7 @@ describe("LabCard - Context Integration", () => {
 
     renderLabCard({ price: 42 });
 
-    expect(mockFormatPrice).toHaveBeenCalledWith(42);
+    expect(mockFormatPrice).toHaveBeenCalledWith(42, "hour");
     expect(screen.getByText(/Custom: 42/)).toBeInTheDocument();
   });
 
@@ -806,6 +818,7 @@ describe("LabCard - Accessibility", () => {
     const link = screen.getByRole("link", { name: /Explore Lab/i });
     expect(link.tagName).toBe("A");
     expect(link).toHaveAttribute("href");
+    expect(link.className).toMatch(/focus-visible:opacity-100/);
   });
 });
 

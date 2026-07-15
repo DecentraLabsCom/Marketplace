@@ -1,10 +1,12 @@
-import path from "path";
 //const appendPath = process.env.NODE_ENV === 'production' ? '/marketplace' : '';
+import { getSecurityHeaders } from './src/utils/security/securityHeaders.js';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: true,
+  // Browser source maps are not published in production. Upload private maps
+  // to the observability provider as part of the deployment pipeline instead.
+  productionBrowserSourceMaps: false,
   basePath: "", //appendPath,
   assetPrefix: "", //appendPath,
   // Configure Turbopack aliases instead of customizing webpack directly.
@@ -28,6 +30,8 @@ const nextConfig = {
     ],
   },
   async headers() {
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+    const securityHeaders = getSecurityHeaders({ isProduction });
     const noStoreHeaders = [
       { key: "Cache-Control", value: "no-store, max-age=0" },
     ];
@@ -48,6 +52,10 @@ const nextConfig = {
       "/api/contract/reservation/getReservationsOfTokenByUser",
     ];
     return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
       ...noStoreSources.map((source) => ({
         source,
         headers: noStoreHeaders,

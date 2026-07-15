@@ -12,10 +12,27 @@ import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFall
  * @param {string} [props.maxHeight] - Maximum height CSS value for the carousel
  * @returns {JSX.Element} Document carousel with navigation controls
  */
-const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 }) {
+const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, maxHeight = 200 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMaximized, setIsMaximized] = useState(false);
-  const normalizedDocs = useMemo(() => docs.filter((doc) => Boolean(doc)), [docs]);
+  const normalizedDocs = useMemo(() => docs
+    .filter((doc) => typeof doc === 'string' && doc.trim())
+    .map((doc) => {
+      const trimmedDoc = doc.trim()
+      if (trimmedDoc.startsWith('https://')) {
+        if (!labId) return null
+        const params = new URLSearchParams({ labId: String(labId), uri: trimmedDoc })
+        return {
+          source: `/api/metadata/document?${params.toString()}`,
+          original: trimmedDoc,
+        }
+      }
+      if (trimmedDoc.startsWith('/') && !trimmedDoc.startsWith('//')) {
+        return { source: trimmedDoc, original: trimmedDoc }
+      }
+      return null
+    })
+    .filter(Boolean), [docs, labId]);
   const currentDoc = normalizedDocs[currentIndex] || null;
   const viewerHeight = maxHeight ? `${maxHeight}px` : '200px';
 
@@ -52,7 +69,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
         {normalizedDocs.map((doc, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            <MediaDisplayWithFallback mediaPath={doc} mediaType={'doc'} title={`doc ${index + 1}`} height={viewerHeight} width="100%" 
+            <MediaDisplayWithFallback mediaPath={doc.source} mediaType={'doc'} title={`doc ${index + 1}`} height={viewerHeight} width="100%"
             className="rounded-lg" />
           </div>
         ))}
@@ -60,7 +77,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
       {currentDoc && (
         <div className="absolute right-2 top-2 z-30 flex gap-2">
           <a
-            href={currentDoc}
+            href={currentDoc.source}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded bg-black/70 px-2 py-1 text-xs text-white hover:bg-black/80"
@@ -69,7 +86,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
             Open
           </a>
           <a
-            href={currentDoc}
+            href={currentDoc.source}
             download
             className="rounded bg-black/70 px-2 py-1 text-xs text-white hover:bg-black/80"
             aria-label="Download document"
@@ -145,7 +162,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
             <div className="text-sm font-medium text-gray-700">Document viewer</div>
             <div className="flex gap-2">
               <a
-                href={currentDoc}
+                href={currentDoc.source}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded bg-gray-700 px-3 py-1 text-xs text-white hover:bg-gray-800"
@@ -153,7 +170,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
                 Open
               </a>
               <a
-                href={currentDoc}
+                href={currentDoc.source}
                 download
                 className="rounded bg-gray-700 px-3 py-1 text-xs text-white hover:bg-gray-800"
               >
@@ -170,7 +187,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
             </div>
           </div>
           <MediaDisplayWithFallback
-            mediaPath={currentDoc}
+            mediaPath={currentDoc.source}
             mediaType={'doc'}
             title={'maximized document'}
             height="100%"
@@ -187,6 +204,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
 
 DocsCarrousel.propTypes = {
   docs: PropTypes.arrayOf(PropTypes.string).isRequired,
+  labId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 

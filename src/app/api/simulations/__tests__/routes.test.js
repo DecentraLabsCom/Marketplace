@@ -198,7 +198,8 @@ describe('POST /api/simulations/run', () => {
     const data = await response.json()
 
     expect(response.status).toBe(500)
-    expect(data.error).toMatch(/Network error/)
+    expect(data.error).toBe('The simulation request could not be completed.')
+    expect(data).not.toHaveProperty('details')
   })
 
   test('does not forward browser cookies to gateway', async () => {
@@ -274,7 +275,7 @@ describe('GET /api/simulations/describe', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toMatch(/gatewayUrl|labId/i)
+    expect(data.error).toBe('The simulation description parameters are invalid.')
   })
 
   test('proxies to gateway and returns model description', async () => {
@@ -337,7 +338,8 @@ describe('GET /api/simulations/describe', () => {
     const data = await response.json()
 
     expect(response.status).toBe(500)
-    expect(data.error).toMatch(/Connection refused/)
+    expect(data.error).toBe('The simulation model could not be described.')
+    expect(data).not.toHaveProperty('details')
   })
 })
 

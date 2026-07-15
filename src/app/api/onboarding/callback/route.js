@@ -31,7 +31,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { 
+import {
   storeOnboardingResult, 
   getOnboardingResult 
 } from '@/utils/onboarding'
@@ -45,6 +45,9 @@ import {
   verifyOnboardingCallbackHmac,
   verifyOnboardingCallbackToken,
 } from '@/utils/onboarding/callbackAuth'
+import { publicErrorResponse } from '@/utils/security/publicError'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
 
 function validateCallbackAuth({ request, body, rawBody, stableUserId }) {
   const required = isOnboardingCallbackSignatureRequired()
@@ -224,6 +227,9 @@ export async function POST(request) {
       result,
     )
 
+    // Do not write upstream callback error text to application logs.
+    if (isFailed) body.error = null
+
     // Log completion
     if (isSuccess) {
       devLog.log('[Onboarding/Callback] ✅ Onboarding completed for:', body.stableUserId)
@@ -241,11 +247,13 @@ export async function POST(request) {
     })
 
   } catch (error) {
-    devLog.error('[Onboarding/Callback] Error processing callback:', error)
-    return NextResponse.json(
-      { error: 'Failed to process callback' },
-      { status: 500 }
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'ONBOARDING_CALLBACK_FAILED',
+      message: 'The onboarding callback could not be processed.',
+      error,
+      context: 'onboarding-callback',
+    })
   }
 }
 
@@ -263,6 +271,12 @@ export async function POST(request) {
  */
 export async function GET(request) {
   try {
+    try {
+      await requireAuth()
+    } catch (error) {
+      return handleGuardError(error, request)
+    }
+
     const { searchParams } = new URL(request.url)
     const stableUserId = normalizePuc(searchParams.get('stableUserId'))
     const sessionId = searchParams.get('sessionId')
@@ -292,14 +306,16 @@ export async function GET(request) {
 
     return NextResponse.json({
       found: true,
-      ...result,
+      ...toPublicOnboardingResult(result),
     })
 
   } catch (error) {
-    devLog.error('[Onboarding/Callback] GET Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to retrieve onboarding result' },
-      { status: 500 }
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'ONBOARDING_RESULT_FAILED',
+      message: 'The onboarding result could not be retrieved.',
+      error,
+      context: 'onboarding-result',
+    })
   }
 }

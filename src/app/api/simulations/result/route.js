@@ -9,6 +9,7 @@ import {
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
 import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 20 })
 
@@ -54,22 +55,36 @@ export async function GET(request) {
 
     if (!gatewayRes.ok) {
       const errBody = await gatewayRes.text()
-      devLog.error(`[simulations/result] Gateway returned ${gatewayRes.status}: ${errBody}`)
-      return NextResponse.json(
-        { error: `Gateway error (${gatewayRes.status})`, details: errBody },
-        { status: gatewayRes.status },
-      )
+      devLog.error(`[simulations/result] Gateway returned ${gatewayRes.status}`, { bodyBytes: errBody.length })
+      return publicErrorResponse({
+        status: gatewayRes.status,
+        code: 'GATEWAY_REQUEST_FAILED',
+        message: 'The simulation result could not be retrieved.',
+        error: new Error(`Gateway returned ${gatewayRes.status}`),
+        context: 'simulations-result-gateway',
+      })
     }
 
     const data = await gatewayRes.json()
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
-    if (error instanceof HttpError) return handleGuardError(error)
+    if (error instanceof HttpError) return handleGuardError(error, request)
     if (error instanceof GatewayValidationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
+      return publicErrorResponse({
+        status: error.status || 400,
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The simulation result parameters are invalid.',
+        error,
+        context: 'simulations-result-validation',
+      })
     }
-    devLog.error('[simulations/result] Proxy error:', error)
-    return NextResponse.json({ error: error.message || 'Internal proxy error' }, { status: 500 })
+    return publicErrorResponse({
+      status: 500,
+      code: 'SIMULATION_RESULT_FAILED',
+      message: 'The simulation result could not be retrieved.',
+      error,
+      context: 'simulations-result',
+    })
   }
 }
 

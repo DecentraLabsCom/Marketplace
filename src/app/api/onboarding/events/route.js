@@ -11,6 +11,8 @@ export const runtime = 'nodejs'
 
 import { onboardingEventBus } from '../_eventBus'
 import { getOnboardingResult } from '@/utils/onboarding'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
 
 const buildLookupKeys = ({ stableUserId, sessionId, institutionId }) => {
   const keys = []
@@ -21,6 +23,12 @@ const buildLookupKeys = ({ stableUserId, sessionId, institutionId }) => {
 }
 
 export async function GET(request) {
+  try {
+    await requireAuth()
+  } catch (error) {
+    return handleGuardError(error, request)
+  }
+
   const { searchParams } = new URL(request.url)
   const stableUserId = searchParams.get('stableUserId') || null
   const sessionId = searchParams.get('sessionId') || null
@@ -44,13 +52,13 @@ export async function GET(request) {
       for (const key of lookupKeys) {
         const existing = getOnboardingResult(key)
         if (existing) {
-          send({ ...existing, key, source: 'store' }, 'onboarding')
+          send({ ...toPublicOnboardingResult(existing, 'store'), key }, 'onboarding')
           break
         }
       }
 
       const unsubscribe = onboardingEventBus.subscribe(lookupKeys, (payload) => {
-        send({ ...payload, source: 'callback' }, 'onboarding')
+        send(toPublicOnboardingResult(payload, 'callback'), 'onboarding')
       })
 
       const ping = setInterval(() => {

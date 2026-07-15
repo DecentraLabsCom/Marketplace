@@ -1,17 +1,17 @@
 ---
 description: >-
-  World-first decentralized marketplace to list, browser and access online lab resources
+  Institutional marketplace to list, browse and access online laboratories
 ---
 
 # Marketplace dApp
 
 ### 🌍 About DecentraLabs
 
-DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://nebsyst.com/) in collaboration with international academic partners such as [UNED](https://www.uned.es/) and [Blockchain@UBC](https://blockchain.ubc.ca/). The current implementation uses federated institutional authentication, internal non-refundable service credits and managed institutional wallets. Wallet-based consumer reservations and external `$LAB` token flows are historical/proposed designs, not the active Marketplace flow.
+DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://nebsyst.com/) in collaboration with international academic partners such as [UNED](https://www.uned.es/) and [Blockchain@UBC](https://blockchain.ubc.ca/). The current implementation uses federated institutional authentication, internal service credits that are not redeemable for cash, and managed institutional wallets. Wallet-based consumer reservations and external `$LAB` token flows are historical/proposed designs, not the active Marketplace flow.
 
 ### 🧪 DecentraLabs Marketplace
 
-The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive EUR-denominated settlement for usage. In the implemented flow, students, teachers and researchers authenticate through institutional Single Sign-On (SSO); reservations are funded with internal service credits and settled through institution-managed accounts.
+The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories and manage access conditions. In the implemented flow, students, teachers and researchers authenticate through institutional Single Sign-On (SSO); reservations are funded with internal service credits and settled through institution-managed accounts. Service credits are not a cash-redeemable token.
 
 Each lab can be offered for free or for a fee, at the discretion of the provider. Access is controlled via smart contracts and enforced through a secure, tokenized infrastructure. This ensures transparency, verifiability, and fair rewards for contributors; all without centralized intermediaries.
 
@@ -19,7 +19,7 @@ DecentraLabs Marketplace aims to offer a curated catalog of online laboratories 
 
 #### 🔧 For Providers
 
-Register and tokenize your online lab assets using smart contracts.
+Register and publish your online lab assets using smart contracts through the institutional backend.
 
 Manage availability and access conditions.
 
@@ -57,12 +57,12 @@ The correct production fix is a distributed lock or queue per signer (Redis, KV,
 
 This dApp is developed as a [Next.js](https://nextjs.org) project using the App Router.
 
-First, install Next.js: https://nextjs.org/docs/app/getting-started/installation
-
-Then, install all dependencies required by the project using package.json:
+Install the dependencies declared by the project:
 
 ```bash
-npm install package.json
+npm ci
+# or, when updating the lockfile intentionally:
+npm install
 ```
 
 Once the framework and the dependencies are installed, run the development server:
@@ -79,7 +79,7 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `src/app/layout.js` or `src/app/page.js`. The page auto-updates as you edit the file.
+You can start editing the root layout at `src/app/layout.js` or the home page at `src/app/(app)/page.js`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
@@ -87,12 +87,14 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Testing
 
-We run **unit and integration tests** (Jest) and linting in CI on every push/PR. E2E tests (Cypress) are intended to run locally by developers or on-demand in CI (manual workflow) to keep pull requests fast and reduce noise caused by flaky E2E runs.
+We run **unit, integration and Cypress E2E tests**, plus linting, in CI on every push and pull request. The default Cypress journeys are intentionally deterministic and use controlled fixtures/intercepts; direct route-handler tests cover server behavior. The manual workflow remains available for rerunning E2E independently.
 
 ### Run tests locally
 
 - Install deps: `npm ci`
+- Runtime: Node.js 22 (see `.nvmrc` and `package.json#engines`)
 - Run unit & integration tests: `npm test` (or `npm run test:ci` to run with coverage in CI mode)
+- Run the critical server/intent/WebAuthn tests: `npm run test:critical`
 - Run lint: `npm run lint` or `npm run test:lint:cypress` (validates Cypress files do not trigger `no-undef` errors like `expect`)
 
 ### SAML stable user ID mode
@@ -104,7 +106,39 @@ We run **unit and integration tests** (Jest) and linting in CI on every push/PR.
 
 ### Institutional backend egress
 
-Marketplace treats institutional backend URLs discovered on-chain as untrusted input. In production they must use HTTPS, resolve only to public IP addresses, and cannot redirect credential-bearing requests. Set `ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS` to a comma-separated list of exact origins (for example, `https://institution-a.example,https://institution-b.example`) when deployment policy should restrict egress further. Origins must not include paths.
+Marketplace resolves institutional backends only from the authenticated SSO institution and its on-chain institutional registry. The resolved origin must use HTTPS in production and is checked for public DNS resolution; requests use DNS pinning and reject redirects.
+
+### Current deployment and chain
+
+The active Marketplace deployment is `https://marketplace-decentralabs.vercel.app`. Server-generated callbacks use `NEXT_PUBLIC_BASE_URL` when it is configured and otherwise use the environment-aware fallback in `src/utils/env/baseUrl.js`; documentation and integrations must not substitute the marketing-site domains for this origin. The current contract configuration defaults to the Sepolia deployment. Ethereum mainnet is not the active production target merely because a network option exists in the SDK; a mainnet release requires its own configured contract addresses and deployment validation.
+
+### Session storage
+
+The browser receives only an opaque `__Host-user_session` identifier. The SAML assertion is encrypted and retained server-side for no longer than the session TTL. Production deployments must configure `SESSION_STORE_REST_URL` and `SESSION_STORE_REST_TOKEN` (or the equivalent `KV_REST_API_URL`/`KV_REST_API_TOKEN` pair) plus `SESSION_ENCRYPTION_KEY`.
+
+### Service-credit policy
+
+Service credits are internal settlement units: they cannot be converted into cash. An eligible cancellation before the access period, or a reservation for which the service is not completed or received, returns the applicable credits to the institutional credit account through the reservation lifecycle. Completed or expired services are not automatically recoverable; service-failure claims follow the institution's separate review process.
+
+### Metadata egress
+
+External laboratory metadata is requested through `/api/metadata?labId=<id>&uri=<uri>`. The server verifies the lab owner on-chain, confirms that the owner is a registered provider, and trusts the provider's on-chain institutional backend origins. `ALLOWED_METADATA_ORIGINS` is optional and can extend that trust for explicitly configured metadata hosts. Local `Lab-*.json` metadata is read only from the repository `data/` directory and does not require `labId`.
+
+### Public marketplace catalogue
+
+The public catalogue is served by `/api/market/labs` as a paginated, public DTO. It accepts `includeUnlisted`, `cursor` and `limit` query parameters; the default page size is 24 and the maximum is 100. The home page renders the first server-side page into the initial React Query cache, and subsequent pages are requested only when the user selects `Load more labs`.
+
+The route caches each page for 60 seconds and exposes `Server-Timing`, `X-Market-RPC-Calls` and `X-Market-Payload-Bytes` response headers for performance observability. Credentials, access URLs, provider contact details and raw on-chain structures are intentionally excluded from this public DTO.
+
+The normal catalogue is listed-only. `includeUnlisted=true` is an explicit discovery/administration view used by the catalogue filter; an unlisted lab is labelled as such and is not eligible for public booking. If the listing status cannot be read, the lab is excluded from the default public view rather than being treated as listed.
+
+### Metadata and laboratory files
+
+The Marketplace does not promise decentralized metadata storage by default. Local `Lab-*.json` metadata is stored in the repository `data/` directory during development and in Vercel Blob in production. Quick Setup can reference an external HTTPS document only when its origin is trusted through the provider's on-chain institutional registration or the optional `ALLOWED_METADATA_ORIGINS` extension. A decentralized store therefore needs an accepted HTTPS gateway; an `ipfs://` URI is not automatically trusted. The Marketplace FMU upload route is intentionally disabled: `.fmu` files must be provisioned on the provider's Lab Gateway/Lab Station and registered by `accessKey`.
+
+### Browser security policy
+
+Page responses receive a per-request nonce-based Content Security Policy from `src/proxy.js`, including `frame-ancestors 'none'`, `object-src 'none'`, restricted images and no production `unsafe-eval`. The application also sets HSTS in production, `nosniff`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. Configure exact comma-separated origins in `CSP_CONNECT_SRC`, `CSP_FRAME_SRC` and `CSP_IMG_SRC` when the deployment knows the institutional backends, embedded document hosts or image hosts in advance. If `CSP_FRAME_SRC` is not configured, only same-origin frames are allowed. Production browser source maps are disabled; private maps should be uploaded to the observability system during deployment.
 
 ### Run E2E tests locally
 
@@ -132,11 +166,18 @@ npm run cy:run
 
 Notes:
 - Ensure any environment variables required by the app or Cypress are set before running E2E tests locally.
-- For CI runs, there's a manual workflow `Cypress E2E (manual)` available in GitHub Actions (Actions tab → select the workflow → Run workflow) which will run E2E on-demand.
+- CI runs Cypress on every push and pull request. The manual workflow `Cypress E2E (manual)` remains available in GitHub Actions for an independent rerun.
+
+### Required CI checks
+
+For protected branches, require the checks `Tests & Coverage`, `Cypress E2E`,
+`ESLint`, `Analyze Code` and `Lighthouse Audit`. The first two exercise the
+application behavior; the latter three protect code quality, security and
+regressions in the deployed shell.
 
 ### Learn More
 
-To learn more about DecentraLabs and how we are revolutionizing online experimentation through blockchain technologies, visit our webpage: [https://decentralabs.nebsyst.com/](https://decentralabs.nebsyst.com/)
+For project and company information, visit the [DecentraLabs marketing site](https://decentralabs.nebsyst.com/). This is separate from the active Marketplace origin documented above.
 
 To learn more about Next.js, take a look at the following resources:
 

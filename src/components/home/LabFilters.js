@@ -47,6 +47,7 @@ export default function LabFilters({
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
   
   useEffect(() => {
     setIsHydrated(true)
@@ -57,9 +58,8 @@ export default function LabFilters({
   
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
-      // Trigger search on Enter
-      const value = searchInputRef.current?.value?.toLowerCase() || "";
-      // The search logic is handled by the parent component through the ref
+      event.preventDefault()
+      handleSearch()
     }
   }
 
@@ -84,6 +84,21 @@ export default function LabFilters({
   const handleListingToggle = () => {
     onShowUnlistedChange(!showUnlisted);
   }
+
+  const handleReset = () => {
+    setSearchValue('')
+    onReset()
+  }
+
+  const hasActiveFilters = Boolean(
+    searchValue.trim()
+    || selectedCategory !== 'All'
+    || selectedPrice !== 'Sort by Price'
+    || selectedProvider !== 'All'
+    || selectedFilter !== 'Keyword'
+    || selectedResourceType !== 'All'
+    || showUnlisted
+  )
 
   return (
     <section className="mb-6 flex flex-col md:flex-row md:space-x-4 space-y-2 md:space-y-0 items-stretch md:items-center justify-center w-full">
@@ -151,12 +166,13 @@ export default function LabFilters({
           <label htmlFor="search-bar" className="sr-only">
             Search labs
           </label>
-          <input 
-            ref={searchInputRef} 
-            id="search-bar"
-            type="text" 
-            placeholder="Type here..." 
-            onKeyDown={handleKeyDown}
+            <input
+              ref={searchInputRef}
+              id="search-bar"
+              type="text"
+              placeholder="Type here..."
+              onInput={(event) => setSearchValue(event.currentTarget.value)}
+              onKeyDown={handleKeyDown}
             className="w-full bg-transparent placeholder:text-slate-500 text-header-bg text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-header-bg shadow-sm focus:shadow"
             disabled={effectiveLoading}
           />
@@ -216,6 +232,17 @@ export default function LabFilters({
           <option value="fmu">Simulated</option>
         </select>
       </div>
+
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={effectiveLoading}
+          className="w-full md:w-auto py-1.75 px-3 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Reset filters
+        </button>
+      )}
     </section>
   )
 }

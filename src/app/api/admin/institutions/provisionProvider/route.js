@@ -9,6 +9,7 @@ import {
   requireString,
   signProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 export const runtime = 'nodejs';
 
@@ -79,9 +80,16 @@ export async function POST(request) {
       payload,
     });
   } catch (error) {
-    devLog.error('[API] admin/provisionProvider: generation failed', error);
+    devLog.error('[API] admin/provisionProvider: generation failed', sanitizeErrorForLog(error));
     const status = error instanceof HttpError ? error.status : 400;
-    const message = error.message || 'Failed to generate provider provisioning token';
-    return NextResponse.json({ error: message }, { status });
+    return publicErrorResponse({
+      status,
+      code: error.code || 'PROVISIONING_TOKEN_FAILED',
+      message: error instanceof HttpError
+        ? error.message
+        : 'The provisioning token could not be generated.',
+      error,
+      context: 'admin-provision-provider',
+    });
   }
 }

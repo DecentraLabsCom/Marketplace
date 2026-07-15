@@ -30,7 +30,7 @@ export default function SimulationPage({ id, reservationKey }) {
 
   if (labError) {
     return (
-      <Container as="main" padding="sm">
+      <Container padding="sm">
         <div className="bg-error-bg border border-error-border rounded-lg p-6 max-w-md mx-auto mt-8">
           <h2 className="text-error-text text-xl font-semibold mb-2">Error Loading Resource</h2>
           <p className="text-error-text mb-4">
@@ -49,7 +49,7 @@ export default function SimulationPage({ id, reservationKey }) {
 
   if (loading) {
     return (
-      <Container as="main" padding="sm">
+      <Container padding="sm">
         <div className="mt-4">
           <LabHeroSkeleton />
         </div>
@@ -59,7 +59,7 @@ export default function SimulationPage({ id, reservationKey }) {
 
   if (!lab) {
     return (
-      <Container as="main" padding="sm">
+      <Container padding="sm">
         <div className="text-center text-neutral-200 mt-8">Resource not found.</div>
       </Container>
     )
@@ -72,7 +72,7 @@ export default function SimulationPage({ id, reservationKey }) {
   }
 
   return (
-    <Container as="main" padding="sm">
+    <Container padding="sm">
       <div className="mt-4 max-w-4xl mx-auto">
         <SimulationErrorBoundary>
           <SimulationRunner lab={lab} reservationKey={reservationKey} />

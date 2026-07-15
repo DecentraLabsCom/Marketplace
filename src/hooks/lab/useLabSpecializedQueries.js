@@ -209,8 +209,8 @@ export const useLabsForMarket = (options = {}) => {
             : effectiveState.isListed && !!metadataUri; // Only for listed labs with valid URI
           
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
-            queryFn: () => useMetadata.queryFn(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder', lab?.labId || labIds[index]),
+            queryFn: () => useMetadata.queryFn(metadataUri, lab?.labId || labIds[index]),
             enabled: shouldFetchMetadata,
             ...METADATA_QUERY_CONFIG,
           };
@@ -411,6 +411,7 @@ export const useLabById = (labId, options = {}) => {
   // Get metadata
   const metadataUri = labResult.data?.base?.uri;
   const metadataResult = useMetadata(metadataUri, {
+    labId: normalizedLabId,
     ...METADATA_QUERY_CONFIG,
     enabled: !!metadataUri && labResult.isSuccess,
   });
@@ -614,8 +615,8 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
           const lab = result.data;
           const metadataUri = lab?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
-            queryFn: () => useMetadata.queryFn(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder', lab?.labId),
+            queryFn: () => useMetadata.queryFn(metadataUri, lab?.labId),
             enabled: !!metadataUri && result.isSuccess,
             ...METADATA_QUERY_CONFIG,
           };
@@ -817,8 +818,8 @@ export const useLabsForReservation = (options = {}) => {
       ? labsWithDetails.map(lab => {
           const metadataUri = lab?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
-            queryFn: () => useMetadata.queryFn(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder', lab?.labId),
+            queryFn: () => useMetadata.queryFn(metadataUri, lab?.labId),
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG,
           };

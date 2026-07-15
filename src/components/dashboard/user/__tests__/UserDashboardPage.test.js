@@ -120,7 +120,7 @@ jest.mock('@/components/booking/CalendarWithBookings', () => ({
 
 jest.mock('@/components/dashboard/user/BookingsList', () => ({
     __esModule: true,
-    default: ({ type, bookings, onCancel, onRefund, onConfirmRefund }) => {
+    default: ({ type, bookings, onCancel }) => {
         const filtered = bookings?.filter((_, i) =>
             type === 'upcoming' ? i % 2 === 0 : i % 2 !== 0
         ) || [];
@@ -132,12 +132,6 @@ jest.mock('@/components/dashboard/user/BookingsList', () => ({
                         <span>{booking.labDetails?.name || `Lab ${booking.labId}`}</span>
                         {type === 'upcoming' && onCancel && (
                             <button onClick={() => onCancel(booking)}>Cancel</button>
-                        )}
-                        {type === 'past' && onRefund && (
-                            <button onClick={() => onRefund(booking.labId, booking)}>Refund</button>
-                        )}
-                        {type === 'past' && onConfirmRefund && (
-                            <button onClick={() => onConfirmRefund()}>Confirm Refund</button>
                         )}
                     </div>
                 ))}
@@ -355,25 +349,6 @@ describe('UserDashboard - Unit Tests', () => {
             );
         });
 
-        test('processes refund on past booking through cancellation flow', async () => {
-            mockCancelBooking.mockResolvedValue({});
-            const refundablePastBooking = {
-                ...mockBookings[0],
-                reservationKey: '9',
-                labId: '109',
-                status: '1',
-                labDetails: { name: 'Refundable Lab' }
-            };
-            mockBookingsData.data = { bookings: [mockBookings[0], refundablePastBooking] };
-            render(<UserDashboard />);
-
-            await userEvent.click(await screen.findByRole('button', { name: 'Refund' }));
-            await userEvent.click(await screen.findByRole('button', { name: 'Confirm Refund' }));
-
-            expect(mockCancelBooking).toHaveBeenCalledWith(
-                expect.objectContaining({ reservationKey: '9' })
-            );
-        });
     });
 
     describe('Edge Cases', () => {

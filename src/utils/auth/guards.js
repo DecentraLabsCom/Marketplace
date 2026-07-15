@@ -16,12 +16,12 @@
  */
 
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 import { getSessionFromCookies } from './sessionCookie';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { readLabCreatorPucHash, ZERO_BYTES32 } from '@/utils/blockchain/labCreatorHash';
 import { getPucHashFromSession } from './puc';
 import devLog from '@/utils/dev/logger';
+import { publicErrorResponse } from '@/utils/security/publicError';
 
 // ===== Custom Error Classes =====
 
@@ -87,7 +87,7 @@ export class BadRequestError extends HttpError {
  */
 export async function requireAuth() {
   const cookieStore = await cookies();
-  const session = getSessionFromCookies(cookieStore);
+  const session = await getSessionFromCookies(cookieStore);
 
   if (!session) {
     devLog.warn('requireAuth: No valid session found');
@@ -107,7 +107,7 @@ export async function requireAuth() {
 export async function getOptionalSession() {
   try {
     const cookieStore = await cookies();
-    return getSessionFromCookies(cookieStore);
+    return await getSessionFromCookies(cookieStore);
   } catch {
     return null;
   }
@@ -321,9 +321,7 @@ export function requireProviderRole(session) {
     role?.includes(r) || scopedRole?.includes(r)
   );
 
-  const hasWallet = session.wallet && isValidAddress(session.wallet);
-
-  if (!isProvider && !hasWallet) {
+  if (!isProvider) {
     devLog.warn('requireProviderRole: User is not a provider:', session.id || session.email);
     throw new ForbiddenError('Provider access required');
   }
@@ -415,26 +413,24 @@ export function extractLabIdFromPath(filePath) {
  * @param {Error} error - Error to convert to response
  * @returns {NextResponse} JSON error response
  */
-export function handleGuardError(error) {
+export function handleGuardError(error, request = null) {
   if (error instanceof HttpError) {
-    return NextResponse.json(
-      {
-        error: error.message,
-        code: error.code
-      },
-      { status: error.status }
-    );
+    return publicErrorResponse({
+      status: error.status,
+      code: error.code,
+      message: error.message,
+      error,
+      context: request?.url || 'auth-guard',
+    });
   }
 
-  devLog.error('Unexpected error in guard:', error);
-  return NextResponse.json(
-    {
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    },
-    { status: 500 }
-  );
+  return publicErrorResponse({
+    status: 500,
+    code: 'INTERNAL_ERROR',
+    message: 'The request could not be completed.',
+    error,
+    context: request?.url || 'auth-guard',
+  });
 }
 
 /**

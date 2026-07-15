@@ -236,7 +236,7 @@ describe('/api/auth/checkin route', () => {
     const res = await POST(req)
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Provided auth endpoint does not match on-chain provider auth URI',
+      error: 'The provider access endpoint is invalid.',
       code: 'BAD_REQUEST',
     })
   })

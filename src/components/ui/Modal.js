@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import PropTypes from 'prop-types'
 
 /**
@@ -71,20 +71,64 @@ export default function Modal({
   className = '',
 }) {
   const modalRef = useRef(null)
+  const previousFocusRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  const titleId = useId()
 
-  // Handle Escape key
   useEffect(() => {
-    if (!isOpen || !onClose) return
-    
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  // Handle Escape, trap focus, and restore the trigger focus on close.
+  useEffect(() => {
+    if (!isOpen) return undefined
+
+    previousFocusRef.current = document.activeElement
+    const modal = modalRef.current
+    const focusableSelector = [
+      'a[href]',
+      'area[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',')
+
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose()
+        if (onCloseRef.current) onCloseRef.current()
+        return
+      }
+
+      if (e.key !== 'Tab' || !modal) return
+
+      const focusable = Array.from(modal.querySelectorAll(focusableSelector))
+      if (focusable.length === 0) {
+        e.preventDefault()
+        modal.focus()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      if (previousFocusRef.current instanceof HTMLElement) {
+        previousFocusRef.current.focus()
+      }
+    }
+  }, [isOpen])
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -96,7 +140,7 @@ export default function Modal({
     }
   }, [isOpen])
 
-  // Focus trap (basic - focuses modal on open)
+  // Focus the dialog container when there are no immediate controls.
   useEffect(() => {
     if (isOpen && modalRef.current) {
       modalRef.current.focus()
@@ -114,7 +158,7 @@ export default function Modal({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby={title ? 'modal-title' : undefined}
+      aria-labelledby={title ? titleId : undefined}
     >
       <div
         ref={modalRef}
@@ -133,7 +177,7 @@ export default function Modal({
           <div className={`flex items-center justify-between border-b ${themeStyles.border} px-4 py-3 sm:px-6 sm:py-4`}>
             {title && (
               <h2 
-                id="modal-title" 
+                id={titleId}
                 className={`text-lg font-semibold ${themeStyles.title}`}
               >
                 {title}

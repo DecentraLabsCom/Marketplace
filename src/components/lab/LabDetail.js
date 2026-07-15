@@ -15,6 +15,7 @@ import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { isFmu, getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
+import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
 
 let countryLocaleRegistered = false
@@ -72,7 +73,7 @@ export default function LabDetail({ id }) {
   // âŒ Error handling for React Query
   if (labsError) {
     return (
-      <Container as="main" padding="sm">
+      <Container padding="sm">
         <div className="bg-error-bg border border-error-border rounded-lg p-6 max-w-md mx-auto">
           <h2 className="text-error-text text-xl font-semibold mb-2">Error Loading Lab</h2>
           <p className="text-error-text mb-4">
@@ -91,7 +92,7 @@ export default function LabDetail({ id }) {
 
   if (loading) {
     return (
-      <Container as="main" padding="sm">
+      <Container padding="sm">
         <div className={topSpacingClass}>
           <LabHeroSkeleton />
         </div>
@@ -104,9 +105,14 @@ export default function LabDetail({ id }) {
   }
 
   const ratingValue = getLabRatingValue(lab.reputation);
-  const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : '0.0';
+  const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const totalEvents = lab.reputation?.totalEvents ? Number(lab.reputation.totalEvents) : 0;
   const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
+  const pricePresentation = formatPricePerUnit({
+    price: lab.price,
+    unit: getLabPricingUnit(lab),
+    formatPrice,
+  });
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
   const labIsFmu = isFmu(lab);
@@ -114,7 +120,7 @@ export default function LabDetail({ id }) {
   const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
 
   return (
-    <Container as="main" padding="sm">
+    <Container padding="sm">
       <section className={`flex flex-col md:flex-row md:justify-center gap-6 md:gap-10 ${topSpacingClass}`}>
         {/* Carousel Section */}
         <article className="w-full md:w-1/2 flex flex-col p-4">
@@ -122,7 +128,7 @@ export default function LabDetail({ id }) {
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
-              <span className="text-text-secondary">{formatPrice(lab?.price)} credits / hour</span>
+              <span className="text-text-secondary">{pricePresentation.text}</span>
               {(lab?.provider || providerCountryLabel) && (
                 <div className="text-right max-w-[55%]">
                   {lab?.provider && (
@@ -213,9 +219,15 @@ export default function LabDetail({ id }) {
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
               <div className="mt-1 flex items-center gap-2">
-                <FontAwesomeIcon icon={faStar} className="text-brand text-sm" />
-                <span className="text-sm font-semibold text-header-bg">{ratingLabel}</span>
-                <span className="text-sm text-text-secondary">/5</span>
+                {ratingLabel ? (
+                  <>
+                    <FontAwesomeIcon icon={faStar} className="text-brand text-sm" />
+                    <span className="text-sm font-semibold text-header-bg">{ratingLabel}</span>
+                    <span className="text-sm text-text-secondary">/5</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-semibold text-header-bg">No ratings</span>
+                )}
               </div>
               <div className="text-xs text-text-secondary">{eventsLabel}</div>
             </div>
@@ -348,7 +360,7 @@ export default function LabDetail({ id }) {
               </h3>
               <div className="transition-opacity duration-300 opacity-100 mt-2">
                 {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
-                  <DocsCarrousel docs={lab.docs} />
+                  <DocsCarrousel docs={lab.docs} labId={lab.id} />
                 ) : (
                   <span className="text-center text-neutral-300 p-2">No documents available</span>
                 )}

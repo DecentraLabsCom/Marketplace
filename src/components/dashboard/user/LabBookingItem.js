@@ -1,7 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
-import ConfirmModal from '@/components/ui/ConfirmModal'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     getBookingStatusDisplay,
@@ -13,17 +12,13 @@ import devLog from '@/utils/dev/logger'
 
 /**
  * Individual booking item component for user dashboards and booking lists
- * Displays booking information with status, cancellation, and refund options
+ * Displays booking information with status and cancellation options
  * @param {Object} props
  * @param {Object} props.lab - Lab object containing id, name, provider info
  * @param {Object} props.booking - Booking object with status, date, times, errors
  * @param {string|number} props.startTime - Booking start time
  * @param {string|number} props.endTime - Booking end time
  * @param {Function} props.onCancel - Handler for canceling booking
- * @param {Function} props.onRefund - Handler for requesting refund
- * @param {Function} props.onConfirmRefund - Handler for confirming refund request
- * @param {boolean} props.isModalOpen - Whether confirmation modal is open
- * @param {Function} props.closeModal - Handler for closing confirmation modal
  * @param {Function} props.onClearError - Handler for clearing booking errors
  * @returns {JSX.Element} Booking item with status display and action buttons
  */
@@ -33,31 +28,9 @@ const LabBookingItem = React.memo(function LabBookingItem({
     startTime = null,
     endTime = null,
     onCancel = null,
-    onRefund = null,
-    onConfirmRefund = null,
-    isModalOpen = false,
-    closeModal = null,
     onClearError = null,
-    cancelState = null,
-    isSSOUser = false,
-    userInstitutionWallet = null
+    cancelState = null
 }) {
-    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-    const normalizeAddress = (value) => (typeof value === 'string' ? value.toLowerCase() : '');
-    const hasNonZeroAddress = (value) => {
-      const normalized = normalizeAddress(value);
-      return Boolean(normalized) && normalized !== ZERO_ADDRESS;
-    };
-    const isZeroLike = (value) => {
-      if (value === null || value === undefined || value === '') return false;
-      try {
-        return BigInt(value) === 0n;
-      } catch {
-        const numeric = Number(value);
-        return Number.isFinite(numeric) && numeric === 0;
-      }
-    };
-
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
     const parseUnixTime = (value) => {
@@ -86,35 +59,9 @@ const LabBookingItem = React.memo(function LabBookingItem({
       : statusDisplay;
     const statusIcon = effectiveStatusDisplay?.icon;
     const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
-    const normalizedCollector = normalizeAddress(booking.collectorInstitution);
-    const normalizedPayer = normalizeAddress(booking.payerInstitution);
-    const normalizedUserInstitution = normalizeAddress(userInstitutionWallet);
-    const isSameInstitutionBooking = Boolean(
-      isSSOUser &&
-      hasNonZeroAddress(normalizedCollector) &&
-      (
-        (hasNonZeroAddress(normalizedUserInstitution) && normalizedCollector === normalizedUserInstitution) ||
-        (hasNonZeroAddress(normalizedPayer) && normalizedCollector === normalizedPayer)
-      )
-    );
-    const isFreeReservation = isZeroLike(booking.price);
-    const shouldUseRefundAction =
-      typeof onCancel === "function" &&
-      typeof onRefund === "function" &&
-      isBookingInAccessWindow;
-    const canRefund = Boolean(
-      typeof onRefund === "function" &&
-      booking.reservationKey &&
-      !isCancelled &&
-      !isFreeReservation &&
-      !isSameInstitutionBooking &&
-      (isConfirmedBooking(booking) || isAccessAuthorized) &&
-      (shouldUseRefundAction || typeof onCancel !== "function")
-    );
-    const showCancelButton = typeof onCancel === "function" && canCancel && !shouldUseRefundAction;
+    const showCancelButton = typeof onCancel === "function" && canCancel;
     const isCancelling = Boolean(cancelState?.isBusy);
     const cancelLabel = cancelState?.label || ((booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request");
-    const refundLabel = shouldUseRefundAction ? "Request for Refund" : "Apply for Refund";
 
     return (
         <li className={`flex flex-col items-start border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
@@ -161,51 +108,34 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 </span>
                 {/* Show cancel button for booked or pending reservations (not canceled) */}
                 {showCancelButton && (
-                    <button
-                        onClick={() => {
-                            // Log critical action for debugging
-                            if (isCancelling) return;
-                            devLog.log('Cancel booking action:', { labId: lab.id, bookingStatus: booking.status });
-                            onCancel(booking);
-                        }}
-                        disabled={isCancelling}
-                        className={`text-white px-3 py-1 rounded text-sm inline-flex items-center justify-center gap-2 ${
-                          isCancelling
-                            ? 'bg-gray-500 cursor-not-allowed'
-                            : 'bg-[#a87583] hover:bg-[#8a5c66]'
-                        }`}
-                        aria-busy={isCancelling}
-                    >
-                        {isCancelling && <div className="spinner spinner-sm border-white" />}
-                        {cancelLabel}
-                    </button>
-                )}
-                {/* Only show refund button for reservations that have a key and are not canceled */}
-                {canRefund && (
-                    <button
-                        onClick={() => onRefund(lab.id, booking)}
-                        className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"
-                    >
-                        {refundLabel}
-                    </button>
+                    <div className="flex flex-col items-end gap-1">
+                        <button
+                            onClick={() => {
+                                // Log critical action for debugging
+                                if (isCancelling) return;
+                                devLog.log('Cancel booking action:', { labId: lab.id, bookingStatus: booking.status });
+                                onCancel(booking);
+                            }}
+                            disabled={isCancelling}
+                            className={`text-white px-3 py-1 rounded text-sm inline-flex items-center justify-center gap-2 ${
+                              isCancelling
+                                ? 'bg-gray-500 cursor-not-allowed'
+                                : 'bg-[#a87583] hover:bg-[#8a5c66]'
+                            }`}
+                            aria-busy={isCancelling}
+                        >
+                            {isCancelling && <div className="spinner spinner-sm border-white" />}
+                            {cancelLabel}
+                        </button>
+                        {isConfirmedBooking(booking) && (
+                            <span className="max-w-56 text-right text-[11px] text-gray-500">
+                                Eligible service credits return to the institutional account; they are not cash.
+                            </span>
+                        )}
+                    </div>
                 )}
                 </div>
             </div>
-            {isModalOpen && (
-                <ConfirmModal
-                    isOpen={isModalOpen}
-                    onClose={closeModal}
-                    onContinue={() => {
-                        if (typeof onConfirmRefund === "function") {
-                            devLog.log('Confirming refund request');
-                            onConfirmRefund();
-                        } else {
-                            devLog.error('No refund confirm function available');
-                        }
-                        // Don't call closeModal here - let the parent handle it
-                    }}
-                />
-            )}
         </li>
     );
 });
@@ -226,17 +156,11 @@ LabBookingItem.propTypes = {
     startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     onCancel: PropTypes.func,
-    onRefund: PropTypes.func,
-    onConfirmRefund: PropTypes.func,
-    isModalOpen: PropTypes.bool,
-    closeModal: PropTypes.func,
     onClearError: PropTypes.func,
     cancelState: PropTypes.shape({
         isBusy: PropTypes.bool,
         label: PropTypes.string
     }),
-    isSSOUser: PropTypes.bool,
-    userInstitutionWallet: PropTypes.string
 }
 
 export default LabBookingItem;

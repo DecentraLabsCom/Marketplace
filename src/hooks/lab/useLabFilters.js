@@ -157,11 +157,15 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
       filtered = filtered.filter((lab) => {
         switch (selectedFilter) {
           case "Keyword":
-            return (Array.isArray(lab.keywords) 
-                     ? lab.keywords.some(keyword => keyword?.toLowerCase().includes(searchDebounce))
-                     : lab.keywords?.toLowerCase().includes(searchDebounce)) ||
-                   lab.name?.toLowerCase().includes(searchDebounce) ||
-                   lab.description?.toLowerCase().includes(searchDebounce)
+            return [
+              lab.name,
+              lab.provider,
+              ...(Array.isArray(lab.category) ? lab.category : [lab.category]),
+              ...(Array.isArray(lab.keywords) ? lab.keywords : [lab.keywords]),
+              lab.description,
+            ]
+              .filter((value) => typeof value === 'string')
+              .some((value) => value.toLowerCase().includes(searchDebounce))
           case "Name":
             return lab.name?.toLowerCase().includes(searchDebounce)
           default:

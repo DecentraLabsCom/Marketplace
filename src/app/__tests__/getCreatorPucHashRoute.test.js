@@ -72,9 +72,9 @@ describe('/api/contract/lab/getCreatorPucHash route', () => {
     const res = await GET(req)
 
     expect(res.status).toBe(500)
-    await expect(res.json()).resolves.toEqual({
-      error: 'Failed to call getCreatorPucHash',
-      details: undefined,
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'The requested blockchain operation could not be completed.',
+      code: 'CONTRACT_CALL_FAILED',
     })
   })
 })

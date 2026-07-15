@@ -8,6 +8,7 @@ import {
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 export async function GET(request) {
   try {
@@ -47,17 +48,15 @@ export async function GET(request) {
     )
   } catch (error) {
     if (error instanceof BadRequestError) {
-      return handleGuardError(error)
+      return handleGuardError(error, request)
     }
 
-    console.error('Error checking active booking:', error)
-
-    return Response.json(
-      {
-        error: 'Failed to check active booking',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      },
-      { status: 500 },
-    )
+    return publicErrorResponse({
+      status: 500,
+      code: 'ACTIVE_BOOKING_LOOKUP_FAILED',
+      message: 'The active booking could not be checked.',
+      error,
+      context: 'institution-active-booking',
+    })
   }
 }

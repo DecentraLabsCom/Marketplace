@@ -76,14 +76,15 @@ async function runActionIntent(action, payload) {
     throw new Error('WebAuthn not supported in this environment');
   }
 
+  const safePayload = { ...(payload || {}) }
+  delete safePayload.backendUrl
   const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
       action,
-      payload,
-      backendUrl: payload.backendUrl,
+      payload: safePayload,
     }),
   });
 
@@ -97,7 +98,7 @@ async function runActionIntent(action, payload) {
 
   const authToken = prepareData?.backendAuthToken || null;
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-    backendUrl: payload.backendUrl,
+    backendUrl: prepareData?.backendUrl,
     authToken,
     presenceFn: payload?.presenceFn,
   });
@@ -315,7 +316,7 @@ export const useUpdateLabSSO = (options = {}) => {
           updateLab(variables.labId, updatedLab);
           if (variables.labData.uri) {
             queryClient.invalidateQueries({
-              queryKey: metadataQueryKeys.byUri(variables.labData.uri),
+              queryKey: metadataQueryKeys.byUri(variables.labData.uri, variables.labId),
               exact: true,
               refetchType: 'active'
             });

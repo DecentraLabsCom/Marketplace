@@ -1,114 +1,49 @@
-# Tokenize and list your lab
+# Configure and publish your lab
 
-Once a user is registered as a provider, the **Lab Panel** becomes visible and accessible. The image below shows an example where the provider already has a lab tokenized and listed, but this does not affect the process and explanation of adding a new lab. For this, click on the **Add New Lab** button, under the calendar on the right.
+Once the institution has been onboarded and the provider role is available, open the **Lab Panel** and select **Add New Lab**. The normal provider flow uses institutional SSO and the institution's managed backend. It does not require a personal Web3 wallet, a network selection, a browser gas payment or a direct Marketplace transaction.
 
-<figure><img src="../.gitbook/assets/image (1) (1).png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/image (1) (1).png" alt="Lab Panel"><figcaption></figcaption></figure>
 
-This will open a modal to add a new lab, as shown in the next figure.
+The form offers **Full Setup** and **Quick Setup**. Both flows send authorized changes through the institution's configured backend; the backend performs the on-chain operation with the managed institutional wallet.
 
-<figure><img src="../.gitbook/assets/image (2).png" alt=""><figcaption></figcaption></figure>
+## Full Setup
 
-The DecentraLabs Marketplace offers two main approaches for tokenizing your laboratory:
+Full Setup is the guided option for entering the laboratory information in the Marketplace.
 
-### ⚙️ Full Setup (recommended for beginners)
+1. Sign in with institutional SSO and open the **Lab Panel**.
+2. Select **Add New Lab** and choose **Full Setup**.
+3. Complete the basic information, category, description, availability and access requirements.
+4. Set the price and its unit. Supported display units are `minute`, `hour`, `day`, `week` and `month`. The contract stores the normalized per-second value, while the catalogue and detail page show the configured unit.
+5. Add images and documentation. Do not put gateway credentials, access keys or private provider contact data in public metadata.
+6. Review the form and submit it. Wait for the institutional backend and on-chain confirmation before treating the lab as published.
 
-This option allows you to input all laboratory data directly through the web interface in the marketplace and corresponds to the modal shown in the image above. This approach stores essential information on-chain while keeping detailed metadata accessible through decentralized storage.
+The Marketplace creates the local metadata document as part of the provider workflow. In development, `Lab-*.json` files are stored under `data/`; in production, local metadata may be written to Vercel Blob. This is application-managed storage, not an automatic IPFS or Arweave publication.
 
-**Steps:**
+## Quick Setup
 
-1. **Access the Web Form**
-   * Connect your Web3 wallet
-   * Ensure you're on the correct network (Sepolia for testing, Ethereum for production)
-   * Navigate to the "Lab Panel" section on the navbar
-   * Click on the "Add a New Lab" button on the bottom right
-   * Choose the "Full Setup" tab in the modal
-2. **Fill Out the Full Setup Form**
-   * **Basic Information**: Laboratory name, description, keywords, category...
-   * **Pricing and availability**: Hourly rates, available time slots, opening and closing dates
-   * **Access Information**: Connection details, credentials
-   * **Media Files**: Upload images, documentation, user guides
-3. **Review and Submit**
-   * Confirm all information is accurate
-   * Submit the transaction and pay gas fees
-   * Wait for blockchain confirmation
-4. **Verification**
-   * Your laboratory token will be minted on-chain
-   * The marketplace will automatically generate metadata storage
-   * Your lab becomes immediately available for booking (if the opening date is not later than the current date)
+Quick Setup is for providers that already maintain a metadata document at an external origin.
 
-**Advantages:**
+1. Prepare a JSON document using the laboratory metadata schema.
+2. Host it at an HTTPS URL. The origin must be trusted through the provider's on-chain institutional registration or the optional `ALLOWED_METADATA_ORIGINS` configuration. A decentralized store can be used behind an accepted HTTPS gateway, but an `ipfs://` URI is not itself an automatic trust decision.
+3. Sign in with institutional SSO, open **Add New Lab** and choose **Quick Setup**.
+4. Enter the price, display unit and metadata URL, then review the listing state.
+5. Submit the authorized operation and wait for backend/on-chain confirmation.
 
-* Simple, guided process
-* No technical knowledge of JSON or file hosting required
-* Automatic metadata management
-* Immediate publication after transaction confirmation
+The metadata URL is public catalogue input. Keep access URLs, access keys, service credentials and institutional contact details outside the public document.
 
-### ⚡ Quick Setup (for technical users)
+<figure><img src="../.gitbook/assets/image (3).png" alt="Quick Setup"><figcaption></figcaption></figure>
 
-This option is designed for users who prefer to manage their metadata externally or want more control over their data storage. This approach requires only essential on-chain data while referencing external metadata. The next figure displays how the modal looks for this setup mode.
+## Listing and unlisted labs
 
-<figure><img src="../.gitbook/assets/image (3).png" alt=""><figcaption></figcaption></figure>
+Creating a lab and publishing it are separate states. The default public catalogue contains listed labs only. An explicit `includeUnlisted=true` request can expose an unlisted lab for discovery or administration, but an unlisted lab is not eligible for public booking. If the Marketplace cannot read the on-chain listing status, it does not treat the lab as listed.
 
-**Steps:**
+## FMU and gateway files
 
-1.  **Prepare Your Metadata File**
+Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
 
-    Create a JSON file with your laboratory details following the structure described on the [Tokenized Labs](https://app.gitbook.com/o/JuYQps1HQOxaULtfsWTC/s/PE433sWl3ju7auqqYpTP/) section.
-2.  **Host Your Metadata File**
+## Post-publication management
 
-    Make your JSON file publicly accessible through one of these options:
-
-    **Decentralized options:**
-
-    *   **IPFS**: Upload to IPFS and use the resulting hash URL
-
-        ```
-        https://ipfs.io/ipfs/QmYourHashHere
-        ```
-    * **Arweave**: Permanent storage solution
-    * **Other decentralized storage networks**
-
-    **Centralized options:**
-
-    *   **GitHub Gist**: Create a public gist with your JSON
-
-        ```
-        https://gist.githubusercontent.com/username/gist-id/raw/file.json
-        ```
-    * **Your own server**: Host the file on your domain
-    * **Cloud storage**: Use services like AWS S3, Google Cloud Storage (with public access)
-3. **Access to the Web Form**
-   * Connect your Web3 wallet
-   * Ensure you're on the correct network (Sepolia for testing, Ethereum for production)
-   * Navigate to the "Lab Panel" section on the navbar
-   * Click on the "Add a New Lab" button on the bottom right
-   * Choose the "Quick Setup" tab in the modal
-4. **Complete the Quick Setup Form**
-   * **Basic on-chain data**: Fill the web form with hourly rate
-   * **Metadata URL**: Provide the public URL to your JSON file
-5. **Review and Submit**
-   * Confirm all information is accurate
-   * Submit the transaction and pay gas fees
-   * Wait for blockchain confirmation
-6. **Verification**
-   * Your laboratory token will be minted on-chain
-   * Your lab becomes immediately available for booking (if the opening date is not later than the current date)
-
-**Advantages:**
-
-* Greater control over metadata storage
-* Decentralized support for metadata storage
-* Immediate publication after transaction confirmation
-
-### 🛠️ Post-Tokenization Management
-
-#### Updating Information
-
-* **Full Setup**: Updates only require new transactions when onchain data is modified
-* **Quick Setup**: Since all data in this form is stored onchain, any change will trigger and require a new transaction. However, you can still modify your offchain data by simply editing the JSON file in your storage service. Note that IPFS storage will not allow you to modify the file; instead, you will have to upload a new one with the updated info, get its new hash URL, paste it in the Quick Setup form, and execute a transaction to inform the smart contract about the new URL
-
-#### Important Tips for Support and Maintenance
-
-* Provide responsive user support for potential lab availability issues
-* Maintain laboratory equipment and software
-* Ensure proper lab illumination, reliable internet connectivity and access systems
+* Metadata-only changes update the application-managed document and do not necessarily require changing the on-chain lab record.
+* Changes to on-chain fields, price, availability or the metadata URI are submitted again through the institutional backend and may wait for confirmation.
+* If an external metadata document changes, ensure its URL remains reachable and its origin remains trusted. For immutable content-addressed storage, publish a new document and update the metadata URI through the provider flow.
+* Keep the Lab Gateway, Lab Station and institutional backend operational. A visible listing does not by itself prove that the remote lab endpoint is available.

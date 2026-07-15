@@ -227,6 +227,7 @@ export function useLabReservationState({
   const {
     calculateReservationCost,
     formatPrice,
+    formatTokenAmount,
   } = useLabCredit()
 
   const bookingCacheUpdates = useBookingCacheUpdates()
@@ -790,6 +791,7 @@ export function useLabReservationState({
     markSsoRequestSent,
     resetSsoReservationFlow,
     formatPrice,
+    formatTokenAmount,
     reservationRequestMutation,
     bookingCacheUpdates
   }

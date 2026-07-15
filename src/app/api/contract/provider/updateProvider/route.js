@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 /**
  * Update provider information
@@ -36,11 +37,14 @@ export async function POST(request) {
   } catch (error) {
     // Handle guard errors (401, 403) separately from other errors
     if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
-      return handleGuardError(error);
+      return handleGuardError(error, request);
     }
-    console.error('Error updating provider:', error);
-    return NextResponse.json(
-      { error: `Failed to update provider: ${error.message}` }, {status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'PROVIDER_UPDATE_FAILED',
+      message: 'The provider update could not be completed.',
+      error,
+      context: 'contract-update-provider',
+    });
   }
 }

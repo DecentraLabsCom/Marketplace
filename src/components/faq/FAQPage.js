@@ -7,62 +7,62 @@ import { Container } from '@/components/ui'
 export default function FAQ() {
   const faqData = [
     {
-      question: " 1. What is DecentraLabs?",
-      answer: "DecentraLabs is a project revolutionizing the way online labs are shared among institutions through the application of decentralized technologies to make the process more open and sustainable."
+      question: ' 1. What is DecentraLabs?',
+      answer: 'DecentraLabs is a project for sharing online laboratories among educational and research institutions, using institutional identity, managed infrastructure and blockchain-backed reservations.',
     },
     {
-      question: " 2. What is DecentraLabs Marketplace?",
-      answer: "The marketplace offers a catalogue of online laboratories shared by universities and research institutions. Through our platform, users can securely and transparently reserve access to online labs, managed by smart contracts on the blockchain."
+      question: ' 2. What is DecentraLabs Marketplace?',
+      answer: 'The Marketplace offers a catalogue of online laboratories shared by universities and research institutions. Users can browse listed labs, reserve an available time window and access the lab through the provider gateway.',
     },
     {
-      question: " 3. How do I access a lab on DecentraLabs?",
-      answer: "To access a lab on DecentraLabs, you need institutional SSO credentials. Once signed in through your institution, you can browse listed labs, make a reservation, and pay using prepaid service credits."
+      question: ' 3. How do I access a lab on DecentraLabs?',
+      answer: 'You need institutional SSO credentials. After signing in through your institution, you can browse listed labs, make a reservation and use the applicable internal service credits.',
     },
     {
-      question: " 4. So, do I need to pay to access a lab?",
-      answer: "It depends on the lab. Some labs may be free to access, while others require a fee, which is paid using service credits. Each lab has its own access model specified by the lab owner/provider."
+      question: ' 4. Do I need to pay to access a lab?',
+      answer: 'It depends on the lab. Some labs may be free, while others consume internal service credits according to the provider pricing and unit shown in the catalogue. Service credits cannot be exchanged for cash.',
     },
     {
-      question: " 5. How do reservations work?",
-      answer: "Users can make reservations for available labs on the platform. Once reserved, you will have access to the lab for the specified period. If the reservation is cancelled or expires, access is revoked. You can cancel your reservation at any time before the access period begins."
+      question: ' 5. How do reservations work?',
+      answer: 'Users reserve an available date, start time and duration. A pending or confirmed reservation can be cancelled before the access period begins; eligible internal service credits are then returned to the institutional credit account. This is not a cash refund.',
     },
     {
-      question: " 6. What are “owners” or “providers” and how can I become one?",
-      answer: "Owners or providers are those responsible for listing and managing labs on the platform. To become a lab provider, you must be registered as an employee of an educational or research institution and go through a validation process. To start with this process, simply go to the “Register as a provider” section in the marketplace and fill the form."
+      question: ' 6. What are providers and how can I become one?',
+      answer: 'Providers are institutions that publish and operate laboratories. Provider onboarding requires institutional SSO and an authorized institution administrator. The administrator provisions the institutional backend and managed wallet; providers do not connect a personal wallet or pay gas in the Marketplace.',
     },
     {
-      question: " 7. How does authentication work?",
-      answer: "DecentraLabs uses institutional SSO for user authentication. This keeps access tied to managed institutional identity while reservations, settlements, and service-credit accounting are executed through the platform's managed blockchain infrastructure."
+      question: ' 7. How does authentication work?',
+      answer: 'DecentraLabs uses institutional SSO for user authentication. The browser receives an opaque session identifier, while reservation and access authorization are handled by the Marketplace and the configured institutional backend.',
     },
     {
-      question: " 8. What are service credits?",
-      answer: "Service credits are prepaid units used to reserve and access labs on DecentraLabs. Credits are issued when your institution confirms a funding order and are managed through smart contracts within the platform's limited network."
+      question: ' 8. What are service credits?',
+      answer: 'Service credits are prepaid internal units used to reserve and access labs. They are issued and managed for an institutional account, support eligible lifecycle returns, and cannot be converted into cash or treated as an external $LAB/ERC-20 payment.',
     },
     {
-      question: " 9. How is lab access secured and reliable?",
-      answer: "DecentraLabs uses smart contracts deployed on the blockchain to manage lab access. These contracts ensure that only users with a valid reservation can access a lab, and all transactions are performed securely and transparently. Each transaction is recorded on the blockchain, providing traceability and immutability."
+      question: ' 9. How is lab access secured?',
+      answer: 'The Marketplace checks the institutional session and reservation state. The blockchain-services component then issues a short-lived signed access token that the provider Lab Gateway validates for the requested lab and time window.',
     },
     {
-      question: " 10. Can I share my lab with others?",
-      answer: "Yes. As a lab provider, you can choose to share it for free or charge a fee, depending on your preference. You can specify the access conditions and restrictions when registering your lab on the marketplace."
+      question: ' 10. Can I share my lab with others?',
+      answer: 'Yes. An authorized institutional provider can configure a lab, its availability, its price unit and its publication state through the Lab Panel.',
     },
     {
-      question: " 11. Can I access labs from anywhere in the world?",
-      answer: "Yes, all labs on DecentraLabs are remotely accessible, allowing you to access them from anywhere in the world as long as you have an internet connection and can authenticate through your institution."
+      question: ' 11. Can I access labs from anywhere?',
+      answer: 'Remote access is available wherever the provider gateway permits it, provided that you have internet access and can authenticate through your institution.',
     },
     {
-      question: " 12. Is there a time limit for accessing a lab?",
-      answer: "Each lab has a specified access time slot previously determined by the owner. Once the reservation expires, access to the lab is revoked. If you need more time, you will need to make a new reservation."
+      question: ' 12. Is there a time limit for accessing a lab?',
+      answer: 'Yes. Access is limited to the active reservation window. When it ends, the provider gateway closes the session and a new reservation is required for additional time.',
     },
     {
-      question: " 13. What if the lab I want to access is already reserved?",
-      answer: "If the lab is reserved during the time you want to access it, you won’t be able to access it until it becomes available again. You can choose another available lab or wait for your desired lab to be free."
+      question: ' 13. What does unlisted mean?',
+      answer: 'An unlisted lab is not included in the normal listed-only catalogue and is not eligible for public booking. It may appear only when the explicit discovery filter is enabled. If its listing status cannot be read, it is not treated as listed.',
     },
     {
-      question: " 14. How can I contact DecentraLabs support?",
-      answer: "If you have any questions or need support, you can contact us in our social media channels, through the contact form on our website, or via email. Our support team will be happy to assist you with any queries."
-    }
-  ];
+      question: ' 14. How can I contact DecentraLabs support?',
+      answer: 'Contact your institution administrator or use the support and contact channels published by DecentraLabs for Marketplace issues.',
+    },
+  ]
 
   return (
     <Container padding="sm">
@@ -76,19 +76,20 @@ export default function FAQ() {
           {faqData.map((item, index) => (
             <div key={index} className="py-5">
               <details className="group">
-                <summary className="flex cursor-pointer list-none items-center justify-between 
+                <summary className="flex cursor-pointer list-none items-center justify-between
                 text-2xl font-semibold mb-4 text-hover-dark">
-                    <span>{item.question}</span>
-                    <span className="transition group-open:rotate-180">
+                  <span>{item.question}</span>
+                  <span className="transition group-open:rotate-180">
                     <svg fill="none" height="24" shapeRendering="geometricPrecision"
-                        stroke="black" strokeLinecap="round" strokeLinejoin="round"
-                        strokeWidth="1.5" viewBox="0 0 24 24" width="24">
+                      stroke="black" strokeLinecap="round" strokeLinejoin="round"
+                      strokeWidth="1.5" viewBox="0 0 24 24" width="24">
                       <path d="M6 9l6 6 6-6"></path>
                     </svg>
-                    </span>
+                  </span>
                 </summary>
                 <p className="group-open:animate-fadeIn mt-3 text-neutral-600 text-justify">
-                {item.answer}</p>
+                  {item.answer}
+                </p>
               </details>
             </div>
           ))}

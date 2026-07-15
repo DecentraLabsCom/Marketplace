@@ -22,7 +22,7 @@ const METADATA_QUERY_CONFIG = {
 export { METADATA_QUERY_CONFIG };
 
 // Define queryFn first for reuse
-const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
+const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri, labId = null) => {
   try {
     if (!metadataUri) {
       throw new Error('Metadata URI is required');
@@ -35,7 +35,13 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
 
     try {
-      const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
+      const params = new URLSearchParams()
+      if (labId !== undefined && labId !== null && labId !== '') {
+        params.set('labId', String(labId))
+      }
+      params.set('uri', metadataUri)
+
+      const response = await fetch(`/api/metadata?${params.toString()}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
@@ -71,7 +77,8 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
 
 /**
  * Hook for fetching metadata by URI
- * GET /api/metadata?uri={metadataUri}
+ * GET /api/metadata?labId={labId}&uri={metadataUri} for external metadata;
+ * local Lab-* metadata may omit labId.
  * 
  * @param {string} metadataUri - Metadata URI to fetch (required)
  * @param {Object} [options={}] - React Query options
@@ -93,12 +100,14 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
  * @returns {Function} returns.refetch - Function to manually refetch
  */
 export const useMetadata = (metadataUri, options = {}) => {
+  const { labId = null, ...queryOptions } = options
+
   return useQuery({
-    queryKey: metadataQueryKeys.byUri(metadataUri),
-    queryFn: () => getMetadataQueryFn(metadataUri), // ✅ Reuse the SSR-safe queryFn
+    queryKey: metadataQueryKeys.byUri(metadataUri, labId),
+    queryFn: () => getMetadataQueryFn(metadataUri, labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!metadataUri && options.enabled !== false,
     ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
-    ...options,
+    ...queryOptions,
   });
 }
 

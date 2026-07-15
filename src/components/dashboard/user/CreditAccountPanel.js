@@ -33,7 +33,7 @@ const MOVEMENT_LABELS = {
   MINT: 'Credited',
   LOCK: 'Locked',
   CAPTURE: 'Captured',
-  CANCEL: 'Refunded',
+  CANCEL: 'Credits returned',
   ADJUST: 'Adjusted',
   EXPIRE: 'Expired',
 };

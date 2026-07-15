@@ -166,4 +166,24 @@ describe('/api/provider/saveLabData route', () => {
     }))
     expect(attributes.resourceType).toBe('lab')
   })
+
+  test('rejects a metadata URI that could escape the data directory', async () => {
+    const { POST } = await import('../api/provider/saveLabData/route.js')
+    const req = new Request('http://localhost/api/provider/saveLabData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labData: {
+          id: 8,
+          uri: '../../outside.json',
+        },
+      }),
+    })
+
+    const response = await POST(req)
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_URI_FORMAT' })
+    expect(mockRequireLabOwner).not.toHaveBeenCalled()
+  })
 })

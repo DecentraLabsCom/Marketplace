@@ -79,6 +79,10 @@ jest.mock('@/app/api/contract/utils/institutionSession', () => ({
   resolveInstitutionAddressFromSession: jest.fn(),
 }))
 
+jest.mock('@/utils/onboarding/institutionalBackend', () => ({
+  resolveInstitutionalBackendUrl: jest.fn(),
+}))
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
@@ -95,6 +99,7 @@ import { buildReservationIntent, computeReservationAssertionHash } from '@/utils
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -178,6 +183,7 @@ describe('Intent prepare routes integration', () => {
       institutionAddress: '0x00000000000000000000000000000000000000a1',
       normalizedDomain: 'uni.example',
     })
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://ib.example')
 
     serializeIntent.mockImplementation((value) => value)
 
@@ -241,6 +247,24 @@ describe('Intent prepare routes integration', () => {
       samlAssertion: '<Assertion>test</Assertion>',
       stableUserIdMode: 'principal',
     }))
+  })
+
+  test('actions/prepare: ignores a client-selected backend origin', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.LAB_ADD,
+      backendUrl: 'https://attacker.example',
+      payload: { labId: 101, price: 7, backendUrl: 'https://attacker.example' },
+    })
+
+    const res = await actionPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(resolveInstitutionalBackendUrl).toHaveBeenCalledWith('uni.example')
+    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
+      backendUrl: 'https://ib.example',
+    }))
+    expect(payload.backendUrl).toBe('https://ib.example')
   })
 
   test('actions/prepare: forwards principal-only puc hash from session into signed payload', async () => {
@@ -326,10 +350,12 @@ describe('Intent prepare routes integration', () => {
     const payload = await res.json()
 
     expect(res.status).toBe(409)
-    expect(payload).toEqual({
-      error: 'webauthn_credential_not_registered',
+    expect(payload).toMatchObject({
+      error: 'No registered passkey was found for this account.',
       code: 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED',
     })
+    expect(payload).toHaveProperty('correlationId')
+    expect(payload).not.toHaveProperty('details')
   })
 
   test('reservations/prepare: returns prepared reservation intent and authorization session', async () => {
@@ -378,6 +404,23 @@ describe('Intent prepare routes integration', () => {
       blockNumber: null,
       status: 'submitted',
     }))
+  })
+
+  test('reservations/prepare: rejects the request when the canonical institution backend is unavailable', async () => {
+    resolveInstitutionalBackendUrl.mockResolvedValueOnce(null)
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://attacker.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(payload).toEqual({ error: 'Missing institutional backend URL' })
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
   })
 
   test('reservations/prepare: signals backend after registration receipt is mined', async () => {
@@ -473,7 +516,7 @@ describe('Intent prepare routes integration', () => {
     })
   })
 
-  test('reservations/prepare: includes onchain error details when chain registration fails', async () => {
+  test('reservations/prepare: normalizes onchain errors before returning them', async () => {
     registerIntentOnChain.mockRejectedValueOnce(new Error('chain boom'))
 
     const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
@@ -488,10 +531,12 @@ describe('Intent prepare routes integration', () => {
 
     expect(res.status).toBe(502)
     expect(payload).toMatchObject({
-      error: 'Failed to register reservation intent on-chain',
-      details: 'chain boom',
-      onchain: { message: 'onchain-details' },
+      error: 'The reservation request could not be registered.',
+      code: 'RESERVATION_INTENT_ONCHAIN_FAILED',
     })
+    expect(payload).toHaveProperty('correlationId')
+    expect(payload).not.toHaveProperty('details')
+    expect(payload).not.toHaveProperty('onchain')
   })
 
   test('reservations/prepare: uses DIRECT_BOOKING action when institution owns the lab', async () => {

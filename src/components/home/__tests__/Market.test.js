@@ -9,7 +9,7 @@ jest.mock('@/context/UserContext', () => ({
 }))
 
 jest.mock('@/hooks/lab/useLabs', () => ({
-  useLabsForMarket: jest.fn(() => ({
+  usePublicMarketLabs: jest.fn(() => ({
     data: { labs: [] },
     isLoading: false,
     isFetching: false,
@@ -47,6 +47,7 @@ jest.mock('@/components/home/LabGrid', () => function MockLabGrid({ labs }) {
 })
 
 const { useUser } = jest.requireMock('@/context/UserContext')
+const { usePublicMarketLabs } = jest.requireMock('@/hooks/lab/useLabs')
 
 describe('Market', () => {
   beforeEach(() => {
@@ -76,6 +77,26 @@ describe('Market', () => {
       expect.objectContaining({ enabled: true })
     )
     expect(screen.getByText('labs:0')).toBeInTheDocument()
+  })
+
+  test('passes the SSR catalogue page to the public market query', () => {
+    useUser.mockReturnValue({
+      isLoggedIn: false,
+      isSSO: false,
+      address: null,
+    })
+    const initialMarketSnapshot = {
+      labs: [{ id: 1, name: 'SSR lab' }],
+      cursor: 0,
+      nextCursor: '24',
+      snapshotAt: '2026-07-15T00:00:00.000Z',
+    }
+
+    render(<Market initialMarketSnapshot={initialMarketSnapshot} />)
+
+    expect(usePublicMarketLabs).toHaveBeenCalledWith(expect.objectContaining({
+      initialData: initialMarketSnapshot,
+    }))
   })
 
   test('disables booking queries when the user is not institutionally logged in', () => {

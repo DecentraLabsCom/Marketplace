@@ -9,6 +9,7 @@ import {
   requireString,
   signProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 export const runtime = 'nodejs';
 
@@ -95,9 +96,16 @@ export async function POST(request) {
       payload,
     });
   } catch (error) {
-    devLog.error('[API] provisionConsumer: generation failed', error);
+    devLog.error('[API] provisionConsumer: generation failed', sanitizeErrorForLog(error));
     const status = error instanceof HttpError ? error.status : 400;
-    const message = error.message || 'Failed to generate consumer provisioning token';
-    return NextResponse.json({ error: message }, { status });
+    return publicErrorResponse({
+      status,
+      code: error.code || 'CONSUMER_PROVISIONING_TOKEN_FAILED',
+      message: error instanceof HttpError
+        ? error.message
+        : 'The consumer provisioning token could not be generated.',
+      error,
+      context: 'institution-provision-consumer',
+    });
   }
 }

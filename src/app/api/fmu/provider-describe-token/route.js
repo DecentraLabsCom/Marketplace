@@ -10,6 +10,7 @@ import {
   requireAuth,
   requireProviderRole,
 } from '@/utils/auth/guards'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 30 })
 
@@ -83,19 +84,30 @@ export async function GET(request) {
 
     const responseText = await tokenRes.text()
     if (!tokenRes.ok) {
-      devLog.error(`[fmu/provider-describe-token] Auth service returned ${tokenRes.status}: ${responseText}`)
-      return NextResponse.json(
-        { error: `Auth service returned ${tokenRes.status}` },
-        { status: tokenRes.status },
-      )
+      devLog.error(`[fmu/provider-describe-token] Auth service returned ${tokenRes.status}`, {
+        bodyBytes: responseText.length,
+      })
+      return publicErrorResponse({
+        status: Number.isInteger(tokenRes.status) ? tokenRes.status : 502,
+        code: 'FMU_DESCRIBE_TOKEN_FAILED',
+        message: 'The FMU description authorization could not be completed.',
+        error: new Error(`FMU describe-token service returned ${tokenRes.status}`),
+        context: 'fmu-provider-describe-token-upstream',
+      })
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return publicErrorResponse({
+        status: error.status || 400,
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The FMU gateway request is invalid.',
+        error,
+        context: 'fmu-provider-describe-token-validation',
+      })
     }
-    return handleGuardError(error)
+    return handleGuardError(error, request)
   }
 }

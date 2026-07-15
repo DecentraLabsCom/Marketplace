@@ -14,6 +14,9 @@ import { LabCardGridSkeleton } from '@/components/skeletons'
  * @param {boolean} props.loading - Loading state
  * @param {boolean} props.error - Error state
  * @param {string} props.emptyMessage - Message to show when no labs found
+ * @param {boolean} props.hasMore - Whether another cursor page is available
+ * @param {Function} props.onLoadMore - Loads the next cursor page
+ * @param {boolean} props.loadingMore - Whether the next page is loading
  * @param {string} props.className - Additional CSS classes
  */
 export default function LabGrid({
@@ -21,7 +24,10 @@ export default function LabGrid({
   loading = false,
   error = false,
   emptyMessage = "No labs found matching your criteria.",
-  className = ""
+  className = "",
+  hasMore = false,
+  onLoadMore = null,
+  loadingMore = false,
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
@@ -34,13 +40,20 @@ export default function LabGrid({
 
   // Keep skeleton for empty client-first renders, but allow SSR content when labs are already available.
   if (loading || shouldDeferUntilHydrated) {
-    return <LabCardGridSkeleton />
+    return (
+      <>
+        <span className="sr-only" role="status" aria-live="polite">
+          Loading labs...
+        </span>
+        <LabCardGridSkeleton />
+      </>
+    )
   }
 
   // Empty state (also used for error cases)
   if (error || labs.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12" role={error ? 'alert' : 'status'} aria-live="polite">
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
           <h2 className="text-lg font-semibold text-gray-800 mb-2">
             No Labs Found
@@ -49,6 +62,9 @@ export default function LabGrid({
             {emptyMessage}
           </p>
         </div>
+        {!error && hasMore && typeof onLoadMore === 'function' && (
+          <LoadMoreButton loadingMore={loadingMore} onLoadMore={onLoadMore} />
+        )}
       </div>
     )
   }
@@ -69,14 +85,32 @@ export default function LabGrid({
             isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
             imagePriority={index < 3}
-            reputation={lab.reputation}
-            createdAt={lab.createdAt}
+            rating={lab.rating}
+            priceUnit={lab.priceUnit}
             resourceType={lab.resourceType}
             demoEnabled={lab.demoEnabled}
           />
         ))}
       </div>
+      {hasMore && typeof onLoadMore === 'function' && (
+        <LoadMoreButton loadingMore={loadingMore} onLoadMore={onLoadMore} />
+      )}
     </section>
+  )
+}
+
+function LoadMoreButton({ loadingMore, onLoadMore }) {
+  return (
+    <div className="mt-8 flex justify-center">
+      <button
+        type="button"
+        onClick={onLoadMore}
+        disabled={loadingMore}
+        className="rounded-md border border-brand px-5 py-2 text-sm font-medium text-brand hover:bg-brand/10 disabled:cursor-wait disabled:opacity-60"
+      >
+        {loadingMore ? 'Loading more labs...' : 'Load more labs'}
+      </button>
+    </div>
   )
 }
 
@@ -86,24 +120,22 @@ LabGrid.propTypes = {
     name: PropTypes.string.isRequired,
     description: PropTypes.string,
     provider: PropTypes.string,
-    category: PropTypes.string,
+    category: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
     price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    keywords: PropTypes.string,
-    imageUrls: PropTypes.arrayOf(PropTypes.string),
-    uri: PropTypes.string,
     hasActiveBooking: PropTypes.bool,
     isListed: PropTypes.bool,
-    reputation: PropTypes.shape({
-      score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      ownerCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-      lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    rating: PropTypes.shape({
+        score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     }),
-    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    priceUnit: PropTypes.string,
     resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   })),
   loading: PropTypes.bool,
   error: PropTypes.bool,
   emptyMessage: PropTypes.string,
-  className: PropTypes.string
+  className: PropTypes.string,
+  hasMore: PropTypes.bool,
+  onLoadMore: PropTypes.func,
+  loadingMore: PropTypes.bool,
 }

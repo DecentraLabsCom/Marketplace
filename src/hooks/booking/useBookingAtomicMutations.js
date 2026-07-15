@@ -122,11 +122,13 @@ async function runActionIntent(action, payload) {
     throw new Error('WebAuthn not supported in this environment');
   }
 
+  const safePayload = { ...(payload || {}) }
+  delete safePayload.backendUrl
   const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ action, payload, backendUrl: payload.backendUrl }),
+    body: JSON.stringify({ action, payload: safePayload }),
   });
 
   const prepareData = await prepareResponse.json();
@@ -139,7 +141,7 @@ async function runActionIntent(action, payload) {
 
   const authToken = prepareData?.backendAuthToken || null;
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-    backendUrl: payload.backendUrl,
+    backendUrl: prepareData?.backendUrl,
     authToken,
   });
   const authorizationRequestId =
@@ -202,7 +204,6 @@ export const useReservationRequestSSO = (options = {}) => {
         end: requestData.end,
         timeslot: requestData.timeslot ?? requestData.duration ?? requestData.timeslotMinutes,
         duration: requestData.durationDescriptor ?? requestData.duration,
-        backendUrl: requestData.backendUrl,
       }
 
       const prepareResponse = await fetch('/api/backend/intents/reservations/prepare', {
@@ -231,7 +232,7 @@ export const useReservationRequestSSO = (options = {}) => {
       const authToken = prepareData?.backendAuthToken || null
       emitReservationProgress(requestData, 'awaiting_authorization');
       const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-        backendUrl: payload.backendUrl,
+        backendUrl: prepareData?.backendUrl,
         authToken,
         popup: authorizationPopup,
       })

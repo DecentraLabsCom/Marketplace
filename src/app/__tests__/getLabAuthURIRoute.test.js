@@ -87,7 +87,8 @@ describe('/api/contract/lab/getLabAuthURI route', () => {
     const res = await GET(req);
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Failed to call getLabAuthURI',
+      error: 'The requested blockchain operation could not be completed.',
+      code: 'CONTRACT_CALL_FAILED',
     });
   });
 

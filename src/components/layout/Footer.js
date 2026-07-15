@@ -44,7 +44,7 @@ export default function Footer() {
           </div>
 
           {/* Center: Links */}
-          <div className="flex space-x-4 justify-center items-center">
+          <nav aria-label="Legal and governance" className="flex flex-wrap gap-x-4 gap-y-2 justify-center items-center">
             <Link href="/about" className="text-slate-100 hover:text-brand-primary transition font-semibold">
               About
             </Link>
@@ -53,8 +53,20 @@ export default function Footer() {
             </Link>
             <Link href="/contact" className="text-slate-100 hover:text-brand-primary transition font-semibold">
               Contact
-            </Link>  
-          </div>
+            </Link>
+            <Link href="/privacy" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+              Privacy
+            </Link>
+            <Link href="/terms" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+              Terms
+            </Link>
+            <Link href="/cookies" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+              Cookies
+            </Link>
+            <Link href="/security" className="text-slate-100 hover:text-brand-primary transition font-semibold">
+              Security
+            </Link>
+          </nav>
 
           {/* Right: Social Media */}
           <div className="flex space-x-4 justify-center items-center">

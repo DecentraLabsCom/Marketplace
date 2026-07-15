@@ -261,13 +261,13 @@ describe('guards', () => {
       expect(guards.requireProviderRole(session)).toEqual(session);
     });
 
-    it('should return session if user has linked wallet', () => {
+    it('should reject a student even when a wallet is linked', () => {
       const session = { 
         id: 'user123', 
         role: 'student',
         wallet: '0x1234567890abcdef1234567890abcdef12345678'
       };
-      expect(guards.requireProviderRole(session)).toEqual(session);
+      expect(() => guards.requireProviderRole(session)).toThrow(guards.ForbiddenError);
     });
 
     it('should throw ForbiddenError for non-provider without wallet', () => {

@@ -8,6 +8,7 @@ import {
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
 import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ windowMs: 60_000, maxRequests: 10 })
 
@@ -58,10 +59,13 @@ export async function POST(request) {
 
     if (!gatewayRes.ok) {
       const errBody = await gatewayRes.text()
-      devLog.error(`[simulations/stream] Gateway returned ${gatewayRes.status}: ${errBody}`)
-      return new Response(JSON.stringify({ error: `Gateway error (${gatewayRes.status})`, details: errBody }), {
+      devLog.error(`[simulations/stream] Gateway returned ${gatewayRes.status}`, { bodyBytes: errBody.length })
+      return publicErrorResponse({
         status: gatewayRes.status,
-        headers: { 'Content-Type': 'application/json' },
+        code: 'GATEWAY_REQUEST_FAILED',
+        message: 'The simulation stream could not be opened.',
+        error: new Error(`Gateway returned ${gatewayRes.status}`),
+        context: 'simulations-stream-gateway',
       })
     }
 
@@ -70,17 +74,22 @@ export async function POST(request) {
       headers: { 'Content-Type': 'application/x-ndjson' },
     })
   } catch (error) {
-    if (error instanceof HttpError) return handleGuardError(error)
+    if (error instanceof HttpError) return handleGuardError(error, request)
     if (error instanceof GatewayValidationError) {
-      return new Response(JSON.stringify({ error: error.message }), {
+      return publicErrorResponse({
         status: error.status || 400,
-        headers: { 'Content-Type': 'application/json' },
+        code: 'INVALID_GATEWAY_REQUEST',
+        message: 'The simulation stream parameters are invalid.',
+        error,
+        context: 'simulations-stream-validation',
       })
     }
-    devLog.error('[simulations/stream] Proxy error:', error)
-    return new Response(JSON.stringify({ error: error.message || 'Internal proxy error' }), {
+    return publicErrorResponse({
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      code: 'SIMULATION_STREAM_FAILED',
+      message: 'The simulation stream could not be opened.',
+      error,
+      context: 'simulations-stream',
     })
   }
 }

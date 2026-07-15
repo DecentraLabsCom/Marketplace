@@ -135,8 +135,8 @@ function normalizeCountryCode(value) {
 }
 
 export async function createSession(response, userData) {
-  // Create a signed JWT cookie with the user information
-  const cookieConfigs = createSessionCookie(userData);
+  // Persist the session server-side and set only its opaque identifier.
+  const cookieConfigs = await createSessionCookie(userData);
   const configs = Array.isArray(cookieConfigs) ? cookieConfigs : [cookieConfigs];
   configs.forEach((cookieConfig) => {
     response.cookies.set(cookieConfig.name, cookieConfig.value, {
@@ -354,6 +354,9 @@ export async function parseSAMLResponse(samlResponse) {
         samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
       };
 
+      const samlExpiresAt = extractSamlExpiry(samlResponse);
+      if (samlExpiresAt) userData.samlExpiresAt = samlExpiresAt;
+
       if (eduPersonTargetedID) {
         userData.eduPersonTargetedID = eduPersonTargetedID;
       }
@@ -365,4 +368,21 @@ export async function parseSAMLResponse(samlResponse) {
       resolve(userData);
     });
   });
+}
+
+function extractSamlExpiry(samlResponse) {
+  if (typeof samlResponse !== 'string' || !samlResponse) return null;
+  const candidates = [samlResponse];
+  try {
+    candidates.push(Buffer.from(samlResponse, 'base64').toString('utf8'));
+  } catch {
+    // The SAML library may receive a raw XML string in tests or custom flows.
+  }
+
+  for (const candidate of candidates) {
+    const match = candidate.match(/NotOnOrAfter\s*=\s*["']([^"']+)["']/i);
+    const timestamp = match ? Date.parse(match[1]) : NaN;
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return null;
 }

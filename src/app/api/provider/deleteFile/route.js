@@ -12,11 +12,18 @@ import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 import { 
   requireAuth, 
+  requireProviderRole,
   requireLabOwner, 
-  extractLabIdFromPath,
   handleGuardError,
   HttpError 
 } from '@/utils/auth/guards'
+import {
+  getSessionUploadNamespace,
+  isTrustedBlobUrl,
+  parseManagedFilePath,
+  resolveManagedLocalPath,
+} from '@/utils/storage/fileSecurity'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 /**
  * Deletes files for lab providers with support for local and cloud storage
@@ -57,43 +64,52 @@ export async function POST(req) {
             );
         }
 
-        // ===== AUTHORIZATION =====
-        // Extract labId from the file path and verify ownership
-        const labIdFromPath = extractLabIdFromPath(filePath);
-        if (labIdFromPath) {
-            await requireLabOwner(session, labIdFromPath);
+        let managedPath
+        try {
+            managedPath = parseManagedFilePath(filePath.trim())
+        } catch (error) {
+            return publicErrorResponse({
+                status: 400,
+                code: 'INVALID_FILE_PATH',
+                message: 'The file path is invalid.',
+                error,
+                context: 'provider-delete-file-validation',
+            })
         }
-        // Note: temp files can be deleted by any authenticated user
-        // (they're only accessible during the upload session anyway)
+
+        if (managedPath.sourceUrl && !isTrustedBlobUrl(managedPath.sourceUrl)) {
+            return NextResponse.json(
+                { error: 'Blob origin is not trusted', code: 'FORBIDDEN_FILE_PATH' },
+                { status: 403 },
+            )
+        }
+
+        // ===== AUTHORIZATION =====
+        if (managedPath.kind === 'temporary') {
+            requireProviderRole(session)
+            if (managedPath.namespace !== getSessionUploadNamespace(session)) {
+                return NextResponse.json(
+                    { error: 'Temporary file does not belong to the current session', code: 'FORBIDDEN_FILE_PATH' },
+                    { status: 403 },
+                )
+            }
+            if (managedPath.sourceUrl && !isTrustedBlobUrl(managedPath.sourceUrl)) {
+                return NextResponse.json(
+                    { error: 'Temporary blob origin is not trusted', code: 'FORBIDDEN_FILE_PATH' },
+                    { status: 403 },
+                )
+            }
+        } else {
+            await requireLabOwner(session, managedPath.labId)
+        }
 
         const timestamp = new Date().toISOString();
         
-        // Transform and normalize path
-        filePath = path.normalize(filePath.trim()); 
-    
-        // Security: Remove initial separator if present (but not for absolute paths like /public)
-        if (filePath.startsWith(path.sep) && filePath.length > path.sep.length && 
-            !filePath.startsWith(path.sep + 'public')) {
-            filePath = filePath.substring(path.sep.length);
-        }
+        filePath = managedPath.relativePath
 
         const isVercel = getIsVercel();
         const publicDir = path.join(process.cwd(), 'public'); 
-        const fullFilePath = path.join(publicDir, filePath); 
-
-        // Security checks - ensure file is within public directory
-        const publicDirResolved = path.resolve(publicDir); 
-        const normalizedFullFilePath = path.resolve(fullFilePath);
-        
-        if (normalizedFullFilePath.includes('..') || !normalizedFullFilePath.startsWith(publicDirResolved)) {
-            return NextResponse.json(
-                { 
-                    error: 'Invalid file path. Path must be within public directory and cannot contain ".."',
-                    code: 'INVALID_PATH_SECURITY'
-                }, 
-                { status: 403 } // Forbidden
-            );
-        }
+        const fullFilePath = resolveManagedLocalPath(publicDir, filePath)
 
         let deleteSuccessful = false;
         let deletionMethod = '';
@@ -112,40 +128,38 @@ export async function POST(req) {
                     console.warn(`File not found, but deletion considered successful: ${fullFilePath}`);
                 } else {
                     console.error('Error deleting file locally:', deleteError);
-                    return NextResponse.json(
-                        { 
-                            error: 'Failed to delete file locally',
-                            code: 'LOCAL_DELETE_ERROR',
-                            details: process.env.NODE_ENV === 'development' ? deleteError.message : undefined,
-                            filePath: filePath
-                        },
-                        { status: 500 }
-                    );
+                    return publicErrorResponse({
+                        status: 500,
+                        code: 'LOCAL_DELETE_ERROR',
+                        message: 'The file could not be deleted.',
+                        error: deleteError,
+                        context: 'provider-delete-file-local',
+                    });
                 }
             }
         } else {
             try {
-                const blobPath = `data/${filePath.replace(/\\/g, '/')}`; 
+                const blobPath = managedPath.sourceUrl
+                    ? managedPath.sourceUrl.toString()
+                    : managedPath.blobPath
                 const result = await del(blobPath);
                 deleteSuccessful = true;
                 deletionMethod = result ? 'blob-deleted' : 'blob-not-found';
                 console.log(`Blob deletion result for ${blobPath}: ${result ? 'deleted' : 'not found'}`);
             } catch (blobError) {
                 console.error("Error deleting blob from Vercel:", blobError);
-                return NextResponse.json(
-                    {
-                        error: 'Failed to delete file from Vercel Blob',
-                        code: 'BLOB_DELETE_ERROR',
-                        details: process.env.NODE_ENV === 'development' ? blobError.message : undefined,
-                        filePath: filePath
-                    },
-                    { status: 500 }
-                );
+                return publicErrorResponse({
+                    status: 500,
+                    code: 'BLOB_DELETE_ERROR',
+                    message: 'The file could not be deleted.',
+                    error: blobError,
+                    context: 'provider-delete-file-blob',
+                });
             }
         }
 
         // Delete empty folders if lab is being deleted
-        if (deleteSuccessful && deletingLab) {
+        if (deleteSuccessful && deletingLab && managedPath.kind === 'permanent') {
             const pathSegments = filePath.split(path.sep); 
 
             if (pathSegments.length < 3) {
@@ -205,13 +219,15 @@ export async function POST(req) {
     } catch (error) {
         // Handle authentication/authorization errors
         if (error instanceof HttpError) {
-            return handleGuardError(error);
+            return handleGuardError(error, req);
         }
         
-        console.error('--- Error general en deleteFile endpoint ---', error);
-        return NextResponse.json(
-            { error: 'Internal server error', details: error.message },
-            { status: 500 },
-        );
+        return publicErrorResponse({
+            status: 500,
+            code: 'FILE_DELETE_FAILED',
+            message: 'The file could not be deleted.',
+            error,
+            context: 'provider-delete-file',
+        });
     }
 }

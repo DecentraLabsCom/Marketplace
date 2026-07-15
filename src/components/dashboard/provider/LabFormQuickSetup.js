@@ -118,7 +118,9 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px]">
         <div>
+          <label htmlFor="quick-price" className="sr-only">Price</label>
           <input
+            id="quick-price"
             type="number"
             step="any"
             min="0"
@@ -137,10 +139,15 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
             disabled:cursor-not-allowed disabled:border-gray-300"
             disabled={isLocalURI}
             ref={priceRef}
+            aria-invalid={Boolean(errors.price)}
+            aria-describedby={errors.price ? 'quick-price-error' : undefined}
           />
-          {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
+          {errors.price && <p id="quick-price-error" className="text-red-500 text-sm mt-1!">{errors.price}</p>}
         </div>
+        <div>
+          <label htmlFor="quick-price-unit" className="sr-only">Price unit</label>
         <select
+          id="quick-price-unit"
           value={priceUnit}
           onChange={(e) => handlePriceUnitChange(e.target.value)}
           className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
@@ -151,9 +158,12 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        </div>
       </div>
 
+      <label htmlFor="quick-access-uri" className="sr-only">Access URI</label>
       <input
+        id="quick-access-uri"
         type="text"
         placeholder="Access URI"
         value={localLab?.accessURI || ''}
@@ -162,13 +172,17 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         disabled:cursor-not-allowed disabled:border-gray-300"
         disabled={isLocalURI}
         ref={accessURIRef}
+        aria-invalid={Boolean(errors.accessURI)}
+        aria-describedby={errors.accessURI ? 'quick-access-uri-error' : undefined}
       />
-      {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
+      {errors.accessURI && <p id="quick-access-uri-error" className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
 
       {isFmu ? (
         <div className="space-y-2">
           <div className="flex gap-2">
+            <label htmlFor="quick-fmu-file-name" className="sr-only">FMU file name</label>
             <input
+              id="quick-fmu-file-name"
               type="text"
               placeholder="FMU file name (e.g. spring-damper.fmu)"
               value={localLab?.fmuFileName || ''}
@@ -176,6 +190,8 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
               className="flex-1 p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400
               disabled:cursor-not-allowed disabled:border-gray-300"
               disabled={isLocalURI}
+              aria-invalid={Boolean(errors.fmuFileName)}
+              aria-describedby={errors.fmuFileName ? 'quick-fmu-file-name-error' : undefined}
             />
             <button
               type="button"
@@ -187,7 +203,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
               {describeFetch.loading ? 'Loading…' : 'Auto-detect'}
             </button>
           </div>
-          {errors.fmuFileName && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
+          {errors.fmuFileName && <p id="quick-fmu-file-name-error" className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
           {describeFetch.error && (
             <p className="text-amber-600 text-sm">Auto-detect failed: {describeFetch.error}</p>
           )}
@@ -207,10 +223,12 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
               value={localLab?.maxConcurrentUsers || ''}
               onChange={(e) => setLocalLab({ ...localLab, maxConcurrentUsers: e.target.value })}
               className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={isLocalURI}
-            />
+            disabled={isLocalURI}
+            aria-invalid={Boolean(errors.maxConcurrentUsers)}
+            aria-describedby={errors.maxConcurrentUsers ? 'quick-fmu-max-concurrent-users-error' : undefined}
+          />
             {errors.maxConcurrentUsers && (
-              <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
+              <p id="quick-fmu-max-concurrent-users-error" className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
             )}
           </div>
           <p className="text-xs text-gray-400">
@@ -226,7 +244,9 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         </div>
       ) : (
         <>
+          <label htmlFor="quick-access-key" className="sr-only">Access key</label>
           <input
+            id="quick-access-key"
             type="text"
             placeholder="Access Key"
             value={localLab?.accessKey || ''}
@@ -235,12 +255,16 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
             disabled:cursor-not-allowed disabled:border-gray-300"
             disabled={isLocalURI}
             ref={accessKeyRef}
+            aria-invalid={Boolean(errors.accessKey)}
+            aria-describedby={errors.accessKey ? 'quick-access-key-error' : undefined}
           />
-          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
+          {errors.accessKey && <p id="quick-access-key-error" className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
         </>
       )}
 
+      <label htmlFor="quick-lab-data-uri" className="sr-only">Lab data URL JSON</label>
       <input
+        id="quick-lab-data-uri"
         type="text"
         placeholder="Lab Data URL (JSON)"
         value={localLab?.uri || ''}
@@ -254,9 +278,11 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
             : ''
         }`}
         ref={uriRef}
+        aria-invalid={Boolean(errors.uri)}
+        aria-describedby={errors.uri && !(clickedToEditUri && isLocalURI) ? 'quick-lab-data-uri-error' : undefined}
       />
       {errors.uri && !(clickedToEditUri && isLocalURI) &&
-        <p className="text-red-500 text-sm mt-1!">{errors.uri}</p>
+        <p id="quick-lab-data-uri-error" className="text-red-500 text-sm mt-1!">{errors.uri}</p>
       }
       {isLocalURI && !clickedToEditUri && (
         <div className='mt-4 flex justify-center'>

@@ -5,9 +5,7 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function pollIntentStatus(requestId, {
-  backendUrl =
-    process.env.NEXT_PUBLIC_INSTITUTION_BACKEND_URL ||
-    process.env.INSTITUTION_BACKEND_URL,
+  backendUrl = null,
   authToken,
   signal,
   maxDurationMs = 10 * 60 * 1000, // 10 minutes
@@ -50,12 +48,6 @@ export async function pollIntentStatus(requestId, {
       const params = new URLSearchParams()
       if (isBrowser) {
         params.set('requestId', requestId)
-      }
-      if (isBrowser && backendUrl) {
-        params.set('backendUrl', backendUrl)
-      }
-      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
-        params.set('useServerToken', '1')
       }
       
       const url = params.toString()

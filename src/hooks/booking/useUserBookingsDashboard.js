@@ -269,9 +269,10 @@ export const useUserBookingsDashboard = (userAddress, {
       ? labDetailsResults.map((labResult, index) => {
           const labData = labResult?.data;
           const metadataUri = labData?.base?.uri;
+          const labId = bookingsWithLabIds[index]?.labId;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
-            queryFn: () => useMetadata.queryFn(metadataUri), // ✅ Using atomic hook queryFn
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder', labId),
+            queryFn: () => useMetadata.queryFn(metadataUri, labId), // ✅ Using atomic hook queryFn
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
           };

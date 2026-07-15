@@ -34,6 +34,21 @@ describe('Login', () => {
 
     expect(await screen.findByText('Institutional Login')).toBeInTheDocument()
     expect(screen.getByText('Loading institutional login...')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Institutional Login' })).toHaveAttribute('aria-modal', 'true')
+  })
+
+  test('restores focus to the login trigger after Escape closes the dialog', () => {
+    useUser.mockReturnValue({ isLoggedIn: false })
+
+    render(<Login />)
+
+    const trigger = screen.getByRole('button', { name: /login/i })
+    trigger.focus()
+    fireEvent.click(trigger)
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   test('renders account summary for authenticated users', () => {

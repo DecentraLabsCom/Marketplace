@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 const INTENT_STATE_NAMES = ['NONE', 'PENDING', 'EXECUTED', 'CANCELLED', 'EXPIRED']
 
@@ -41,10 +42,12 @@ export async function GET(_request, { params }) {
       stateName: INTENT_STATE_NAMES[state] || 'UNKNOWN',
     })
   } catch (error) {
-    devLog.error('[API] On-chain intent status lookup failed', error)
-    return NextResponse.json(
-      { error: error?.message || 'Failed to fetch on-chain intent status' },
-      { status: 502 },
-    )
+    return publicErrorResponse({
+      status: 502,
+      code: 'ONCHAIN_INTENT_STATUS_FAILED',
+      message: 'The on-chain intent status could not be loaded.',
+      error,
+      context: 'onchain-intent-status',
+    })
   }
 }

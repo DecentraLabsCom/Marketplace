@@ -5,9 +5,7 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function pollIntentAuthorizationStatus(sessionId, {
-  backendUrl =
-    process.env.NEXT_PUBLIC_INSTITUTION_BACKEND_URL ||
-    process.env.INSTITUTION_BACKEND_URL,
+  backendUrl = null,
   authToken,
   signal,
   maxDurationMs = 5 * 60 * 1000,
@@ -46,12 +44,6 @@ export async function pollIntentAuthorizationStatus(sessionId, {
       const params = new URLSearchParams()
       if (isBrowser) {
         params.set('sessionId', sessionId)
-      }
-      if (isBrowser && backendUrl) {
-        params.set('backendUrl', backendUrl)
-      }
-      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
-        params.set('useServerToken', '1')
       }
       const url = params.toString()
         ? `${baseUrl}?${params.toString()}`

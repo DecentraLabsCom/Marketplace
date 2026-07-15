@@ -6,7 +6,7 @@
  * - Loading state: shows skeleton while loading bookings
  * - Booking filtering: separates upcoming from past bookings based on time
  * - Cancelled bookings: excludes cancelled bookings from all lists
- * - Callbacks: triggers onCancel for upcoming, onRefund for past
+ * - Callbacks: triggers onCancel for upcoming; past bookings expose no refund action
  * - Edge cases: handles missing dates, missing lab details
  */
 
@@ -58,8 +58,6 @@ const bookings = [
 
 
 const mockCancel = jest.fn();
-const mockRefund = jest.fn();
-const mockClose = jest.fn();
 
 jest.mock('@/utils/booking/bookingStatus', () => ({
     isCancelledBooking: (b) => b.status === '4' || b.status === 4,
@@ -72,11 +70,10 @@ jest.mock('@/components/skeletons', () => ({
 
 jest.mock('@/components/dashboard/user/LabBookingItem', () => ({
     __esModule: true,
-    default: ({ lab, booking, onCancel, onRefund }) => (
+    default: ({ lab, booking, onCancel }) => (
         <li data-testid="item">
             <span>{lab.name}</span>
             {onCancel && <button onClick={() => onCancel(booking)}>Cancel</button>}
-            {onRefund && <button onClick={() => onRefund(lab.id, booking)}>Refund</button>}
         </li>
     )
 }));
@@ -92,7 +89,6 @@ const renderList = (props = {}) =>
             currentTime={now}
             isLoading={false}
             type="upcoming"
-            closeModal={mockClose}
             {...props}
         />
     );
@@ -244,10 +240,10 @@ describe('BookingsList - Unit Tests', () => {
             expect(screen.getByText('Cancel')).toBeInTheDocument();
         });
 
-        test('shows refund button for past', () => {
-            renderList({ bookings: [bookings[1]], type: 'past', onRefund: mockRefund });
+        test('does not show a refund button for past bookings', () => {
+            renderList({ bookings: [bookings[1]], type: 'past' });
 
-            expect(screen.getByText('Refund')).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /refund/i })).not.toBeInTheDocument();
         });
     });
 
@@ -262,16 +258,6 @@ describe('BookingsList - Unit Tests', () => {
             );
         });
 
-        test('calls onRefund when refund clicked', async () => {
-            renderList({ bookings: [bookings[1]], type: 'past', onRefund: mockRefund });
-
-            await userEvent.click(screen.getByText('Refund'));
-
-            expect(mockRefund).toHaveBeenCalledWith(
-                '102',
-                expect.objectContaining({ reservationKey: 'k2' })
-            );
-        });
     });
 
     describe('Edge Cases', () => {

@@ -190,7 +190,10 @@ describe('/api/fmu/provider-describe-token route', () => {
     const res = await GET(buildRequest({ fmuFileName: VALID_FMU, gatewayUrl: 'https://evil.internal' }))
 
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toMatchObject({ error: 'Gateway host is not allowed' })
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'The FMU gateway request is invalid.',
+      code: 'INVALID_GATEWAY_REQUEST',
+    })
   })
 
   // ── Service dependencies ────────────────────────────────────────────────────

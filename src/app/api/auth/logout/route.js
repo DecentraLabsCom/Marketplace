@@ -13,7 +13,7 @@ import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
  */
 export async function GET() {
     const cookieStore = await cookies();
-    clearSessionCookies(cookieStore);
+    await clearSessionCookies(cookieStore);
     clearFmuContextCookie(cookieStore);
     
     // Add a small delay to ensure cookie clearing is processed

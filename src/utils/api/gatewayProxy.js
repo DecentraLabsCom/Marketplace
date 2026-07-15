@@ -48,13 +48,6 @@ const ALLOWED_GATEWAY_ORIGINS = (process.env.ALLOWED_GATEWAY_ORIGINS || '')
   .map((entry) => entry.trim())
   .filter(Boolean)
 
-const ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS = (
-  process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS || ''
-)
-  .split(',')
-  .map((entry) => entry.trim())
-  .filter(Boolean)
-
 export class GatewayValidationError extends Error {
   constructor(message, status = 400) {
     super(message)
@@ -83,10 +76,10 @@ function isPrivateIp(hostname) {
   return PRIVATE_IP_BLOCKLIST.check(normalizedHost, family)
 }
 
-function assertPublicHostAllowed(hostname) {
+function assertPublicHostAllowed(hostname, { always = false } = {}) {
   const lowerHost = normalizeHostnameForIpCheck(hostname)
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (!always && process.env.NODE_ENV !== 'production') {
     return
   }
 
@@ -112,19 +105,12 @@ function assertInstitutionalBackendAllowed(url) {
   if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
     throw new GatewayValidationError('Institutional backend must use HTTPS in production')
   }
-  if (
-    ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS.length > 0
-    && !ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS.includes(url.origin)
-  ) {
-    throw new GatewayValidationError(
-      'Institutional backend origin is not in ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS'
-    )
-  }
   assertPublicHostAllowed(url.hostname)
 }
 
-async function resolvePublicGatewayAddress(hostname) {
+async function resolvePublicGatewayAddress(hostname, { always = false } = {}) {
   const normalizedHost = normalizeHostnameForIpCheck(hostname)
+  assertPublicHostAllowed(normalizedHost, { always })
   const literalVersion = isIP(normalizedHost)
   const addresses = literalVersion
     ? [{ address: normalizedHost, family: literalVersion }]
@@ -320,6 +306,132 @@ export async function institutionalBackendFetch(rawUrl, init = {}) {
     throw new GatewayValidationError('Institutional backend redirects are not allowed', 502)
   }
   return response
+}
+
+function getConfiguredOriginAllowlist(variableName) {
+  return String(process.env[variableName] || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+async function readResponseBodyWithLimit(response, maxBytes) {
+  if (response.body?.getReader) {
+    const reader = response.body.getReader()
+    const chunks = []
+    let totalBytes = 0
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value)
+        totalBytes += chunk.byteLength
+        if (totalBytes > maxBytes) {
+          await Promise.resolve(reader.cancel?.()).catch(() => {})
+          throw new GatewayValidationError('Metadata response exceeds the maximum size', 413)
+        }
+        chunks.push(chunk)
+      }
+    } finally {
+      reader.releaseLock?.()
+    }
+
+    return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8')
+  }
+
+  if (typeof response.text !== 'function') {
+    throw new GatewayValidationError('Metadata response body is unavailable', 502)
+  }
+
+  const text = await response.text()
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+    throw new GatewayValidationError('Metadata response exceeds the maximum size', 413)
+  }
+  return text
+}
+
+/**
+ * Fetches JSON from a configured or dynamically trusted public HTTPS origin
+ * with DNS pinning, redirect blocking and a response-size limit. Intended for
+ * untrusted on-chain metadata URIs.
+ */
+export async function fetchAllowlistedJson(
+  rawUrl,
+  init = {},
+  {
+    allowedOrigins,
+    additionalAllowedOrigins = [],
+    allowedOriginsEnv = 'ALLOWED_METADATA_ORIGINS',
+    maxBytes = 1024 * 1024,
+    timeoutMs = 2000,
+  } = {},
+) {
+  const url = new URL(rawUrl)
+  if (url.protocol !== 'https:') {
+    throw new GatewayValidationError('Metadata sources must use HTTPS')
+  }
+
+  const configuredOrigins = getConfiguredOriginAllowlist(allowedOriginsEnv)
+  const origins = [
+    ...new Set([
+      ...(allowedOrigins || configuredOrigins),
+      ...additionalAllowedOrigins,
+    ]),
+  ]
+  if (!origins.length) {
+    throw new GatewayValidationError(`${allowedOriginsEnv} or an additional trusted origin must contain at least one exact origin`, 503)
+  }
+  if (!origins.includes(url.origin)) {
+    throw new GatewayValidationError(`Metadata origin is not in ${allowedOriginsEnv} or the trusted lab provider origins`)
+  }
+
+  const resolved = await resolvePublicGatewayAddress(url.hostname, { always: true })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  const callerSignal = init.signal
+  const abortFromCaller = () => controller.abort(callerSignal.reason)
+  if (callerSignal?.aborted) controller.abort(callerSignal.reason)
+  callerSignal?.addEventListener?.('abort', abortFromCaller, { once: true })
+
+  try {
+    const response = await fetch(url.toString(), {
+      ...init,
+      signal: controller.signal,
+      redirect: 'manual',
+      ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+    })
+
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      throw new GatewayValidationError('Metadata redirects are not allowed', 502)
+    }
+    if (!response.ok) {
+      return { response, data: null }
+    }
+
+    const contentType = response.headers?.get?.('content-type') || ''
+    if (!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(contentType)) {
+      throw new GatewayValidationError('Metadata response must have a JSON Content-Type', 502)
+    }
+
+    const body = await readResponseBodyWithLimit(response, maxBytes)
+    let data
+    try {
+      data = JSON.parse(body)
+    } catch {
+      throw new GatewayValidationError('Metadata response is not valid JSON', 502)
+    }
+
+    return { response, data }
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new GatewayValidationError('Metadata fetch timed out', 504)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+    callerSignal?.removeEventListener?.('abort', abortFromCaller)
+  }
 }
 
 export function extractBearerHeader(request) {

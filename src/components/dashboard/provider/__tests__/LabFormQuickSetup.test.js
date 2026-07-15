@@ -80,6 +80,16 @@ describe("LabFormQuickSetup", () => {
       ).toBeInTheDocument();
     });
 
+    test("associates accessible labels with quick setup fields", () => {
+      renderForm();
+
+      expect(screen.getByLabelText("Price")).toHaveAttribute("id", "quick-price");
+      expect(screen.getByLabelText("Price unit")).toHaveAttribute("id", "quick-price-unit");
+      expect(screen.getByLabelText("Access URI")).toHaveAttribute("id", "quick-access-uri");
+      expect(screen.getByLabelText("Access key")).toHaveAttribute("id", "quick-access-key");
+      expect(screen.getByLabelText("Lab data URL JSON")).toHaveAttribute("id", "quick-lab-data-uri");
+    });
+
     test("displays correct button text based on lab id", () => {
       // New lab (no id) shows "Add Lab"
       const { unmount } = renderForm({ lab: {} });

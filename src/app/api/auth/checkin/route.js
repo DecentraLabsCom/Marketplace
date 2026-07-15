@@ -15,6 +15,7 @@ import {
   gatewayFetch,
   resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 async function resolveAuthContext(labId, authEndpoint) {
   if (!labId) {
@@ -32,7 +33,7 @@ async function resolveAuthContext(labId, authEndpoint) {
     }
   } catch (error) {
     if (error instanceof GatewayValidationError) {
-      throw new BadRequestError(error.message)
+      throw new BadRequestError('The provider access endpoint is invalid.')
     }
     throw error
   }
@@ -128,7 +129,7 @@ export async function POST(req) {
     try {
       payerInstitutionWallet = await resolveInstitutionWallet(affiliation)
     } catch (error) {
-      throw new BadRequestError(error.message)
+      throw new BadRequestError('Institution identity could not be resolved.')
     }
     if (!payerInstitutionWallet) {
       throw new BadRequestError('Institution wallet not registered')
@@ -165,11 +166,17 @@ export async function POST(req) {
 
     const responseText = await response.text()
     if (!response.ok) {
-      devLog.error('Institutional check-in failed:', response.status, responseText)
-      return NextResponse.json(
-        { error: 'Institutional check-in failed', details: responseText },
-        { status: response.status }
-      )
+      devLog.error('Institutional check-in failed:', {
+        status: response.status,
+        bodyBytes: responseText.length,
+      })
+      return publicErrorResponse({
+        status: Number.isInteger(response.status) ? response.status : 502,
+        code: 'INSTITUTIONAL_CHECKIN_FAILED',
+        message: 'Institutional check-in failed.',
+        error: new Error(`Institutional check-in failed (${response.status})`),
+        context: 'auth-checkin-upstream',
+      })
     }
 
     const data = responseText ? JSON.parse(responseText) : {}
@@ -180,7 +187,7 @@ export async function POST(req) {
       ...(retryAfter ? { headers: { 'Retry-After': retryAfter } } : {}),
     })
   } catch (error) {
-    return handleGuardError(error)
+    return handleGuardError(error, req)
   }
 }
 

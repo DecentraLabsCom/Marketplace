@@ -221,7 +221,10 @@ describe('/api/institutions/registerConsumer route', () => {
     const req = new Request('http://localhost/api/institutions/registerConsumer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress }),
+      body: JSON.stringify({
+        walletAddress,
+        backendUrl: 'https://attacker.example',
+      }),
     });
 
     const res = await POST(req);

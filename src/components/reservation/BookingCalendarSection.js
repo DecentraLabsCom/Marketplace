@@ -9,6 +9,7 @@ import LabCreditInfo from '@/components/reservation/LabCreditInfo'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
+import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
 
 const toDateInputValue = (value) => {
   if (!(value instanceof Date) || isNaN(value.getTime())) return ''
@@ -65,7 +66,9 @@ export default function BookingCalendarSection({
   maxDate,
   forceRefresh,
   isSSO,
-  formatPrice
+  formatPrice,
+  totalCost = 0n,
+  formatTokenAmount = (value) => String(value ?? 0)
 }) {
   // Calendar highlight should reflect only the connected user's bookings.
   // Lab-wide bookings are still passed separately to block occupied slots in time dropdown generation.
@@ -130,6 +133,15 @@ export default function BookingCalendarSection({
   }, [allowedDurations])
 
   if (!lab) return null
+
+  const pricePresentation = formatPricePerUnit({
+    price: lab.price,
+    lab,
+    formatPrice,
+  })
+  const totalCostLabel = pricePresentation.isFree
+    ? 'Free'
+    : `${formatTokenAmount(totalCost)} credits`
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -228,20 +240,29 @@ export default function BookingCalendarSection({
         </div>}
       </div>
 
-      {/* Payment info is shown only for the non-SSO fallback path. */}
-      {!isSSO && (
-        <div className="w-full lg:w-96 flex flex-col">
+      <div className="w-full lg:w-96 flex flex-col">
+        {/* Payment balance information is only relevant to the non-SSO fallback path. */}
+        {!isSSO && (
           <label className="block text-lg font-semibold mb-2">Payment info:</label>
+        )}
+        {!isSSO && (
           <LabCreditInfo
             className="h-fit"
             labPrice={lab.price}
             durationMinutes={isCalendarPeriod ? duration * 24 * 60 : duration}
           />
-          <p className="text-text-secondary font-semibold text-xl mt-4 text-center">
-            {formatPrice(lab.price, lab?.pricing?.displayUnit || 'hour')} credits / {lab?.pricing?.displayUnit || 'hour'}
-          </p>
+        )}
+        <div className="mt-4 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm" aria-label="Booking price summary">
+          <div className="flex justify-between gap-4">
+            <span className="text-gray-300">Unit price:</span>
+            <span className="text-white font-semibold">{pricePresentation.text}</span>
+          </div>
+          <div className="mt-2 flex justify-between gap-4">
+            <span className="text-gray-300">Total cost:</span>
+            <span className="text-white font-semibold">{totalCostLabel}</span>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

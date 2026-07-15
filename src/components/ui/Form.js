@@ -48,6 +48,9 @@ export const Input = forwardRef(({
   const fallbackId = useId()
   const inputId = id || `input-${fallbackId}`
   const inputState = error ? 'error' : state
+  const describedBy = props['aria-describedby'] || (error
+    ? `${inputId}-error`
+    : helpText ? `${inputId}-description` : undefined)
 
   const classes = cn(
     baseInputClasses,
@@ -72,6 +75,8 @@ export const Input = forwardRef(({
         ref={ref}
         id={inputId}
         className={classes}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
         {...props}
       />
       
@@ -112,6 +117,9 @@ export const Textarea = forwardRef(({
   const fallbackId = useId()
   const textareaId = id || `textarea-${fallbackId}`
   const textareaState = error ? 'error' : 'default'
+  const describedBy = props['aria-describedby'] || (error
+    ? `${textareaId}-error`
+    : helpText ? `${textareaId}-description` : undefined)
 
   const classes = cn(
     baseInputClasses,
@@ -137,6 +145,8 @@ export const Textarea = forwardRef(({
         id={textareaId}
         rows={rows}
         className={classes}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
         {...props}
       />
       
@@ -179,6 +189,9 @@ export const Select = forwardRef(({
   const fallbackId = useId()
   const selectId = id || `select-${fallbackId}`
   const selectState = error ? 'error' : 'default'
+  const describedBy = props['aria-describedby'] || (error
+    ? `${selectId}-error`
+    : helpText ? `${selectId}-description` : undefined)
 
   const classes = cn(
     baseInputClasses,
@@ -203,6 +216,8 @@ export const Select = forwardRef(({
         ref={ref}
         id={selectId}
         className={classes}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
         {...props}
       >
         {placeholder && (

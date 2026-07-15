@@ -1,19 +1,27 @@
 import 'react-datepicker/dist/react-datepicker.css'
 import '@/styles/global.css'
 import PropTypes from 'prop-types'
+import { getBaseUrl } from '@/utils/env/baseUrl'
+
+// The nonce in proxy.js is request-specific, so every document must be rendered
+// on demand for Next.js to propagate it to generated script tags.
+export const dynamic = 'force-dynamic'
+
+const marketplaceBaseUrl = getBaseUrl()
 
 export const metadata = {
-  title: 'DecentraLabs Marketplace',
-  description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities.',
+    metadataBase: new URL(marketplaceBaseUrl),
+    title: 'DecentraLabs Marketplace',
+    description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
   tags: 'NFT blockchain decentralized remote labs online experimentation',
     keywords: 'NFT blockchain decentralized remote labs online experimentation',
     openGraph: {
         title: 'DecentraLabs Marketplace',
-        description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities.',
-        url: 'https://decentralabs.nebsyst.com',
+        description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
+        url: marketplaceBaseUrl,
         images: [
             {
-            url: 'https://decentralabs.nebsyst.com/favicon.svg',
+            url: '/favicon.svg',
             width: 800,
             height: 600,
             },
@@ -22,10 +30,10 @@ export const metadata = {
     twitter: {
         card: 'summary_large_image',
         title: 'DecentraLabs Marketplace',
-        description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities.',
+        description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
         images: [
             {
-            url: 'https://decentralabs.nebsyst.com/favicon.svg',
+            url: '/favicon.svg',
             width: 800,
             height: 600,
             },

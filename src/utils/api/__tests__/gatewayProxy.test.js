@@ -324,7 +324,6 @@ describe('gatewayProxy', () => {
     beforeEach(async () => {
       process.env.NODE_ENV = 'production'
       delete process.env.ALLOWED_GATEWAY_ORIGINS
-      delete process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS
       jest.resetModules()
       dnsLookup = require('node:dns/promises').lookup
       dnsLookup.mockReset()
@@ -336,7 +335,19 @@ describe('gatewayProxy', () => {
 
     afterEach(() => {
       global.fetch = originalFetch
-      delete process.env.ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS
+    })
+
+    test('allows a public institutional backend without a static origin allowlist', async () => {
+      jest.resetModules()
+      dnsLookup = require('node:dns/promises').lookup
+      dnsLookup.mockReset()
+      dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+      mod = await import('../gatewayProxy')
+
+      await expect(
+        mod.institutionalBackendFetch('https://consumer.example.com/auth/checkin-institutional')
+      ).resolves.toMatchObject({ status: 200 })
+      expect(global.fetch).toHaveBeenCalled()
     })
 
     test('requires HTTPS in production', async () => {

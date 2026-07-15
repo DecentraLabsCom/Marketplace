@@ -7,6 +7,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const EXISTENCE_CHECK_CONCURRENCY = 12;
 
@@ -78,7 +79,7 @@ export async function GET() {
       ids = idsCandidate;
     } catch (error) {
       devLog.warn('⚠️ getLabsPaginated failed:', {
-        message: error?.message,
+        message: sanitizeErrorForLog(error),
         code: error?.code,
         reason: error?.reason,
       });
@@ -113,7 +114,7 @@ export async function GET() {
           }
           devLog.warn('⚠️ ownerOf existence check failed, keeping lab id to avoid false negatives', {
             labId: candidateLabId,
-            message: error?.message,
+            message: sanitizeErrorForLog(error),
             reason: error?.reason,
             shortMessage: error?.shortMessage,
           });
@@ -154,9 +155,12 @@ export async function GET() {
       });
     }
 
-    return Response.json({
-      error: 'Failed to fetch lab list',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, { status: 500 });
+    return publicErrorResponse({
+      status: 500,
+      code: 'LAB_LIST_FAILED',
+      message: 'The laboratory list could not be loaded.',
+      error,
+      context: 'contract-get-all-labs',
+    });
   }
 }

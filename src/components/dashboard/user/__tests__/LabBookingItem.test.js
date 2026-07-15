@@ -6,9 +6,8 @@
  *  - Status badge rendering via getBookingStatusDisplay (icon + text).
  *  - Cancel flows: shows correct label for statuses (pending/confirmed), numeric/string status handling,
  *    and calls onCancel with the booking object.
- *  - Refund flows: shows/hides Apply for Refund and calls onRefund(labId, booking).
+ *  - Credit policy: cancellation is the only user action; no cash-refund action is exposed.
  *  - Error banner: displays when hasCancellationError, clear button calls onClearError(reservationKey).
- *  - Modal behavior: ConfirmModal open/close, onConfirmRefund handling and graceful null handling.
  *  - Edge cases: empty lab, missing date, missing handlers.
  *
  */
@@ -160,7 +159,7 @@ describe('LabBookingItem', () => {
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
-  test('shows "Request for Refund" instead of "Cancel Booking" when confirmed booking is currently active', () => {
+  test('keeps cancellation semantics explicit for a currently active confirmed booking', () => {
     const now = Math.floor(Date.now() / 1000);
     const booking = createBooking({
       status: '1',
@@ -173,12 +172,12 @@ describe('LabBookingItem', () => {
         lab={mockLab}
         booking={booking}
         onCancel={jest.fn()}
-        onRefund={jest.fn()}
       />
     );
 
-    expect(screen.queryByRole('button', { name: /Cancel Booking/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Request for Refund/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cancel Booking/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refund/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Eligible service credits return/i)).toBeInTheDocument();
     expect(screen.getByText('Access Window Open')).toBeInTheDocument();
   });
 
@@ -234,90 +233,11 @@ describe('LabBookingItem', () => {
     expect(screen.getByRole('button', { name: /Cancel Booking/i })).toBeInTheDocument();
   });
 
-  // --------------------------------------------------------------------------
-  // Refund button behavior
-  // --------------------------------------------------------------------------
+  test('does not expose a cash-refund action', () => {
+    render(<LabBookingItem lab={mockLab} booking={createBooking()} onCancel={jest.fn()} onRefund={jest.fn()} />);
 
-  test('shows refund button and calls onRefund with correct params', async () => {
-    const user = userEvent.setup();
-    const onRefund = jest.fn();
-    const booking = createBooking();
-
-    render(<LabBookingItem lab={mockLab} booking={booking} onRefund={onRefund} />);
-
-    const refundButton = screen.getByRole('button', { name: /Apply for Refund/i });
-    await user.click(refundButton);
-
-    expect(onRefund).toHaveBeenCalledTimes(1);
-    expect(onRefund).toHaveBeenCalledWith(mockLab.id, booking);
-  });
-
-  test('hides refund button for canceled booking', () => {
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking({ status: '5' })}
-        onRefund={jest.fn()}
-      />
-    );
-
-    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
-  });
-
-  test('hides refund button for completed booking (non-cancelable)', () => {
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking({ status: '3' })}
-        onRefund={jest.fn()}
-      />
-    );
-
-    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
-  });
-
-  test('hides refund button for free reservation (price = 0)', () => {
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking({ status: '1', price: '0' })}
-        onRefund={jest.fn()}
-      />
-    );
-
-    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
-  });
-
-  test('hides refund button for SSO booking in same institution', () => {
-    const institutionWallet = '0x1111111111111111111111111111111111111111';
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking({
-          status: '1',
-          price: '100',
-          payerInstitution: institutionWallet,
-          collectorInstitution: institutionWallet,
-        })}
-        onRefund={jest.fn()}
-        isSSOUser={true}
-        userInstitutionWallet={institutionWallet}
-      />
-    );
-
-    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
-  });
-
-  test('hides refund button when reservationKey is missing', () => {
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking({ reservationKey: null })}
-        onRefund={jest.fn()}
-      />
-    );
-
-    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refund/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/not cash/i)).toBeInTheDocument();
   });
 
   // --------------------------------------------------------------------------
@@ -367,65 +287,4 @@ describe('LabBookingItem', () => {
     expect(screen.queryByTitle('Clear error')).not.toBeInTheDocument();
   });
 
-  // --------------------------------------------------------------------------
-  // Modal behavior
-  // --------------------------------------------------------------------------
-
-  test('renders modal when isModalOpen is true and handles user actions', async () => {
-    const user = userEvent.setup();
-    const onConfirmRefund = jest.fn();
-    const closeModal = jest.fn();
-
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking()}
-        isModalOpen={true}
-        closeModal={closeModal}
-        onConfirmRefund={onConfirmRefund}
-      />
-    );
-
-    const modal = screen.getByTestId('confirm-modal');
-    expect(modal).toBeInTheDocument();
-
-    // Test Continue button
-    await user.click(screen.getByRole('button', { name: /Continue/i }));
-    expect(onConfirmRefund).toHaveBeenCalledTimes(1);
-
-    // Test Close button
-    await user.click(screen.getByRole('button', { name: /Close/i }));
-    expect(closeModal).toHaveBeenCalledTimes(1);
-  });
-
-  test('does not render modal when isModalOpen is false', () => {
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking()}
-        isModalOpen={false}
-      />
-    );
-
-    expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument();
-  });
-
-  test('handles missing onConfirmRefund gracefully without crashing', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <LabBookingItem
-        lab={mockLab}
-        booking={createBooking()}
-        isModalOpen={true}
-        closeModal={jest.fn()}
-        onConfirmRefund={null}
-      />
-    );
-
-    // Should not throw error when Continue is clicked
-    await expect(async () => {
-      await user.click(screen.getByRole('button', { name: /Continue/i }));
-    }).not.toThrow();
-  });
 });

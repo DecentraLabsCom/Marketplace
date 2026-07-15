@@ -7,6 +7,7 @@ import path from 'path'
 import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 /**
  * Saves provider registration to pending providers storage
@@ -95,14 +96,13 @@ export async function POST(request) {
           providers = JSON.parse(file);
         }
       } catch (parseError) {
-        console.error('Error parsing existing providers file:', parseError);
-        return Response.json(
-          { 
-            error: 'Failed to read existing provider data',
-            code: 'READ_ERROR'
-          }, 
-          { status: 500 }
-        );
+        return publicErrorResponse({
+          status: 500,
+          code: 'READ_ERROR',
+          message: 'The existing provider data could not be read.',
+          error: parseError,
+          context: 'provider-registration-read',
+        });
       }
     } else {
       // PRODUCTION: Use Vercel Blob API
@@ -119,7 +119,7 @@ export async function POST(request) {
           }
         }
       } catch (error) {
-        console.warn('Failed to fetch existing providers blob:', error.message);
+        console.warn('Failed to fetch existing providers blob:', sanitizeErrorForLog(error));
         // Continue with empty array
       }
     }
@@ -160,14 +160,13 @@ export async function POST(request) {
                   { contentType: 'application/json', allowOverwrite: true, access: 'public' });
       }
     } catch (writeError) {
-      console.error('Error saving provider registration:', writeError);
-      return Response.json(
-        { 
-          error: 'Failed to save provider registration',
-          code: 'WRITE_ERROR'
-        }, 
-        { status: 500 }
-      );
+      return publicErrorResponse({
+        status: 500,
+        code: 'WRITE_ERROR',
+        message: 'The provider registration could not be saved.',
+        error: writeError,
+        context: 'provider-registration-write',
+      });
     }
 
     return Response.json(
@@ -185,26 +184,23 @@ export async function POST(request) {
     );
 
   } catch (error) {
-    console.error('Error in saveRegistration endpoint:', error);
-    
     // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
-      return Response.json(
-        { 
-          error: 'Invalid JSON in request body',
-          code: 'INVALID_JSON'
-        }, 
-        { status: 400 }
-      );
+      return publicErrorResponse({
+        status: 400,
+        code: 'INVALID_JSON',
+        message: 'The request body is invalid.',
+        error,
+        context: 'provider-registration-json',
+      });
     }
     
-    return Response.json(
-      { 
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      }, 
-      { status: 500 }
-    );
+    return publicErrorResponse({
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'The provider registration could not be completed.',
+      error,
+      context: 'provider-registration',
+    });
   }
 }

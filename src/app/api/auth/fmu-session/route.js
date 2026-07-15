@@ -12,6 +12,7 @@ import {
   fmuContextCookieOptions,
   readFmuContexts,
 } from '@/utils/auth/fmuSessionStore'
+import { publicErrorResponse } from '@/utils/security/publicError'
 
 function parseGatewaySession(setCookie) {
   const jti = String(setCookie || '').match(/(?:^|,\s*)FMU_SESSION=([^;,\s]+)/)?.[1]
@@ -37,7 +38,7 @@ export async function POST(request) {
       })
     } catch (error) {
       if (error instanceof GatewayValidationError) {
-        throw new BadRequestError(error.message)
+        throw new BadRequestError('The FMU gateway endpoint is invalid.')
       }
       throw error
     }
@@ -54,10 +55,22 @@ export async function POST(request) {
     })
     const session = parseGatewaySession(gatewayResponse.headers.get('set-cookie'))
     if (gatewayResponse.status !== 204) {
-      return NextResponse.json({ error: 'FMU access-code exchange failed' }, { status: gatewayResponse.status || 502 })
+      return publicErrorResponse({
+        status: gatewayResponse.status || 502,
+        code: 'FMU_ACCESS_FAILED',
+        message: 'The FMU access-code exchange could not be completed.',
+        error: new Error(`FMU access gateway returned ${gatewayResponse.status}`),
+        context: 'fmu-session-upstream',
+      })
     }
     if (!session) {
-      return NextResponse.json({ error: 'FMU access-code exchange failed' }, { status: 502 })
+      return publicErrorResponse({
+        status: 502,
+        code: 'FMU_ACCESS_FAILED',
+        message: 'The FMU access-code exchange could not be completed.',
+        error: new Error('FMU access gateway returned an invalid session cookie'),
+        context: 'fmu-session-cookie',
+      })
     }
 
     const { encoded, contexts } = encodeFmuContexts(readFmuContexts(request), {
@@ -72,6 +85,6 @@ export async function POST(request) {
     response.cookies.set(FMU_CONTEXT_COOKIE, encoded, fmuContextCookieOptions(contexts))
     return response
   } catch (error) {
-    return handleGuardError(error)
+    return handleGuardError(error, request)
   }
 }

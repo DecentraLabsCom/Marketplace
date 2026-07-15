@@ -44,7 +44,9 @@ jest.mock("@/utils/hooks/ssrSafe", () => ({
 // Mock query keys
 jest.mock("@/utils/hooks/queryKeys", () => ({
   metadataQueryKeys: {
-    byUri: jest.fn((uri) => ["metadata", "byUri", uri]),
+    byUri: jest.fn((uri, labId) => labId
+      ? ["metadata", "byLab", String(labId), uri]
+      : ["metadata", "byUri", uri]),
   },
 }));
 
@@ -76,7 +78,7 @@ describe("useMetadata", () => {
   });
 
   test("fetches metadata successfully", async () => {
-    const uri = "ipfs://QmTest123";
+    const uri = "https://provider.example/lab.json";
     const mockMetadata = { name: "Test Lab", description: "Test" };
 
     global.fetch.mockResolvedValueOnce({
@@ -84,7 +86,7 @@ describe("useMetadata", () => {
       json: async () => mockMetadata,
     });
 
-    const { result } = renderHook(() => useMetadata(uri), {
+    const { result } = renderHook(() => useMetadata(uri, { labId: 42 }), {
       wrapper: createWrapper(),
     });
 
@@ -92,7 +94,7 @@ describe("useMetadata", () => {
 
     expect(result.current.data).toEqual(mockMetadata);
     expect(global.fetch).toHaveBeenCalledWith(
-      `/api/metadata?uri=${encodeURIComponent(uri)}`,
+      `/api/metadata?labId=42&uri=${encodeURIComponent(uri)}`,
       expect.objectContaining({
         method: "GET",
         headers: { "Content-Type": "application/json" },

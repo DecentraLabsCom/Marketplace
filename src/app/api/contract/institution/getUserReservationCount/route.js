@@ -5,6 +5,7 @@ import {
 } from '../../utils/institutionSession'
 import { handleGuardError, requireAuth } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
+import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 export async function GET() {
   try {
@@ -41,7 +42,7 @@ export async function GET() {
     if (error?.code === 'BAD_REQUEST') {
       devLog.warn(
         '[API] getUserReservationCount skipped - session missing institutional context:',
-        error.message,
+        sanitizeErrorForLog(error),
       )
       return Response.json(
         {
@@ -53,7 +54,12 @@ export async function GET() {
       )
     }
 
-    console.error('Error getting institutional user reservation count:', error)
-    return handleGuardError(error)
+    return publicErrorResponse({
+      status: 500,
+      code: 'RESERVATION_COUNT_LOOKUP_FAILED',
+      message: 'The reservation count could not be loaded.',
+      error,
+      context: 'institution-reservation-count',
+    })
   }
 }

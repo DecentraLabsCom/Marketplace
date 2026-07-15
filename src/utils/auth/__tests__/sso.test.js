@@ -78,7 +78,7 @@ describe("SSO Utilities", () => {
   });
 
   describe("createSession", () => {
-    test("creates session cookie with signed JWT token", () => {
+    test("creates an opaque server-side session cookie", async () => {
       const mockResponse = {
         cookies: {
           set: jest.fn(),
@@ -91,12 +91,12 @@ describe("SSO Utilities", () => {
         name: "Test User",
       };
 
-      createSession(mockResponse, userData);
+      await createSession(mockResponse, userData);
 
-      // Verify cookie was set with JWT token (not plain JSON)
+      // The browser receives only the high-entropy server-session identifier.
       expect(mockResponse.cookies.set).toHaveBeenCalledWith(
-        "user_session",
-        expect.stringContaining("mock-jwt-"), // JWT token
+        "__Host-user_session",
+        expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
         expect.objectContaining({
           httpOnly: true,
           sameSite: "lax",
@@ -105,10 +105,11 @@ describe("SSO Utilities", () => {
       );
     });
 
-    test("sets secure flag in production environment", () => {
+    test("sets secure flag in production environment", async () => {
       process.env.NODE_ENV = "production";
       // Set SESSION_SECRET for production mode
       process.env.SESSION_SECRET = "test-session-secret-at-least-32-chars-long";
+      global.fetch.mockResolvedValue({ ok: true, json: async () => ({ result: 'OK' }) });
 
       const mockResponse = {
         cookies: {
@@ -118,10 +119,12 @@ describe("SSO Utilities", () => {
 
       const userData = { id: "user123", email: "user@example.com" };
 
-      createSession(mockResponse, userData);
+      process.env.SESSION_STORE_REST_URL = "https://session-store.example.com"
+      process.env.SESSION_STORE_REST_TOKEN = "test-token"
+      await createSession(mockResponse, userData);
 
       expect(mockResponse.cookies.set).toHaveBeenCalledWith(
-        "user_session",
+        "__Host-user_session",
         expect.any(String),
         expect.objectContaining({
           secure: true,
@@ -129,7 +132,7 @@ describe("SSO Utilities", () => {
       );
     });
 
-    test("handles complex user data object", () => {
+    test("persists complex user data behind an opaque cookie", async () => {
       const mockResponse = {
         cookies: {
           set: jest.fn(),
@@ -145,14 +148,13 @@ describe("SSO Utilities", () => {
         organizationName: "Test University",
       };
 
-      createSession(mockResponse, complexUserData);
+      await createSession(mockResponse, complexUserData);
 
-      // Verify the JWT token contains the user data
       const callArgs = mockResponse.cookies.set.mock.calls[0];
       const token = callArgs[1];
-      expect(token).toContain("mock-jwt-");
-      expect(token).toContain("user123");
-      expect(token).toContain("user@example.com");
+      expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(token).not.toContain("user123");
+      expect(token).not.toContain("user@example.com");
     });
   });
 
