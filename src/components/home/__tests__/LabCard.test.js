@@ -511,6 +511,20 @@ describe("LabCard - Link Generation", () => {
     const link = screen.getByRole("link", { name: /Explore Lab/i });
     expect(link).toBeInTheDocument();
   });
+
+  test("lays out the explore prompt vertically at one third of the card", () => {
+    renderLabCard();
+
+    const link = screen.getByRole("link", { name: /Explore Lab/i });
+    const icon = link.querySelector("svg");
+    const content = icon.parentElement;
+    const label = screen.getByText("Explore Lab");
+
+    expect(content).toHaveClass("absolute", "left-1/2", "top-1/3", "-translate-x-1/2");
+    expect(content).toHaveClass("flex", "flex-col", "items-center");
+    expect(icon).toHaveClass("size-4");
+    expect(label).toHaveClass("whitespace-nowrap", "text-center");
+  });
 });
 
 describe("LabCard - Price Formatting", () => {

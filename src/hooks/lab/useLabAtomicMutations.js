@@ -282,7 +282,6 @@ export const useUpdateLabSSO = (options = {}) => {
         price: updateData.labData?.price,
         accessURI: updateData.labData?.accessURI,
         accessKey: updateData.labData?.accessKey,
-        tokenURI: updateData.labData?.tokenURI,
         resourceType: toResourceTypeCode(updateData.labData?.resourceType),
         backendUrl: updateData.backendUrl,
         presenceFn: updateData?.presenceFn,

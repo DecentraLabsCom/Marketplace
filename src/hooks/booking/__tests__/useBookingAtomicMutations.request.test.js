@@ -113,7 +113,11 @@ describe('institutional reservation request mutations', () => {
       out = await result.current.mutateAsync({ tokenId: 'tk1', start: 111, end: 222, userAddress: 'u1', onProgress });
     });
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/prepare', expect.any(Object));
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 8,
+      payload: { labId: 'tk1', start: 111, end: 222 },
+    });
     expect(global.window.open).toHaveBeenCalledWith('', 'intent-authorization', 'width=480,height=720');
     const popup = global.window.open.mock.results[0].value;
     expect(popup.document.write).toHaveBeenCalledWith(expect.stringContaining('Preparing authorization'));

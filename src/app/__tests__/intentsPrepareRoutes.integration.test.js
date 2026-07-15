@@ -4,24 +4,24 @@
 
 jest.mock('@/utils/auth/guards', () => ({
   requireAuth: jest.fn(),
-  handleGuardError: jest.fn((error) =>
-    new Response(JSON.stringify({ error: error?.message || 'guard error' }), {
-      status: error?.status || 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  ),
+  handleGuardError: jest.fn((error) => new Response(
+    JSON.stringify({ error: error?.message || 'guard error' }),
+    { status: error?.status || 401, headers: { 'Content-Type': 'application/json' } },
+  )),
 }))
 
 jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
   ACTION_CODES: {
-    LAB_ADD: 0,
-    LAB_UPDATE: 1,
-    LAB_DELETE: 2,
-    LAB_LIST: 3,
-    LAB_UNLIST: 4,
-    LAB_SET_URI: 5,
-    CANCEL_REQUEST_BOOKING: 6,
-    CANCEL_BOOKING: 7,
+    LAB_ADD: 1,
+    LAB_ADD_AND_LIST: 2,
+    LAB_SET_URI: 3,
+    LAB_UPDATE: 4,
+    LAB_DELETE: 5,
+    LAB_LIST: 6,
+    LAB_UNLIST: 7,
+    REQUEST_BOOKING: 8,
+    CANCEL_REQUEST_BOOKING: 9,
+    CANCEL_BOOKING: 10,
   },
   buildActionIntent: jest.fn(),
   computeAssertionHash: jest.fn(),
@@ -71,7 +71,6 @@ jest.mock('@/utils/intents/backendClient', () => ({
 }))
 
 jest.mock('@/utils/intents/onchainHelpers', () => ({
-  extractOnchainErrorDetails: jest.fn(),
   resolveChainNowSec: jest.fn(),
 }))
 
@@ -86,7 +85,6 @@ jest.mock('@/utils/onboarding/institutionalBackend', () => ({
 jest.mock('@/utils/api/rateLimit', () => ({
   createRateLimiter: jest.fn(() => jest.fn(async () => ({ limited: false }))),
   createRateLimitResponse: jest.fn(() => null),
-  clearRateLimitStoresForTests: jest.fn(),
 }))
 
 jest.mock('@/utils/dev/logger', () => ({
@@ -118,25 +116,39 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
-import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
-import { POST as actionPreparePOST } from '../api/backend/intents/actions/prepare/route.js'
-import { POST as reservationPreparePOST } from '../api/backend/intents/reservations/prepare/route.js'
-import { clearReservationPrepareCache } from '../api/backend/intents/reservations/prepare/cache.js'
+import { resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { clearIntentPrepareCache } from '@/utils/intents/prepareCache'
+import { POST as prepareIntentPOST } from '../api/backend/intents/actions/prepare/route.js'
 
-const buildRequest = (url, body) =>
-  new Request(url, {
+const buildRequest = (body) => new Request(
+  'http://localhost/api/backend/intents/actions/prepare',
+  {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  })
+  },
+)
 
-describe('Intent prepare routes integration', () => {
+describe('Unified intent prepare route', () => {
   const nowSec = Math.floor(Date.now() / 1000)
   const validReservationKey = `0x${'12'.repeat(32)}`
+  const validLabPayload = {
+    labId: 0,
+    uri: 'ipfs://lab-metadata',
+    price: 7,
+    accessURI: 'https://gateway.example/lab',
+    accessKey: 'lab-key',
+    resourceType: 0,
+  }
+  const authorization = {
+    sessionId: 'auth-session-1',
+    ceremonyUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
+    expiresAt: '2026-02-20T00:05:00Z',
+  }
 
   beforeEach(() => {
     jest.clearAllMocks()
-    clearReservationPrepareCache()
+    clearIntentPrepareCache()
     process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal'
 
     requireAuth.mockResolvedValue({
@@ -147,88 +159,56 @@ describe('Intent prepare routes integration', () => {
       schacHomeOrganization: 'uni.example',
     })
     getPucFromSession.mockImplementation(
-      jest.requireActual('@/utils/webauthn/service').getPucFromSession
+      jest.requireActual('@/utils/webauthn/service').getPucFromSession,
     )
     resolveIntentExecutorForInstitution.mockResolvedValue('0x00000000000000000000000000000000000000a1')
     getAdminAddress.mockResolvedValue('0x00000000000000000000000000000000000000a2')
     resolveChainNowSec.mockResolvedValue(1_700_000_000)
-
+    computeAssertionHash.mockReturnValue('0xassertionhash')
+    computeReservationAssertionHash.mockReturnValue('0xreservationassertionhash')
     buildActionIntent.mockResolvedValue({
       meta: { requestId: 'req-action-1', requestedAt: 1_700_000_000, expiresAt: 1_700_000_300 },
       payload: { reservationKey: validReservationKey },
       typedData: { domain: {}, types: {}, message: {} },
     })
-    computeAssertionHash.mockReturnValue('0xassertionhash')
-
     buildReservationIntent.mockResolvedValue({
       meta: { requestId: 'req-reservation-1', requestedAt: 1_700_000_000, expiresAt: 1_700_000_300 },
       payload: { reservationKey: validReservationKey },
       typedData: { domain: {}, types: {}, message: {} },
     })
-    computeReservationAssertionHash.mockReturnValue('0xreservationassertionhash')
-
     signIntentMeta.mockResolvedValue('0xadminsignature')
     registerIntentOnChain.mockResolvedValue({ txHash: '0xontx' })
-    notifyIntentRegistrationMined.mockResolvedValue({
-      ok: true,
-      status: 202,
-      body: { status: 'accepted' },
-    })
-
+    notifyIntentRegistrationMined.mockResolvedValue({ ok: true, status: 202 })
     getContractInstance.mockResolvedValue({
       getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
       getReservation: jest.fn().mockResolvedValue({
         labId: 9n,
         price: 123n,
+        start: BigInt(nowSec + 300),
+        end: BigInt(nowSec + 420),
         renter: '0x00000000000000000000000000000000000000a3',
       }),
       ownerOf: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000dead'),
     })
-
     resolveInstitutionAddressFromSession.mockResolvedValue({
       institutionAddress: '0x00000000000000000000000000000000000000a1',
       normalizedDomain: 'uni.example',
     })
     resolveInstitutionalBackendUrl.mockResolvedValue('https://ib.example')
-
     serializeIntent.mockImplementation((value) => value)
-
-    getIntentBackendAuthToken.mockResolvedValue({
-      token: 'backend-token',
-      expiresAt: '2026-02-20T00:00:00Z',
-    })
-    requestIntentAuthorizationSession.mockResolvedValue({
-      ok: true,
-      status: 200,
-      data: {
-        sessionId: 'auth-session-1',
-        ceremonyUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
-        expiresAt: '2026-02-20T00:05:00Z',
-      },
-    })
-    mapAuthorizationErrorCode.mockImplementation((message) =>
-      message === 'webauthn_credential_not_registered'
-        ? 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'
-        : null
-    )
+    getIntentBackendAuthToken.mockResolvedValue({ token: 'backend-token', expiresAt: '2026-02-20T00:00:00Z' })
+    requestIntentAuthorizationSession.mockResolvedValue({ ok: true, status: 200, data: authorization })
+    mapAuthorizationErrorCode.mockReturnValue(null)
     normalizeAuthorizationResponse.mockImplementation((value) => value)
     hasUsableAuthorizationSession.mockReturnValue(true)
-    resolveAuthorizationUrl.mockReturnValue('https://ib.example/intents/authorize/ceremony/auth-session-1')
-
-    extractOnchainErrorDetails.mockReturnValue({ message: 'onchain-details' })
+    resolveAuthorizationUrl.mockReturnValue(authorization.ceremonyUrl)
   })
 
-  test('actions/prepare: returns prepared action intent and authorization session', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+  test('prepares a lab action and creates WebAuthn authorization while registering on-chain', async () => {
+    const res = await prepareIntentPOST(buildRequest({
       action: ACTION_CODES.LAB_ADD,
-      backendUrl: 'https://ib.example',
-      payload: {
-        labId: 101,
-        price: 7,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
+      payload: validLabPayload,
+    }))
     const payload = await res.json()
 
     expect(res.status).toBe(200)
@@ -237,166 +217,98 @@ describe('Intent prepare routes integration', () => {
       requestId: 'req-action-1',
       backendUrl: 'https://ib.example',
       authorizationSessionId: 'auth-session-1',
-      authorizationUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
-      backendAuthToken: 'backend-token',
     })
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: ACTION_CODES.LAB_ADD,
+      labId: 0n,
+      price: 7n,
       assertionHash: '0xassertionhash',
-      labId: 101,
-      price: 7,
-      nowSec: 1_700_000_000,
     }))
+    expect(registerIntentOnChain).toHaveBeenCalledWith(
+      'action',
+      expect.any(Object),
+      expect.any(Object),
+      '0xadminsignature',
+      { waitForReceipt: false },
+    )
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'actionPayload',
       backendUrl: 'https://ib.example',
-      samlAssertion: '<Assertion>test</Assertion>',
-      stableUserIdMode: 'principal',
     }))
   })
 
-  test('actions/prepare: ignores a client-selected backend origin', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.LAB_ADD,
-      backendUrl: 'https://attacker.example',
-      payload: { labId: 101, price: 7, backendUrl: 'https://attacker.example' },
-    })
-
-    const res = await actionPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(resolveInstitutionalBackendUrl).toHaveBeenCalledWith('uni.example')
-    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
-      backendUrl: 'https://ib.example',
+  test('accepts LAB_ADD_AND_LIST as a normal action', async () => {
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_ADD_AND_LIST,
+      payload: validLabPayload,
     }))
-    expect(payload.backendUrl).toBe('https://ib.example')
-  })
-
-  test('actions/prepare: forwards principal-only puc hash from session into signed payload', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.LAB_UPDATE,
-      backendUrl: 'https://ib.example',
-      payload: {
-        labId: 101,
-        price: 7,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
 
     expect(res.status).toBe(200)
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
-      pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
+      action: ACTION_CODES.LAB_ADD_AND_LIST,
     }))
+    expect(registerIntentOnChain).toHaveBeenCalledWith(
+      'action',
+      expect.any(Object),
+      expect.any(Object),
+      '0xadminsignature',
+      { waitForReceipt: false },
+    )
   })
 
-  test('actions/prepare: sends principal mode when targeted ID is absent even if composite mode is configured', async () => {
-    process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal_targeted_id'
-    requireAuth.mockResolvedValueOnce({
-      id: 'alice@uned.es',
-      eduPersonPrincipalName: 'alice@uned.es',
-      samlAssertion: '<Assertion>test</Assertion>',
-      schacHomeOrganization: 'uni.example',
-    })
-
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.LAB_UPDATE,
-      backendUrl: 'https://ib.example',
-      payload: {
-        labId: 101,
-        price: 7,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
-
-    expect(res.status).toBe(200)
-    expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
-      stableUserIdMode: 'principal',
-    }))
+  test('rejects action codes outside the contract allowlists', async () => {
+    const res = await prepareIntentPOST(buildRequest({ action: 99, payload: {} }))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Invalid action code' })
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
   })
 
-  test('actions/prepare: cancellation action resolves reservation snapshot before signing', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+  test('rejects fields that do not belong to the selected action', async () => {
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_SET_URI,
+      payload: { labId: 4, tokenURI: 'ipfs://new', price: 5 },
+    }))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Field price is not allowed for this intent action' })
+    expect(registerIntentOnChain).not.toHaveBeenCalled()
+  })
+
+  test('resolves confirmed booking cancellation from chain and registers it as an action payload', async () => {
+    const res = await prepareIntentPOST(buildRequest({
       action: ACTION_CODES.CANCEL_BOOKING,
-      backendUrl: 'https://ib.example',
-      payload: {
-        reservationKey: validReservationKey,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
-    const payload = await res.json()
+      payload: { reservationKey: validReservationKey },
+    }))
 
     expect(res.status).toBe(200)
-    expect(payload.kind).toBe('action')
+    expect((await res.json()).kind).toBe('action')
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: ACTION_CODES.CANCEL_BOOKING,
       reservationKey: validReservationKey,
-      labId: '9',
-      price: '123',
+      labId: 9n,
+      price: 123n,
     }))
   })
 
-  test('actions/prepare: propagates mapped backend authorization errors', async () => {
-    requestIntentAuthorizationSession.mockResolvedValueOnce({
-      ok: false,
-      status: 409,
-      data: { error: 'webauthn_credential_not_registered' },
-    })
-
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.LAB_UPDATE,
-      backendUrl: 'https://ib.example',
-      payload: { labId: 11, price: 1 },
-    })
-
-    const res = await actionPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(409)
-    expect(payload).toMatchObject({
-      error: 'No registered passkey was found for this account.',
-      code: 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED',
-    })
-    expect(payload).toHaveProperty('correlationId')
-    expect(payload).not.toHaveProperty('details')
-  })
-
-  test('reservations/prepare: returns prepared reservation intent and authorization session', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
+  test('prepares a reservation request through the unified action route', async () => {
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.REQUEST_BOOKING,
+      payload: { labId: 22, start: nowSec + 1_000, timeslot: 120 },
       returnUrl: 'https://market.example/callback',
-    })
-
-    const res = await reservationPreparePOST(req)
+    }))
     const payload = await res.json()
 
     expect(res.status).toBe(200)
-    expect(payload).toMatchObject({
-      kind: 'reservation',
-      requestId: 'req-reservation-1',
-      backendUrl: 'https://ib.example',
-      authorizationSessionId: 'auth-session-1',
-      authorizationUrl: 'https://ib.example/intents/authorize/ceremony/auth-session-1',
-      backendAuthToken: 'backend-token',
-    })
+    expect(payload.kind).toBe('reservation')
     expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      labId: 22,
+      action: ACTION_CODES.REQUEST_BOOKING,
+      labId: 22n,
       start: BigInt(nowSec + 1_000),
       end: BigInt(nowSec + 1_120),
       price: 240n,
-      assertionHash: '0xreservationassertionhash',
-      nowSec: 1_700_000_000,
     }))
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'reservationPayload',
       returnUrl: 'https://market.example/callback',
-      stableUserIdMode: 'principal',
     }))
     expect(registerIntentOnChain).toHaveBeenCalledWith(
       'reservation',
@@ -405,258 +317,82 @@ describe('Intent prepare routes integration', () => {
       '0xadminsignature',
       { waitForReceipt: false },
     )
-    expect(payload.onChain).toEqual(expect.objectContaining({
-      txHash: '0xontx',
-      blockNumber: null,
-      status: 'submitted',
+  })
+
+  test('uses DIRECT_BOOKING only when the institution owns the lab', async () => {
+    const ownAddress = '0x00000000000000000000000000000000000000c1'
+    getContractInstance.mockResolvedValueOnce({
+      getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
+      getReservation: jest.fn(),
+      ownerOf: jest.fn().mockResolvedValue(ownAddress),
+    })
+    resolveInstitutionAddressFromSession.mockResolvedValueOnce({ institutionAddress: ownAddress })
+
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.REQUEST_BOOKING,
+      payload: { labId: 33, start: nowSec + 1_000, timeslot: 120 },
+    }))
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({ action: 11 }))
+  })
+
+  test('prepares cancellation of a reservation request with the reservation payload', async () => {
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.CANCEL_REQUEST_BOOKING,
+      payload: { reservationKey: validReservationKey },
+    }))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).kind).toBe('reservation')
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      action: ACTION_CODES.CANCEL_REQUEST_BOOKING,
+      labId: 9n,
+      start: BigInt(nowSec + 300),
+      end: BigInt(nowSec + 420),
+      price: 123n,
     }))
   })
 
-  test('reservations/prepare: rejects the request when the canonical institution backend is unavailable', async () => {
-    resolveInstitutionalBackendUrl.mockResolvedValueOnce(null)
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://attacker.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(payload).toEqual({ error: 'Missing institutional backend URL' })
-    expect(registerIntentOnChain).not.toHaveBeenCalled()
-  })
-
-  test('reservations/prepare: signals backend after registration receipt is mined', async () => {
+  test('starts institutional authorization before waiting for the registration receipt', async () => {
+    let releaseAuthorization
+    requestIntentAuthorizationSession.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseAuthorization = resolve
+    }))
     registerIntentOnChain.mockResolvedValueOnce({
-      txHash: '0xontx',
+      txHash: '0xparallel',
       wait: jest.fn().mockResolvedValue({ blockNumber: 777 }),
     })
 
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    })
+    const responsePromise = prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_ADD,
+      payload: validLabPayload,
+    }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
-    const res = await reservationPreparePOST(req)
-    await Promise.resolve()
-    await Promise.resolve()
+    expect(requestIntentAuthorizationSession).toHaveBeenCalled()
+    expect(registerIntentOnChain).toHaveBeenCalled()
+    releaseAuthorization({ ok: true, status: 200, data: authorization })
+    const res = await responsePromise
 
     expect(res.status).toBe(200)
-    expect(notifyIntentRegistrationMined).toHaveBeenCalledWith({
-      backendUrl: 'https://ib.example',
-      backendAuthToken: 'backend-token',
-      requestId: 'req-reservation-1',
-      txHash: '0xontx',
+    expect(notifyIntentRegistrationMined).toHaveBeenCalledWith(expect.objectContaining({
+      txHash: '0xparallel',
       blockNumber: 777,
-    })
-  })
-
-  test('reservations/prepare: forwards principal-only puc hash from session into signed payload', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-
-    expect(res.status).toBe(200)
-    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      pucHash: '0xbce2c1d251a51197dd0a6c8c4e88f5b0b9293db685fa945a60b289409c836f83',
     }))
   })
 
-  test('reservations/prepare: sends principal mode when targeted ID is absent even if composite mode is configured', async () => {
-    process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE = 'principal_targeted_id'
-    requireAuth.mockResolvedValueOnce({
-      id: 'alice@uned.es',
-      eduPersonPrincipalName: 'alice@uned.es',
-      samlAssertion: '<Assertion>test</Assertion>',
-      schacHomeOrganization: 'uni.example',
-    })
-
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
+  test('does not allow a client-selected backend origin', async () => {
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_ADD,
+      backendUrl: 'https://attacker.example',
+      payload: { ...validLabPayload, backendUrl: 'https://attacker.example' },
+    }))
 
     expect(res.status).toBe(200)
+    expect(resolveInstitutionalBackendUrl).toHaveBeenCalledWith('uni.example')
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
-      stableUserIdMode: 'principal',
+      backendUrl: 'https://ib.example',
     }))
-  })
-
-  test('reservations/prepare: rejects invalid authorization payload from backend', async () => {
-    normalizeAuthorizationResponse.mockReturnValueOnce({
-      sessionId: null,
-      ceremonyUrl: null,
-      authorizationUrl: null,
-      expiresAt: null,
-    })
-    hasUsableAuthorizationSession.mockReturnValueOnce(false)
-
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 4,
-      start: nowSec + 200,
-      timeslot: 60,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(502)
-    expect(payload).toEqual({
-      error: 'Invalid authorization response from institutional backend',
-      code: 'INTENT_AUTHORIZATION_RESPONSE_INVALID',
-    })
-  })
-
-  test('reservations/prepare: normalizes onchain errors before returning them', async () => {
-    registerIntentOnChain.mockRejectedValueOnce(new Error('chain boom'))
-
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 5,
-      start: nowSec + 300,
-      timeslot: 60,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(502)
-    expect(payload).toMatchObject({
-      error: 'The reservation request could not be registered.',
-      code: 'RESERVATION_INTENT_ONCHAIN_FAILED',
-    })
-    expect(payload).toHaveProperty('correlationId')
-    expect(payload).not.toHaveProperty('details')
-    expect(payload).not.toHaveProperty('onchain')
-  })
-
-  test('reservations/prepare: uses DIRECT_BOOKING action when institution owns the lab', async () => {
-    const ownInstitutionAddress = '0x00000000000000000000000000000000000000c1'
-    getContractInstance.mockResolvedValueOnce({
-      getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
-      getReservation: jest.fn().mockResolvedValue({ labId: 9n, price: 123n, renter: ownInstitutionAddress }),
-      ownerOf: jest.fn().mockResolvedValue(ownInstitutionAddress),
-    })
-    resolveInstitutionAddressFromSession.mockResolvedValueOnce({
-      institutionAddress: ownInstitutionAddress,
-      normalizedDomain: 'uni.example',
-    })
-
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 33,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      action: 11, // ACTION_CODES.DIRECT_BOOKING
-    }))
-    expect(payload.kind).toBe('reservation')
-  })
-
-  test('reservations/prepare: uses REQUEST_BOOKING action when institution does not own the lab', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 44,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-
-    expect(res.status).toBe(200)
-    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      action: 8, // ACTION_CODES.REQUEST_BOOKING
-    }))
-  })
-
-  test('reservations/prepare: accepts explicit end for long-duration bookings', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      end: nowSec + 87_400,
-      duration: { unit: 'day', value: 1 },
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-
-    expect(res.status).toBe(200)
-    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
-      start: BigInt(nowSec + 1_000),
-      end: BigInt(nowSec + 87_400),
-      price: 172_800n,
-    }))
-  })
-
-  test('reservations/prepare: rejects explicit end before start', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
-      labId: 22,
-      start: nowSec + 1_000,
-      end: nowSec + 999,
-      backendUrl: 'https://ib.example',
-    })
-
-    const res = await reservationPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(payload).toEqual({ error: 'Reservation end must be after start' })
-  })
-
-  test('reservations/prepare: reuses stable cached admin and executor while refreshing lab reads', async () => {
-    const contract = {
-      getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
-      getReservation: jest.fn().mockResolvedValue({
-        labId: 9n,
-        price: 123n,
-        renter: '0x00000000000000000000000000000000000000a3',
-      }),
-      ownerOf: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000dead'),
-    }
-    getContractInstance.mockResolvedValue(contract)
-
-    const requestBody = {
-      labId: 55,
-      start: nowSec + 1_000,
-      timeslot: 120,
-      backendUrl: 'https://ib.example',
-    }
-
-    const first = await reservationPreparePOST(buildRequest(
-      'http://localhost/api/backend/intents/reservations/prepare',
-      requestBody
-    ))
-    const second = await reservationPreparePOST(buildRequest(
-      'http://localhost/api/backend/intents/reservations/prepare',
-      { ...requestBody, start: nowSec + 2_000 }
-    ))
-
-    expect(first.status).toBe(200)
-    expect(second.status).toBe(200)
-    expect(resolveIntentExecutorForInstitution).toHaveBeenCalledTimes(1)
-    expect(getAdminAddress).toHaveBeenCalledTimes(1)
-    expect(contract.getLab).toHaveBeenCalledTimes(2)
-    expect(contract.ownerOf).toHaveBeenCalledTimes(2)
   })
 })

@@ -57,17 +57,6 @@ const normalizeReservationMutationInput = (input) => {
   return { reservationKey: null };
 };
 
-const resolveReservationSnapshotFromCache = (queryClient, reservationKey) => {
-  if (!queryClient || !reservationKey) return {};
-  const cached = queryClient.getQueryData(bookingQueryKeys.byReservationKey(reservationKey));
-  const reservation = cached?.reservation || cached || {};
-  return {
-    labId: reservation?.labId,
-    price: reservation?.price,
-    userAddress: reservation?.renter ?? reservation?.userAddress,
-  };
-};
-
 const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
   if (!queryClient) return;
 
@@ -178,8 +167,8 @@ async function runActionIntent(action, payload) {
 // ===== MUTATIONS =====
 
 /**
- * Hook for /api/contract/reservation/reservationRequest endpoint
- * Creates a new reservation request for SSO users
+ * Hook for the unified /api/backend/intents/actions/prepare endpoint.
+ * Creates a reservation request intent for SSO users.
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
@@ -203,14 +192,16 @@ export const useReservationRequestSSO = (options = {}) => {
         start: requestData.start,
         end: requestData.end,
         timeslot: requestData.timeslot ?? requestData.duration ?? requestData.timeslotMinutes,
-        duration: requestData.durationDescriptor ?? requestData.duration,
       }
 
-      const prepareResponse = await fetch('/api/backend/intents/reservations/prepare', {
+      const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          action: ACTION_CODES.REQUEST_BOOKING,
+          payload,
+        }),
       })
 
       const prepareData = await prepareResponse.json()
@@ -495,15 +486,9 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         throw new Error('Missing reservationKey');
       }
 
-      const snapshot = resolveReservationSnapshotFromCache(queryClient, reservationKey);
-      const resolvedLabId = normalizedInput.labId ?? snapshot.labId;
-      const resolvedPrice = normalizedInput.price ?? snapshot.price;
-
       const data = await runActionIntent(ACTION_CODES.CANCEL_REQUEST_BOOKING, {
         reservationKey,
         backendUrl: institutionBackendUrl,
-        labId: resolvedLabId,
-        price: resolvedPrice ?? 0,
       });
       devLog.log('useCancelReservationRequestSSO intent (webauthn):', data);
       return { ...data, reservationKey };
@@ -682,15 +667,9 @@ export const useCancelBookingSSO = (options = {}) => {
         throw new Error('Missing reservationKey');
       }
 
-      const snapshot = resolveReservationSnapshotFromCache(queryClient, reservationKey);
-      const resolvedLabId = normalizedInput.labId ?? snapshot.labId;
-      const resolvedPrice = normalizedInput.price ?? snapshot.price;
-
       const data = await runActionIntent(ACTION_CODES.CANCEL_BOOKING, {
         reservationKey,
         backendUrl: institutionBackendUrl,
-        labId: resolvedLabId,
-        price: resolvedPrice ?? 0,
       });
       devLog.log('useCancelBookingSSO intent (webauthn):', data);
       return { ...data, reservationKey };

@@ -166,13 +166,17 @@ const LabCard = React.memo(function LabCard({
       <Link
         href={`/lab/${id}`}
         aria-label={isFmu ? 'Explore Simulation' : 'Explore Lab'}
-        className="absolute inset-0 flex items-center justify-center opacity-0
-          group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
+        className="absolute inset-0 opacity-0
+          group-hover:opacity-100 transition-opacity duration-300
           focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset
-          text-white text-lg font-bold"
+          text-white font-bold"
       >
-        <FontAwesomeIcon icon={faSearch} className="mr-2" />
-        {isFmu ? 'Explore Simulation' : 'Explore Lab'}
+        <span className="absolute left-1/2 top-1/3 flex -translate-x-1/2 flex-col items-center text-center transition-transform duration-300 hover:scale-110">
+          <FontAwesomeIcon icon={faSearch} className="size-4 shrink-0" />
+          <span className="mt-2 whitespace-nowrap text-center text-lg">
+            {isFmu ? 'Explore Simulation' : 'Explore Lab'}
+          </span>
+        </span>
       </Link>
       {isClient && isSSO && (
         <LabAccess 
