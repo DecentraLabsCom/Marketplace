@@ -58,6 +58,25 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
   verifyProvisioningToken: jest.fn(),
 }));
 
+jest.mock('@/utils/auth/provisioningTypedData', () => ({
+  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider', CONSUMER: 'consumer' },
+  getProvisioningRegistryConfig: jest.fn(() => ({
+    chainId: 11155111,
+    registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+  })),
+  recoverProvisioningWalletAddress: jest.fn(),
+  validateProvisioningClaims: jest.fn((payload) => payload),
+}));
+
+jest.mock('@/utils/auth/provisioningReplayStore', () => {
+  class ProvisioningReplayError extends Error {}
+  return {
+    ProvisioningReplayError,
+    consumeProvisioningJti: jest.fn(),
+    updateProvisioningAudit: jest.fn(),
+  };
+});
+
 jest.mock('@/utils/auth/marketplaceJwt', () => ({
   __esModule: true,
   default: {
@@ -84,6 +103,14 @@ jest.mock('next/headers', () => ({
 
 // Now import after mocks are set up
 import { verifyProvisioningToken } from '@/utils/auth/provisioningToken';
+import {
+  recoverProvisioningWalletAddress,
+  validateProvisioningClaims,
+} from '@/utils/auth/provisioningTypedData';
+import {
+  consumeProvisioningJti,
+  updateProvisioningAudit,
+} from '@/utils/auth/provisioningReplayStore';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { headers } from 'next/headers';
 import { POST } from '../api/institutions/registerProvider/route.js';
@@ -93,12 +120,25 @@ describe('/api/institutions/registerProvider route', () => {
     jest.clearAllMocks();
     verifyProvisioningToken.mockResolvedValue({
       marketplaceBaseUrl: 'https://marketplace.example.com',
+      institutionId: 'example.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      canonicalBackendOrigin: 'https://auth.example.com',
+      registrationType: 'provider',
+      chainId: 11155111,
+      registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      jti: 'provider-jti',
+      nonce: `0x${'11'.repeat(32)}`,
+      issuedAt: 1700000000,
+      expiresAt: 1700000300,
       providerName: 'Test Provider',
       providerEmail: 'test@example.com',
       providerCountry: 'ES',
-      providerOrganization: 'example.edu',
-      publicBaseUrl: 'https://auth.example.com/auth',
     });
+    recoverProvisioningWalletAddress.mockImplementation((_payload, signature) => {
+      if (!signature) throw new Error('Wallet signature is required');
+      return '0x1234567890123456789012345678901234567890';
+    });
+    consumeProvisioningJti.mockResolvedValue('provisioning:jti:provider-jti');
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
@@ -147,33 +187,7 @@ describe('/api/institutions/registerProvider route', () => {
     });
   });
 
-  test('returns 400 when wallet address is invalid', async () => {
-    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
-    headers.mockResolvedValue(mockHeaders);
-
-    const req = new Request('http://localhost/api/institutions/registerProvider', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        walletAddress: 'invalid-address',
-      }),
-    });
-
-    const res = await POST(req);
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({
-      error: 'Invalid wallet address format',
-    });
-  });
-
-  test('returns 400 when provider name is missing in token', async () => {
-    verifyProvisioningToken.mockResolvedValue({
-      marketplaceBaseUrl: 'https://marketplace.example.com',
-      providerEmail: 'test@example.com',
-      providerCountry: 'ES',
-      providerOrganization: 'example.edu',
-      publicBaseUrl: 'https://auth.example.com/auth',
-    });
+  test('returns 401 when the institutional wallet signature is missing', async () => {
     const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
@@ -182,6 +196,59 @@ describe('/api/institutions/registerProvider route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         walletAddress: '0x1234567890123456789012345678901234567890',
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid institutional wallet proof',
+    });
+  });
+
+  test('rejects a signature recovered from a different wallet', async () => {
+    recoverProvisioningWalletAddress.mockReturnValue(
+      '0x9999999999999999999999999999999999999999'
+    );
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
+    headers.mockResolvedValue(mockHeaders);
+
+    const req = new Request('http://localhost/api/institutions/registerProvider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletSignature: `0x${'22'.repeat(65)}` }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    expect(getContractInstance).not.toHaveBeenCalled();
+    expect(consumeProvisioningJti).not.toHaveBeenCalled();
+  });
+
+  test('returns 400 when provider name is missing in token', async () => {
+    verifyProvisioningToken.mockResolvedValue({
+      marketplaceBaseUrl: 'https://marketplace.example.com',
+      providerEmail: 'test@example.com',
+      providerCountry: 'ES',
+      institutionId: 'example.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      canonicalBackendOrigin: 'https://auth.example.com',
+      registrationType: 'provider',
+      chainId: 11155111,
+      registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      jti: 'provider-jti',
+      nonce: `0x${'11'.repeat(32)}`,
+      issuedAt: 1700000000,
+      expiresAt: 1700000300,
+    });
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
+    headers.mockResolvedValue(mockHeaders);
+
+    const req = new Request('http://localhost/api/institutions/registerProvider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        walletSignature: `0x${'22'.repeat(65)}`,
       }),
     });
 
@@ -197,14 +264,21 @@ describe('/api/institutions/registerProvider route', () => {
     headers.mockResolvedValue(mockHeaders);
 
     const walletAddress = '0x1234567890123456789012345678901234567890';
-    const organization = 'Example.EDU';
     verifyProvisioningToken.mockResolvedValue({
       marketplaceBaseUrl: 'https://marketplace.example.com',
+      institutionId: 'Example.EDU',
+      walletAddress,
+      canonicalBackendOrigin: 'https://auth.example.com',
+      registrationType: 'provider',
+      chainId: 11155111,
+      registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      jti: 'provider-jti',
+      nonce: `0x${'11'.repeat(32)}`,
+      issuedAt: 1700000000,
+      expiresAt: 1700000300,
       providerName: 'Test Provider',
       providerEmail: 'test@example.com',
       providerCountry: 'ES',
-      providerOrganization: organization,
-      publicBaseUrl: 'https://auth.example.com/auth',
     });
 
     const addProviderTx = {
@@ -241,7 +315,10 @@ describe('/api/institutions/registerProvider route', () => {
     const req = new Request('http://localhost/api/institutions/registerProvider', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress }),
+      body: JSON.stringify({
+        walletAddress: '0x9999999999999999999999999999999999999999',
+        walletSignature: `0x${'22'.repeat(65)}`,
+      }),
     });
 
     const res = await POST(req);
@@ -267,5 +344,27 @@ describe('/api/institutions/registerProvider route', () => {
       'example.edu',
       'https://auth.example.com',
     );
+    expect(validateProvisioningClaims).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        registrationType: 'provider',
+        chainId: 11155111,
+        registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      }
+    );
+    expect(consumeProvisioningJti).toHaveBeenCalledWith(
+      expect.objectContaining({ jti: 'provider-jti', walletAddress })
+    );
+    expect(consumeProvisioningJti.mock.invocationCallOrder[0]).toBeLessThan(
+      writeContract.addProvider.mock.invocationCallOrder[0]
+    );
+    expect(updateProvisioningAudit).toHaveBeenCalledWith('provider-jti', {
+      status: 'in-progress',
+      txHashes: ['0xaddproviderhash'],
+    });
+    expect(updateProvisioningAudit).toHaveBeenLastCalledWith('provider-jti', {
+      status: 'registered',
+      txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
+    });
   });
 });

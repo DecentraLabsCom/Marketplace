@@ -9,18 +9,27 @@ import {
   requireString,
   verifyProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import {
+  PROVISIONING_REGISTRATION_TYPES,
+  getProvisioningRegistryConfig,
+  recoverProvisioningWalletAddress,
+  validateProvisioningClaims,
+} from '@/utils/auth/provisioningTypedData';
+import {
+  ProvisioningReplayError,
+  consumeProvisioningJti,
+  updateProvisioningAudit,
+} from '@/utils/auth/provisioningReplayStore';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-/**
- * Validate Ethereum address
- */
-function validateAddress(address) {
-  if (!address || typeof address !== 'string') {
-    return false;
+async function recordProvisioningResult(jti, result) {
+  try {
+    await updateProvisioningAudit(jti, result);
+  } catch (error) {
+    devLog.error('[API] registerConsumer: Failed to update provisioning audit', sanitizeErrorForLog(error));
   }
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
 /**
@@ -76,7 +85,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { walletAddress } = body;
+    const { walletSignature } = body;
 
     const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
     const marketplaceBaseUrl = normalizeHttpsUrl(
@@ -93,36 +102,29 @@ export async function POST(request) {
         { status: 401 }
       );
     }
-    if (payload.type !== 'consumer') {
+    try {
+      payload = validateProvisioningClaims(payload, {
+        registrationType: PROVISIONING_REGISTRATION_TYPES.CONSUMER,
+        ...getProvisioningRegistryConfig(),
+      });
+      const recoveredWallet = recoverProvisioningWalletAddress(payload, walletSignature);
+      if (recoveredWallet.toLowerCase() !== payload.walletAddress.toLowerCase()) {
+        throw new Error('Institutional wallet signature mismatch');
+      }
+    } catch (error) {
+      devLog.warn('[API] registerConsumer: Invalid institutional wallet proof', sanitizeErrorForLog(error));
       return NextResponse.json(
-        { error: 'Provider provisioning token is not valid for consumer registration' },
-        { status: 400 }
+        { error: 'Invalid institutional wallet proof' },
+        { status: 401 }
       );
     }
-
-    // Validate required fields
-    if (!validateAddress(walletAddress)) {
-      return NextResponse.json(
-        { error: 'Invalid wallet address format' },
-        { status: 400 }
-      );
-    }
+    const walletAddress = payload.walletAddress;
 
     let consumerOrganization;
     let normalizedBackendUrl;
     try {
-      consumerOrganization = requireString(payload.consumerOrganization, 'Organization (schacHomeOrganization)');
-      const tokenAudience = Array.isArray(payload.aud)
-        ? payload.aud.find((value) => typeof value === 'string' && value.trim())
-        : payload.aud;
-      const normalizedTokenAudience = tokenAudience
-        ? normalizeHttpsUrl(tokenAudience, 'Public base URL')
-        : null;
-      // The backend destination is a locked provisioning-token claim. Any
-      // backendUrl sent by blockchain-services is deliberately ignored.
-      normalizedBackendUrl = normalizedTokenAudience
-        ? normalizeBackendUrl(normalizedTokenAudience)
-        : null;
+      consumerOrganization = requireString(payload.institutionId, 'Organization (schacHomeOrganization)');
+      normalizedBackendUrl = normalizeBackendUrl(payload.canonicalBackendOrigin);
     } catch (error) {
       return publicErrorResponse({
         status: 400,
@@ -147,6 +149,20 @@ export async function POST(request) {
           devLog.log('[API] registerConsumer: Institution already registered', { walletAddress, organization: normalizedOrganization });
 
           let backendTxHash = null;
+          try {
+            await consumeProvisioningJti(payload);
+          } catch (error) {
+            if (error instanceof ProvisioningReplayError) {
+              return NextResponse.json(
+                { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
+                { status: 409 }
+              );
+            }
+            return NextResponse.json(
+              { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
+              { status: 503 }
+            );
+          }
           if (normalizedBackendUrl) {
             try {
               const existingBackend = normalizeBackendUrl(
@@ -166,6 +182,11 @@ export async function POST(request) {
               devLog.warn('[API] registerConsumer: Backend update failed', err);
             }
           }
+
+          await recordProvisioningResult(payload.jti, {
+            status: 'already-registered',
+            txHashes: backendTxHash ? [backendTxHash] : [],
+          });
 
           return NextResponse.json(
             {
@@ -194,6 +215,22 @@ export async function POST(request) {
       devLog.log('[API] registerConsumer: Organization not found, proceeding with registration');
     }
 
+    try {
+      await consumeProvisioningJti(payload);
+    } catch (error) {
+      if (error instanceof ProvisioningReplayError) {
+        return NextResponse.json(
+          { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
+          { status: 409 }
+        );
+      }
+      devLog.error('[API] registerConsumer: Provisioning replay store unavailable', sanitizeErrorForLog(error));
+      return NextResponse.json(
+        { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
+        { status: 503 }
+      );
+    }
+
     // Execute grantInstitutionRole transaction
     devLog.log('[API] registerConsumer: Granting institution role', { walletAddress, organization: normalizedOrganization });
 
@@ -204,6 +241,11 @@ export async function POST(request) {
     );
     const grantRoleReceipt = await grantRoleTx.wait();
     const grantRoleTxHash = grantRoleReceipt?.hash ?? grantRoleTx?.hash;
+
+    await recordProvisioningResult(payload.jti, {
+      status: 'in-progress',
+      txHashes: [grantRoleTxHash].filter(Boolean),
+    });
 
     devLog.log('[API] registerConsumer: Institution role granted successfully', grantRoleTxHash);
 
@@ -217,7 +259,16 @@ export async function POST(request) {
       );
       const backendReceipt = await backendTx.wait();
       backendTxHash = backendReceipt?.hash ?? backendTx?.hash;
+      await recordProvisioningResult(payload.jti, {
+        status: 'in-progress',
+        txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
+      });
     }
+
+    await recordProvisioningResult(payload.jti, {
+      status: 'registered',
+      txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
+    });
 
     return NextResponse.json(
       {

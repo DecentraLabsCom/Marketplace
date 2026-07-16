@@ -9,6 +9,7 @@ describe('publicSessionUser', () => {
       name: 'User Name',
       authType: 'sso',
       affiliation: 'uned.es',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       personalUniqueCode: 'urn:mace:terena.org:schac:personalUniqueCode:es:abc',
       samlAssertion: 'BASE64_ASSERTION',
       samlAssertionCompressed: 'compressed',
@@ -29,6 +30,9 @@ describe('publicSessionUser', () => {
     )
 
     expect(sanitized.samlAssertion).toBeUndefined()
+    expect(sanitized.entitlements).toEqual([
+      'urn:decentralabs:entitlement:institution-admin',
+    ])
     expect(sanitized.samlAssertionCompressed).toBeUndefined()
     expect(sanitized.internalToken).toBeUndefined()
   })

@@ -20,7 +20,7 @@ export async function POST(request) {
     const session = await requireAuth();
     
     // Admin role check - this operation requires DEFAULT_ADMIN_ROLE on-chain
-    if (!hasAdminRole(session.role, session.scopedRole)) {
+    if (!hasAdminRole(session.entitlements)) {
       throw new ForbiddenError('Admin privileges required to remove providers');
     }
     

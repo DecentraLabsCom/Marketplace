@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import RegisterPage from "../RegisterPage";
 import { useUser } from "@/context/UserContext";
-import { hasAdminRole } from "@/utils/auth/roleValidation";
+import { hasInstitutionRegistrationPrivilege } from "@/utils/auth/roleValidation";
 import { useRouter } from "next/navigation";
 
 jest.mock("@/context/UserContext");
@@ -104,7 +104,7 @@ describe("RegisterPage", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "unregistered",
     });
-    hasAdminRole.mockReturnValue(true);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(true);
 
     render(<RegisterPage />);
 
@@ -113,7 +113,7 @@ describe("RegisterPage", () => {
     ).toBeInTheDocument();
   });
 
-  test("denies SSO users without institution admin privileges", () => {
+  test("denies SSO users without an institutional registration privilege", () => {
     useUser.mockReturnValue({
       isSSO: true,
       user: { role: "student", scopedRole: "learner" },
@@ -122,13 +122,13 @@ describe("RegisterPage", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "unregistered",
     });
-    hasAdminRole.mockReturnValue(false);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(false);
 
     render(<RegisterPage />);
 
     expect(screen.getByTestId("access-denied")).toBeInTheDocument();
     expect(screen.getByTestId("denial-reason")).toHaveTextContent(
-      "Your institutional role does not allow institution-level registration. Only staff, employees, or faculty can register an institution."
+      "Your SSO session must include an institutional administrator entitlement or a faculty, staff, or employee affiliation to register an institution."
     );
   });
 

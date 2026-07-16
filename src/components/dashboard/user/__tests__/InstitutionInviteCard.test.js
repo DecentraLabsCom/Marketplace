@@ -86,6 +86,10 @@ describe('InstitutionInviteCard', () => {
       screen.getByLabelText(/Public base URL/i),
       'https://institution.example.edu'
     );
+    await user.type(
+      screen.getByLabelText(/Institutional wallet address/i),
+      '0x1234567890123456789012345678901234567890'
+    );
     await user.click(
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
     );
@@ -94,6 +98,7 @@ describe('InstitutionInviteCard', () => {
 
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(body.providerCountry).toBe('ES');
+    expect(body.walletAddress).toBe('0x1234567890123456789012345678901234567890');
   });
 
   test('uses manual provider country when entered', async () => {
@@ -104,6 +109,10 @@ describe('InstitutionInviteCard', () => {
     await user.type(
       screen.getByLabelText(/Public base URL/i),
       'https://institution.example.edu'
+    );
+    await user.type(
+      screen.getByLabelText(/Institutional wallet address/i),
+      '0x1234567890123456789012345678901234567890'
     );
     // The country field may be pre-filled by domain inference (affiliation: 'uned.es' → 'ES').
     // Clear it first so the user's explicit value ('PT') is the only content.
@@ -134,6 +143,21 @@ describe('InstitutionInviteCard', () => {
     const { container } = render(<InstitutionInviteCard />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  test('requires an institutional wallet address before token generation', async () => {
+    const user = userEvent.setup();
+    render(<InstitutionInviteCard />);
+
+    await user.type(
+      screen.getByLabelText(/Public base URL/i),
+      'https://institution.example.edu'
+    );
+    await user.click(
+      screen.getByRole('button', { name: /Generate Provisioning Token/i })
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test('does not render for non-SSO users', () => {

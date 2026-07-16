@@ -24,6 +24,7 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'cn',
   // Required in current integration contract
   'eduPersonScopedAffiliation',
+  'eduPersonEntitlement',
   // Optional institutional attributes
   'schacHomeOrganization',
   'organizationName',
@@ -40,6 +41,7 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
   'urn:oid:0.9.2342.19200300.100.1.3',
   'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.7',
   'urn:oid:1.3.6.1.4.1.5923.1.1.1.1',
   'urn:oid:2.16.840.1.113730.3.1.241',
   'urn:oid:2.5.4.42',
@@ -51,6 +53,7 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'ePPN',   // eduPersonPrincipalName
   'ePTI',   // eduPersonTargetedID
   'ePSA',   // eduPersonScopedAffiliation
+  'ePE',    // eduPersonEntitlement
   'ePA',    // eduPersonAffiliation
   'sHO',    // schacHomeOrganization
   'dispN',  // displayName
@@ -74,6 +77,7 @@ const SAML_ATTRIBUTE_GROUPS = {
     { label: 'eduPersonTargetedID',      keys: ['eduPersonTargetedID',      'urn:oid:1.3.6.1.4.1.5923.1.1.1.10', 'ePTI'] },
     { label: 'schacHomeOrganization',    keys: ['schacHomeOrganization',    'urn:oid:1.3.6.1.4.1.25178.1.2.9',   'sHO'] },
     { label: 'eduPersonScopedAffiliation', keys: ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9', 'ePSA'] },
+    { label: 'eduPersonEntitlement',      keys: ['eduPersonEntitlement', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.7', 'ePE'] },
     { label: 'eduPersonAffiliation',     keys: ['eduPersonAffiliation',     'urn:oid:1.3.6.1.4.1.5923.1.1.1.1',  'ePA'] },
     { label: 'organizationName',         keys: ['organizationName',         'o', 'urn:oid:2.5.4.10'] },
     { label: 'country',                  keys: ['c', 'co', 'country', 'countryCode', 'countryName', 'urn:oid:2.5.4.6'] },
@@ -266,6 +270,21 @@ export async function parseSAMLResponse(samlResponse) {
     return null;
   };
 
+  const getAllAttributes = (attributes, keys) => {
+    const normalizedAttributes = normalizeAttrs(attributes);
+    const values = [];
+    for (const key of keys) {
+      const raw = normalizedAttributes[key.toLowerCase()];
+      const candidates = Array.isArray(raw) ? raw : [raw];
+      for (const value of candidates) {
+        if (typeof value === 'string' && value.trim()) {
+          values.push(value.trim());
+        }
+      }
+    }
+    return [...new Set(values)];
+  };
+
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
@@ -320,6 +339,11 @@ export async function parseSAMLResponse(samlResponse) {
       }
       const scopedAffiliation = getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9', 'ePSA']) // ePSA: RedIRIS SIR abbreviated form
       const eduPersonAffiliation = getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1', 'ePA'])     // ePA: RedIRIS SIR abbreviated form
+      const entitlements = getAllAttributes(attrs, [
+        'eduPersonEntitlement',
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.7',
+        'ePE',
+      ])
       const affiliation = resolveInstitutionDomain([
         schacHomeOrganization,
         scopedAffiliation,
@@ -359,6 +383,10 @@ export async function parseSAMLResponse(samlResponse) {
 
       if (eduPersonTargetedID) {
         userData.eduPersonTargetedID = eduPersonTargetedID;
+      }
+
+      if (entitlements.length > 0) {
+        userData.entitlements = entitlements;
       }
 
       if (normalizedCountry) {

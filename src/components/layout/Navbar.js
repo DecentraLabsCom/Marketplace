@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useOptionalUser } from '@/context/UserContext'
-import { hasAdminRole } from '@/utils/auth/roleValidation'
+import { hasInstitutionRegistrationPrivilege } from '@/utils/auth/roleValidation'
 
 const Login = dynamic(() => import('@/components/auth/Login'), {
   ssr: false,
@@ -60,9 +60,10 @@ export default function Navbar() {
 
     if (!isSSO) return false;
 
-    // For SSO users, only show if they have institutional admin-level role
+    // For SSO users, expose institutional registration to the temporary
+    // faculty/staff/employee policy (or an explicit administrator entitlement).
     if (!user) return false;
-    if (!hasAdminRole(user.role, user.scopedRole)) return false;
+    if (!hasInstitutionRegistrationPrivilege(user)) return false;
     if (isInstitutionRegistrationPending) return false;
     // If registration check failed, don't show register button (avoid false positive)
     if (institutionRegistrationStatus === 'error') return false;

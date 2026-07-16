@@ -8,7 +8,7 @@ import {
   importJWK,
   jwtVerify,
 } from 'jose';
-import { createPublicKey, randomUUID } from 'crypto';
+import { createPublicKey, randomBytes, randomUUID } from 'crypto';
 import marketplaceJwtService from './marketplaceJwt';
 import devLog from '@/utils/dev/logger';
 
@@ -53,19 +53,50 @@ export async function signProvisioningToken(claims, {
   ttlSeconds = 900,
 } = {}) {
   const { privateKey, kid } = await getKeyMaterial();
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expSec = nowSec + ttlSeconds;
+  const payload = createProvisioningPayload(claims, { ttlSeconds });
 
-  const token = await new SignJWT(claims)
+  const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: ALG, kid })
-    .setIssuedAt(nowSec)
-    .setExpirationTime(expSec)
+    .setIssuedAt(payload.issuedAt)
+    .setExpirationTime(payload.expiresAt)
     .setIssuer(issuer)
     .setAudience(audience)
-    .setJti(randomUUID())
+    .setJti(payload.jti)
     .sign(privateKey);
 
-  return { token, expiresAt: new Date(expSec * 1000).toISOString(), kid };
+  return {
+    token,
+    expiresAt: new Date(payload.expiresAt * 1000).toISOString(),
+    kid,
+    payload,
+  };
+}
+
+export function createProvisioningPayload(claims, {
+  ttlSeconds = 900,
+  nowSec = Math.floor(Date.now() / 1000),
+  jti = randomUUID(),
+  nonce = `0x${randomBytes(32).toString('hex')}`,
+} = {}) {
+  const lifetime = Number(ttlSeconds);
+  if (!Number.isSafeInteger(lifetime) || lifetime <= 0 || lifetime > 900) {
+    throw new Error('Provisioning token TTL must be between 1 and 900 seconds');
+  }
+  const issuedAt = Number(nowSec);
+  if (!Number.isSafeInteger(issuedAt) || issuedAt <= 0) {
+    throw new Error('Provisioning token issuedAt must be a positive integer');
+  }
+  const expiresAt = issuedAt + lifetime;
+
+  return {
+    ...claims,
+    jti,
+    nonce,
+    issuedAt,
+    expiresAt,
+    iat: issuedAt,
+    exp: expiresAt,
+  };
 }
 
 export function normalizeHttpsUrl(url, label) {
@@ -168,8 +199,8 @@ export async function verifyProvisioningToken(token, {
 
   const expectedIssuer = normalizeHttpsUrl(issuer, 'Marketplace base URL');
   const decoded = decodeJwt(token);
-  const expectedAudience = decoded.publicBaseUrl
-    ? normalizeHttpsUrl(decoded.publicBaseUrl, 'Public base URL')
+  const expectedAudience = decoded.canonicalBackendOrigin
+    ? normalizeHttpsUrl(decoded.canonicalBackendOrigin, 'Canonical backend origin')
     : normalizeAudienceValue(decoded.aud);
 
   const { publicJwk } = await getKeyMaterial();
@@ -187,8 +218,8 @@ export async function verifyProvisioningToken(token, {
     }
   }
 
-  if (payload.publicBaseUrl) {
-    const claimPublicBaseUrl = normalizeHttpsUrl(payload.publicBaseUrl, 'Public base URL');
+  if (payload.canonicalBackendOrigin) {
+    const claimPublicBaseUrl = normalizeHttpsUrl(payload.canonicalBackendOrigin, 'Canonical backend origin');
     const audienceList = normalizeAudienceList(payload.aud);
     if (audienceList.length === 0 || !audienceList.includes(claimPublicBaseUrl)) {
       throw new Error('Token audience must match public base URL');

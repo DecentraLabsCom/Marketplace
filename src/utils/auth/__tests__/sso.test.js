@@ -599,6 +599,10 @@ describe("SSO Utilities", () => {
             schacHomeOrganization: "university.edu",
             eduPersonAffiliation: "student",
             eduPersonScopedAffiliation: "student@university.edu",
+            eduPersonEntitlement: [
+              "urn:example:library-access",
+              "urn:decentralabs:entitlement:institution-admin",
+            ],
             // note: personalUniqueCode no longer relevant
             organizationName: "Test University",
           },
@@ -624,6 +628,10 @@ describe("SSO Utilities", () => {
         role: "student@university.edu", // scopedAffiliation takes precedence
         scopedRole: "student@university.edu",
         eduPersonScopedAffiliation: "student@university.edu",
+        entitlements: [
+          "urn:example:library-access",
+          "urn:decentralabs:entitlement:institution-admin",
+        ],
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
       });

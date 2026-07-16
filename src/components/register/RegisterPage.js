@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Container, Button } from '@/components/ui'
 import ProviderAccessDenied from './ProviderAccessDenied'
-import { hasAdminRole } from '@/utils/auth/roleValidation'
+import { hasInstitutionRegistrationPrivilege } from '@/utils/auth/roleValidation'
 import { useUser } from '@/context/UserContext'
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 
 /**
  * Top-level page component for institutional registration.
- * Only SSO-authenticated institution admins can use this page.
+ * SSO-authenticated faculty, staff, employees, and institutional admins can use this page.
  */
 export default function RegisterPage() {
   const {
@@ -88,12 +88,12 @@ export default function RegisterPage() {
     )
   }
 
-  const canUseInstitutionFlow = hasAdminRole(user.role, user.scopedRole)
+  const canUseInstitutionFlow = hasInstitutionRegistrationPrivilege(user)
 
   if (!canUseInstitutionFlow) {
     return (
       <ProviderAccessDenied
-        reason="Your institutional role does not allow institution-level registration. Only staff, employees, or faculty can register an institution."
+        reason="Your SSO session must include an institutional administrator entitlement or a faculty, staff, or employee affiliation to register an institution."
         userRole={user.role}
         scopedRole={user.scopedRole}
       />

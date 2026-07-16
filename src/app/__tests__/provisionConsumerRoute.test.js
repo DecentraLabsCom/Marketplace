@@ -56,8 +56,29 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 }));
 
 jest.mock('@/utils/auth/roleValidation', () => ({
-  hasAdminRole: jest.fn((role, scopedRole) => {
-    return role === 'admin' && scopedRole === 'admin';
+  hasInstitutionRegistrationPrivilege: jest.fn((session = {}) =>
+    session.entitlements?.includes('urn:decentralabs:entitlement:institution-admin') ||
+    ['faculty', 'staff', 'employee'].some(
+      (role) => session.role?.includes(role) || session.scopedRole?.includes(role)
+    )
+  ),
+}));
+
+jest.mock('@/utils/auth/provisioningTypedData', () => ({
+  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider', CONSUMER: 'consumer' },
+  getProvisioningRegistryConfig: jest.fn(() => ({
+    chainId: 11155111,
+    registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+  })),
+  normalizeBackendOrigin: jest.fn((value) => {
+    if (!value) throw new Error('Canonical backend origin is required');
+    return value.replace(/\/$/, '');
+  }),
+  normalizeWalletAddress: jest.fn((value) => {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(value || '')) {
+      throw new Error('Wallet address must be a valid Ethereum address');
+    }
+    return value;
   }),
 }));
 
@@ -102,7 +123,7 @@ describe('/api/institutions/provisionConsumer route', () => {
     });
   });
 
-  test('returns 403 when user does not have admin role', async () => {
+  test('returns 403 when user lacks an institutional registration role', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'user', // Not admin
@@ -120,8 +141,35 @@ describe('/api/institutions/provisionConsumer route', () => {
     const res = await POST(req);
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Consumer provisioning token allowed only for institutional staff',
+      error: 'Consumer provisioning token requires an institutional administrator entitlement or a faculty, staff, or employee SSO affiliation',
     });
+  });
+
+  test('allows a staff SSO affiliation without the administrator entitlement', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      role: 'staff',
+      schacHomeOrganization: 'consumer.edu',
+      organizationName: 'Consumer Institution',
+    });
+    signProvisioningToken.mockResolvedValue({
+      token: 'mock-token',
+      expiresAt: new Date().toISOString(),
+      payload: {},
+    });
+
+    const { POST } = await import('../api/institutions/provisionConsumer/route.js');
+    const res = await POST(new Request('http://localhost/api/institutions/provisionConsumer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publicBaseUrl: 'https://wallet.consumer.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+      }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect(signProvisioningToken).toHaveBeenCalled();
   });
 
   test('returns 400 when publicBaseUrl is missing', async () => {
@@ -129,6 +177,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -150,6 +199,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -157,9 +207,22 @@ describe('/api/institutions/provisionConsumer route', () => {
     const mockToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...consumer';
     const mockExpiresAt = new Date(Date.now() + 900000).toISOString();
 
+    const signedPayload = {
+      institutionId: 'consumer.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      canonicalBackendOrigin: 'https://wallet.consumer.edu',
+      registrationType: 'consumer',
+      chainId: 11155111,
+      registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      jti: 'jti-1',
+      nonce: `0x${'11'.repeat(32)}`,
+      issuedAt: 1700000000,
+      expiresAt: 1700000300,
+    };
     signProvisioningToken.mockResolvedValue({
       token: mockToken,
       expiresAt: mockExpiresAt,
+      payload: signedPayload,
     });
 
     const { POST } = await import('../api/institutions/provisionConsumer/route.js');
@@ -169,7 +232,9 @@ describe('/api/institutions/provisionConsumer route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         consumerName: 'Test Consumer',
+        consumerOrganization: 'attacker.example',
         publicBaseUrl: 'https://wallet.consumer.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
@@ -181,17 +246,13 @@ describe('/api/institutions/provisionConsumer route', () => {
       success: true,
       token: mockToken,
       expiresAt: mockExpiresAt,
-      lockedFields: expect.arrayContaining(['consumerOrganization']),
+      lockedFields: expect.arrayContaining(['institutionId', 'walletAddress']),
     });
 
-    expect(json.payload).toMatchObject({
-      type: 'consumer',
-      marketplaceBaseUrl: 'https://marketplace.example.com',
-      consumerOrganization: 'consumer.edu',
-    });
+    expect(json.payload).toEqual(signedPayload);
 
     expect(signProvisioningToken).toHaveBeenCalledWith(
-      expect.any(Object),
+      expect.objectContaining({ institutionId: 'consumer.edu' }),
       expect.objectContaining({
         audience: 'https://wallet.consumer.edu',
         issuer: 'https://marketplace.example.com',
@@ -204,6 +265,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       schacHomeOrganization: 'auto.edu',
       organizationName: 'Auto Institution',
     });
@@ -220,6 +282,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         publicBaseUrl: 'https://wallet.auto.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }), // No consumerName provided
     });
 
@@ -227,8 +290,10 @@ describe('/api/institutions/provisionConsumer route', () => {
     expect(res.status).toBe(200);
     
     const json = await res.json();
-    expect(json.payload.consumerName).toBe('AUTO');
-    expect(json.payload.consumerOrganization).toBe('auto.edu');
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.objectContaining({ consumerName: 'AUTO', institutionId: 'auto.edu' }),
+      expect.any(Object)
+    );
   });
 
   test('includes correct token type discriminator', async () => {
@@ -236,6 +301,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       schacHomeOrganization: 'consumer.edu',
       organizationName: 'Consumer Test',
     });
@@ -252,13 +318,16 @@ describe('/api/institutions/provisionConsumer route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         publicBaseUrl: 'https://wallet.consumer.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
     const res = await POST(req);
     const json = await res.json();
     
-    // Verify type discriminator is 'consumer'
-    expect(json.payload.type).toBe('consumer');
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.objectContaining({ registrationType: 'consumer' }),
+      expect.any(Object)
+    );
   });
 });

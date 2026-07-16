@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, HttpError, ForbiddenError } from '@/utils/auth/guards';
-import { hasAdminRole } from '@/utils/auth/roleValidation';
+import { hasInstitutionRegistrationPrivilege } from '@/utils/auth/roleValidation';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain';
 import devLog from '@/utils/dev/logger';
@@ -9,11 +9,28 @@ import {
   requireString,
   signProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import {
+  PROVISIONING_REGISTRATION_TYPES,
+  getProvisioningRegistryConfig,
+  normalizeBackendOrigin,
+  normalizeWalletAddress,
+} from '@/utils/auth/provisioningTypedData';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 export const runtime = 'nodejs';
 
-const LOCKED_FIELDS = ['consumerOrganization'];
+const LOCKED_FIELDS = [
+  'institutionId',
+  'walletAddress',
+  'canonicalBackendOrigin',
+  'registrationType',
+  'chainId',
+  'registryContract',
+  'jti',
+  'nonce',
+  'issuedAt',
+  'expiresAt',
+];
 
 function deriveInstitutionLabel(domain) {
   if (!domain || typeof domain !== 'string') {
@@ -47,23 +64,29 @@ export async function POST(request) {
     if (!session?.samlAssertion) {
       throw new ForbiddenError('Consumer provisioning token requires SSO session');
     }
-    if (!hasAdminRole(session.role, session.scopedRole)) {
-      throw new ForbiddenError('Consumer provisioning token allowed only for institutional staff');
+    if (!hasInstitutionRegistrationPrivilege(session)) {
+      throw new ForbiddenError(
+        'Consumer provisioning token requires an institutional administrator entitlement or a faculty, staff, or employee SSO affiliation'
+      );
     }
 
     const body = await request.json().catch(() => ({}));
     const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '300', 10);
-    const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
-    const audience = publicBaseUrl;
+    const canonicalBackendOrigin = normalizeBackendOrigin(
+      body.canonicalBackendOrigin || body.publicBaseUrl,
+      'Canonical backend origin'
+    );
+    const walletAddress = normalizeWalletAddress(body.walletAddress);
+    const audience = canonicalBackendOrigin;
 
     const marketplaceBaseUrl = normalizeHttpsUrl(
       process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || request.nextUrl.origin,
       'Marketplace base URL'
     );
     const issuer = marketplaceBaseUrl;
-    const organizationCandidate = resolveInstitutionDomainFromSession(session, body.consumerOrganization);
+    const organizationCandidate = resolveInstitutionDomainFromSession(session);
     if (!organizationCandidate) {
-      throw new ForbiddenError('Cannot derive institution domain from session or payload');
+      throw new ForbiddenError('Cannot derive institution domain from the SSO session');
     }
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(organizationCandidate);
 
@@ -77,16 +100,27 @@ export async function POST(request) {
     );
     const responsiblePerson = (session.name || session.displayName || session.email || session.mail || '').trim();
 
-    const payload = {
-      type: 'consumer', // Discriminator: consumer vs provider
+    const { chainId, registryContract } = getProvisioningRegistryConfig();
+    const responsibleEmail = (session.email || session.mail || '').trim();
+    const claims = {
       marketplaceBaseUrl,
+      institutionId: organizationDomain,
+      walletAddress,
+      canonicalBackendOrigin,
+      registrationType: PROVISIONING_REGISTRATION_TYPES.CONSUMER,
+      chainId,
+      registryContract,
       consumerName,
       responsiblePerson,
-      consumerOrganization: organizationDomain,
-      publicBaseUrl,
+      responsibleEmail,
+      issuedBy: session.id || session.eduPersonPrincipalName || responsibleEmail,
     };
 
-    const { token, expiresAt } = await signProvisioningToken(payload, { issuer, audience, ttlSeconds });
+    const { token, expiresAt, payload } = await signProvisioningToken(claims, {
+      issuer,
+      audience,
+      ttlSeconds,
+    });
 
     return NextResponse.json({
       success: true,

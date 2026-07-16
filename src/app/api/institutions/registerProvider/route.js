@@ -10,9 +10,28 @@ import {
   requireString,
   verifyProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import {
+  PROVISIONING_REGISTRATION_TYPES,
+  getProvisioningRegistryConfig,
+  recoverProvisioningWalletAddress,
+  validateProvisioningClaims,
+} from '@/utils/auth/provisioningTypedData';
+import {
+  ProvisioningReplayError,
+  consumeProvisioningJti,
+  updateProvisioningAudit,
+} from '@/utils/auth/provisioningReplayStore';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+async function recordProvisioningResult(jti, result) {
+  try {
+    await updateProvisioningAudit(jti, result);
+  } catch (error) {
+    devLog.error('[API] registerProvider: Failed to update provisioning audit', sanitizeErrorForLog(error));
+  }
+}
 
 /**
  * Validate authURI format (https://, ends with /auth, no trailing slash)
@@ -87,16 +106,6 @@ function deriveBackendUrlFromAuthURI(authURI) {
 }
 
 /**
- * Validate Ethereum address
- */
-function validateAddress(address) {
-  if (!address || typeof address !== 'string') {
-    return false;
-  }
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
-}
-
-/**
  * POST /api/institutions/registerProvider
  * Secure endpoint for blockchain-services to register as provider
  * Executes on-chain registration using server signer
@@ -115,7 +124,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { walletAddress } = body;
+    const { walletSignature } = body;
 
     const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
     const marketplaceBaseUrl = normalizeHttpsUrl(
@@ -132,20 +141,23 @@ export async function POST(request) {
         { status: 401 }
       );
     }
-    if (payload.type === 'consumer') {
+    try {
+      payload = validateProvisioningClaims(payload, {
+        registrationType: PROVISIONING_REGISTRATION_TYPES.PROVIDER,
+        ...getProvisioningRegistryConfig(),
+      });
+      const recoveredWallet = recoverProvisioningWalletAddress(payload, walletSignature);
+      if (recoveredWallet.toLowerCase() !== payload.walletAddress.toLowerCase()) {
+        throw new Error('Institutional wallet signature mismatch');
+      }
+    } catch (error) {
+      devLog.warn('[API] registerProvider: Invalid institutional wallet proof', sanitizeErrorForLog(error));
       return NextResponse.json(
-        { error: 'Consumer provisioning token is not valid for provider registration' },
-        { status: 400 }
+        { error: 'Invalid institutional wallet proof' },
+        { status: 401 }
       );
     }
-
-    // Validate required fields
-    if (!validateAddress(walletAddress)) {
-      return NextResponse.json(
-        { error: 'Invalid wallet address format' },
-        { status: 400 }
-      );
-    }
+    const walletAddress = payload.walletAddress;
 
     let providerName;
     let providerEmail;
@@ -158,8 +170,8 @@ export async function POST(request) {
       providerName = requireString(payload.providerName, 'Provider name');
       providerEmail = requireEmail(payload.providerEmail, 'Provider email');
       providerCountry = requireString(payload.providerCountry, 'Provider country');
-      providerOrganization = requireString(payload.providerOrganization, 'Provider organization');
-      const publicBaseUrl = normalizeHttpsUrl(payload.publicBaseUrl, 'Public base URL');
+      providerOrganization = requireString(payload.institutionId, 'Provider organization');
+      const publicBaseUrl = payload.canonicalBackendOrigin;
 
       let authURI = publicBaseUrl;
       if (!authURI.endsWith('/auth')) {
@@ -241,7 +253,27 @@ export async function POST(request) {
       }
     }
 
+    try {
+      await consumeProvisioningJti(payload);
+    } catch (error) {
+      if (error instanceof ProvisioningReplayError) {
+        return NextResponse.json(
+          { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
+          { status: 409 }
+        );
+      }
+      devLog.error('[API] registerProvider: Provisioning replay store unavailable', sanitizeErrorForLog(error));
+      return NextResponse.json(
+        { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
+        { status: 503 }
+      );
+    }
+
     if (!needsRegistration && !needsRoleGrant && !shouldUpdateBackend) {
+      await recordProvisioningResult(payload.jti, {
+        status: 'already-registered',
+        txHashes: [],
+      });
       return NextResponse.json(
         {
           success: true,
@@ -268,6 +300,10 @@ export async function POST(request) {
       );
       const addProviderReceipt = await addProviderTx.wait();
       txHashes.push(addProviderReceipt?.hash ?? addProviderTx?.hash);
+      await recordProvisioningResult(payload.jti, {
+        status: 'in-progress',
+        txHashes: [...txHashes],
+      });
     }
 
     if (needsRoleGrant) {
@@ -275,6 +311,10 @@ export async function POST(request) {
       const grantRoleTx = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
       const grantRoleReceipt = await grantRoleTx.wait();
       txHashes.push(grantRoleReceipt?.hash ?? grantRoleTx?.hash);
+      await recordProvisioningResult(payload.jti, {
+        status: 'in-progress',
+        txHashes: [...txHashes],
+      });
     }
 
     if (shouldUpdateBackend) {
@@ -286,7 +326,16 @@ export async function POST(request) {
       );
       const backendReceipt = await backendTx.wait();
       txHashes.push(backendReceipt?.hash ?? backendTx?.hash);
+      await recordProvisioningResult(payload.jti, {
+        status: 'in-progress',
+        txHashes: [...txHashes],
+      });
     }
+
+    await recordProvisioningResult(payload.jti, {
+      status: 'registered',
+      txHashes,
+    });
 
     return NextResponse.json(
       {

@@ -24,9 +24,8 @@ export function resolveInstitutionDomain(candidates = []) {
   return null;
 }
 
-export function resolveInstitutionDomainFromSession(session, overrideDomain) {
+export function resolveInstitutionDomainFromSession(session) {
   return resolveInstitutionDomain([
-    overrideDomain,
     session?.affiliation,
     session?.schacHomeOrganization,
     session?.eduPersonScopedAffiliation,

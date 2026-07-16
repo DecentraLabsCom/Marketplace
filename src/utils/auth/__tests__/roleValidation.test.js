@@ -14,10 +14,12 @@
  */
 
 import {
+  INSTITUTION_ADMIN_ENTITLEMENT,
   PROVIDER_ALLOWED_ROLES,
   PROVIDER_DENIED_ROLES,
   validateProviderRole,
   hasAdminRole,
+  hasInstitutionRegistrationPrivilege,
   getRoleDisplayName,
 } from "../roleValidation";
 
@@ -96,7 +98,7 @@ describe("validateProviderRole", () => {
 
       expect(result.isValid).toBe(false);
       expect(result.reason).toContain(
-        "does not have provider registration privileges"
+        "does not have institutional registration privileges"
       );
     });
 
@@ -166,59 +168,67 @@ describe("validateProviderRole", () => {
 });
 
 describe("hasAdminRole", () => {
-  test("returns true for staff role", () => {
-    expect(hasAdminRole("staff")).toBe(true);
+  test("requires the exact institutional administrator entitlement", () => {
+    expect(hasAdminRole([INSTITUTION_ADMIN_ENTITLEMENT])).toBe(true);
   });
 
-  test("returns true for staff role with uppercase", () => {
-    expect(hasAdminRole("STAFF")).toBe(true);
+  test("supports a single entitlement string", () => {
+    expect(hasAdminRole(INSTITUTION_ADMIN_ENTITLEMENT)).toBe(true);
   });
 
-  test("returns true for staff role with mixed case", () => {
-    expect(hasAdminRole("StAfF")).toBe(true);
+  test.each(["faculty", "staff", "employee", "admin-staff"])(
+    "does not infer administrator privileges from affiliation %s",
+    (affiliation) => {
+      expect(hasAdminRole(affiliation)).toBe(false);
+    }
+  );
+
+  test("does not grant access by substring", () => {
+    expect(hasAdminRole(`${INSTITUTION_ADMIN_ENTITLEMENT}:delegated`)).toBe(false);
   });
 
-  test("returns true when staff is in scoped role", () => {
-    expect(hasAdminRole("unknown", "staff")).toBe(true);
+  test("normalizes surrounding whitespace but not case", () => {
+    expect(hasAdminRole(`  ${INSTITUTION_ADMIN_ENTITLEMENT}  `)).toBe(true);
+    expect(hasAdminRole(INSTITUTION_ADMIN_ENTITLEMENT.toUpperCase())).toBe(false);
   });
 
-  test("returns true when role contains staff keyword", () => {
-    expect(hasAdminRole("admin-staff")).toBe(true);
+  test.each([null, undefined, "", [], ["urn:example:unrelated"]])(
+    "returns false without the required entitlement: %p",
+    (entitlements) => {
+      expect(hasAdminRole(entitlements)).toBe(false);
+    }
+  );
+});
+
+describe("hasInstitutionRegistrationPrivilege", () => {
+  test.each(["faculty", "staff", "employee"])(
+    "allows a %s affiliation to register an institution",
+    (role) => {
+      expect(hasInstitutionRegistrationPrivilege({ role })).toBe(true);
+    }
+  );
+
+  test("allows the exact administrator entitlement", () => {
+    expect(
+      hasInstitutionRegistrationPrivilege({
+        role: "visitor",
+        entitlements: [INSTITUTION_ADMIN_ENTITLEMENT],
+      })
+    ).toBe(true);
   });
 
-  test("returns true for faculty role", () => {
-    expect(hasAdminRole("faculty")).toBe(true);
+  test("accepts an allowed scoped affiliation", () => {
+    expect(
+      hasInstitutionRegistrationPrivilege({ role: "visitor", scopedRole: "staff@institution.edu" })
+    ).toBe(true);
   });
 
-  test("returns true for employee role", () => {
-    expect(hasAdminRole("employee")).toBe(true);
-  });
-
-  test.each([
-    ["student"],
-    ["member"],
-    ["affiliate"],
-    ["alum"],
-    ["library-walk-in"],
-  ])("returns false for non-admin role: %s", (role) => {
-    expect(hasAdminRole(role)).toBe(false);
-  });
-
-  test("returns false for empty string", () => {
-    expect(hasAdminRole("")).toBe(false);
-  });
-
-  test("returns false for null", () => {
-    expect(hasAdminRole(null)).toBe(false);
-  });
-
-  test("returns false for undefined", () => {
-    expect(hasAdminRole(undefined)).toBe(false);
-  });
-
-  test("returns false for unknown role", () => {
-    expect(hasAdminRole("visitor")).toBe(false);
-  });
+  test.each(["student", "alum", "library-walk-in", "visitor"])(
+    "denies a %s affiliation without the administrator entitlement",
+    (role) => {
+      expect(hasInstitutionRegistrationPrivilege({ role })).toBe(false);
+    }
+  );
 });
 
 describe("getRoleDisplayName", () => {

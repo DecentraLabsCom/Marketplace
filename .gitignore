@@ -32,6 +32,7 @@
 !scripts/show-keys-for-vercel.js
 !scripts/coverage-report.js
 !scripts/pre-commit-check.js
+!scripts/audit-institution-provisioning.js
 
 # next.js
 /.next/
@@ -78,7 +79,8 @@ next-env.d.ts
 /contracts
 
 # development documentation
-dev/
+dev/*
+!dev/Institutional_Provisioning_Security.md
 TODO.md
 
 # labs data

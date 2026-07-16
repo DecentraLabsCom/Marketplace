@@ -62,8 +62,32 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 }));
 
 jest.mock('@/utils/auth/roleValidation', () => ({
-  hasAdminRole: jest.fn((role, scopedRole) => {
-    return role === 'admin' && scopedRole === 'admin';
+  hasInstitutionRegistrationPrivilege: jest.fn((session = {}) =>
+    session.entitlements?.includes('urn:decentralabs:entitlement:institution-admin') ||
+    ['faculty', 'staff', 'employee'].some(
+      (role) => session.role?.includes(role) || session.scopedRole?.includes(role)
+    )
+  ),
+}));
+
+jest.mock('@/utils/auth/provisioningTypedData', () => ({
+  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider', CONSUMER: 'consumer' },
+  getProvisioningRegistryConfig: jest.fn(() => ({
+    chainId: 11155111,
+    registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+  })),
+  normalizeBackendOrigin: jest.fn((value) => {
+    if (!value) throw new Error('Canonical backend origin is required');
+    if (value.startsWith('http://') && !value.startsWith('http://localhost')) {
+      throw new Error('Canonical backend origin must use HTTPS');
+    }
+    return value.replace(/\/$/, '');
+  }),
+  normalizeWalletAddress: jest.fn((value) => {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(value || '')) {
+      throw new Error('Wallet address must be a valid Ethereum address');
+    }
+    return value;
   }),
 }));
 
@@ -110,7 +134,7 @@ describe('/api/institutions/provisionToken route', () => {
     });
   });
 
-  test('returns 403 when user does not have admin role', async () => {
+  test('returns 403 when user lacks an institutional registration role', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'user', // Not admin
@@ -130,8 +154,36 @@ describe('/api/institutions/provisionToken route', () => {
     const res = await POST(req);
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Provisioning token allowed only for institutional staff',
+      error: 'Provisioning token requires an institutional administrator entitlement or a faculty, staff, or employee SSO affiliation',
     });
+  });
+
+  test('allows a faculty SSO affiliation without the administrator entitlement', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      role: 'faculty',
+      affiliation: 'institution.edu',
+      name: 'Faculty Member',
+      email: 'faculty@institution.edu',
+    });
+    signProvisioningToken.mockResolvedValue({
+      token: 'mock-token',
+      expiresAt: new Date().toISOString(),
+      payload: {},
+    });
+
+    const { POST } = await import('../api/institutions/provisionToken/route.js');
+    const res = await POST(new Request('http://localhost/api/institutions/provisionToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publicBaseUrl: 'https://auth.institution.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+      }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect(signProvisioningToken).toHaveBeenCalled();
   });
 
   test('returns 400 when publicBaseUrl is missing', async () => {
@@ -139,6 +191,7 @@ describe('/api/institutions/provisionToken route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       affiliation: 'institution.edu',
       name: 'Test Institution',
       email: 'admin@institution.edu',
@@ -161,6 +214,7 @@ describe('/api/institutions/provisionToken route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       affiliation: 'institution.edu',
       name: 'Test Institution',
       email: 'admin@institution.edu',
@@ -170,9 +224,22 @@ describe('/api/institutions/provisionToken route', () => {
     const mockToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...';
     const mockExpiresAt = new Date(Date.now() + 900000).toISOString();
 
+    const signedPayload = {
+      institutionId: 'institution.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      canonicalBackendOrigin: 'https://auth.institution.edu',
+      registrationType: 'provider',
+      chainId: 11155111,
+      registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+      jti: 'jti-1',
+      nonce: `0x${'11'.repeat(32)}`,
+      issuedAt: 1700000000,
+      expiresAt: 1700000300,
+    };
     signProvisioningToken.mockResolvedValue({
       token: mockToken,
       expiresAt: mockExpiresAt,
+      payload: signedPayload,
     });
 
     const { POST } = await import('../api/institutions/provisionToken/route.js');
@@ -183,6 +250,8 @@ describe('/api/institutions/provisionToken route', () => {
       body: JSON.stringify({
         publicBaseUrl: 'https://auth.institution.edu',
         providerCountry: 'ES',
+        providerOrganization: 'attacker.example',
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
@@ -197,19 +266,15 @@ describe('/api/institutions/provisionToken route', () => {
       lockedFields: expect.arrayContaining([
         'providerName',
         'providerEmail',
-        'providerOrganization',
+        'institutionId',
+        'walletAddress',
       ]),
     });
 
-    expect(json.payload).toMatchObject({
-      marketplaceBaseUrl: 'https://marketplace.example.com',
-      publicBaseUrl: 'https://auth.institution.edu',
-      providerOrganization: 'institution.edu',
-      providerCountry: 'ES',
-    });
+    expect(json.payload).toEqual(signedPayload);
 
     expect(signProvisioningToken).toHaveBeenCalledWith(
-      expect.any(Object),
+      expect.objectContaining({ institutionId: 'institution.edu' }),
       expect.objectContaining({
         audience: 'https://auth.institution.edu',
         issuer: 'https://marketplace.example.com',
@@ -222,6 +287,7 @@ describe('/api/institutions/provisionToken route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       affiliation: 'institution.edu',
       schacHomeOrganization: 'institution.edu',
       name: 'Test Institution',
@@ -240,10 +306,32 @@ describe('/api/institutions/provisionToken route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         publicBaseUrl: 'http://auth.institution.edu', // http instead of https
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
     const res = await POST(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+  });
+
+  test('requires the institutional wallet address before issuing a token', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      entitlements: ['urn:decentralabs:entitlement:institution-admin'],
+      schacHomeOrganization: 'institution.edu',
+      name: 'Test Institution',
+      email: 'admin@institution.edu',
+    });
+
+    const { POST } = await import('../api/institutions/provisionToken/route.js');
+    const req = new Request('http://localhost/api/institutions/provisionToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicBaseUrl: 'https://auth.institution.edu' }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(signProvisioningToken).not.toHaveBeenCalled();
   });
 });

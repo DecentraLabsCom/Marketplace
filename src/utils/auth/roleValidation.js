@@ -16,7 +16,6 @@
 
 // Define roles that are allowed to register as providers (SSO context)
 // Based on eduPersonAffiliation standard values
-// For SSO-based institution and provider flows we align this with ADMIN_ALLOWED_ROLES
 export const PROVIDER_ALLOWED_ROLES = [
   'faculty',
   'staff',
@@ -31,14 +30,8 @@ export const PROVIDER_DENIED_ROLES = [
   'library-walk-in'  // Walk-in library users should not be providers
 ];
 
-// Define roles that are treated as having institutional administrative privileges
-// for operations such as generating institution invite tokens.
-// This is intentionally stricter than PROVIDER_ALLOWED_ROLES.
-export const ADMIN_ALLOWED_ROLES = [
-  'staff',
-  'employee',
-  'faculty',
-];
+export const INSTITUTION_ADMIN_ENTITLEMENT =
+  'urn:decentralabs:entitlement:institution-admin';
 
 /**
  * Check if a user role is allowed for provider registration
@@ -70,7 +63,7 @@ export function validateProviderRole(role, scopedRole = '') {
   if (!isAllowed) {
     return {
       isValid: false,
-      reason: `Your role "${role || 'Unknown'}" does not have provider registration privileges. Only faculty, staff, employees, members, and affiliates can register as providers.`
+      reason: `Your role "${role || 'Unknown'}" does not have institutional registration privileges. Only faculty, staff, and employees can register an institution.`
     };
   }
   
@@ -82,17 +75,35 @@ export function validateProviderRole(role, scopedRole = '') {
 
 /**
  * Check if user has any administrative privileges
- * @param {string} role - Primary role from SSO
- * @param {string} scopedRole - Scoped role from SSO (optional)
+ * @param {string|string[]} entitlements - eduPersonEntitlement values from SSO
  * @returns {boolean}
  */
-export function hasAdminRole(role, scopedRole = '') {
-  const userRole = (role || '').toLowerCase().trim();
-  const userScopedRole = (scopedRole || '').toLowerCase().trim();
-
-  return ADMIN_ALLOWED_ROLES.some(adminRole =>
-    userRole.includes(adminRole) || userScopedRole.includes(adminRole)
+export function hasAdminRole(entitlements) {
+  const values = Array.isArray(entitlements) ? entitlements : [entitlements];
+  return values.some(
+    (value) => typeof value === 'string' && value.trim() === INSTITUTION_ADMIN_ENTITLEMENT
   );
+}
+
+/**
+ * Temporary authorization policy for creating an institutional registration.
+ *
+ * This deliberately does not grant platform or destructive administration
+ * privileges. Those operations must continue to use hasAdminRole().
+ *
+ * @param {{role?: string, scopedRole?: string, entitlements?: string|string[]}} sessionRoles
+ * @returns {boolean}
+ */
+export function hasInstitutionRegistrationPrivilege({
+  role,
+  scopedRole,
+  entitlements,
+} = {}) {
+  if (hasAdminRole(entitlements)) {
+    return true;
+  }
+
+  return validateProviderRole(role, scopedRole).isValid;
 }
 
 /**

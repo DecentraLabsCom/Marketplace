@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Navbar from "../Navbar";
 import { useOptionalUser } from "@/context/UserContext";
-import { hasAdminRole } from "@/utils/auth/roleValidation";
+import { hasInstitutionRegistrationPrivilege } from "@/utils/auth/roleValidation";
 
 jest.mock("next/link", () => {
   return ({ children, href }) => <a href={href}>{children}</a>;
@@ -23,7 +23,7 @@ jest.mock("@/components/ui", () => ({
 describe("Navbar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    hasAdminRole.mockReturnValue(false);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(false);
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ isPlatformAdmin: false }),
@@ -69,7 +69,7 @@ describe("Navbar", () => {
     expect(screen.queryByText("Register my Institution")).not.toBeInTheDocument();
   });
 
-  test("shows institution registration entrypoint for eligible SSO admins", () => {
+  test("shows institution registration entrypoint for eligible SSO users", () => {
     useOptionalUser.mockReturnValue({
       isLoggedIn: true,
       isProvider: false,
@@ -80,7 +80,7 @@ describe("Navbar", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "unregistered",
     });
-    hasAdminRole.mockReturnValue(true);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(true);
 
     render(<Navbar />);
 
@@ -98,7 +98,7 @@ describe("Navbar", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "registered",
     });
-    hasAdminRole.mockReturnValue(true);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(true);
 
     render(<Navbar />);
 
@@ -116,7 +116,7 @@ describe("Navbar", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "unregistered",
     });
-    hasAdminRole.mockReturnValue(true);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(true);
 
     render(<Navbar />);
 
@@ -139,7 +139,7 @@ describe("Navbar", () => {
       isInstitutionRegistrationLoading: false,
       institutionRegistrationStatus: "unregistered",
     });
-    hasAdminRole.mockReturnValue(true);
+    hasInstitutionRegistrationPrivilege.mockReturnValue(true);
 
     render(<Navbar />);
 
