@@ -90,6 +90,14 @@ describe('LabImage', () => {
     expect(screen.queryByTestId('next-image')).not.toBeInTheDocument()
   })
 
+  test('uses the same-origin image proxy when a lab id is available', () => {
+    render(<LabImage src={SRC} alt={ALT} labId={123} />)
+
+    const img = screen.getByTestId('native-lab-image')
+    expect(img).toHaveAttribute('src', expect.stringContaining('/api/metadata/image?'))
+    expect(img.getAttribute('src')).toContain('labId=123')
+  })
+
   test('keeps placeholder images on Next image with optimization disabled', () => {
     render(<LabImage src="/labs/lab_placeholder.png" alt={ALT} />)
 

@@ -223,6 +223,22 @@ describe('MediaDisplayWithFallback', () => {
       expect(image).toHaveAttribute('src', 'https://example.com/image.jpg');
     });
 
+    test('uses the same-origin image proxy when a lab id is available', () => {
+      render(
+        <MediaDisplayWithFallback
+          mediaPath="https://provider.example/image.jpg"
+          mediaType="image"
+          alt="Proxied external"
+          labId={7}
+        />
+      );
+
+      const image = screen.getByTestId('native-media-image');
+      expect(image).toHaveAttribute('src', expect.stringContaining('/api/metadata/image?'));
+      expect(image.getAttribute('src')).toContain('labId=7');
+      expect(image.getAttribute('src')).toContain('uri=https%3A%2F%2Fprovider.example%2Fimage.jpg');
+    });
+
     test('renders gateway lab-content images natively in Vercel without blob rewrite', () => {
       process.env.NEXT_PUBLIC_VERCEL = 'true';
       process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';

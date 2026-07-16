@@ -32,6 +32,10 @@ const isGatewayLabContentImage = (path) => (
   typeof path === 'string' && path.includes('/lab-content/')
 )
 
+const isMetadataImageProxyPath = (path) => (
+  typeof path === 'string' && path.startsWith('/api/metadata/image?')
+)
+
 /**
  * Universal media display component with fallback handling
  * Supports images, documents, and links with automatic error recovery
@@ -278,7 +282,7 @@ export default function MediaDisplayWithFallback({
     if (!fill && width) nativeImageProps.width = width;
     if (!fill && height) nativeImageProps.height = height;
 
-    if (isGatewayLabContentImage(currentSrc)) {
+    if (isMetadataImageProxyPath(currentSrc) || isGatewayLabContentImage(currentSrc)) {
       return <img data-testid="native-media-image" {...nativeImageProps} />;
     }
 

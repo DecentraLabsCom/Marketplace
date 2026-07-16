@@ -7,6 +7,7 @@ import { useQuery, useQueries } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import devLog from '@/utils/dev/logger'
 import { labImageQueryKeys } from '@/utils/hooks/queryKeys'
+import { resolveLabImageUrl } from '@/utils/media/resolveMediaUrl'
 
 // Image cache configuration optimized for React Query
 const IMAGE_CACHE_CONFIG = {
@@ -84,16 +85,21 @@ async function imageToBase64(imageUrl) {
 }
 
 // Define queryFn first for reuse
-const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl) => {
+const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl, labId = null) => {
   if (!imageUrl || typeof imageUrl !== 'string') {
     throw new Error('Invalid image URL')
   }
-  
-  devLog.log(`🖼️ getLabImageQueryFn: Caching image: ${imageUrl}`)
-  const imageData = await imageToBase64(imageUrl)
-  devLog.log(`✅ getLabImageQueryFn: Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
-  
-  return imageData
+
+  const resolvedImageUrl = resolveLabImageUrl(imageUrl, labId)
+  devLog.log(`🖼️ getLabImageQueryFn: Caching image: ${resolvedImageUrl}`)
+  const imageData = await imageToBase64(resolvedImageUrl)
+  devLog.log(`✅ getLabImageQueryFn: Image cached: ${resolvedImageUrl} (${Math.round(imageData.size / 1024)}KB)`)
+
+  return {
+    ...imageData,
+    originalUrl: imageUrl,
+    resolvedUrl: resolvedImageUrl,
+  }
 }, null) // Return null during SSR
 
 /**
@@ -117,12 +123,14 @@ const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl) => {
  * @returns {Function} returns.refetch - Function to manually refetch
  */
 export function useLabImageQuery(imageUrl, options = {}) {
+  const { labId = null, ...queryOptions } = options
+
   return useQuery({
-    queryKey: labImageQueryKeys.byUrl(imageUrl),
-    queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
+    queryKey: labImageQueryKeys.byUrl(imageUrl, labId),
+    queryFn: () => getLabImageQueryFn(imageUrl, labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!imageUrl && options.enabled !== false,
     ...IMAGE_CACHE_CONFIG,
-    ...options,
+    ...queryOptions,
   })
 }
 
@@ -147,7 +155,7 @@ useLabImageQuery.queryFn = getLabImageQueryFn;
  * @returns {string} returns.fallbackUrl - Original URL as fallback
  */
 export function useLabImage(imageUrl, options = {}) {
-  const { autoCache = true, preferCached = true, ...queryOptions } = options
+  const { autoCache = true, preferCached = true, labId = null, ...queryOptions } = options
   
   // Query for cached image
   const {
@@ -157,6 +165,7 @@ export function useLabImage(imageUrl, options = {}) {
     isSuccess
   } = useLabImageQuery(imageUrl, {
     ...queryOptions,
+    labId,
     enabled: autoCache && !!imageUrl
   })
   
@@ -168,7 +177,7 @@ export function useLabImage(imageUrl, options = {}) {
     }
     
     // Otherwise, use original URL as fallback
-    return imageUrl
+    return resolveLabImageUrl(imageUrl, labId)
   }
   
   return {
@@ -206,7 +215,7 @@ export function useLabImage(imageUrl, options = {}) {
  * @returns {Function} returns.getCachedImageUrl - Utility to get cached URL for any image
  */
 export function useLabImageBatch(imageUrls = [], options = {}) {
-  const { enabled = true, onSuccess, onError } = options
+  const { enabled = true, onSuccess, onError, labId = null } = options
   
   // Filter out invalid URLs and remove duplicates
   const validImageUrls = [...new Set(imageUrls.filter(Boolean))]
@@ -214,8 +223,8 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
   // Create queries for all image URLs using useQueries
   const imageQueries = useQueries({
     queries: validImageUrls.map(imageUrl => ({
-      queryKey: labImageQueryKeys.byUrl(imageUrl),
-      queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
+      queryKey: labImageQueryKeys.byUrl(imageUrl, labId),
+      queryFn: () => getLabImageQueryFn(imageUrl, labId), // ✅ Reuse the SSR-safe queryFn
       ...IMAGE_CACHE_CONFIG,
       enabled: enabled && !!imageUrl,
       onSuccess: (data) => {
@@ -248,7 +257,7 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
   return {
     // Main image data
     mainImage: {
-      imageUrl: mainImageQuery?.data?.dataUrl || mainImageUrl,
+    imageUrl: mainImageQuery?.data?.dataUrl || resolveLabImageUrl(mainImageUrl, labId),
       originalUrl: mainImageUrl,
       isLoading: mainImageQuery?.isLoading || false,
       isCached: mainImageQuery?.isSuccess || false,
@@ -258,7 +267,7 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
     
     // All images data
     allImages: imageQueries.map((query, index) => ({
-      imageUrl: query.data?.dataUrl || validImageUrls[index],
+      imageUrl: query.data?.dataUrl || resolveLabImageUrl(validImageUrls[index], labId),
       originalUrl: validImageUrls[index],
       isLoading: query.isLoading,
       isCached: query.isSuccess,
@@ -277,7 +286,7 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
     // Utility methods
     getCachedImageUrl: (url) => {
       const query = urlToQueryMap.get(url)
-      return query?.data?.dataUrl || url // Fallback to original URL
+      return query?.data?.dataUrl || resolveLabImageUrl(url, labId)
     },
     
     // Additional utilities

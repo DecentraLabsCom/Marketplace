@@ -16,6 +16,10 @@ const isGatewayLabContentImage = (url) => (
   typeof url === 'string' && url.includes('/lab-content/')
 )
 
+const isMetadataImageProxyPath = (url) => (
+  typeof url === 'string' && url.startsWith('/api/metadata/image?')
+)
+
 /**
  * Simple lab image component with Next.js built-in caching
  * @param {Object} props
@@ -56,7 +60,7 @@ const LabImage = ({
 
   // Determine which image to show
   const displayImageUrl = imageFailed ? fallbackSrc : resolveLabImageUrl(src, labId)
-  const useNativeImage = isGatewayLabContentImage(displayImageUrl)
+  const useNativeImage = isMetadataImageProxyPath(displayImageUrl) || isGatewayLabContentImage(displayImageUrl)
 
   // Handle image load success
   const handleLoad = (event) => {

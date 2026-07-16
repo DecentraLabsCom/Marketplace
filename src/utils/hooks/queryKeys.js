@@ -113,5 +113,7 @@ export const metadataQueryKeys = {
 // Lab image query keys
 export const labImageQueryKeys = {
   all: () => ['labImage'],
-  byUrl: (imageUrl) => ['labImage', imageUrl],
+  byUrl: (imageUrl, labId = null) => labId === null || labId === undefined || labId === ''
+    ? ['labImage', imageUrl]
+    : ['labImage', String(labId), imageUrl],
 };

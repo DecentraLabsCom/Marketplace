@@ -220,35 +220,40 @@ export const useLabsForMarket = (options = {}) => {
   });
 
   // Step 7: Extract and cache images from metadata
-  const { labImageMap, uniqueImageUrls } = useMemo(() => {
+  const { labImageMap, uniqueImageUrls, imageLabIdMap } = useMemo(() => {
     if (metadataResults.length === 0) {
-      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY };
+      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY, imageLabIdMap: new Map() };
     }
 
     const imageUrlsToCache = [];
     const nextLabImageMap = new Map(); // Map lab index to image URLs
+    const nextImageLabIdMap = new Map();
 
     metadataResults.forEach((metadataResult, index) => {
       if (metadataResult.isSuccess && metadataResult.data) {
         const metadata = metadataResult.data;
         const uniqueLabImages = collectMetadataImages(metadata);
+        const labId = labDetailResults[index]?.data?.labId ?? labIds[index];
         nextLabImageMap.set(index, uniqueLabImages);
-        imageUrlsToCache.push(...uniqueLabImages);
+        uniqueLabImages.forEach((imageUrl) => {
+          imageUrlsToCache.push(imageUrl);
+          if (!nextImageLabIdMap.has(imageUrl)) nextImageLabIdMap.set(imageUrl, labId);
+        });
       }
     });
 
     // Remove duplicate URLs across all labs
     const uniqueImageUrls = [...new Set(imageUrlsToCache)];
 
-    return { labImageMap: nextLabImageMap, uniqueImageUrls };
-  }, [metadataResults]);
+    return { labImageMap: nextLabImageMap, uniqueImageUrls, imageLabIdMap: nextImageLabIdMap };
+  }, [labDetailResults, labIds, metadataResults]);
 
   // Step 8: Create image cache queries
   const imageResults = useQueries({
     queries: prefetchImages && uniqueImageUrls.length > 0
       ? uniqueImageUrls.map(imageUrl => ({
-          queryKey: labImageQueryKeys.byUrl(imageUrl),
-          queryFn: () => useLabImageQuery.queryFn(imageUrl),
+          queryKey: labImageQueryKeys.byUrl(imageUrl, imageLabIdMap.get(imageUrl)),
+          queryFn: () => useLabImageQuery.queryFn(imageUrl, imageLabIdMap.get(imageUrl)),
           enabled: !!imageUrl,
           staleTime: 48 * 60 * 60 * 1000,    // 48 hours for images
           gcTime: 7 * 24 * 60 * 60 * 1000,   // 7 days
@@ -433,8 +438,8 @@ export const useLabById = (labId, options = {}) => {
   const imageResults = useQueries({
     queries: imageUrlsToCache.length > 0
       ? imageUrlsToCache.map(imageUrl => ({
-          queryKey: labImageQueryKeys.byUrl(imageUrl),
-          queryFn: () => useLabImageQuery.queryFn(imageUrl),
+          queryKey: labImageQueryKeys.byUrl(imageUrl, normalizedLabId),
+          queryFn: () => useLabImageQuery.queryFn(imageUrl, normalizedLabId),
           enabled: !!imageUrl,
           staleTime: 48 * 60 * 60 * 1000,    // 48 hours for images
           gcTime: 7 * 24 * 60 * 60 * 1000,   // 7 days
@@ -626,35 +631,40 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   // Extract and cache images from metadata
-  const { labImageMap, uniqueImageUrls } = useMemo(() => {
+  const { labImageMap, uniqueImageUrls, imageLabIdMap } = useMemo(() => {
     if (metadataResults.length === 0) {
-      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY };
+      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY, imageLabIdMap: new Map() };
     }
 
     const imageUrlsToCache = [];
     const nextLabImageMap = new Map(); // Map lab index to image URLs
+    const nextImageLabIdMap = new Map();
 
     metadataResults.forEach((metadataResult, index) => {
       if (metadataResult.isSuccess && metadataResult.data) {
         const metadata = metadataResult.data;
         const uniqueLabImages = collectMetadataImages(metadata);
+        const labId = labDetailResults[index]?.data?.labId;
         nextLabImageMap.set(index, uniqueLabImages);
-        imageUrlsToCache.push(...uniqueLabImages);
+        uniqueLabImages.forEach((imageUrl) => {
+          imageUrlsToCache.push(imageUrl);
+          if (!nextImageLabIdMap.has(imageUrl)) nextImageLabIdMap.set(imageUrl, labId);
+        });
       }
     });
 
     // Remove duplicate URLs across all labs
     const uniqueImageUrls = [...new Set(imageUrlsToCache)];
 
-    return { labImageMap: nextLabImageMap, uniqueImageUrls };
-  }, [metadataResults]);
+    return { labImageMap: nextLabImageMap, uniqueImageUrls, imageLabIdMap: nextImageLabIdMap };
+  }, [labDetailResults, metadataResults]);
 
   // Create image cache queries
   const imageResults = useQueries({
     queries: uniqueImageUrls.length > 0
       ? uniqueImageUrls.map(imageUrl => ({
-          queryKey: labImageQueryKeys.byUrl(imageUrl),
-          queryFn: () => useLabImageQuery.queryFn(imageUrl),
+          queryKey: labImageQueryKeys.byUrl(imageUrl, imageLabIdMap.get(imageUrl)),
+          queryFn: () => useLabImageQuery.queryFn(imageUrl, imageLabIdMap.get(imageUrl)),
           enabled: !!imageUrl,
           staleTime: 48 * 60 * 60 * 1000,    // 48 hours for images
           gcTime: 7 * 24 * 60 * 60 * 1000,   // 7 days
