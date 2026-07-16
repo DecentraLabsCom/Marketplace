@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard';
 
@@ -94,6 +94,13 @@ describe('InstitutionInviteCard', () => {
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
     );
 
+    const dialog = screen.getByRole('dialog', { name: /review institutional trust/i })
+    expect(within(dialog).getByText('uned.es')).toBeInTheDocument()
+    expect(within(dialog).getByText('https://institution.example.edu')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('checkbox', { name: /I have verified/i }))
+    await user.click(within(dialog).getByRole('button', { name: /generate provisioning token/i }))
+
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
@@ -122,6 +129,10 @@ describe('InstitutionInviteCard', () => {
     await user.click(
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
     );
+
+    const dialog = screen.getByRole('dialog', { name: /review institutional trust/i })
+    await user.click(within(dialog).getByRole('checkbox', { name: /I have verified/i }))
+    await user.click(within(dialog).getByRole('button', { name: /generate provisioning token/i }))
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 

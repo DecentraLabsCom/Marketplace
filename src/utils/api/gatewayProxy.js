@@ -410,7 +410,23 @@ function getConfiguredOriginAllowlist(variableName) {
   return String(process.env[variableName] || '')
     .split(',')
     .map((entry) => entry.trim())
-    .filter(Boolean)
+    .flatMap((entry) => {
+      if (!entry) return []
+      try {
+        const parsed = new URL(entry)
+        if (
+          parsed.protocol !== 'https:' ||
+          parsed.username ||
+          parsed.password ||
+          parsed.pathname !== '/' ||
+          parsed.search ||
+          parsed.hash
+        ) return []
+        return [parsed.origin]
+      } catch {
+        return []
+      }
+    })
 }
 
 async function readResponseBodyWithLimit(response, maxBytes) {

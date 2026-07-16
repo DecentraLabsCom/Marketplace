@@ -9,6 +9,13 @@ const resolveRedisConfig = () => {
   return { url: url?.replace(/\/+$/, ''), token }
 }
 
+const redisRequestTimeoutMs = () => {
+  const parsed = Number.parseInt(process.env.REDIS_REST_TIMEOUT_MS || '', 10)
+  return Number.isSafeInteger(parsed) && parsed >= 100 && parsed <= 10_000
+    ? parsed
+    : 2_000
+}
+
 export function hasRedisConfig() {
   const { url, token } = resolveRedisConfig()
   return Boolean(url && token)
@@ -20,15 +27,29 @@ export async function redisCommand(command) {
     throw new Error('Redis REST configuration is missing')
   }
 
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), redisRequestTimeoutMs())
+
+  let response
+  try {
+    response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (controller.signal.aborted || error?.name === 'AbortError') {
+      throw new Error('Redis REST request timed out', { cause: error })
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     throw new Error(`Redis REST request failed with status ${response.status}`)

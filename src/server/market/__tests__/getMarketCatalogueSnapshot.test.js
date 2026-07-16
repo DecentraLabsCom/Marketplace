@@ -38,6 +38,14 @@ const snapshot = ({ labs, totalLabs, cursor, catalogueStatus = 'fresh' }) => ({
   catalogueStatus,
 })
 
+const deferred = () => {
+  let resolve
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 describe('getMarketCatalogueSnapshot', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -120,6 +128,61 @@ describe('getMarketCatalogueSnapshot', () => {
       catalogueStatus: 'unavailable',
       errorCode: 'MARKET_CATALOGUE_UNAVAILABLE',
       labs: [],
+    })
+  })
+
+  test('loads independent source pages with bounded parallelism', async () => {
+    const page100 = deferred()
+    const page200 = deferred()
+
+    getMarketLabsSnapshot.mockImplementation(({ cursor }) => {
+      if (cursor === 0) {
+        return Promise.resolve(snapshot({ cursor: 0, totalLabs: 301, labs: [lab(1)] }))
+      }
+      if (cursor === 100) return page100.promise
+      if (cursor === 200) return page200.promise
+      if (cursor === 300) {
+        return Promise.resolve(snapshot({ cursor: 300, totalLabs: 301, labs: [lab(301)] }))
+      }
+      throw new Error(`Unexpected source cursor ${cursor}`)
+    })
+
+    const resultPromise = getMarketCatalogueSnapshot({ includeUnlisted: false, cursor: 0, limit: 24 })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(getMarketLabsSnapshot).toHaveBeenCalledWith({
+      includeUnlisted: false,
+      cursor: 100,
+      limit: 100,
+    })
+    expect(getMarketLabsSnapshot).toHaveBeenCalledWith({
+      includeUnlisted: false,
+      cursor: 200,
+      limit: 100,
+    })
+    expect(getMarketLabsSnapshot).not.toHaveBeenCalledWith({
+      includeUnlisted: false,
+      cursor: 300,
+      limit: 100,
+    })
+
+    page100.resolve(snapshot({ cursor: 100, totalLabs: 301, labs: [lab(101)] }))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(getMarketLabsSnapshot).toHaveBeenCalledWith({
+      includeUnlisted: false,
+      cursor: 300,
+      limit: 100,
+    })
+
+    page200.resolve(snapshot({ cursor: 200, totalLabs: 301, labs: [lab(201)] }))
+
+    await expect(resultPromise).resolves.toMatchObject({
+      totalLabs: 4,
+      returnedLabs: 4,
+      nextCursor: null,
     })
   })
 })

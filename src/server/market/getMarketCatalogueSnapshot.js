@@ -9,6 +9,7 @@ import {
 } from './marketCatalogueFilters'
 
 const MARKET_SOURCE_PAGE_SIZE = 100
+const MARKET_SOURCE_PAGE_CONCURRENCY = 2
 
 const unavailableCatalogue = ({ cursor, limit }) => ({
   labs: [],
@@ -42,6 +43,24 @@ const mergeMetrics = (snapshots) => snapshots.reduce((metrics, snapshot) => ({
   returnedLabs: 0,
 })
 
+const mapWithConcurrency = async (items, concurrency, mapper) => {
+  if (!Array.isArray(items) || items.length === 0) return []
+
+  const results = new Array(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(concurrency, 1), items.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index])
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
 /**
  * Builds a queryable public catalogue from the server-side read model. Source
  * pages remain independently cached, while filters and cursor pagination are
@@ -64,18 +83,29 @@ export async function getMarketCatalogueSnapshot({
   }
 
   const totalSourceLabs = Math.max(0, Number(firstPage?.totalLabs) || 0)
-  const sourceSnapshots = [firstPage]
+  const remainingSourceCursors = []
   for (let sourceCursor = MARKET_SOURCE_PAGE_SIZE; sourceCursor < totalSourceLabs; sourceCursor += MARKET_SOURCE_PAGE_SIZE) {
-    const sourcePage = await getMarketLabsSnapshot({
+    remainingSourceCursors.push(sourceCursor)
+  }
+
+  // Each source page can already fan out into multiple contract and metadata
+  // requests. Load source pages concurrently for lower catalogue latency, but
+  // keep the fan-out bounded to protect RPC providers on a cold cache.
+  const remainingSourceSnapshots = await mapWithConcurrency(
+    remainingSourceCursors,
+    MARKET_SOURCE_PAGE_CONCURRENCY,
+    (sourceCursor) => getMarketLabsSnapshot({
       includeUnlisted,
       cursor: sourceCursor,
       limit: MARKET_SOURCE_PAGE_SIZE,
-    })
-    if (sourcePage?.catalogueStatus === MARKET_CATALOGUE_STATUS.UNAVAILABLE) {
-      return unavailableCatalogue({ cursor, limit })
-    }
-    sourceSnapshots.push(sourcePage)
+    }),
+  )
+  if (remainingSourceSnapshots.some(
+    (sourcePage) => sourcePage?.catalogueStatus === MARKET_CATALOGUE_STATUS.UNAVAILABLE,
+  )) {
+    return unavailableCatalogue({ cursor, limit })
   }
+  const sourceSnapshots = [firstPage, ...remainingSourceSnapshots]
 
   const labsById = new Map()
   sourceSnapshots.forEach((sourcePage) => {

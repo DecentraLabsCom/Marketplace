@@ -62,6 +62,14 @@ export default function FAQ() {
       question: ' 14. How can I contact DecentraLabs support?',
       answer: 'Contact your institution administrator or use the support and contact channels published by DecentraLabs for Marketplace issues.',
     },
+    {
+      question: ' 15. What is institutionId?',
+      answer: 'institutionId is the normalized organization identifier supplied by your institutional SSO session. It associates provider or consumer registration with the institution and selects the institution\'s registered backend; it is not a backend URL that users can choose or override.',
+    },
+    {
+      question: ' 16. Who can register an institution?',
+      answer: 'Faculty, staff and employees may initiate registration when their institution authorizes that responsibility. The Marketplace still requires a valid provisioning token, the institutional wallet proof and the matching registration type before any on-chain change is submitted.',
+    },
   ]
 
   return (

@@ -67,6 +67,16 @@ describe('InviteTokenPage', () => {
     await user.type(screen.getByLabelText(/agreement id/i), 'AGR-2026-001');
     await user.click(screen.getByRole('button', { name: /generate/i }));
 
+    const trustReview = screen.getByRole('dialog', { name: /review institutional trust/i })
+    expect(within(trustReview).getByText('partner.org')).toBeInTheDocument()
+    expect(within(trustReview).getByText('https://gateway.partner.org')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      '/api/admin/institutions/provisionProvider',
+      expect.anything(),
+    )
+    await user.click(within(trustReview).getByRole('checkbox', { name: /I have verified/i }))
+    await user.click(within(trustReview).getByRole('button', { name: /generate provisioning token/i }))
+
     await waitFor(() => {
       expect(screen.getByDisplayValue('mock-invite-token')).toBeInTheDocument();
     });

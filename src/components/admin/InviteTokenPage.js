@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Container } from '@/components/ui';
 import Modal from '@/components/ui/Modal';
+import ProvisioningTrustReviewModal from '@/components/institutions/ProvisioningTrustReviewModal';
+import MetadataOriginExceptionsPanel from '@/components/admin/MetadataOriginExceptionsPanel';
 
 const INITIAL_FORM = {
   providerName: '',
@@ -18,6 +20,26 @@ const formatTimestamp = (value) => {
   if (!value) return 'Not available';
   const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
   return Number.isNaN(date.getTime()) ? 'Not available' : date.toLocaleString();
+};
+
+const normalizeOriginForReview = (value) => {
+  if (!value || typeof value !== 'string' || !value.trim()) return null;
+  let candidate = value.trim();
+  if (!/^[a-z][a-z\d+.-]*:\/\//i.test(candidate)) candidate = `https://${candidate}`;
+  try {
+    const parsed = new URL(candidate);
+    if (
+      parsed.protocol !== 'https:' ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    ) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
 };
 
 function StatusBadge({ complete, pending = false, children }) {
@@ -139,6 +161,7 @@ export default function InviteTokenPage() {
   const [copied, setCopied] = useState(false);
   const [suspensionTarget, setSuspensionTarget] = useState(null);
   const [isUpdatingSuspension, setIsUpdatingSuspension] = useState(false);
+  const [trustReview, setTrustReview] = useState(null);
 
   const loadProvisioningStatus = async () => {
     setProvisioning((current) => ({ ...current, loading: true, error: '' }));
@@ -200,6 +223,16 @@ export default function InviteTokenPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    const backendOrigin = normalizeOriginForReview(form.publicBaseUrl);
+    if (!backendOrigin) {
+      setError('Enter an exact HTTPS backend origin without a path, query, or fragment.');
+      return;
+    }
+    setTrustReview({ backendOrigin });
+  };
+
+  const issueProvisioningToken = async () => {
+    setError('');
     setTokenResult(null);
     setCopied(false);
     setIsGenerating(true);
@@ -222,15 +255,22 @@ export default function InviteTokenPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setError(data?.error || 'Failed to generate invite token');
-        return;
+        return false;
       }
       setTokenResult(data);
       await loadProvisioningStatus();
+      return true;
     } catch (generationError) {
       setError(generationError?.message || 'Failed to generate invite token');
+      return false;
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const confirmTrustReview = async () => {
+    const issued = await issueProvisioningToken();
+    if (issued) setTrustReview(null);
   };
 
   const handleCopy = async () => {
@@ -444,6 +484,7 @@ export default function InviteTokenPage() {
             </div>
           )}
         </section>
+        <MetadataOriginExceptionsPanel onError={setError} />
       </div>
       <Modal
         isOpen={Boolean(suspensionTarget)}
@@ -476,6 +517,16 @@ export default function InviteTokenPage() {
           </div>
         </div>
       </Modal>
+      <ProvisioningTrustReviewModal
+        isOpen={Boolean(trustReview)}
+        institutionId={form.providerOrganization.trim()}
+        walletAddress={form.walletAddress.trim()}
+        backendOrigin={trustReview?.backendOrigin || ''}
+        registrationType="provider"
+        onConfirm={confirmTrustReview}
+        onClose={() => !isGenerating && setTrustReview(null)}
+        isSubmitting={isGenerating}
+      />
     </Container>
   );
 }

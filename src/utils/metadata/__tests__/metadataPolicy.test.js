@@ -10,19 +10,31 @@ jest.mock('node:dns/promises', () => ({
   lookup: jest.fn(),
 }))
 
+jest.mock('@/utils/redis/restClient', () => ({
+  hasRedisConfig: jest.fn(),
+  redisCommand: jest.fn(),
+}))
+
 describe('metadata egress policy', () => {
   let policy
   let originalFetch
   let dnsLookup
+  let hasRedisConfig
+  let redisCommand
 
   beforeEach(async () => {
     jest.resetModules()
     process.env.NODE_ENV = 'production'
-    process.env.ALLOWED_METADATA_ORIGINS = 'https://metadata.example'
+    process.env.ALLOWED_METADATA_ORIGINS = 'https://metadata.example/'
     delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
     dnsLookup = require('node:dns/promises').lookup
     dnsLookup.mockReset()
     dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+    const redisClient = jest.requireMock('@/utils/redis/restClient')
+    hasRedisConfig = redisClient.hasRedisConfig
+    redisCommand = redisClient.redisCommand
+    hasRedisConfig.mockReturnValue(false)
+    redisCommand.mockReset()
     originalFetch = global.fetch
     policy = await import('../metadataPolicy')
   })
@@ -66,6 +78,28 @@ describe('metadata egress policy', () => {
 
     expect(result.data).toEqual({ name: 'Lab' })
     expect(global.fetch).toHaveBeenCalled()
+  })
+
+  test('accepts metadata from an active reviewed dynamic exception', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    hasRedisConfig.mockReturnValue(true)
+    redisCommand
+      .mockResolvedValueOnce(['https://research-cdn.example.edu'])
+      .mockResolvedValueOnce(JSON.stringify({
+        origin: 'https://research-cdn.example.edu',
+        owner: 'Research infrastructure team',
+        reason: 'Shared metadata CDN',
+      }))
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ name: 'Shared CDN lab' })).body,
+    })
+
+    await expect(policy.fetchMetadataJson('https://research-cdn.example.edu/lab.json')).resolves.toMatchObject({
+      data: { name: 'Shared CDN lab' },
+    })
   })
 
   test('accepts metadata from the configured Vercel Blob origin', async () => {
@@ -162,6 +196,71 @@ describe('metadata egress policy', () => {
     await expect(policy.fetchMetadataJson('https://metadata.example/lab.json')).rejects.toThrow(
       /metadata document/i
     )
+  })
+
+  test('requires an external on-chain tokenURI to use the provider institutional origin or a reviewed exception', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
+    getContractInstance.mockResolvedValue({
+      tokenURI: jest.fn().mockResolvedValue('https://metadata.example/lab.json'),
+      ownerOf: jest.fn().mockResolvedValue('0x00000000000000000000000000000000000000a1'),
+      isLabProvider: jest.fn().mockResolvedValue(true),
+      getRegisteredSchacHomeOrganizations: jest.fn().mockResolvedValue(['provider.example']),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue('https://gateway.example'),
+    })
+
+    await expect(policy.loadOnChainLabMetadata(7)).rejects.toThrow(/ALLOWED_METADATA_ORIGINS|trusted lab provider origins/)
+    expect(global.fetch).toBe(originalFetch)
+  })
+
+  test('accepts an external on-chain tokenURI at the provider exact registered backend origin', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
+    getContractInstance.mockResolvedValue({
+      tokenURI: jest.fn().mockResolvedValue('https://gateway.example/lab.json'),
+      ownerOf: jest.fn().mockResolvedValue('0x00000000000000000000000000000000000000a1'),
+      isLabProvider: jest.fn().mockResolvedValue(true),
+      getRegisteredSchacHomeOrganizations: jest.fn().mockResolvedValue(['provider.example']),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue('https://gateway.example'),
+    })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ name: 'Provider lab' })).body,
+    })
+
+    await expect(policy.loadOnChainLabMetadata(7)).resolves.toMatchObject({
+      metadataUri: 'https://gateway.example/lab.json',
+      metadata: { name: 'Provider lab' },
+    })
+  })
+
+  test('rejects an undeclared image path even when it shares the trusted metadata origin', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
+    getContractInstance.mockResolvedValue({
+      tokenURI: jest.fn().mockResolvedValue('https://gateway.example/lab.json'),
+      ownerOf: jest.fn().mockResolvedValue('0x00000000000000000000000000000000000000a1'),
+      isLabProvider: jest.fn().mockResolvedValue(true),
+      getRegisteredSchacHomeOrganizations: jest.fn().mockResolvedValue(['provider.example']),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue('https://gateway.example'),
+    })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({
+        name: 'Provider lab',
+        image: 'https://gateway.example/images/declared.webp',
+      })).body,
+    })
+
+    await expect(policy.assertDeclaredLabResource(
+      7,
+      'https://gateway.example/internal/unrelated.webp',
+      'image',
+    )).rejects.toMatchObject({ code: 'RESOURCE_NOT_DECLARED' })
   })
 
   test('drops undeclared fields and attributes from metadata output', () => {

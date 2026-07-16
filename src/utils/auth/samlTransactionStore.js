@@ -22,7 +22,7 @@ const resolveTtlSeconds = () => {
   return DEFAULT_TTL_SECONDS
 }
 
-const useRemoteStore = () => process.env.NODE_ENV !== 'test' && hasRedisConfig()
+const shouldUseRemoteStore = () => process.env.NODE_ENV !== 'test' && hasRedisConfig()
 
 const requireRemoteStoreInProduction = () => {
   if (process.env.NODE_ENV === 'production' && !hasRedisConfig()) {
@@ -45,7 +45,7 @@ export async function createSamlLoginTransaction({ requestId, relayState }) {
   const ttl = resolveTtlSeconds()
   const record = JSON.stringify({ requestId: normalizedRequestId })
   const key = loginKeyFor(normalizedRequestId, normalizedRelayState)
-  if (useRemoteStore()) {
+  if (shouldUseRemoteStore()) {
     const result = await redisCommand(['SET', key, record, 'NX', 'EX', String(ttl)])
     if (result !== 'OK') throw new Error('Could not persist SAML login transaction')
   } else {
@@ -63,7 +63,7 @@ export async function consumeSamlLoginTransaction({ requestId, relayState }) {
   requireRemoteStoreInProduction()
   const key = loginKeyFor(normalizedRequestId, normalizedRelayState)
   let rawRecord
-  if (useRemoteStore()) {
+  if (shouldUseRemoteStore()) {
     rawRecord = await redisCommand(['GETDEL', key])
   } else {
     sweepMemoryRecords()
@@ -88,7 +88,7 @@ export async function consumeSamlAssertionId(assertionId) {
   requireRemoteStoreInProduction()
   const ttl = resolveTtlSeconds()
   const key = keyFor(ASSERTION_PREFIX, normalizedAssertionId)
-  if (useRemoteStore()) {
+  if (shouldUseRemoteStore()) {
     return (await redisCommand(['SET', key, '1', 'NX', 'EX', String(ttl)])) === 'OK'
   }
   sweepMemoryRecords()

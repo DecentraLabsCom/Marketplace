@@ -87,11 +87,26 @@ You can start editing the root layout at `src/app/layout.js` or the home page at
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Documentation and release records
+
+Use [`docs/README.md`](docs/README.md) as the canonical documentation index. It
+routes users to the access guide, providers to the institutional onboarding and
+lab-publication guides, and operators/developers to the security and intent
+specifications. The public FAQ is served at `/faq`; privacy, terms, cookies and
+security are served from the marketing routes and are explicitly labelled as
+operational governance pages until legal approval is recorded.
+
+The tracked package version is in `package.json`; the deployment/cache boundary
+is `NEXT_PUBLIC_RELEASE_ID`. Every release must update [`CHANGELOG.md`](CHANGELOG.md)
+and follow [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md). Historical PDFs
+that describe MetaMask, wallet authentication or `$LAB` payments are archived
+and are not valid instructions for the current SSO and service-credit flow.
+
 ---
 
 ## Testing
 
-We run **unit, integration and Cypress E2E tests**, plus linting, in CI on every push and pull request. The default Cypress journeys are intentionally deterministic and use controlled fixtures/intercepts; direct route-handler tests cover server behavior. The manual workflow remains available for rerunning E2E independently.
+We run **unit, integration and Cypress E2E tests**, plus linting and a production dependency audit, in CI on every push and pull request. The default Cypress journeys are intentionally deterministic and use controlled fixtures/intercepts; direct route-handler tests cover server behavior.
 
 ### Run tests locally
 
@@ -100,6 +115,7 @@ We run **unit, integration and Cypress E2E tests**, plus linting, in CI on every
 - Run unit & integration tests: `npm test` (or `npm run test:ci` to run with coverage in CI mode)
 - Run the critical server/intent/WebAuthn tests: `npm run test:critical`
 - Run lint: `npm run lint` or `npm run test:lint:cypress` (validates Cypress files do not trigger `no-undef` errors like `expect`)
+- Audit runtime dependencies: `npm run audit:production` (fails on high or critical vulnerabilities)
 
 ### SAML stable user ID mode
 
@@ -112,7 +128,7 @@ We run **unit, integration and Cypress E2E tests**, plus linting, in CI on every
 
 Marketplace resolves institutional backends only from the authenticated SSO institution and its on-chain institutional registry. The resolved origin must use HTTPS in production and is checked for public DNS resolution; requests use DNS pinning and reject redirects.
 
-Backend discovery is cached for at most 60 seconds. With the production Redis coordinator configured, the cache, emergency denylist and circuit breaker are shared across Marketplace instances. A confirmed provider/consumer backend registration invalidates the shared entry immediately. Platform administrators can temporarily isolate an institution through `POST /api/admin/institutions/backend-revocation` with `{ "institutionId", "ttlSeconds" }`, and restore it with `DELETE` and `{ "institutionId" }`.
+`ALLOWED_INSTITUTIONAL_BACKEND_ORIGINS` is not part of this flow and must not be added back as a normal onboarding control. Backend discovery is cached for at most 60 seconds. With the production Redis coordinator configured, the cache, emergency denylist and circuit breaker are shared across Marketplace instances. A confirmed provider/consumer backend registration invalidates the shared entry immediately. Platform administrators can temporarily isolate an institution through `POST /api/admin/institutions/backend-revocation` with `{ "institutionId", "ttlSeconds" }`, and restore it with `DELETE` and `{ "institutionId" }`.
 
 ### Current deployment and chain
 
@@ -128,13 +144,15 @@ Service credits are internal settlement units: they cannot be converted into cas
 
 ### Metadata egress
 
-External laboratory metadata is requested through `/api/metadata?labId=<id>&uri=<uri>`. The server verifies the lab owner on-chain, confirms that the owner is a registered provider, and trusts the provider's on-chain institutional backend origins. `ALLOWED_METADATA_ORIGINS` is optional and can extend that trust for explicitly configured metadata hosts. Local `Lab-*.json` metadata is read only from the repository `data/` directory and does not require `labId`.
+External laboratory metadata is requested through `/api/metadata?labId=<id>&uri=<uri>`. The server verifies the lab owner on-chain, confirms that the owner is a registered provider, and trusts only that provider's on-chain institutional backend **exact origins**. `institutionId` establishes the provider-to-institution association; it does not prove control of sibling or child hostnames. For example, registering `https://gateway.university.edu` does not trust `https://metadata.university.edu`.
+
+Use a reviewed global exception only for shared or external metadata infrastructure. Platform administrators can manage dynamic exceptions, including owner, reason and creation date, at `/api/admin/metadata-origin-exceptions`; revocation is immediate and does not require a deployment. `ALLOWED_METADATA_ORIGINS` remains a legacy static fallback for bootstrap only: every value must be an exact credential-free HTTPS origin (scheme, host and port), never an individual provider backend. Local `Lab-*.json` metadata is read only from the repository `data/` directory and does not require `labId`.
 
 ### Public marketplace catalogue
 
 The public catalogue is served by `/api/market/labs` as a paginated, public DTO. It accepts `includeUnlisted`, `cursor`, `limit`, `q`, `searchField` (`keyword` or `name`), `category`, `provider`, `resourceType` (`lab` or `fmu`) and `sort` (`price_asc` or `price_desc`). Search, filtering and sorting run against the server-side catalogue before cursor pagination, so a matching lab is not hidden merely because its original page has not yet been downloaded. The default page size is 24 and the maximum is 100. The home page renders the first server-side result and its filter facets into the initial React Query cache; subsequent result pages are requested only when the user selects `Load more labs`.
 
-The route caches each page for 60 seconds and exposes `Server-Timing`, `X-Market-RPC-Calls` and `X-Market-Payload-Bytes` response headers for performance observability. Behind it, Marketplace keeps a Redis-backed read-model snapshot (with an in-process fallback for development) for five minutes by default, so ordinary catalogue requests do not repeat the per-lab RPC and metadata fan-out. Stale pages are refreshed in the background under a short shared Redis lock, preventing multiple Vercel instances from rebuilding the same page at once. Set `MARKET_SNAPSHOT_REVALIDATE_SECONDS` (30–3600, default `300`) to tune that interval; `MARKET_SNAPSHOT_RETENTION_SECONDS` controls how long the last valid snapshot is retained.
+The route caches each page for 60 seconds and exposes `Server-Timing`, `X-Market-RPC-Calls` and `X-Market-Payload-Bytes` response headers for performance observability. Behind it, Marketplace keeps a Redis-backed read-model snapshot (with an in-process fallback for development) for five minutes by default, so ordinary catalogue requests do not repeat the per-lab RPC and metadata fan-out. When filters need several source pages, Marketplace loads at most two pages concurrently, reducing cold-cache latency without multiplying RPC pressure without bound. Stale pages are refreshed in the background under a short shared Redis lock, preventing multiple Vercel instances from rebuilding the same page at once. Set `MARKET_SNAPSHOT_REVALIDATE_SECONDS` (30–3600, default `300`) to tune that interval; `MARKET_SNAPSHOT_RETENTION_SECONDS` controls how long the last valid snapshot is retained.
 
 If chain revalidation fails, Marketplace serves the last valid snapshot with `catalogueStatus: "stale"`, a visible timestamp, and no CDN cache. If there is no valid snapshot, the API returns non-cacheable `503` with `catalogueStatus: "unavailable"`; it never represents an infrastructure outage as an empty catalogue. Credentials, access URLs, provider contact details and raw on-chain structures are intentionally excluded from this public DTO.
 
@@ -142,15 +160,15 @@ The normal catalogue is listed-only. `includeUnlisted=true` is an explicit disco
 
 ### Metadata and laboratory files
 
-The Marketplace does not promise decentralized metadata storage by default. Local `Lab-*.json` metadata is stored in the repository `data/` directory during development and in Vercel Blob in production. Quick Setup can reference an external HTTPS document only when its origin is trusted through the provider's on-chain institutional registration or the optional `ALLOWED_METADATA_ORIGINS` extension. A decentralized store therefore needs an accepted HTTPS gateway; an `ipfs://` URI is not automatically trusted. The Marketplace FMU upload route is intentionally disabled: `.fmu` files must be provisioned on the provider's Lab Gateway/Lab Station and registered by `accessKey`.
+The Marketplace does not promise decentralized metadata storage by default. Local `Lab-*.json` metadata is stored in the repository `data/` directory during development and in Vercel Blob in production. Quick Setup can reference an external HTTPS document only when its exact origin equals one of the provider's registered on-chain backend origins or is a reviewed global metadata exception. A decentralized store therefore needs an accepted HTTPS gateway; an `ipfs://` URI is not automatically trusted. The Marketplace FMU upload route is intentionally disabled: `.fmu` files must be provisioned on the provider's Lab Gateway/Lab Station and registered by `accessKey`.
 
-Images fetched through the metadata proxy are decoded, size-limited and re-encoded as WebP before reaching the browser. Documents are restricted to PDF, text, DOC and DOCX; PDFs are signature-checked and all non-PDF documents are downloads. Production requires a malware-scanning service: set `DOCUMENT_MALWARE_SCAN_URL` to its HTTPS endpoint and optionally `DOCUMENT_MALWARE_SCAN_TOKEN`. The scanner receives the raw document body with its content type and must return JSON `{ "clean": true }`; uploads and proxied documents fail closed when the scanner is unavailable or returns any other verdict.
+Images and documents declared by trusted metadata are served through same-origin Marketplace proxies. Images are decoded, size-limited and re-encoded as WebP before reaching the browser; documents are restricted to PDF, text, DOC and DOCX, and PDFs are signature-checked. This means provider onboarding does not require adding provider image hosts to Next.js `remotePatterns` or `CSP_IMG_SRC`. Production requires a malware-scanning service: set `DOCUMENT_MALWARE_SCAN_URL` to its HTTPS endpoint and optionally `DOCUMENT_MALWARE_SCAN_TOKEN`. The scanner receives the raw document body with its content type and must return JSON `{ "clean": true }`; uploads and proxied documents fail closed when the scanner is unavailable or returns any other verdict.
 
 Only public catalogue and metadata React Query entries are persisted in the browser. Logout removes the persisted snapshot and all reservation/booking queries. Set `NEXT_PUBLIC_RELEASE_ID` on each release to rotate the public-cache buster.
 
 ### Browser security policy
 
-Page responses receive a per-request nonce-based Content Security Policy from `src/proxy.js`, including `frame-ancestors 'none'`, `object-src 'none'`, restricted images and no production `unsafe-eval`. The application also sets HSTS in production, `nosniff`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. Configure exact comma-separated origins in `CSP_CONNECT_SRC`, `CSP_FRAME_SRC` and `CSP_IMG_SRC` when the deployment knows the institutional backends, embedded document hosts or image hosts in advance. If `CSP_FRAME_SRC` is not configured, only same-origin frames are allowed. Production browser source maps are disabled; private maps should be uploaded to the observability system during deployment.
+Page responses receive a per-request nonce-based Content Security Policy from `src/proxy.js`, including `frame-ancestors 'none'`, `object-src 'none'`, restricted images and no production `unsafe-eval`. The application also sets HSTS in production, `nosniff`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. Institutional HTTPS/WSS traffic is relayed through same-origin Marketplace routes, so provider onboarding must not add individual backends to `CSP_CONNECT_SRC`, `CSP_IMG_SRC`, or Next.js `remotePatterns`. Configure exact sources only for deliberate browser-direct integrations; if `CSP_FRAME_SRC` is not configured, only same-origin frames are allowed. Production browser source maps are disabled; private maps should be uploaded to the observability system during deployment.
 
 ### Run E2E tests locally
 
@@ -179,6 +197,16 @@ npm run cy:run
 Notes:
 - Ensure any environment variables required by the app or Cypress are set before running E2E tests locally.
 - CI runs Cypress on every push and pull request. The manual workflow `Cypress E2E (manual)` remains available in GitHub Actions for an independent rerun.
+
+### Live integration verification
+
+The protected `Live integration verification` workflow tests a deployed Marketplace without fixtures: it requests the real catalogue, uses a short-lived opaque test session to load an authenticated route, writes/reads/deletes an isolated Vercel Blob object, and runs Lighthouse on authenticated dashboard and reservation pages. It is manual because it requires the protected `integration` environment with:
+
+- variable `MARKETPLACE_INTEGRATION_URL`;
+- secret `MARKETPLACE_E2E_SESSION_ID`, a disposable 43-character opaque session ID; and
+- secret `BLOB_READ_WRITE_TOKEN` for the dedicated Blob store.
+
+The Blob test deletes its uniquely named `integration-tests/marketplace/` object in a `finally` block. Run it locally only through `npm run test:integration:blob` with the same token; run the deployed Cypress lane with `CYPRESS_BASE_URL`, `CYPRESS_LIVE_INTEGRATION=true` and `CYPRESS_LIVE_SESSION_ID`.
 
 ### Required CI checks
 

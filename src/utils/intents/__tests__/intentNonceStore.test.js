@@ -80,6 +80,30 @@ describe('intent signer coordination', () => {
     expect(renewal).toContain('120000')
   })
 
+  test('keeps renewing the signer lease while an operation exceeds 120 seconds', async () => {
+    jest.useFakeTimers()
+    redisCommand.mockImplementation(([operation]) => Promise.resolve(operation === 'SET' ? 'OK' : 1))
+
+    try {
+      await withIntentSignerLock(
+        '0x00000000000000000000000000000000000000a1',
+        async () => {
+          await jest.advanceTimersByTimeAsync(120_001)
+        },
+        { waitMs: 0 },
+      )
+
+      const renewals = redisCommand.mock.calls
+        .map(([command]) => command)
+        .filter((command) => command[0] === 'EVAL' && command[1].includes('PEXPIRE'))
+
+      expect(renewals).toHaveLength(3)
+      expect(renewals.every((command) => command.includes('120000'))).toBe(true)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   test('reports a failed signer operation while its lease is still held', async () => {
     redisCommand
       .mockResolvedValueOnce(8)

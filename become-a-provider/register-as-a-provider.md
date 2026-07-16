@@ -17,9 +17,10 @@ The institutional backend and its managed wallet are infrastructure controlled b
 1. Sign in to the Marketplace using **Institutional Login**.
 2. Open the `/register` page. Only an authorized institution staff member can provision institution-level access.
 3. Select **Provider** and enter the institution's public HTTPS base URL. The country field is optional when it is not supplied by the institution's identity attributes.
-4. Generate the short-lived provisioning token. The token is intended for the institution's provisioning or wallet dashboard and is not a permanent user credential.
-5. Apply the token through the institutional backend. The backend performs the institution/provider registration, configures the managed institutional wallet and enables the roles and capabilities required by the Lab Panel.
-6. After the institution is registered and the provider role is available, sign in again if necessary and open the **Lab Panel**.
+4. Review the institution identifier from SSO, institutional wallet and exact backend origin, then explicitly confirm that the institution controls them. This origin is registered on-chain and is trusted for provider metadata; sibling subdomains are not automatically included.
+5. Generate the short-lived provisioning token. The token is intended for the institution's provisioning or wallet dashboard and is not a permanent user credential.
+6. Apply the token through the institutional backend. The backend performs the institution/provider registration, configures the managed institutional wallet and enables the roles and capabilities required by the Lab Panel.
+7. After the institution is registered and the provider role is available, sign in again if necessary and open the **Lab Panel**.
 
 For an institution already integrated with DecentraLabs, individual providers are assigned by the institution's administrator and reuse the institution's verified backend. A new provider therefore does not require adding another Marketplace allowlist entry or manually configuring a new blockchain endpoint.
 

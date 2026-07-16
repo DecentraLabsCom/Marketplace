@@ -7,6 +7,8 @@ import {
   GatewayValidationError,
   fetchAllowlistedJson,
 } from '@/utils/api/gatewayProxy'
+import { getDynamicMetadataExceptionOrigins } from '@/utils/metadata/metadataOriginExceptions'
+import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 
 export const MAX_METADATA_BYTES = 1024 * 1024
 
@@ -111,12 +113,17 @@ export async function fetchMetadataJson(
   }
   if (cacheBuster) parsedUrl.searchParams.set('t', cacheBuster)
 
+  const dynamicExceptionOrigins = await getDynamicMetadataExceptionOrigins()
   const result = await fetchAllowlistedJson(
     parsedUrl.toString(),
     { cache: 'no-store' },
     {
       maxBytes: MAX_METADATA_BYTES,
-      additionalAllowedOrigins: [...additionalAllowedOrigins, configuredBlobOrigin()].filter(Boolean),
+      additionalAllowedOrigins: [
+        ...additionalAllowedOrigins,
+        ...dynamicExceptionOrigins,
+        configuredBlobOrigin(),
+      ].filter(Boolean),
     },
   )
   if (result.response.status === 404) {
@@ -239,15 +246,6 @@ const normalizeLabId = (labId) => {
   }
 }
 
-const metadataAdditionalOrigin = (metadataUri) => {
-  try {
-    const parsed = new URL(metadataUri)
-    return parsed.protocol === 'https:' && !parsed.username && !parsed.password ? [parsed.origin] : []
-  } catch {
-    return []
-  }
-}
-
 export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {}) {
   const normalizedLabId = normalizeLabId(labId)
   let metadataUri
@@ -262,11 +260,14 @@ export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {})
     throw new MetadataFetchError('The laboratory has no metadata reference', 404, 'TOKEN_URI_NOT_FOUND')
   }
   const normalizedUri = metadataUri.trim()
+  const providerOrigins = isLocalMetadataUri(normalizedUri)
+    ? []
+    : await resolveProviderMetadataOrigins({ labId: normalizedLabId }).catch(() => [])
   return {
     metadataUri: normalizedUri,
     metadata: await loadMetadataDocument(normalizedUri, {
       cacheBuster,
-      additionalAllowedOrigins: metadataAdditionalOrigin(normalizedUri),
+      additionalAllowedOrigins: providerOrigins,
     }),
   }
 }

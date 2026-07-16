@@ -18,6 +18,8 @@
     "test:e2e": "node cypress/run-e2e.js run",
     "test:e2e:ui": "node cypress/run-e2e.js open",
     "test:e2e:coverage": "nyc --reporter=lcov npm run test:e2e",
+    "test:e2e:live": "npx cypress run --browser chrome --spec cypress/e2e/live-integration.cy.js",
+    "test:integration:blob": "node scripts/run-vercel-blob-integration.js",
     "dev": "next dev --turbopack",
     "dev:turbo": "next dev --turbopack",
     "dev:webpack": "next dev",
@@ -32,6 +34,7 @@
     "update-vercel-env": "node scripts/update-vercel-env.js",
     "pre-commit": "node scripts/pre-commit-check.js",
     "coverage:summary": "node scripts/coverage-report.js",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
     "audit:institution-provisioning": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/audit-institution-provisioning.js",
     "cleanup:legacy-pending-providers": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/remove-legacy-pending-providers-blob.js"
   },

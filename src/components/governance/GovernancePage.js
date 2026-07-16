@@ -39,7 +39,7 @@ const CONTENT = {
       {
         heading: 'Contact and governance status',
         paragraphs: [
-          'The legal entity, privacy contact, data protection officer, supervisory authority information and applicable legal bases must be completed by DecentraLabs/Nebsyst legal counsel and the responsible DPO. This page is intentionally explicit about that governance dependency.',
+          'The data controller is Nebulous Systems S.L. The current general contact for privacy and security questions is contact@nebsyst.com; the registered address, legal identifier, designated data protection officer, supervisory authority information and applicable legal bases must still be completed and approved by legal counsel. This page is intentionally explicit about that governance dependency.',
         ],
       },
     ],
@@ -73,7 +73,7 @@ const CONTENT = {
       {
         heading: 'Legal review required',
         paragraphs: [
-          'Liability, governing law, consumer or institutional contracting, intellectual property, service-credit treatment and dispute procedures must be completed by legal counsel for the deployment and jurisdiction.',
+          'Liability, governing law, consumer or institutional contracting, intellectual property, service-credit treatment, cancellation, and dispute procedures must be completed by legal counsel for the deployment and jurisdiction. Until then, this is an operational draft rather than a final contract.',
         ],
       },
     ],
@@ -92,7 +92,7 @@ const CONTENT = {
       {
         heading: 'Local and session storage',
         items: [
-          'React Query persists selected catalogue, metadata, provider, reservation and booking caches in localStorage for up to 72 hours.',
+          'React Query persists only successful public catalogue and metadata queries in localStorage for up to 72 hours. User-scoped provider, reservation and booking queries are not persisted in that public cache.',
           'A browser passkey marker is stored in localStorage to avoid repeatedly showing the institutional WebAuthn advisory for the same institution and stable user identifier.',
           'A temporary onboarding session is held in sessionStorage while the institutional ceremony is completed and is removed when the flow ends.',
         ],
@@ -134,7 +134,7 @@ const CONTENT = {
       {
         heading: 'Disclosure process',
         paragraphs: [
-          'The security contact, response targets, supported versions and coordinated-disclosure terms must be confirmed by the project owner before this page is considered a formal security policy.',
+          'Report suspected vulnerabilities to contact@nebsyst.com without including passwords, SAML assertions, bearer tokens or private keys. The security contact, response targets, supported versions and coordinated-disclosure terms must be confirmed by the project owner before this page is considered a formal security policy.',
         ],
       },
     ],

@@ -1,0 +1,58 @@
+name: Live integration verification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify deployed Marketplace integrations
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 20
+    env:
+      CYPRESS_BASE_URL: ${{ vars.MARKETPLACE_INTEGRATION_URL }}
+      CYPRESS_LIVE_INTEGRATION: 'true'
+      CYPRESS_LIVE_SESSION_ID: ${{ secrets.MARKETPLACE_E2E_SESSION_ID }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      LHCI_SESSION_COOKIE: __Host-user_session=${{ secrets.MARKETPLACE_E2E_SESSION_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Validate integration configuration
+        run: |
+          test -n "$CYPRESS_BASE_URL"
+          test -n "$CYPRESS_LIVE_SESSION_ID"
+          test -n "$BLOB_READ_WRITE_TOKEN"
+
+      - name: Install dependencies
+        env:
+          NPM_CONFIG_LEGACY_PEER_DEPS: true
+        run: npm ci --include=dev
+
+      - name: Install Cypress binary
+        run: npx cypress install
+
+      - name: Run live Marketplace smoke tests
+        run: npm run test:e2e:live
+
+      - name: Verify live Vercel Blob storage
+        run: npm run test:integration:blob
+
+      - name: Audit authenticated routes with Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            ${{ vars.MARKETPLACE_INTEGRATION_URL }}/userdashboard
+            ${{ vars.MARKETPLACE_INTEGRATION_URL }}/reservation
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          runs: 1
+          configPath: '.github/lighthouse/lighthouserc.auth.cjs'

@@ -16,6 +16,8 @@ This exception applies only to issuing and applying an institutional registratio
 
 The token's `institutionId` is derived only from the verified SAML session. Organization values sent by the browser are ignored.
 
+Before issuing a token, Marketplace shows the verified institution identifier, wallet, exact canonical backend origin and registration type, and requires an explicit acknowledgement. The backend origin is a root of trust: it is registered on-chain, is the token audience, and is the only metadata origin granted automatically for that institutional association. Sibling and child subdomains are not inferred from `institutionId`.
+
 ## Signed contract
 
 The RS256 provisioning token and the institutional wallet's EIP-712 proof cover the same security fields:

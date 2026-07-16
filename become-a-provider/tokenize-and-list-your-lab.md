@@ -24,7 +24,7 @@ The Marketplace creates the local metadata document as part of the provider work
 Quick Setup is for providers that already maintain a metadata document at an external origin.
 
 1. Prepare a JSON document using the laboratory metadata schema.
-2. Host it at an HTTPS URL. The origin must be trusted through the provider's on-chain institutional registration or the optional `ALLOWED_METADATA_ORIGINS` configuration. A decentralized store can be used behind an accepted HTTPS gateway, but an `ipfs://` URI is not itself an automatic trust decision.
+2. Host it at an HTTPS URL. Its exact origin must equal a provider backend origin registered on-chain, or be a reviewed global metadata exception managed by a platform administrator. Registering `gateway.example.edu` does not automatically trust `metadata.example.edu`. A decentralized store can be used behind an accepted HTTPS gateway, but an `ipfs://` URI is not itself an automatic trust decision.
 3. Sign in with institutional SSO, open **Add New Lab** and choose **Quick Setup**.
 4. Enter the price, display unit and metadata URL, then review the listing state.
 5. Submit the authorized operation and wait for backend/on-chain confirmation.
