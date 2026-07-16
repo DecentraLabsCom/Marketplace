@@ -426,6 +426,11 @@ body {
 }
 
 /* Style override for DatePicker external component: react-datepicker */
+.readonly-calendar .react-datepicker__day {
+  cursor: default !important;
+  user-select: none;
+}
+
 .custom-datepicker .react-datepicker__header {
   background-color: oklch(0.8943 0.0512 262.12); /* Header background color */
   color: white !important;

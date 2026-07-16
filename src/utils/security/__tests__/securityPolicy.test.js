@@ -34,10 +34,18 @@ describe('browser security policy', () => {
   test('permits local development evaluation but never enables HSTS there', () => {
     const policy = buildContentSecurityPolicy({ nonce: 'nonce-value', isDevelopment: true })
     expect(policy).toContain("'unsafe-eval'")
+    expect(policy).toContain("style-src-elem 'self' 'unsafe-inline'")
     expect(policy).not.toContain('upgrade-insecure-requests')
     expect(getSecurityHeaders({ isProduction: false })).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'Strict-Transport-Security' })]),
     )
+  })
+
+  test('uses the request nonce for production style elements', () => {
+    const policy = buildContentSecurityPolicy({ nonce: 'nonce-value' })
+    expect(policy).toContain("style-src 'self' 'nonce-nonce-value'")
+    expect(policy).toContain("style-src-elem 'self' 'nonce-nonce-value'")
+    expect(policy).not.toContain("style-src-elem 'self' 'unsafe-inline'")
   })
 
   test('adds HSTS and baseline defensive headers in production', () => {

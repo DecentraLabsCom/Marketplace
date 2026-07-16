@@ -10,6 +10,7 @@ import PropTypes from 'prop-types'
 import Image from 'next/image'
 import { Spinner } from '@/components/ui'
 import devLog from '@/utils/dev/logger'
+import { resolveLabImageUrl } from '@/utils/media/resolveMediaUrl'
 
 const isGatewayLabContentImage = (url) => (
   typeof url === 'string' && url.includes('/lab-content/')
@@ -47,13 +48,14 @@ const LabImage = ({
   fallbackSrc = '/labs/lab_placeholder.png',
   onLoad,
   onError,
+  labId = null,
   ...props
 }) => {
   const [imageFailed, setImageFailed] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(priority)
 
   // Determine which image to show
-  const displayImageUrl = imageFailed ? fallbackSrc : src
+  const displayImageUrl = imageFailed ? fallbackSrc : resolveLabImageUrl(src, labId)
   const useNativeImage = isGatewayLabContentImage(displayImageUrl)
 
   // Handle image load success
@@ -162,7 +164,8 @@ LabImage.propTypes = {
   style: PropTypes.object,
   fallbackSrc: PropTypes.string,
   onLoad: PropTypes.func,
-  onError: PropTypes.func
+  onError: PropTypes.func,
+  labId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
 }
 
 /**
@@ -177,6 +180,7 @@ export const LabCardImage = ({ src, alt, labId, className = '', ...props }) => {
       fill={true} // ✅ Fill the container completely
       className={`object-cover ${className}`} // ✅ Ensure object-cover is applied
       priority={false}
+      labId={labId}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       {...props}
     />

@@ -14,6 +14,17 @@ const configuredMetadataOrigins = () => String(process.env.ALLOWED_METADATA_ORIG
   .map((origin) => origin.trim())
   .filter(Boolean)
 
+const configuredBlobOrigin = () => {
+  try {
+    const blobUrl = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
+    return blobUrl.protocol === 'https:' && !blobUrl.username && !blobUrl.password
+      ? blobUrl.origin
+      : null
+  } catch {
+    return null
+  }
+}
+
 const normalizeLabId = (value) => {
   try {
     const normalized = BigInt(value)
@@ -88,8 +99,9 @@ export async function GET(request) {
   try {
     const trustedOrigins = new Set([
       ...configuredMetadataOrigins(),
+      configuredBlobOrigin(),
       ...(await resolveProviderMetadataOrigins({ labId })),
-    ])
+    ].filter(Boolean))
 
     if (!trustedOrigins.has(parsedUri.origin)) {
       return publicErrorResponse({

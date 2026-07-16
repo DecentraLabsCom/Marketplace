@@ -31,6 +31,17 @@ export class MetadataFetchError extends Error {
   }
 }
 
+const configuredBlobOrigin = () => {
+  try {
+    const blobUrl = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
+    return blobUrl.protocol === 'https:' && !blobUrl.username && !blobUrl.password
+      ? blobUrl.origin
+      : null
+  } catch {
+    return null
+  }
+}
+
 export function isLocalMetadataUri(metadataUri) {
   return typeof metadataUri === 'string' && localMetadataNamePattern.test(metadataUri)
 }
@@ -58,7 +69,10 @@ export async function fetchMetadataJson(
   const result = await fetchAllowlistedJson(
     parsedUrl.toString(),
     { cache: 'no-store' },
-    { maxBytes: MAX_METADATA_BYTES, additionalAllowedOrigins },
+    {
+      maxBytes: MAX_METADATA_BYTES,
+      additionalAllowedOrigins: [...additionalAllowedOrigins, configuredBlobOrigin()].filter(Boolean),
+    },
   )
   if (result.response.status === 404) {
     throw new MetadataFetchError('External metadata not found', 404, 'EXTERNAL_NOT_FOUND')

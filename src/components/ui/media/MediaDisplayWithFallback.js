@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import Image from 'next/image'
 import { XCircle } from 'lucide-react'
 import devLog from '@/utils/dev/logger'
+import { resolveLabImageUrl, resolveStoredAssetUrl } from '@/utils/media/resolveMediaUrl'
 
 const isExternalUrl = (path) => (
   typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))
@@ -59,7 +60,8 @@ export default function MediaDisplayWithFallback({
   height,
   width,
   title = '',
-  priority = false
+  priority = false,
+  labId = null
 }) {
   
   // State to control if we should try Vercel Blob URL (false initially) or if it failed (true) for IMAGES
@@ -67,7 +69,7 @@ export default function MediaDisplayWithFallback({
   // State to control if local fallback for IMAGES has also failed
   const [hasLocalFallbackFailed, setHasLocalFallbackFailed] = useState(false);
   
-  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL; 
+  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
 
   // --- States for Document (iframe) handling ---
   const [currentDocSrc, setCurrentDocSrc] = useState(''); // The final URL for the iframe src
@@ -82,8 +84,9 @@ export default function MediaDisplayWithFallback({
     // Clean path by removing leading slash if present, for consistent concatenation
     const cleanedPath = typeof path === 'string' ? path.replace(/^\//, '') : '';
 
-    // Same-origin document proxies/local files must never be rewritten to Blob.
-    if (isSameOriginPath(path)) return path
+    // Keep API proxies same-origin, while resolving stored relative assets to
+    // their Blob URL on production deployments.
+    if (isSameOriginPath(path)) return resolveStoredAssetUrl(path)
 
     // 1. If it's already an external URL (http/https), return it directly.
     if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
@@ -229,7 +232,7 @@ export default function MediaDisplayWithFallback({
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
       if (isExternalUrl(mediaPath)) {
-        return mediaPath;
+        return resolveLabImageUrl(mediaPath, labId);
       }
 
       const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
@@ -387,5 +390,6 @@ MediaDisplayWithFallback.propTypes = {
   height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   title: PropTypes.string,
-  priority: PropTypes.bool
+  priority: PropTypes.bool,
+  labId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }

@@ -65,16 +65,6 @@ export default function CalendarWithBookings({
 
   return (
     <>
-      {isReadOnlyMode && (
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            .readonly-calendar .react-datepicker__day {
-              cursor: default !important;
-              user-select: none;
-            }
-          `
-        }} />
-      )}
       <DatePicker
         calendarClassName={calendarClasses}
         selected={selectedDate}

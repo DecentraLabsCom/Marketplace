@@ -1,7 +1,9 @@
 import 'react-datepicker/dist/react-datepicker.css'
+import '@fortawesome/fontawesome-svg-core/styles.css'
 import '@/styles/global.css'
 import PropTypes from 'prop-types'
 import { getBaseUrl } from '@/utils/env/baseUrl'
+import FontAwesomeConfig from '@/components/layout/FontAwesomeConfig'
 
 // The nonce in proxy.js is request-specific, so every document must be rendered
 // on demand for Next.js to propagate it to generated script tags.
@@ -53,6 +55,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://ethereum-sepolia-rpc.publicnode.com" crossOrigin="anonymous" />
       </head>
       <body className="flex flex-col min-h-screen bg-[#262B2D]">
+        <FontAwesomeConfig />
         {children}
       </body>
     </html>

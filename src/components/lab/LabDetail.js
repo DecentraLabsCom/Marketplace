@@ -125,7 +125,7 @@ export default function LabDetail({ id }) {
         {/* Carousel Section */}
         <article className="w-full md:w-1/2 flex flex-col p-4">
           <div className="size-full flex flex-col justify-center">
-            <Carrousel lab={lab} />
+            <Carrousel lab={lab} labId={lab.id} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
               <span className="text-text-secondary">{pricePresentation.text}</span>

@@ -41,7 +41,8 @@ export function buildContentSecurityPolicy({ nonce, isDevelopment = false } = {}
   const directives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDevelopment ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    isDevelopment ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
+    isDevelopment ? "style-src-elem 'self' 'unsafe-inline'" : `style-src-elem 'self' 'nonce-${nonce}'`,
     "style-src-attr 'unsafe-inline'",
     `img-src ${defaultImageSources().join(' ')}`,
     `connect-src ${defaultConnectSources().join(' ')}`,

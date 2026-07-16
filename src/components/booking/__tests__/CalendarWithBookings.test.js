@@ -246,18 +246,16 @@ describe("CalendarWithBookings - unit tests", () => {
   });
 
   describe("Read-Only Styling", () => {
-    test("injects readonly styles for user-dashboard mode", () => {
+    test("does not inject inline styles for user-dashboard mode", () => {
       const { container } = render(
         <CalendarWithBookings {...defaultProps} displayMode="user-dashboard" />
       );
 
       const styleTag = container.querySelector("style");
-      expect(styleTag).toBeInTheDocument();
-      expect(styleTag.innerHTML).toContain("readonly-calendar");
-      expect(styleTag.innerHTML).toContain("cursor: default");
+      expect(styleTag).not.toBeInTheDocument();
     });
 
-    test("injects readonly styles for provider-dashboard mode", () => {
+    test("does not inject inline styles for provider-dashboard mode", () => {
       const { container } = render(
         <CalendarWithBookings
           {...defaultProps}
@@ -266,7 +264,7 @@ describe("CalendarWithBookings - unit tests", () => {
       );
 
       const styleTag = container.querySelector("style");
-      expect(styleTag).toBeInTheDocument();
+      expect(styleTag).not.toBeInTheDocument();
     });
 
     test("does not inject readonly styles in interactive modes", () => {

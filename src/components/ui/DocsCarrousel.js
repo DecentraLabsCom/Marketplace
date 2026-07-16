@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
+import { resolveStoredAssetUrl } from '@/utils/media/resolveMediaUrl'
 
 /**
  * Document carousel component for displaying multiple documents with navigation
@@ -28,7 +29,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
         }
       }
       if (trimmedDoc.startsWith('/') && !trimmedDoc.startsWith('//')) {
-        return { source: trimmedDoc, original: trimmedDoc }
+        return { source: resolveStoredAssetUrl(trimmedDoc), original: trimmedDoc }
       }
       return null
     })

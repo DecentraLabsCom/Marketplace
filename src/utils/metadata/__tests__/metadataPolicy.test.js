@@ -19,6 +19,7 @@ describe('metadata egress policy', () => {
     jest.resetModules()
     process.env.NODE_ENV = 'production'
     process.env.ALLOWED_METADATA_ORIGINS = 'https://metadata.example'
+    delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
     dnsLookup = require('node:dns/promises').lookup
     dnsLookup.mockReset()
     dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
@@ -29,6 +30,7 @@ describe('metadata egress policy', () => {
   afterEach(() => {
     global.fetch = originalFetch
     delete process.env.ALLOWED_METADATA_ORIGINS
+    delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
   })
 
   test('accepts only JSON from an allowlisted public HTTPS origin', async () => {
@@ -63,6 +65,22 @@ describe('metadata egress policy', () => {
     })
 
     expect(result.data).toEqual({ name: 'Lab' })
+    expect(global.fetch).toHaveBeenCalled()
+  })
+
+  test('accepts metadata from the configured Vercel Blob origin', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.example'
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ name: 'Blob lab' })).body,
+    })
+
+    const result = await policy.fetchMetadataJson('https://blob.example/data/Lab-Provider-7.json')
+
+    expect(result.data).toEqual({ name: 'Blob lab' })
     expect(global.fetch).toHaveBeenCalled()
   })
 
