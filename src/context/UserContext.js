@@ -134,25 +134,24 @@ function UserDataCore({ children }) {
             try {
                 devLog.log('[InstitutionalOnboarding] Checking status for SSO user...');
                 
-                // Step 1: Get session data from our API (no external calls)
-                const sessionResponse = await fetch('/api/onboarding/session', {
+                // The Marketplace keeps the institutional authorization server-side.
+                const statusResponse = await fetch('/api/onboarding/webauthn/key-status', {
                     method: 'GET',
                     credentials: 'include',
                 });
 
                 if (cancelled) return;
 
-                if (!sessionResponse.ok) {
-                    devLog.warn('[InstitutionalOnboarding] Session fetch failed:', sessionResponse.status);
+                if (!statusResponse.ok && statusResponse.status !== 404) {
+                    devLog.warn('[InstitutionalOnboarding] Status fetch failed:', statusResponse.status);
                     setInstitutionalOnboardingStatus('advisory');
                     setShowOnboardingModal(true);
                     return;
                 }
 
-                const sessionData = await sessionResponse.json();
-                const stableUserId = sessionData.meta?.stableUserId;
-                const institutionIdFromSession = sessionData.meta?.institutionId || institutionDomain || null;
-                const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null;
+                const statusData = await statusResponse.json();
+                const stableUserId = statusData.stableUserId;
+                const institutionIdFromSession = statusData.institutionId || institutionDomain || null;
 
                 if (!stableUserId) {
                     devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
@@ -165,17 +164,6 @@ function UserDataCore({ children }) {
                     stableUserId,
                     institutionId: institutionIdFromSession,
                 };
-
-                // Step 2: Check if user has credentials directly with IB
-                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionIdFromSession || '')}`;
-                
-                const statusResponse = await fetch(statusUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(backendAuthToken ? { Authorization: `Bearer ${backendAuthToken}` } : {}),
-                    },
-                });
 
                 if (cancelled) return;
 
@@ -195,8 +183,6 @@ function UserDataCore({ children }) {
                     setShowOnboardingModal(true);
                     return;
                 }
-
-                const statusData = await statusResponse.json();
 
                 // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {

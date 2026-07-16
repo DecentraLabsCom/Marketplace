@@ -61,11 +61,6 @@ const resolvePopupCeremonyUrl = (ceremonyUrl) => {
 
 const ONBOARDING_POPUP_FEATURES = 'width=580,height=720'
 
-const buildBackendAuthHeaders = (token) =>
-  token
-    ? { Authorization: `Bearer ${token}` }
-    : {}
-
 /**
  * Hook for managing institutional onboarding
  * 
@@ -133,19 +128,18 @@ export function useInstitutionalOnboarding({
     setError(null)
 
     try {
-      // Get session data to extract stableUserId
-      const sessionResponse = await fetch('/api/onboarding/session', {
+      const statusResponse = await fetch('/api/onboarding/webauthn/key-status', {
         method: 'GET',
         credentials: 'include',
       })
 
-      if (!sessionResponse.ok) {
-        const err = await sessionResponse.json().catch(() => ({}))
-        const message = err.error || `Session fetch failed: ${sessionResponse.status}`
+      if (!statusResponse.ok && statusResponse.status !== 404) {
+        const err = await statusResponse.json().catch(() => ({}))
+        const message = err.error || `Status fetch failed: ${statusResponse.status}`
 
         // Right after SSO callback, cookie/session propagation can be briefly delayed.
         // Keep onboarding in REQUIRED mode instead of failing the whole modal.
-        if (isSessionWarmupError(sessionResponse.status, message)) {
+        if (isSessionWarmupError(statusResponse.status, message)) {
           devLog.warn('[useInstitutionalOnboarding] Session still warming up, keeping onboarding required')
           setState(OnboardingState.REQUIRED)
           setIsOnboarded(false)
@@ -161,29 +155,16 @@ export function useInstitutionalOnboarding({
         throw new Error(message)
       }
 
-      const sessionData = await sessionResponse.json()
-      const stableUserId = sessionData.meta?.stableUserId
-      const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null
+      const statusData = await statusResponse.json()
+      const stableUserId = statusData.stableUserId
       const markerPayload = {
         stableUserId,
-        institutionId: sessionData.meta?.institutionId || institutionDomain || null,
+        institutionId: statusData.institutionId || institutionDomain || null,
       }
 
       if (!stableUserId) {
         throw new Error('Cannot determine stable user ID')
       }
-
-      // Check if user has credentials directly with IB
-      const resolvedInstitutionId = sessionData.meta?.institutionId || institutionDomain || ''
-      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(resolvedInstitutionId)}`
-      
-      const statusResponse = await fetch(statusUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...buildBackendAuthHeaders(backendAuthToken),
-        },
-      })
 
       // If endpoint doesn't exist or returns 404, assume not onboarded yet
       if (statusResponse.status === 404) {
@@ -199,8 +180,6 @@ export function useInstitutionalOnboarding({
         setIsOnboarded(false)
         return { needed: true, backendUrl: institutionBackendUrl }
       }
-
-      const statusData = await statusResponse.json()
 
       // Build initial keyStatus from IB response
       const resolvedKeyStatus = {
@@ -246,8 +225,8 @@ export function useInstitutionalOnboarding({
   }, [isSSO, user, institutionBackendUrl, institutionDomain, markBrowserCredentialSeen])
 
   /**
-   * Start the onboarding process using browser-direct IB calls.
-   * This bypasses server-side calls that may be blocked by firewalls.
+   * Start onboarding through the same-origin Marketplace proxy. Only the
+   * WebAuthn ceremony itself is opened at the institutional origin.
    * Returns the ceremony URL for redirect.
    */
   const initiateOnboarding = useCallback(async () => {
@@ -268,17 +247,16 @@ export function useInstitutionalOnboarding({
     setError(null)
 
     try {
-      // Step 1: Get session data from our API (no external calls)
-      const sessionResponse = await fetch('/api/onboarding/session', {
-        method: 'GET',
+      const ibResponse = await fetch('/api/onboarding/webauthn/options', {
+        method: 'POST',
         credentials: 'include',
       })
 
-      if (!sessionResponse.ok) {
-        const sessionError = await sessionResponse.json().catch(() => ({}))
-        const message = sessionError.error || `Session fetch failed: ${sessionResponse.status}`
+      if (!ibResponse.ok) {
+        const sessionError = await ibResponse.json().catch(() => ({}))
+        const message = sessionError.error || `Onboarding preparation failed: ${ibResponse.status}`
 
-        if (isSessionWarmupError(sessionResponse.status, message)) {
+        if (isSessionWarmupError(ibResponse.status, message)) {
           devLog.warn('[useInstitutionalOnboarding] Session still warming up during initiate')
           setState(OnboardingState.REQUIRED)
           setError(null)
@@ -288,47 +266,22 @@ export function useInstitutionalOnboarding({
         throw new Error(message)
       }
 
-      const sessionData = await sessionResponse.json()
-      const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null
-      
-      if (!sessionData.payload) {
-        throw new Error('Invalid session data response')
-      }
-
-      devLog.log('[useInstitutionalOnboarding] Got session data, calling IB directly:', institutionBackendUrl)
-
-      // Step 2: Call the IB directly from the browser
-      const ibResponse = await fetch(`${institutionBackendUrl}/onboarding/webauthn/options`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...buildBackendAuthHeaders(backendAuthToken),
-        },
-        body: JSON.stringify(sessionData.payload),
-      })
-
-      if (!ibResponse.ok) {
-        const ibError = await ibResponse.text().catch(() => 'Unknown error')
-        throw new Error(`IB request failed: ${ibResponse.status} - ${ibError}`)
-      }
-
       const ibData = await ibResponse.json()
 
       if (!ibData.sessionId) {
         throw new Error('Missing sessionId in IB response')
       }
 
-      // Build ceremony URL if not provided
-      const ceremonyUrl = ibData.ceremonyUrl || `${institutionBackendUrl}/onboarding/webauthn/ceremony/${ibData.sessionId}`
+      const ceremonyUrl = ibData.ceremonyUrl
+      if (!ceremonyUrl) throw new Error('Missing ceremony URL')
 
       const resultData = {
         status: 'initiated',
         sessionId: ibData.sessionId,
         ceremonyUrl,
         backendUrl: institutionBackendUrl,
-        stableUserId: sessionData.meta.stableUserId,
-        institutionId: sessionData.meta.institutionId,
-        backendAuthToken,
+        stableUserId: ibData.stableUserId,
+        institutionId: ibData.institutionId,
         expiresAt: ibData.expiresAt || null,
       }
 
@@ -338,7 +291,6 @@ export function useInstitutionalOnboarding({
         backendUrl: resultData.backendUrl,
         stableUserId: resultData.stableUserId,
         institutionId: resultData.institutionId,
-        backendAuthToken: resultData.backendAuthToken,
       })
 
       setState(OnboardingState.REDIRECTING)
@@ -458,19 +410,12 @@ export function useInstitutionalOnboarding({
             }
           }
 
-          // No callback received yet - check IB directly from browser (bypasses firewall)
-          devLog.debug('[useInstitutionalOnboarding] No callback yet, checking IB directly')
-          const ibResponse = await fetch(
-            `${session.backendUrl}/onboarding/webauthn/status/${session.sessionId}`,
-            {
-              method: 'GET',
-              headers: {
-                Accept: 'application/json',
-                ...buildBackendAuthHeaders(session.backendAuthToken),
-              },
-              signal: pollControllerRef.current?.signal
-            }
-          )
+          // The same route checks the local callback cache and securely relays
+          // pending status to the authenticated institutional backend.
+          const ibResponse = await fetch(localUrl.toString(), {
+            credentials: 'include',
+            signal: pollControllerRef.current?.signal,
+          })
 
           if (ibResponse.ok) {
             const ibData = await ibResponse.json()
@@ -683,7 +628,6 @@ export function useInstitutionalOnboarding({
       backendUrl: initResult.backendUrl,
       stableUserId: initResult.stableUserId,
       institutionId: initResult.institutionId,
-      backendAuthToken: initResult.backendAuthToken,
     })
 
     if (!popupResult?.opened) {

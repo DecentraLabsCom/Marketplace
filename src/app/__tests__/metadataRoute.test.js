@@ -8,24 +8,20 @@ jest.mock('@/utils/isVercel', () => ({
 }))
 
 jest.mock('@/utils/metadata/metadataPolicy', () => ({
-  isLocalMetadataUri: jest.fn((uri) => uri.startsWith('Lab-')),
-  loadMetadataDocument: jest.fn(),
+  loadOnChainLabMetadata: jest.fn(),
   MetadataFetchError: class MetadataFetchError extends Error {},
 }))
 
-jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
-  resolveProviderMetadataOrigins: jest.fn(),
-}))
-
-import { loadMetadataDocument } from '@/utils/metadata/metadataPolicy'
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
+import { loadOnChainLabMetadata } from '@/utils/metadata/metadataPolicy'
 import { GET } from '../api/metadata/route.js'
 
 describe('/api/metadata', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    loadMetadataDocument.mockResolvedValue({ name: 'Test lab' })
-    resolveProviderMetadataOrigins.mockResolvedValue(['https://provider.example'])
+    loadOnChainLabMetadata.mockResolvedValue({
+      metadataUri: 'https://provider.example/lab.json',
+      metadata: { name: 'Test lab', unknown: 'must-not-leak' },
+    })
   })
 
   test('requires labId for external metadata', async () => {
@@ -36,36 +32,26 @@ describe('/api/metadata', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
       code: 'MISSING_PARAMETER',
-      error: 'The lab identifier is required for external metadata.',
+      error: 'The lab identifier is required.',
     })
-    expect(loadMetadataDocument).not.toHaveBeenCalled()
+    expect(loadOnChainLabMetadata).not.toHaveBeenCalled()
   })
 
-  test('passes provider origins resolved from the lab owner to metadata loading', async () => {
+  test('loads only the exact tokenURI resolved for the lab', async () => {
     const response = await GET(new Request(
       'https://marketplace.example/api/metadata?labId=7&uri=https%3A%2F%2Fprovider.example%2Flab.json',
     ))
 
     expect(response.status).toBe(200)
-    expect(resolveProviderMetadataOrigins).toHaveBeenCalledWith({ labId: '7' })
-    expect(loadMetadataDocument).toHaveBeenCalledWith(
-      'https://provider.example/lab.json',
-      expect.objectContaining({
-        additionalAllowedOrigins: ['https://provider.example'],
-      }),
-    )
+    expect(loadOnChainLabMetadata).toHaveBeenCalledWith('7', { cacheBuster: null })
   })
 
-  test('keeps local metadata available without a lab id', async () => {
+  test('rejects a URI that does not equal the on-chain tokenURI', async () => {
     const response = await GET(new Request(
-      'https://marketplace.example/api/metadata?uri=Lab-7.json',
+      'https://marketplace.example/api/metadata?labId=7&uri=https%3A%2F%2Fevil.example%2Flab.json',
     ))
 
-    expect(response.status).toBe(200)
-    expect(resolveProviderMetadataOrigins).not.toHaveBeenCalled()
-    expect(loadMetadataDocument).toHaveBeenCalledWith(
-      'Lab-7.json',
-      expect.any(Object),
-    )
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({ code: 'METADATA_URI_MISMATCH' })
   })
 })

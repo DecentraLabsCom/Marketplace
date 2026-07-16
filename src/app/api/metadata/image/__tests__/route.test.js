@@ -1,11 +1,14 @@
 /** @jest-environment node */
 
 import { GET } from '../route'
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
+import { assertDeclaredLabResource, MetadataFetchError } from '@/utils/metadata/metadataPolicy'
 
-jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
-  resolveProviderMetadataOrigins: jest.fn(),
+jest.mock('@/utils/metadata/metadataPolicy', () => ({
+  assertDeclaredLabResource: jest.fn(),
+  MetadataFetchError: class MetadataFetchError extends Error {
+    constructor(message, status, code) { super(message); this.status = status; this.code = code }
+  },
 }))
 
 jest.mock('@/utils/api/gatewayProxy', () => ({
@@ -15,7 +18,7 @@ jest.mock('@/utils/api/gatewayProxy', () => ({
 describe('GET /api/metadata/image', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    resolveProviderMetadataOrigins.mockResolvedValue(['https://lab.example.edu'])
+    assertDeclaredLabResource.mockImplementation(async (_labId, uri) => uri)
   })
 
   test('serves a trusted image through the Marketplace origin', async () => {
@@ -34,7 +37,8 @@ describe('GET /api/metadata/image', () => {
     expect(await response.text()).toBe('png-bytes')
   })
 
-  test('rejects an image origin that is not trusted for the lab', async () => {
+  test('rejects an image not declared in the lab metadata', async () => {
+    assertDeclaredLabResource.mockRejectedValue(new MetadataFetchError('not declared', 403, 'RESOURCE_NOT_DECLARED'))
     const response = await GET(new Request(
       'http://localhost/api/metadata/image?labId=7&uri=https%3A%2F%2Fevil.example%2Fcover.png',
     ))

@@ -53,9 +53,10 @@ describe('providerDashboard.helpers', () => {
 
     expect(
       resolveOnchainLabUri('Lab-UNED-3.json', {
+        labId: 3,
         blobBaseUrl: '',
       })
-    ).toBe('https://market.example.com/api/metadata?uri=Lab-UNED-3.json')
+    ).toBe('https://market.example.com/api/metadata?uri=Lab-UNED-3.json&labId=3')
   })
 
   test('remapMovedLabAssetPaths rewrites uploaded file paths and falls back to moved assets when needed', () => {

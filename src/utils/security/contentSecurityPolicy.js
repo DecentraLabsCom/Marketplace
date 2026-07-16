@@ -21,12 +21,11 @@ const defaultImageSources = () => unique([
 
 const defaultConnectSources = () => {
   const configured = readConfiguredSources('CSP_CONNECT_SRC', 'NEXT_PUBLIC_CSP_CONNECT_SRC')
-  // HTTPS/WSS are retained as the compatibility default because institutional
-  // backends are resolved dynamically from the authenticated/on-chain registry.
-  // Deployments can replace this with exact origins through CSP_CONNECT_SRC.
+  // Institutional API calls are relayed through Marketplace same-origin routes.
+  // Deployments may add narrowly scoped browser connections when genuinely needed.
   return unique([
     "'self'",
-    ...(configured.length > 0 ? configured : ['https:', 'wss:']),
+    ...configured,
   ])
 }
 

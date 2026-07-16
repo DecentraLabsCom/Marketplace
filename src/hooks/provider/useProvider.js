@@ -143,43 +143,6 @@ export const useSaveLabData = (options = {}) => {
 };
 
 /**
- * Hook for saving provider registration
- * POST /api/provider/saveRegistration
- * 
- * @param {Object} options - React Query mutation options
- * @returns {Object} React Query mutation result
- */
-export const useSaveProviderRegistration = (options = {}) => {
-  return useMutation({
-    mutationFn: async (providerData) => {
-      try {
-        if (!providerData) {
-          throw new Error('Provider data is required');
-        }
-
-        const response = await fetch('/api/provider/saveRegistration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(providerData)
-        });
-        
-        if (!response.ok) {
-          throw await createApiError(response, `Failed to save provider registration: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.info('Provider registration saved successfully');
-        return data;
-      } catch (error) {
-        devLog.error('Failed to save provider registration:', error);
-        throw error;
-      }
-    },
-    ...options,
-  });
-};
-
-/**
  * Hook for uploading files
  * POST /api/provider/uploadFile
  * 

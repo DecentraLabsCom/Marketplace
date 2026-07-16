@@ -163,4 +163,18 @@ describe('metadata egress policy', () => {
       /metadata document/i
     )
   })
+
+  test('drops undeclared fields and attributes from metadata output', () => {
+    expect(policy.validateMetadataDocument({
+      name: 'Lab',
+      internalNote: 'do not expose',
+      attributes: [
+        { trait_type: 'docs', value: ['https://metadata.example/guide.pdf'], internalToken: 'secret' },
+        { trait_type: 'legacyPrivateField', value: { deeply: { nested: 'secret' } } },
+      ],
+    })).toEqual({
+      name: 'Lab',
+      attributes: [{ trait_type: 'docs', value: ['https://metadata.example/guide.pdf'] }],
+    })
+  })
 })

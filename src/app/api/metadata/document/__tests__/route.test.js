@@ -1,11 +1,14 @@
 /** @jest-environment node */
 
 import { GET } from '../route'
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
+import { assertDeclaredLabResource } from '@/utils/metadata/metadataPolicy'
 
-jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
-  resolveProviderMetadataOrigins: jest.fn(),
+jest.mock('@/utils/metadata/metadataPolicy', () => ({
+  assertDeclaredLabResource: jest.fn(),
+  MetadataFetchError: class MetadataFetchError extends Error {
+    constructor(message, status, code) { super(message); this.status = status; this.code = code }
+  },
 }))
 
 jest.mock('@/utils/api/gatewayProxy', () => ({
@@ -15,7 +18,7 @@ jest.mock('@/utils/api/gatewayProxy', () => ({
 describe('GET /api/metadata/document', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    resolveProviderMetadataOrigins.mockResolvedValue(['https://docs.example.edu'])
+    assertDeclaredLabResource.mockImplementation(async (_labId, uri) => uri)
   })
 
   test('rejects non-HTTPS document URLs before fetching', async () => {

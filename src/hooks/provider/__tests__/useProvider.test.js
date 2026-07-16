@@ -17,7 +17,6 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useSaveLabData,
-  useSaveProviderRegistration,
   useUploadFile,
   useMoveFiles,
   useDeleteFile,
@@ -251,56 +250,6 @@ describe("Provider Mutation Hooks", () => {
       await waitFor(() => expect(result.current.isError).toBe(true));
 
       expect(result.current.error?.message).toBe("Network request failed");
-    });
-  });
-
-  describe("useSaveProviderRegistration", () => {
-    test("saves provider registration successfully", async () => {
-      const mockProviderData = {
-        name: "Provider Inc",
-        email: "contact@provider.com",
-      };
-      const mockResponse = { success: true, id: "provider-123" };
-
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const queryClient = createTestQueryClient();
-      const { result } = renderHook(() => useSaveProviderRegistration(), {
-        wrapper: createWrapper(queryClient),
-      });
-
-      result.current.mutate(mockProviderData);
-
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/provider/saveRegistration",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(mockProviderData),
-        }
-      );
-
-      expect(result.current.data).toEqual(mockResponse);
-    });
-
-    test("throws error when provider data is null", async () => {
-      const queryClient = createTestQueryClient();
-      const { result } = renderHook(() => useSaveProviderRegistration(), {
-        wrapper: createWrapper(queryClient),
-      });
-
-      result.current.mutate(null);
-
-      await waitFor(() => expect(result.current.isError).toBe(true));
-
-      expect(result.current.error).toEqual(
-        new Error("Provider data is required")
-      );
     });
   });
 

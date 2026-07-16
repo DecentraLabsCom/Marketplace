@@ -23,6 +23,7 @@ import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminInte
 import {
   IntentSignerBusyError,
   IntentSignerUnavailableError,
+  getServerSignerAddress,
   withIntentSignerLock,
 } from '@/utils/intents/intentNonceStore'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
@@ -281,7 +282,7 @@ export async function POST(request) {
     let authorizationPromise
 
     try {
-      const coordinated = await withIntentSignerLock(adminAddress, async () => {
+      const coordinated = await withIntentSignerLock(getServerSignerAddress(), async () => {
         const packageValue = kind === 'reservation'
           ? await buildReservationIntent({
             executor: executorAddress,
@@ -457,8 +458,6 @@ export async function POST(request) {
       authorizationUrl,
       authorizationSessionId: authorization?.sessionId || null,
       authorizationExpiresAt: authorization?.expiresAt || null,
-      backendAuthToken: backendAuth?.token || null,
-      backendAuthExpiresAt: backendAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare intent failed', error)

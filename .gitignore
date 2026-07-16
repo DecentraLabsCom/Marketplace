@@ -33,6 +33,7 @@
 !scripts/coverage-report.js
 !scripts/pre-commit-check.js
 !scripts/audit-institution-provisioning.js
+!scripts/remove-legacy-pending-providers-blob.js
 
 # next.js
 /.next/

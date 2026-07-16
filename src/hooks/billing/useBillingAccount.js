@@ -22,13 +22,13 @@ const safeFetch = async (url) => {
  * Fetch the credit account summary (balances) for an institutional user.
  */
 export const useCreditAccountSummary = (options = {}) => {
-  const { address, institutionBackendUrl, isSSO } = useUser();
-  const enabled = Boolean(isSSO && address && institutionBackendUrl) && (options.enabled !== false);
+  const { address, isSSO } = useUser();
+  const enabled = Boolean(isSSO && address) && (options.enabled !== false);
 
   return useQuery({
-    queryKey: ['billing', 'creditAccount', address, institutionBackendUrl],
+    queryKey: ['billing', 'creditAccount', address],
     queryFn: async () => {
-      const url = `${institutionBackendUrl}/billing/credit-accounts/${address}`;
+      const url = '/api/billing/credit-account';
       devLog.log('useCreditAccountSummary – fetching', url);
       return safeFetch(url);
     },
@@ -43,13 +43,13 @@ export const useCreditAccountSummary = (options = {}) => {
  * Fetch the credit lots for an institutional user (expiry breakdown).
  */
 export const useCreditLots = (options = {}) => {
-  const { address, institutionBackendUrl, isSSO } = useUser();
-  const enabled = Boolean(isSSO && address && institutionBackendUrl) && (options.enabled !== false);
+  const { address, isSSO } = useUser();
+  const enabled = Boolean(isSSO && address) && (options.enabled !== false);
 
   return useQuery({
-    queryKey: ['billing', 'creditLots', address, institutionBackendUrl],
+    queryKey: ['billing', 'creditLots', address],
     queryFn: async () => {
-      const url = `${institutionBackendUrl}/billing/credit-accounts/${address}/lots`;
+      const url = '/api/billing/credit-account/lots';
       devLog.log('useCreditLots – fetching', url);
       return safeFetch(url);
     },
@@ -64,13 +64,13 @@ export const useCreditLots = (options = {}) => {
  * Fetch the funding orders associated with an institutional user.
  */
 export const useFundingOrders = (options = {}) => {
-  const { address, institutionBackendUrl, isSSO } = useUser();
-  const enabled = Boolean(isSSO && address && institutionBackendUrl) && (options.enabled !== false);
+  const { address, isSSO } = useUser();
+  const enabled = Boolean(isSSO && address) && (options.enabled !== false);
 
   return useQuery({
-    queryKey: ['billing', 'fundingOrders', address, institutionBackendUrl],
+    queryKey: ['billing', 'fundingOrders', address],
     queryFn: async () => {
-      const url = `${institutionBackendUrl}/billing/funding-orders?institution=${address}`;
+      const url = '/api/billing/funding-orders';
       devLog.log('useFundingOrders – fetching', url);
       return safeFetch(url);
     },
@@ -86,14 +86,14 @@ export const useFundingOrders = (options = {}) => {
  * Returns the most recent movements (default limit: 20).
  */
 export const useCreditMovements = (options = {}) => {
-  const { address, institutionBackendUrl, isSSO } = useUser();
+  const { address, isSSO } = useUser();
   const limit = options.limit ?? 20;
-  const enabled = Boolean(isSSO && address && institutionBackendUrl) && (options.enabled !== false);
+  const enabled = Boolean(isSSO && address) && (options.enabled !== false);
 
   return useQuery({
-    queryKey: ['billing', 'creditMovements', address, institutionBackendUrl, limit],
+    queryKey: ['billing', 'creditMovements', address, limit],
     queryFn: async () => {
-      const url = `${institutionBackendUrl}/billing/credit-accounts/${address}/movements?limit=${limit}`;
+      const url = `/api/billing/credit-account/movements?limit=${encodeURIComponent(limit)}`;
       devLog.log('useCreditMovements – fetching', url);
       return safeFetch(url);
     },

@@ -1,15 +1,11 @@
 /**
- * Metadata API endpoint for local, Vercel Blob and explicitly allowlisted
- * external metadata documents.
+ * Metadata API endpoint bound to the laboratory's exact on-chain tokenURI.
  */
-import getIsVercel from '@/utils/isVercel'
 import { NextResponse } from 'next/server'
 import {
-  isLocalMetadataUri,
-  loadMetadataDocument,
+  loadOnChainLabMetadata,
   MetadataFetchError,
 } from '@/utils/metadata/metadataPolicy'
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { GatewayValidationError } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
@@ -35,55 +31,31 @@ export async function GET(request) {
   if (rateLimitResponse) return rateLimitResponse
 
   const { searchParams } = new URL(request.url)
-  const metadataUri = searchParams.get('uri')
+  const requestedUri = searchParams.get('uri')
   const labId = searchParams.get('labId')
 
-  if (!metadataUri || !metadataUri.trim()) {
+  if (!labId || !labId.trim()) {
     return publicErrorResponse({
       status: 400,
       code: 'MISSING_PARAMETER',
-      message: 'The metadata URI is required.',
-      context: 'metadata-missing-uri',
-    })
-  }
-
-  const localMetadata = isLocalMetadataUri(metadataUri)
-  if (!localMetadata && (!labId || !labId.trim())) {
-    return publicErrorResponse({
-      status: 400,
-      code: 'MISSING_PARAMETER',
-      message: 'The lab identifier is required for external metadata.',
+      message: 'The lab identifier is required.',
       context: 'metadata-missing-lab-id',
     })
   }
 
-  if (!localMetadata) {
-    try {
-      if (BigInt(labId) < 0n) throw new Error('Invalid labId')
-    } catch {
-      return publicErrorResponse({
-        status: 400,
-        code: 'INVALID_PARAMETER',
-        message: 'The lab identifier is invalid.',
-        context: 'metadata-invalid-lab-id',
-      })
-    }
-  }
-
   try {
     const cacheBuster = searchParams.get('t')
-    const additionalAllowedOrigins = localMetadata
-      ? []
-      : await resolveProviderMetadataOrigins({ labId })
-    const metadata = await loadMetadataDocument(metadataUri, {
-      cacheBuster,
-      additionalAllowedOrigins,
-    })
-    const isVercel = getIsVercel()
+    const { metadataUri, metadata } = await loadOnChainLabMetadata(labId, { cacheBuster })
+    if (requestedUri && requestedUri.trim() !== metadataUri) {
+      return publicErrorResponse({
+        status: 403,
+        code: 'METADATA_URI_MISMATCH',
+        message: 'The metadata URI does not match the on-chain laboratory reference.',
+        context: 'metadata-uri-mismatch',
+      })
+    }
     const timestamp = new Date().toISOString()
-    const source = localMetadata
-      ? (isVercel ? 'blob' : 'local')
-      : 'external'
+    const source = metadataUri.startsWith('Lab-') ? 'managed' : 'on-chain'
 
     const successResponse = NextResponse.json({
       ...metadata,
@@ -91,12 +63,12 @@ export async function GET(request) {
         uri: metadataUri,
         timestamp,
         source,
-        version: metadata?._meta?.version || 1,
-        cacheBreaker: metadata?._meta?.cacheBreaker || Date.now(),
+        version: 1,
+        cacheBreaker: Date.now(),
       },
     }, { status: 200 })
 
-    if (cacheBuster || isVercel) {
+    if (cacheBuster) {
       successResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
       successResponse.headers.set('Pragma', 'no-cache')
       successResponse.headers.set('Expires', '0')

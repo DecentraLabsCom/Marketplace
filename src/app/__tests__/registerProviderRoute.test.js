@@ -72,8 +72,29 @@ jest.mock('@/utils/auth/provisioningReplayStore', () => {
   class ProvisioningReplayError extends Error {}
   return {
     ProvisioningReplayError,
-    consumeProvisioningJti: jest.fn(),
-    updateProvisioningAudit: jest.fn(),
+    startOrResumeProvisioningSaga: jest.fn(),
+    advanceProvisioningSaga: jest.fn(),
+    PROVISIONING_SAGA_STAGES: {
+      WALLET_VERIFIED: 'WALLET_VERIFIED',
+      PROVIDER_ADDED: 'PROVIDER_ADDED',
+      INSTITUTION_ROLE_GRANTED: 'INSTITUTION_ROLE_GRANTED',
+      BACKEND_REGISTERED: 'BACKEND_REGISTERED',
+      ACTIVE: 'ACTIVE',
+    },
+  };
+});
+
+jest.mock('@/utils/intents/intentNonceStore', () => {
+  class IntentSignerBusyError extends Error {}
+  class IntentSignerUnavailableError extends Error {}
+  return {
+    IntentSignerBusyError,
+    IntentSignerUnavailableError,
+    getServerSignerAddress: jest.fn(() => '0x00000000000000000000000000000000000000a1'),
+    withIntentSignerLock: jest.fn((_signer, callback) => callback({
+      fencingToken: 7,
+      assertActive: jest.fn(),
+    })),
   };
 });
 
@@ -108,9 +129,10 @@ import {
   validateProvisioningClaims,
 } from '@/utils/auth/provisioningTypedData';
 import {
-  consumeProvisioningJti,
-  updateProvisioningAudit,
+  startOrResumeProvisioningSaga,
+  advanceProvisioningSaga,
 } from '@/utils/auth/provisioningReplayStore';
+import { getServerSignerAddress, withIntentSignerLock } from '@/utils/intents/intentNonceStore';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { headers } from 'next/headers';
 import { POST } from '../api/institutions/registerProvider/route.js';
@@ -138,7 +160,11 @@ describe('/api/institutions/registerProvider route', () => {
       if (!signature) throw new Error('Wallet signature is required');
       return '0x1234567890123456789012345678901234567890';
     });
-    consumeProvisioningJti.mockResolvedValue('provisioning:jti:provider-jti');
+    startOrResumeProvisioningSaga.mockResolvedValue({
+      resumed: false,
+      record: { jti: 'provider-jti', stage: 'WALLET_VERIFIED' },
+    });
+    advanceProvisioningSaga.mockResolvedValue({});
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
@@ -222,7 +248,7 @@ describe('/api/institutions/registerProvider route', () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     expect(getContractInstance).not.toHaveBeenCalled();
-    expect(consumeProvisioningJti).not.toHaveBeenCalled();
+    expect(startOrResumeProvisioningSaga).not.toHaveBeenCalled();
   });
 
   test('returns 400 when provider name is missing in token', async () => {
@@ -298,7 +324,7 @@ describe('/api/institutions/registerProvider route', () => {
 
     const readContract = {
       isLabProvider: jest.fn().mockResolvedValue(false),
-      resolveSchacHomeOrganization: jest.fn().mockRejectedValue(new Error('Organization not found')),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x0000000000000000000000000000000000000000'),
       getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(null),
     };
 
@@ -352,19 +378,74 @@ describe('/api/institutions/registerProvider route', () => {
         registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
       }
     );
-    expect(consumeProvisioningJti).toHaveBeenCalledWith(
+    expect(startOrResumeProvisioningSaga).toHaveBeenCalledWith(
       expect.objectContaining({ jti: 'provider-jti', walletAddress })
     );
-    expect(consumeProvisioningJti.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(getServerSignerAddress).toHaveBeenCalled();
+    expect(withIntentSignerLock).toHaveBeenCalledWith(
+      '0x00000000000000000000000000000000000000a1',
+      expect.any(Function),
+      expect.objectContaining({ waitMs: expect.any(Number) }),
+    );
+    expect(withIntentSignerLock.mock.invocationCallOrder[0]).toBeLessThan(
       writeContract.addProvider.mock.invocationCallOrder[0]
     );
-    expect(updateProvisioningAudit).toHaveBeenCalledWith('provider-jti', {
-      status: 'in-progress',
+    expect(advanceProvisioningSaga).toHaveBeenCalledWith('provider-jti', expect.objectContaining({
+      stage: 'PROVIDER_ADDED',
       txHashes: ['0xaddproviderhash'],
-    });
-    expect(updateProvisioningAudit).toHaveBeenLastCalledWith('provider-jti', {
-      status: 'registered',
+      fencingToken: 7,
+    }));
+    expect(advanceProvisioningSaga).toHaveBeenLastCalledWith('provider-jti', expect.objectContaining({
+      stage: 'ACTIVE',
       txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
+    }));
+  });
+
+  test('reconciles a resumed saga and submits only the missing provider writes', async () => {
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
+    headers.mockResolvedValue(mockHeaders);
+    startOrResumeProvisioningSaga.mockResolvedValue({
+      resumed: true,
+      record: { jti: 'provider-jti', stage: 'PROVIDER_ADDED' },
     });
+
+    const grantRoleTx = {
+      hash: '0xgrantrolehash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
+    };
+    const backendTx = {
+      hash: '0xbackendhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+    };
+    const writeContract = {
+      addProvider: jest.fn(),
+      grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
+      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(backendTx),
+    };
+    const readContract = {
+      isLabProvider: jest.fn().mockResolvedValue(true),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x0000000000000000000000000000000000000000'),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(''),
+    };
+    getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
+      Promise.resolve(readOnly ? readContract : writeContract)
+    );
+
+    const req = new Request('http://localhost/api/institutions/registerProvider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletSignature: `0x${'22'.repeat(65)}` }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(201);
+    expect(writeContract.addProvider).not.toHaveBeenCalled();
+    expect(writeContract.grantInstitutionRole).toHaveBeenCalled();
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalled();
+    expect(advanceProvisioningSaga).toHaveBeenCalledWith('provider-jti', expect.objectContaining({
+      stage: 'INSTITUTION_ROLE_GRANTED',
+      txHashes: ['0xgrantrolehash'],
+    }));
   });
 });

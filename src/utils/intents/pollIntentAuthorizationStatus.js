@@ -34,7 +34,7 @@ export async function pollIntentAuthorizationStatus(sessionId, {
 
     try {
       const headers = { 'Content-Type': 'application/json' };
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+      if (!isBrowser && typeof authToken === 'string' && authToken.trim().length > 0) {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }

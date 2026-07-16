@@ -11,6 +11,8 @@ import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient';
 import {
   ProvisioningReplayError,
   consumeProvisioningJti,
+  startOrResumeProvisioningSaga,
+  advanceProvisioningSaga,
   updateProvisioningAudit,
 } from '../provisioningReplayStore';
 
@@ -90,5 +92,80 @@ describe('provisioning jti consumption', () => {
       'XX',
       'KEEPTTL',
     ]);
+  });
+
+  test('creates a durable provisioning saga at wallet verification', async () => {
+    const saga = await startOrResumeProvisioningSaga(claims);
+
+    expect(saga.resumed).toBe(false);
+    expect(saga.record).toMatchObject({
+      jti: claims.jti,
+      status: 'IN_PROGRESS',
+      stage: 'WALLET_VERIFIED',
+      lastConfirmedStage: 'WALLET_VERIFIED',
+    });
+  });
+
+  test('resumes the same saga instead of treating a valid retry as a new write', async () => {
+    redisCommand
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        ...claims,
+        status: 'IN_PROGRESS',
+        stage: 'PROVIDER_ADDED',
+        lastConfirmedStage: 'PROVIDER_ADDED',
+      }));
+
+    const saga = await startOrResumeProvisioningSaga(claims);
+
+    expect(saga).toMatchObject({ resumed: true });
+    expect(saga.record.stage).toBe('PROVIDER_ADDED');
+  });
+
+  test('persists each confirmed saga stage with its fencing token', async () => {
+    redisCommand
+      .mockResolvedValueOnce(JSON.stringify({
+        jti: claims.jti,
+        status: 'IN_PROGRESS',
+        stage: 'WALLET_VERIFIED',
+      }))
+      .mockResolvedValueOnce('OK');
+
+    await advanceProvisioningSaga(claims.jti, {
+      stage: 'INSTITUTION_ROLE_GRANTED',
+      txHashes: ['0xabc'],
+      fencingToken: 7,
+    });
+
+    expect(redisCommand.mock.calls[1][0]).toEqual([
+      'SET',
+      'provisioning:jti:token-jti',
+      expect.stringContaining('"stage":"INSTITUTION_ROLE_GRANTED"'),
+      'XX',
+      'KEEPTTL',
+    ]);
+  });
+
+  test('marks a failed attempt without discarding the last confirmed stage', async () => {
+    redisCommand
+      .mockResolvedValueOnce(JSON.stringify({
+        jti: claims.jti,
+        status: 'IN_PROGRESS',
+        stage: 'INSTITUTION_ROLE_GRANTED',
+        lastConfirmedStage: 'INSTITUTION_ROLE_GRANTED',
+      }))
+      .mockResolvedValueOnce('OK');
+
+    const updated = await advanceProvisioningSaga(claims.jti, {
+      stage: 'FAILED',
+      errorCode: 'RPC_UNAVAILABLE',
+    });
+
+    expect(updated).toMatchObject({
+      status: 'FAILED',
+      stage: 'FAILED',
+      lastConfirmedStage: 'INSTITUTION_ROLE_GRANTED',
+      errorCode: 'RPC_UNAVAILABLE',
+    });
   });
 });

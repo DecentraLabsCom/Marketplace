@@ -381,7 +381,7 @@ export default function ProviderDashboard() {
       : 0;
     const providerSegmentSource = user?.institutionName || user?.name;
     labData.uri = buildProviderLabUri(labData.uri, providerSegmentSource, maxId + 1);
-    const onchainUri = resolveOnchainLabUri(labData.uri);
+    const onchainUri = resolveOnchainLabUri(labData.uri, { labId: labData.id });
 
     // Store the original human-readable price before blockchain conversion
     const originalPrice = labData.price;
@@ -615,7 +615,7 @@ export default function ProviderDashboard() {
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
     const providerSegmentSource = user?.institutionName || user?.name;
     labData.uri = buildProviderLabUri(labData.uri || originalLab?.uri, providerSegmentSource, labData.id);
-    const onchainUri = resolveOnchainLabUri(labData.uri);
+    const onchainUri = resolveOnchainLabUri(labData.uri, { labId: labData.id });
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 

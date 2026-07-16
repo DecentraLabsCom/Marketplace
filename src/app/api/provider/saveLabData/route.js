@@ -151,6 +151,14 @@ const splitCsv = (value) => {
   return value.split(',').map(item => item.trim()).filter(Boolean)
 }
 
+const normalizeMetadataAssetList = (value, maxItems = 64) => (
+  (Array.isArray(value) ? value : splitCsv(value))
+    .filter(item => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(item => item.length > 0 && item.length <= 4_096)
+    .slice(0, maxItems)
+)
+
 const normalizePositiveIntegers = (value) => (
   (Array.isArray(value) ? value : splitCsv(value))
     .map(Number)
@@ -424,8 +432,8 @@ export async function POST(req) {
     const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
     const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
     const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
-    const normalizedImages = Array.isArray(images) ? images.filter(Boolean) : splitCsv(images)
-    const normalizedDocs = Array.isArray(docs) ? docs.filter(Boolean) : splitCsv(docs)
+    const normalizedImages = normalizeMetadataAssetList(images)
+    const normalizedDocs = normalizeMetadataAssetList(docs, 32)
     const fordCodesFromClassification = getFordCodesFromClassification(classification)
     const iscedCodesFromClassification = getIscedCodesFromClassification(classification)
     const normalizedCategory = Array.isArray(category)
@@ -509,32 +517,9 @@ export async function POST(req) {
       }
     };
 
-    // Merge with existing data if present
-    let finalData;
-    if (existingData) {
-      finalData = {
-        ...existingData,
-        ...newData,
-        attributes: newData.attributes.map(newAttr => {
-          const existingAttr = existingData.attributes?.find(attr => attr.trait_type === newAttr.trait_type);
-          return existingAttr ? { ...existingAttr, ...newAttr } : newAttr;
-        }),
-        _meta: newData._meta // Always use new metadata
-      };
-    } else {
-      finalData = newData;
-    }
-
-    delete finalData.category
-    delete finalData.keywords
-    delete finalData.docs
-    delete finalData.images
-    delete finalData.pricing
-    delete finalData.bookingMode
-    delete finalData.allowedDurationRange
-    delete finalData.allowedDurations
-    delete finalData.periodRules
-    delete finalData.demoEnabled
+    // Replace the document atomically. Merging preserved unknown legacy fields
+    // (including stale URLs) even after a provider removed them from the form.
+    const finalData = newData;
 
     // Save the data
     const labJSON = JSON.stringify(finalData, null, 2);

@@ -31,6 +31,8 @@ jest.mock('sharp', () => jest.fn())
 
 import { POST } from '../uploadFile/route'
 import { HttpError, requireAuth, requireLabOwner, requireProviderRole } from '@/utils/auth/guards'
+import getIsVercel from '@/utils/isVercel'
+import { put } from '@vercel/blob'
 
 const mockRequireAuth = requireAuth
 const mockRequireLabOwner = requireLabOwner
@@ -84,5 +86,25 @@ describe('/api/provider/uploadFile security', () => {
 
     expect(response.status).toBe(415)
     await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_FILE_CONTENT' })
+  })
+
+  test('uses the canonical data namespace for Vercel Blob uploads', async () => {
+    getIsVercel.mockReturnValue(true)
+    put.mockResolvedValue({ url: 'https://blob.example/data/7/images/upload.png' })
+
+    const response = await POST(uploadRequest({
+      labId: '7',
+      destinationFolder: 'images',
+      file: new File([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      ], 'upload.png', { type: 'image/png' }),
+    }))
+
+    expect(response.status).toBe(201)
+    expect(put).toHaveBeenCalledWith(
+      expect.stringMatching(/^data\/7\/images\//),
+      expect.any(Buffer),
+      expect.objectContaining({ access: 'public' }),
+    )
   })
 })

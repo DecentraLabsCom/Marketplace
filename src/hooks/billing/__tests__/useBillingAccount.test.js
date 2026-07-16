@@ -42,7 +42,7 @@ describe('useBillingAccount hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(account);
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/billing/credit-accounts/0xaaa0001',
+      '/api/billing/credit-account',
       expect.objectContaining({ method: 'GET' }),
     );
   });
@@ -61,7 +61,7 @@ describe('useBillingAccount hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(2);
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/billing/credit-accounts/0xaaa0001/lots',
+      '/api/billing/credit-account/lots',
       expect.any(Object),
     );
   });
@@ -77,7 +77,7 @@ describe('useBillingAccount hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data[0].status).toBe('INVOICED');
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/billing/funding-orders?institution=0xaaa0001',
+      '/api/billing/funding-orders',
       expect.any(Object),
     );
   });
@@ -96,7 +96,7 @@ describe('useBillingAccount hooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(2);
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/billing/credit-accounts/0xaaa0001/movements?limit=20',
+      '/api/billing/credit-account/movements?limit=20',
       expect.any(Object),
     );
   });

@@ -5,7 +5,6 @@
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 
 jest.mock('next/headers', () => ({
   cookies: jest.fn(),
@@ -31,12 +30,6 @@ jest.mock('@/utils/auth/institutionDomain', () => ({
   resolveInstitutionDomainFromSession: jest.fn(() => 'uned.es'),
 }))
 
-jest.mock('@/utils/auth/marketplaceJwt', () => ({
-  __esModule: true,
-  default: {
-    generateIntentBackendToken: jest.fn(),
-  },
-}))
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -58,17 +51,13 @@ describe('/api/onboarding/session route', () => {
     }
     cookies.mockResolvedValue({})
     extractStableUserId.mockReturnValue('alice@uned.es')
-    marketplaceJwtService.generateIntentBackendToken.mockResolvedValue({
-      token: 'backend-token',
-      expiresAt: '2026-07-09T12:00:00.000Z',
-    })
   })
 
   afterEach(() => {
     process.env = originalEnv
   })
 
-  test('sends the stable user id mode actually used by the SAML session', async () => {
+  test('returns only non-sensitive onboarding metadata', async () => {
     getSessionFromCookies.mockReturnValue({
       isSSO: true,
       eduPersonPrincipalName: 'alice@uned.es',
@@ -85,15 +74,11 @@ describe('/api/onboarding/session route', () => {
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json.payload).toMatchObject({
+    expect(json.meta).toMatchObject({
       stableUserId: 'alice@uned.es',
-      stableUserIdMode: 'principal',
       institutionId: 'uned.es',
     })
-    expect(json.payload).not.toHaveProperty('samlAssertion')
-    expect(marketplaceJwtService.generateIntentBackendToken).toHaveBeenCalledWith(expect.objectContaining({
-      subject: 'alice@uned.es',
-      claims: expect.objectContaining({ puc: 'alice@uned.es' }),
-    }))
+    expect(json).not.toHaveProperty('payload')
+    expect(json).not.toHaveProperty('auth')
   })
 })

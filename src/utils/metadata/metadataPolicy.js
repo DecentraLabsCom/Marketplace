@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
 import getIsVercel from '@/utils/isVercel'
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   GatewayValidationError,
   fetchAllowlistedJson,
@@ -10,17 +11,61 @@ import {
 export const MAX_METADATA_BYTES = 1024 * 1024
 
 const localMetadataNamePattern = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/
-const metadataAttributeSchema = z.object({
-  trait_type: z.string().min(1).max(128),
-  value: z.unknown(),
-}).passthrough()
+const boundedString = z.string().max(4_096)
+const boundedStringList = z.array(boundedString).max(64)
+const classificationEntrySchema = z.object({
+  scheme: z.string().max(32),
+  schemeVersion: z.string().max(128).optional(),
+  code: z.string().max(32),
+  label: z.string().max(256),
+}).strip()
+const attributeValueSchemas = {
+  classification: z.array(classificationEntrySchema).max(64),
+  classificationPrimaryScheme: z.string().max(32),
+  educationalProgramLinked: z.boolean(),
+  keywords: z.array(z.string().max(128)).max(64),
+  timeSlots: z.array(z.number().int().positive().max(86_400)).max(64),
+  pricing: z.object({
+    displayAmount: z.string().max(64), displayUnit: z.string().max(16), rawPricePerSecond: z.string().max(64),
+    roundingMode: z.string().max(64), billingMode: z.string().max(64),
+  }).strip(),
+  bookingMode: z.string().max(64),
+  allowedDurationRange: z.object({ unit: z.string().max(16), min: z.number().int().positive(), max: z.number().int().positive() }).strip(),
+  allowedDurations: z.array(z.object({ unit: z.string().max(16), value: z.number().int().positive() }).strip()).max(128),
+  periodRules: z.object({ startGranularity: z.string().max(16), allowCustomDateRange: z.boolean(), minDurationDays: z.number().positive(), maxDurationDays: z.number().positive() }).strip(),
+  opens: z.number().int().nullable(), closes: z.number().int().nullable(),
+  additionalImages: boundedStringList, docs: boundedStringList,
+  availableDays: z.array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])).max(7),
+  availableHours: z.object({ start: z.string().max(5), end: z.string().max(5) }).strip(),
+  maxConcurrentUsers: z.number().int().positive().max(10_000),
+  unavailableWindows: z.array(z.object({ startUnix: z.number().int().positive(), endUnix: z.number().int().positive(), reason: z.string().max(512) }).strip()).max(128),
+  termsOfUse: z.object({ url: boundedString.optional(), version: z.string().max(128).optional(), effectiveDate: z.string().max(64).optional(), sha256: z.string().max(128).optional() }).strip(),
+  timezone: z.string().max(128), resourceType: z.enum(['lab', 'fmu']), fmuFileName: z.string().max(512),
+  fmiVersion: z.string().max(64), simulationType: z.string().max(64),
+  modelVariables: z.array(z.object({ name: z.string().max(256), description: z.string().max(1_024).optional(), type: z.string().max(64).optional(), unit: z.string().max(64).optional() }).strip()).max(512),
+  defaultStartTime: z.number(), defaultStopTime: z.number(), defaultStepSize: z.number(),
+}
+
+const sanitizeMetadataAttributes = (attributes) => (Array.isArray(attributes) ? attributes : [])
+  .slice(0, 128)
+  .flatMap((attribute) => {
+    const traitType = typeof attribute?.trait_type === 'string' ? attribute.trait_type : ''
+    const schema = attributeValueSchemas[traitType]
+    if (!schema) return []
+    const parsed = schema.safeParse(attribute?.value)
+    return parsed.success ? [{ trait_type: traitType, value: parsed.data }] : []
+  })
+
 const metadataDocumentSchema = z.object({
   name: z.string().max(200).optional(),
   description: z.string().max(20_000).optional(),
   image: z.string().max(4_096).optional(),
   images: z.array(z.string().max(4_096)).max(64).optional(),
-  attributes: z.array(metadataAttributeSchema).max(256).optional(),
-}).passthrough()
+  attributes: z.array(z.unknown()).max(128).optional(),
+}).strip().transform((metadata) => ({
+  ...metadata,
+  ...(metadata.attributes ? { attributes: sanitizeMetadataAttributes(metadata.attributes) } : {}),
+}))
 
 export class MetadataFetchError extends Error {
   constructor(message, status = 502, code = 'METADATA_FETCH_ERROR') {
@@ -182,6 +227,87 @@ export async function loadMetadataDocument(
     additionalAllowedOrigins,
   })
   return data
+}
+
+const normalizeLabId = (labId) => {
+  try {
+    const normalized = BigInt(labId)
+    if (normalized < 0n) throw new Error('negative')
+    return normalized
+  } catch {
+    throw new MetadataFetchError('Invalid laboratory identifier', 400, 'INVALID_LAB_ID')
+  }
+}
+
+const metadataAdditionalOrigin = (metadataUri) => {
+  try {
+    const parsed = new URL(metadataUri)
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password ? [parsed.origin] : []
+  } catch {
+    return []
+  }
+}
+
+export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {}) {
+  const normalizedLabId = normalizeLabId(labId)
+  let metadataUri
+  try {
+    const contract = await getContractInstance()
+    metadataUri = await contract.tokenURI(normalizedLabId)
+  } catch (error) {
+    if (error instanceof MetadataFetchError) throw error
+    throw new MetadataFetchError('The on-chain metadata reference could not be resolved', 502, 'TOKEN_URI_UNAVAILABLE')
+  }
+  if (!metadataUri || typeof metadataUri !== 'string') {
+    throw new MetadataFetchError('The laboratory has no metadata reference', 404, 'TOKEN_URI_NOT_FOUND')
+  }
+  const normalizedUri = metadataUri.trim()
+  return {
+    metadataUri: normalizedUri,
+    metadata: await loadMetadataDocument(normalizedUri, {
+      cacheBuster,
+      additionalAllowedOrigins: metadataAdditionalOrigin(normalizedUri),
+    }),
+  }
+}
+
+const resolveDeclaredAssetUrl = (value) => {
+  if (typeof value !== 'string') return null
+  if (!value.startsWith('/')) return value
+  const isBlobDeployment = process.env.NODE_ENV === 'production' || Boolean(process.env.NEXT_PUBLIC_VERCEL)
+  const blobBase = String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || '').replace(/\/+$/, '')
+  if (!isBlobDeployment || !blobBase) return value
+  if (value.startsWith('/data/')) return `${blobBase}${value}`
+  if (/^\/\d+\//.test(value)) return `${blobBase}/data${value}`
+  return value
+}
+
+const normalizeDeclaredHttpsUrl = (value) => {
+  try {
+    const parsed = new URL(resolveDeclaredAssetUrl(value))
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
+export async function assertDeclaredLabResource(labId, requestedUri, resourceType) {
+  const requested = normalizeDeclaredHttpsUrl(requestedUri)
+  if (!requested) {
+    throw new MetadataFetchError('Resource URL is invalid', 400, 'INVALID_RESOURCE_URI')
+  }
+  const { metadata } = await loadOnChainLabMetadata(labId)
+  const attributes = metadata?.attributes || []
+  const attributeValue = (traitType) => attributes.find((entry) => entry.trait_type === traitType)?.value || []
+  const declared = resourceType === 'image'
+    ? [metadata?.image, ...(metadata?.images || []), ...(attributeValue('additionalImages') || [])]
+    : attributeValue('docs') || []
+  const declaredUrls = new Set(declared.map(normalizeDeclaredHttpsUrl).filter(Boolean))
+  if (!declaredUrls.has(requested)) {
+    throw new MetadataFetchError('Resource is not declared by the on-chain metadata', 403, 'RESOURCE_NOT_DECLARED')
+  }
+  return requested
 }
 
 export function isMetadataPolicyError(error) {

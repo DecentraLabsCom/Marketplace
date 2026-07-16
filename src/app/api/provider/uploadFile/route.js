@@ -285,7 +285,7 @@ export async function POST(req) {
         filePath = `/${relativePath}`; // For local, use relative path
       } else {
         // Production: upload to Vercel Blob and return full blob URL
-        const blobPath = `data${relativePath}`;
+        const blobPath = `data/${relativePath}`;
         const blob = await put(blobPath, uploadBuffer,
                   { contentType: detectedContentType, allowOverwrite: false, access: 'public' });
         filePath = blob.url; // ✅ Return the full blob URL for production

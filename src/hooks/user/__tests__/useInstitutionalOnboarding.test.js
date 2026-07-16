@@ -106,19 +106,10 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle successful check - onboarding needed', async () => {
-      // Mock session endpoint
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
-        })
-      })
-      // Mock IB status check - 404 means not onboarded yet
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -128,7 +119,7 @@ describe('useInstitutionalOnboarding', () => {
         statusResult = await result.current.checkOnboardingStatus()
       })
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/webauthn/key-status', {
         method: 'GET',
         credentials: 'include',
       })
@@ -138,19 +129,11 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
-    it('should include institutionId query parameter in key-status request', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          auth: { backendAuthToken: 'backend-token' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
-        })
-      })
+    it('uses the same-origin key-status proxy without a browser bearer token', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -159,16 +142,10 @@ describe('useInstitutionalOnboarding', () => {
         await result.current.checkOnboardingStatus()
       })
 
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        2,
-        'https://backend.example.com/onboarding/webauthn/key-status/user123?institutionId=university.edu',
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            Authorization: 'Bearer backend-token',
-          }),
-        })
-      )
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/webauthn/key-status', {
+        method: 'GET', credentials: 'include',
+      })
     })
 
     it('should handle successful check - already onboarded', async () => {
@@ -176,9 +153,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
       })
       // Mock IB key-status check - has credentials
@@ -205,9 +180,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
       })
       // Mock IB key-status - has credentials
@@ -241,9 +214,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
       })
       mockFetch.mockResolvedValueOnce({
@@ -273,9 +244,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
       })
       mockFetch.mockResolvedValueOnce({
@@ -303,9 +272,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true, hasPlatformCredential: true,
         })
       })
       mockFetch.mockResolvedValueOnce({
@@ -394,37 +361,14 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle successful initiation', async () => {
-      // Mock session endpoint response
-      const mockSessionResponse = {
-        status: 'ok',
-        payload: {
-          stableUserId: 'stable123',
-          institutionId: 'university.edu',
-          displayName: 'Test User',
-          callbackUrl: 'https://example.com/callback'
-        },
-        meta: {
-          stableUserId: 'stable123',
-          institutionId: 'university.edu',
-          email: 'test@university.edu',
-          displayName: 'Test User'
-        },
-        auth: {
-          backendAuthToken: 'backend-token'
-        }
-      }
-
-      // Mock IB response
       const mockIBResponse = {
         sessionId: 'session123',
         ceremonyUrl: 'https://ceremony.example.com',
+        stableUserId: 'stable123',
+        institutionId: 'university.edu',
         expiresAt: Date.now() + 3600000
       }
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockSessionResponse)
-      })
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockIBResponse)
@@ -437,27 +381,14 @@ describe('useInstitutionalOnboarding', () => {
         resultData = await result.current.initiateOnboarding()
       })
 
-      // Should call session endpoint first
-      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
-        method: 'GET',
+      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/webauthn/options', {
+        method: 'POST',
         credentials: 'include',
       })
-      // Then call IB directly
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://backend.example.com/onboarding/webauthn/options',
-        expect.objectContaining({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer backend-token',
-          },
-        })
-      )
       expect(result.current.state).toBe(OnboardingState.REDIRECTING)
       expect(result.current.sessionData.sessionId).toBe('session123')
-      expect(result.current.sessionData.backendAuthToken).toBe('backend-token')
       expect(resultData.sessionId).toBe('session123')
-      expect(resultData.backendAuthToken).toBe('backend-token')
+      expect(resultData).not.toHaveProperty('backendAuthToken')
     })
 
     it('should handle session fetch error', async () => {
@@ -480,20 +411,10 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle IB call error', async () => {
-      // Mock session endpoint success
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
-        })
-      })
-      // Mock IB failure
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-        text: () => Promise.resolve('Internal server error')
+        json: () => Promise.resolve({ error: 'Internal server error' })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -504,7 +425,7 @@ describe('useInstitutionalOnboarding', () => {
       })
 
       expect(result.current.state).toBe(OnboardingState.FAILED)
-      expect(result.current.error).toContain('IB request failed')
+      expect(result.current.error).toContain('Internal server error')
       expect(resultData).toBeNull()
     })
   })
@@ -515,21 +436,13 @@ describe('useInstitutionalOnboarding', () => {
       const popup = { closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }
       window.open = jest.fn(() => popup)
 
-      // Mock session endpoint
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'stable123', institutionId: 'university.edu' },
-          meta: { stableUserId: 'stable123', institutionId: 'university.edu' }
-        })
-      })
-      // Mock IB response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           sessionId: 'session123',
           ceremonyUrl: mockCeremonyUrl,
+          stableUserId: 'stable123',
+          institutionId: 'university.edu',
         })
       })
 
@@ -792,19 +705,11 @@ describe('useInstitutionalOnboarding', () => {
 
   describe('startOnboarding', () => {
     it('should complete full flow when already onboarded', async () => {
-      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
-      })
-      // Mock IB key-status - has credentials
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ hasCredential: true })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
@@ -821,36 +726,18 @@ describe('useInstitutionalOnboarding', () => {
     it('should complete full flow with redirect when onboarding needed', async () => {
       window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }))
 
-      // Mock session endpoint (for checkOnboardingStatus)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
-        })
-      })
-      // Mock IB status - 404 means not onboarded
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
       })
-      // Mock session endpoint (for initiateOnboarding)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          auth: { backendAuthToken: 'backend-token' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
-        })
-      })
-      // Mock IB init response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           sessionId: 'session123',
-          ceremonyUrl: 'https://ceremony.example.com'
+          ceremonyUrl: 'https://ceremony.example.com',
+          stableUserId: 'user123',
+          institutionId: 'university.edu',
         })
       })
 
@@ -864,7 +751,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(flowResult.redirecting).toBe(true)
       expect(flowResult.ceremonyUrl).toBe('https://ceremony.example.com')
       const storedSession = JSON.parse(mockSessionStorage.setItem.mock.calls[0][1])
-      expect(storedSession.backendAuthToken).toBe('backend-token')
+      expect(storedSession).not.toHaveProperty('backendAuthToken')
     })
   })
 
@@ -895,25 +782,17 @@ describe('useInstitutionalOnboarding', () => {
 
   describe('auto-check functionality', () => {
     it('should auto-check on mount when enabled', async () => {
-      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          status: 'ok',
-          payload: { stableUserId: 'user123' },
-          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+          stableUserId: 'user123', institutionId: 'university.edu', hasCredential: true,
         })
-      })
-      // Mock IB key-status - has credentials
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ hasCredential: true })
       })
 
       renderHook(() => useInstitutionalOnboarding({ autoCheck: true }), { wrapper })
 
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
+        expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/webauthn/key-status', {
           method: 'GET',
           credentials: 'include',
         })

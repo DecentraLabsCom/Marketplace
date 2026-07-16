@@ -41,6 +41,14 @@ jest.mock('@/utils/intents/resolveIntentExecutor', () => ({
   resolveIntentExecutorForInstitution: jest.fn(),
 }))
 
+jest.mock('@/utils/intents/intentNonceStore', () => ({
+  getServerSignerAddress: jest.fn(() => '0x00000000000000000000000000000000000000a2'),
+  withIntentSignerLock: jest.fn((_signer, callback) => callback({
+    fencingToken: 1,
+    assertActive: jest.fn(),
+  })),
+}))
+
 jest.mock('@/utils/webauthn/service', () => ({
   ...jest.requireActual('@/utils/webauthn/service'),
   getPucFromSession: jest.fn(jest.requireActual('@/utils/webauthn/service').getPucFromSession),
@@ -218,6 +226,8 @@ describe('Unified intent prepare route', () => {
       backendUrl: 'https://ib.example',
       authorizationSessionId: 'auth-session-1',
     })
+    expect(payload).not.toHaveProperty('backendAuthToken')
+    expect(payload).not.toHaveProperty('backendAuthExpiresAt')
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
       action: ACTION_CODES.LAB_ADD,
       labId: 0n,

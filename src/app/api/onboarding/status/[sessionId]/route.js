@@ -1,9 +1,8 @@
 /**
  * API Route: GET /api/onboarding/status/[sessionId]
  * 
- * Checks the local callback cache for onboarding session status.
- * The browser makes direct calls to the IB for status checks (to bypass firewall),
- * this endpoint only checks if we've received a callback from the IB.
+ * Checks the local callback cache and, while awaiting a callback, relays the
+ * institutional status through the authenticated same-origin boundary.
  * 
  * @module app/api/onboarding/status/[sessionId]
  */
@@ -16,6 +15,8 @@ import devLog from '@/utils/dev/logger'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
+import { createOnboardingBackendHeaders, getOnboardingContext, OnboardingContextError } from '@/utils/onboarding/serverOnboarding'
 
 const checkRate = createRateLimiter({ operation: 'onboarding-status', windowMs: 60_000, maxRequests: 30 })
 
@@ -63,15 +64,20 @@ export async function GET(request, { params }) {
       return NextResponse.json(toPublicOnboardingResult(localResult, 'callback'))
     }
 
-    // No callback received yet - browser should check IB directly
-    return NextResponse.json({
-      sessionId,
-      status: 'PENDING',
-      source: 'local',
-      message: 'No callback received yet',
-    })
+    const context = await getOnboardingContext()
+    const upstream = await institutionalBackendFetch(
+      `${context.backendUrl}/onboarding/webauthn/status/${encodeURIComponent(sessionId)}`,
+      { headers: await createOnboardingBackendHeaders(context), cache: 'no-store' },
+    )
+    if (!upstream.ok) {
+      return NextResponse.json({ sessionId, status: 'PENDING', source: 'marketplace' })
+    }
+    return NextResponse.json(toPublicOnboardingResult(await upstream.json(), 'institutional-backend'))
 
   } catch (error) {
+    if (error instanceof OnboardingContextError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status })
+    }
     devLog.error('[Onboarding/Status] Error:', sanitizeErrorForLog(error))
     return publicErrorResponse({
       status: 500,

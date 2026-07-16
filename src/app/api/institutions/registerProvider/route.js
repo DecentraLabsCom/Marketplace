@@ -18,16 +18,28 @@ import {
 } from '@/utils/auth/provisioningTypedData';
 import {
   ProvisioningReplayError,
-  consumeProvisioningJti,
-  updateProvisioningAudit,
+  PROVISIONING_SAGA_STAGES,
+  advanceProvisioningSaga,
+  startOrResumeProvisioningSaga,
 } from '@/utils/auth/provisioningReplayStore';
+import {
+  IntentSignerBusyError,
+  IntentSignerUnavailableError,
+  getServerSignerAddress,
+  withIntentSignerLock,
+} from '@/utils/intents/intentNonceStore';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+const PROVISIONING_SIGNER_WAIT_MS = Number.parseInt(
+  process.env.PROVISIONING_SIGNER_WAIT_MS || '30000',
+  10,
+);
+
 async function recordProvisioningResult(jti, result) {
   try {
-    await updateProvisioningAudit(jti, result);
+    await advanceProvisioningSaga(jti, result);
   } catch (error) {
     devLog.error('[API] registerProvider: Failed to update provisioning audit', sanitizeErrorForLog(error));
   }
@@ -196,157 +208,155 @@ export async function POST(request) {
       });
     }
 
-    // Check if provider already exists and prepare transaction data
-    const contract = await getContractInstance('diamond', true);
-    let needsRegistration = true;
-    let needsRoleGrant = true;
-
     // Normalize organization domain to lowercase for consistency
     const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(providerOrganization.trim());
-
-    // Check if provider already exists
     try {
-      const isProvider = await contract.isLabProvider(walletAddress);
-      if (isProvider) {
-        devLog.log('[API] registerProvider: Provider already registered', walletAddress);
-        needsRegistration = false;
-      }
-    } catch (err) {
-      // Provider doesn't exist or contract call failed, needs registration
-      devLog.log('[API] registerProvider: Provider not found, needs registration');
-    }
-
-    // Check if organization role needs to be granted (and ensure no conflicts)
-    try {
-      const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
-      if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS) {
-        if (resolvedWallet.toLowerCase() === walletAddress.toLowerCase()) {
-          devLog.log('[API] registerProvider: Organization role already granted', { walletAddress, organization: normalizedOrganization });
-          needsRoleGrant = false;
-        } else {
-          devLog.warn('[API] registerProvider: Organization already registered to different wallet', {
-            organization: normalizedOrganization,
-            existingWallet: resolvedWallet
-          });
-          return NextResponse.json(
-            { error: 'Organization already registered to a different wallet' },
-            { status: 409 }
-          );
-        }
-      }
-    } catch (err) {
-      // Organization not registered yet
-      devLog.log('[API] registerProvider: Organization not found, needs role grant');
-    }
-
-    let shouldUpdateBackend = Boolean(normalizedBackendUrl);
-    let existingBackendUrl = null;
-    if (normalizedBackendUrl) {
-      try {
-        const rawBackend = await contract.getSchacHomeOrganizationBackend(normalizedOrganization);
-        existingBackendUrl = normalizeBackendUrl(rawBackend);
-        if (existingBackendUrl && existingBackendUrl === normalizedBackendUrl) {
-          shouldUpdateBackend = false;
-        }
-      } catch (err) {
-        devLog.warn('[API] registerProvider: Backend lookup failed', err);
-      }
-    }
-
-    try {
-      await consumeProvisioningJti(payload);
+      await startOrResumeProvisioningSaga(payload);
     } catch (error) {
       if (error instanceof ProvisioningReplayError) {
         return NextResponse.json(
-          { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
+          { error: 'Provisioning token conflicts with an existing registration', code: 'PROVISIONING_TOKEN_CONFLICT' },
           { status: 409 }
         );
       }
-      devLog.error('[API] registerProvider: Provisioning replay store unavailable', sanitizeErrorForLog(error));
+      devLog.error('[API] registerProvider: Provisioning saga store unavailable', sanitizeErrorForLog(error));
       return NextResponse.json(
         { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
         { status: 503 }
       );
     }
 
-    if (!needsRegistration && !needsRoleGrant && !shouldUpdateBackend) {
-      await recordProvisioningResult(payload.jti, {
-        status: 'already-registered',
-        txHashes: [],
-      });
-      return NextResponse.json(
-        {
+    try {
+      return await withIntentSignerLock(getServerSignerAddress(), async (lease) => {
+        await lease.assertActive();
+        const contract = await getContractInstance('diamond', true);
+        let needsRegistration = true;
+        let needsRoleGrant = true;
+        let existingBackendUrl = null;
+        let shouldUpdateBackend = Boolean(normalizedBackendUrl);
+
+        const isProvider = await contract.isLabProvider(walletAddress);
+        if (isProvider) needsRegistration = false;
+
+        const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
+        if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS) {
+          if (resolvedWallet.toLowerCase() !== walletAddress.toLowerCase()) {
+            return NextResponse.json(
+              { error: 'Organization already registered to a different wallet' },
+              { status: 409 },
+            );
+          }
+          needsRoleGrant = false;
+        }
+
+        if (normalizedBackendUrl) {
+          const rawBackend = await contract.getSchacHomeOrganizationBackend(normalizedOrganization);
+          existingBackendUrl = normalizeBackendUrl(rawBackend);
+          shouldUpdateBackend = existingBackendUrl !== normalizedBackendUrl;
+        }
+
+        await recordProvisioningResult(payload.jti, {
+          stage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
+          fencingToken: lease.fencingToken,
+        });
+
+        if (!needsRegistration && !needsRoleGrant && !shouldUpdateBackend) {
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.ACTIVE,
+            txHashes: [],
+            fencingToken: lease.fencingToken,
+          });
+          return NextResponse.json({
+            success: true,
+            alreadyRegistered: true,
+            walletAddress,
+            organization: normalizedOrganization,
+            backendUrl: existingBackendUrl || normalizedBackendUrl || null,
+          });
+        }
+
+        const writeContract = await getContractInstance('diamond', false);
+        const txHashes = [];
+
+        if (needsRegistration) {
+          await lease.assertActive();
+          const transaction = await writeContract.addProvider(
+            providerName.trim(), walletAddress, providerEmail.trim(), providerCountry.trim(), authValidation.normalized,
+          );
+          const receipt = await transaction.wait();
+          txHashes.push(receipt?.hash ?? transaction?.hash);
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.PROVIDER_ADDED,
+            txHashes: [...txHashes],
+            fencingToken: lease.fencingToken,
+          });
+        }
+
+        if (needsRoleGrant) {
+          await lease.assertActive();
+          const transaction = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
+          const receipt = await transaction.wait();
+          txHashes.push(receipt?.hash ?? transaction?.hash);
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.INSTITUTION_ROLE_GRANTED,
+            txHashes: [...txHashes],
+            fencingToken: lease.fencingToken,
+          });
+        }
+
+        if (shouldUpdateBackend) {
+          await lease.assertActive();
+          const transaction = await writeContract.adminSetSchacHomeOrganizationBackend(
+            walletAddress, normalizedOrganization, normalizedBackendUrl,
+          );
+          const receipt = await transaction.wait();
+          txHashes.push(receipt?.hash ?? transaction?.hash);
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.BACKEND_REGISTERED,
+            txHashes: [...txHashes],
+            fencingToken: lease.fencingToken,
+          });
+        }
+
+        await recordProvisioningResult(payload.jti, {
+          stage: PROVISIONING_SAGA_STAGES.ACTIVE,
+          txHashes,
+          fencingToken: lease.fencingToken,
+        });
+        return NextResponse.json({
           success: true,
-          alreadyRegistered: true,
           walletAddress,
           organization: normalizedOrganization,
-          backendUrl: existingBackendUrl || normalizedBackendUrl || null,
+          backendUrl: normalizedBackendUrl || null,
+          txHashes,
+        }, { status: 201 });
+      }, {
+        waitMs: PROVISIONING_SIGNER_WAIT_MS,
+        onError: async (error, lease) => {
+          if (!(error instanceof IntentSignerUnavailableError)) {
+            await recordProvisioningResult(payload.jti, {
+              stage: PROVISIONING_SAGA_STAGES.FAILED,
+              errorCode: 'PROVISIONING_EXECUTION_FAILED',
+              fencingToken: lease.fencingToken,
+            });
+          }
         },
-        { status: 200 }
-      );
-    }
-
-    const writeContract = await getContractInstance('diamond', false);
-    const txHashes = [];
-
-    if (needsRegistration) {
-      devLog.log('[API] registerProvider: Adding provider', walletAddress);
-      const addProviderTx = await writeContract.addProvider(
-        providerName.trim(),
-        walletAddress,
-        providerEmail.trim(),
-        providerCountry.trim(),
-        authValidation.normalized
-      );
-      const addProviderReceipt = await addProviderTx.wait();
-      txHashes.push(addProviderReceipt?.hash ?? addProviderTx?.hash);
-      await recordProvisioningResult(payload.jti, {
-        status: 'in-progress',
-        txHashes: [...txHashes],
       });
+    } catch (error) {
+      if (error instanceof IntentSignerBusyError) {
+        return NextResponse.json(
+          { error: 'Another institutional registration is being processed', code: 'PROVISIONING_SIGNER_BUSY' },
+          { status: 409 },
+        );
+      }
+      if (error instanceof IntentSignerUnavailableError) {
+        return NextResponse.json(
+          { error: 'Provisioning signer coordination is unavailable', code: 'PROVISIONING_SIGNER_UNAVAILABLE' },
+          { status: 503 },
+        );
+      }
+      throw error;
     }
-
-    if (needsRoleGrant) {
-      devLog.log('[API] registerProvider: Granting institution role', { walletAddress, organization: normalizedOrganization });
-      const grantRoleTx = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
-      const grantRoleReceipt = await grantRoleTx.wait();
-      txHashes.push(grantRoleReceipt?.hash ?? grantRoleTx?.hash);
-      await recordProvisioningResult(payload.jti, {
-        status: 'in-progress',
-        txHashes: [...txHashes],
-      });
-    }
-
-    if (shouldUpdateBackend) {
-      devLog.log('[API] registerProvider: Updating backend URL', { walletAddress, organization: normalizedOrganization, backendUrl: normalizedBackendUrl });
-      const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
-        walletAddress,
-        normalizedOrganization,
-        normalizedBackendUrl
-      );
-      const backendReceipt = await backendTx.wait();
-      txHashes.push(backendReceipt?.hash ?? backendTx?.hash);
-      await recordProvisioningResult(payload.jti, {
-        status: 'in-progress',
-        txHashes: [...txHashes],
-      });
-    }
-
-    await recordProvisioningResult(payload.jti, {
-      status: 'registered',
-      txHashes,
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        walletAddress,
-        organization: normalizedOrganization,
-        backendUrl: normalizedBackendUrl || null,
-        txHashes
-      },
-      { status: 201 }
-    );
 
   } catch (error) {
     devLog.error('[API] registerProvider: Error', sanitizeErrorForLog(error));

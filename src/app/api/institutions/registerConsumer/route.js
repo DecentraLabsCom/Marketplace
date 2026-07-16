@@ -17,16 +17,28 @@ import {
 } from '@/utils/auth/provisioningTypedData';
 import {
   ProvisioningReplayError,
-  consumeProvisioningJti,
-  updateProvisioningAudit,
+  PROVISIONING_SAGA_STAGES,
+  advanceProvisioningSaga,
+  startOrResumeProvisioningSaga,
 } from '@/utils/auth/provisioningReplayStore';
+import {
+  IntentSignerBusyError,
+  IntentSignerUnavailableError,
+  getServerSignerAddress,
+  withIntentSignerLock,
+} from '@/utils/intents/intentNonceStore';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+const PROVISIONING_SIGNER_WAIT_MS = Number.parseInt(
+  process.env.PROVISIONING_SIGNER_WAIT_MS || '30000',
+  10,
+);
+
 async function recordProvisioningResult(jti, result) {
   try {
-    await updateProvisioningAudit(jti, result);
+    await advanceProvisioningSaga(jti, result);
   } catch (error) {
     devLog.error('[API] registerConsumer: Failed to update provisioning audit', sanitizeErrorForLog(error));
   }
@@ -138,149 +150,133 @@ export async function POST(request) {
     // Normalize organization domain to lowercase for consistency
     const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(consumerOrganization.trim());
 
-    const contract = await getContractInstance('diamond', true);
-
-    // Check if organization is already registered to this or another wallet
     try {
-      const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
-      
-      if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS) {
-        if (resolvedWallet.toLowerCase() === walletAddress.toLowerCase()) {
-          devLog.log('[API] registerConsumer: Institution already registered', { walletAddress, organization: normalizedOrganization });
-
-          let backendTxHash = null;
-          try {
-            await consumeProvisioningJti(payload);
-          } catch (error) {
-            if (error instanceof ProvisioningReplayError) {
-              return NextResponse.json(
-                { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
-                { status: 409 }
-              );
-            }
-            return NextResponse.json(
-              { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
-              { status: 503 }
-            );
-          }
-          if (normalizedBackendUrl) {
-            try {
-              const existingBackend = normalizeBackendUrl(
-                await contract.getSchacHomeOrganizationBackend(normalizedOrganization)
-              );
-              if (!existingBackend || existingBackend !== normalizedBackendUrl) {
-                const writeContract = await getContractInstance('diamond', false);
-                const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
-                  walletAddress,
-                  normalizedOrganization,
-                  normalizedBackendUrl
-                );
-                const backendReceipt = await backendTx.wait();
-                backendTxHash = backendReceipt?.hash ?? backendTx?.hash;
-              }
-            } catch (err) {
-              devLog.warn('[API] registerConsumer: Backend update failed', err);
-            }
-          }
-
-          await recordProvisioningResult(payload.jti, {
-            status: 'already-registered',
-            txHashes: backendTxHash ? [backendTxHash] : [],
-          });
-
-          return NextResponse.json(
-            {
-              success: true,
-              alreadyRegistered: true,
-              walletAddress,
-              organization: normalizedOrganization,
-              backendUrl: normalizedBackendUrl || null,
-              backendTxHash
-            },
-            { status: 200 }
-          );
-        } else {
-          devLog.warn('[API] registerConsumer: Organization already registered to different wallet', { 
-            organization: normalizedOrganization, 
-            existingWallet: resolvedWallet 
-          });
-          return NextResponse.json(
-            { error: 'Organization already registered to a different wallet' },
-            { status: 409 }
-          );
-        }
-      }
-    } catch (err) {
-      // Organization not registered yet, continue
-      devLog.log('[API] registerConsumer: Organization not found, proceeding with registration');
-    }
-
-    try {
-      await consumeProvisioningJti(payload);
+      await startOrResumeProvisioningSaga(payload);
     } catch (error) {
       if (error instanceof ProvisioningReplayError) {
         return NextResponse.json(
-          { error: 'Provisioning token has already been consumed', code: 'PROVISIONING_TOKEN_CONSUMED' },
+          { error: 'Provisioning token conflicts with an existing registration', code: 'PROVISIONING_TOKEN_CONFLICT' },
           { status: 409 }
         );
       }
-      devLog.error('[API] registerConsumer: Provisioning replay store unavailable', sanitizeErrorForLog(error));
+      devLog.error('[API] registerConsumer: Provisioning saga store unavailable', sanitizeErrorForLog(error));
       return NextResponse.json(
         { error: 'Provisioning registration is temporarily unavailable', code: 'PROVISIONING_STORE_UNAVAILABLE' },
         { status: 503 }
       );
     }
 
-    // Execute grantInstitutionRole transaction
-    devLog.log('[API] registerConsumer: Granting institution role', { walletAddress, organization: normalizedOrganization });
+    try {
+      return await withIntentSignerLock(getServerSignerAddress(), async (lease) => {
+        await lease.assertActive();
+        const contract = await getContractInstance('diamond', true);
+        const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
+        if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS && resolvedWallet.toLowerCase() !== walletAddress.toLowerCase()) {
+          return NextResponse.json(
+            { error: 'Organization already registered to a different wallet' },
+            { status: 409 },
+          );
+        }
 
-    const writeContract = await getContractInstance('diamond', false);
-    const grantRoleTx = await writeContract.grantInstitutionRole(
-      walletAddress,
-      normalizedOrganization
-    );
-    const grantRoleReceipt = await grantRoleTx.wait();
-    const grantRoleTxHash = grantRoleReceipt?.hash ?? grantRoleTx?.hash;
+        let existingBackendUrl = null;
+        if (normalizedBackendUrl) {
+          const rawBackend = await contract.getSchacHomeOrganizationBackend(normalizedOrganization);
+          existingBackendUrl = normalizeBackendUrl(rawBackend);
+        }
+        const needsRoleGrant = !resolvedWallet || resolvedWallet === ZERO_ADDRESS;
+        const shouldUpdateBackend = Boolean(normalizedBackendUrl) && existingBackendUrl !== normalizedBackendUrl;
 
-    await recordProvisioningResult(payload.jti, {
-      status: 'in-progress',
-      txHashes: [grantRoleTxHash].filter(Boolean),
-    });
+        await recordProvisioningResult(payload.jti, {
+          stage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
+          fencingToken: lease.fencingToken,
+        });
 
-    devLog.log('[API] registerConsumer: Institution role granted successfully', grantRoleTxHash);
+        if (!needsRoleGrant && !shouldUpdateBackend) {
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.ACTIVE,
+            txHashes: [],
+            fencingToken: lease.fencingToken,
+          });
+          return NextResponse.json({
+            success: true,
+            alreadyRegistered: true,
+            walletAddress,
+            organization: normalizedOrganization,
+            backendUrl: existingBackendUrl || normalizedBackendUrl || null,
+          });
+        }
 
-    let backendTxHash = null;
-    if (normalizedBackendUrl) {
-      devLog.log('[API] registerConsumer: Updating backend URL', { walletAddress, organization: normalizedOrganization, backendUrl: normalizedBackendUrl });
-      const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
-        walletAddress,
-        normalizedOrganization,
-        normalizedBackendUrl
-      );
-      const backendReceipt = await backendTx.wait();
-      backendTxHash = backendReceipt?.hash ?? backendTx?.hash;
-      await recordProvisioningResult(payload.jti, {
-        status: 'in-progress',
-        txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
+        const writeContract = await getContractInstance('diamond', false);
+        let grantRoleTxHash = null;
+        let backendTxHash = null;
+        if (needsRoleGrant) {
+          await lease.assertActive();
+          const transaction = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
+          const receipt = await transaction.wait();
+          grantRoleTxHash = receipt?.hash ?? transaction?.hash;
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.INSTITUTION_ROLE_GRANTED,
+            txHashes: [grantRoleTxHash].filter(Boolean),
+            fencingToken: lease.fencingToken,
+          });
+        }
+
+        if (shouldUpdateBackend) {
+          await lease.assertActive();
+          const transaction = await writeContract.adminSetSchacHomeOrganizationBackend(
+            walletAddress, normalizedOrganization, normalizedBackendUrl,
+          );
+          const receipt = await transaction.wait();
+          backendTxHash = receipt?.hash ?? transaction?.hash;
+          await recordProvisioningResult(payload.jti, {
+            stage: PROVISIONING_SAGA_STAGES.BACKEND_REGISTERED,
+            txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
+            fencingToken: lease.fencingToken,
+          });
+        }
+
+        const txHashes = [grantRoleTxHash, backendTxHash].filter(Boolean);
+        await recordProvisioningResult(payload.jti, {
+          stage: PROVISIONING_SAGA_STAGES.ACTIVE,
+          txHashes,
+          fencingToken: lease.fencingToken,
+        });
+        return NextResponse.json({
+          success: true,
+          walletAddress,
+          grantRoleTxHash,
+          organization: normalizedOrganization,
+          backendUrl: normalizedBackendUrl || null,
+          backendTxHash,
+          txHashes,
+        }, { status: 201 });
+      }, {
+        waitMs: PROVISIONING_SIGNER_WAIT_MS,
+        onError: async (error, lease) => {
+          if (!(error instanceof IntentSignerUnavailableError)) {
+            await recordProvisioningResult(payload.jti, {
+              stage: PROVISIONING_SAGA_STAGES.FAILED,
+              errorCode: 'PROVISIONING_EXECUTION_FAILED',
+              fencingToken: lease.fencingToken,
+            });
+          }
+        },
       });
+    } catch (error) {
+      if (error instanceof IntentSignerBusyError) {
+        return NextResponse.json(
+          { error: 'Another institutional registration is being processed', code: 'PROVISIONING_SIGNER_BUSY' },
+          { status: 409 },
+        );
+      }
+      if (error instanceof IntentSignerUnavailableError) {
+        return NextResponse.json(
+          { error: 'Provisioning signer coordination is unavailable', code: 'PROVISIONING_SIGNER_UNAVAILABLE' },
+          { status: 503 },
+        );
+      }
+      throw error;
     }
-
-    await recordProvisioningResult(payload.jti, {
-      status: 'registered',
-      txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        walletAddress,
-        grantRoleTxHash,
-        organization: normalizedOrganization,
-        backendUrl: normalizedBackendUrl || null,
-        backendTxHash
-      },
-      { status: 201 }
-    );
 
   } catch (error) {
     devLog.error('[API] registerConsumer: Error', sanitizeErrorForLog(error));

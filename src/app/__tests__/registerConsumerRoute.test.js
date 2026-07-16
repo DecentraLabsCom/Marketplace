@@ -66,8 +66,28 @@ jest.mock('@/utils/auth/provisioningReplayStore', () => {
   class ProvisioningReplayError extends Error {}
   return {
     ProvisioningReplayError,
-    consumeProvisioningJti: jest.fn(),
-    updateProvisioningAudit: jest.fn(),
+    startOrResumeProvisioningSaga: jest.fn(),
+    advanceProvisioningSaga: jest.fn(),
+    PROVISIONING_SAGA_STAGES: {
+      WALLET_VERIFIED: 'WALLET_VERIFIED',
+      INSTITUTION_ROLE_GRANTED: 'INSTITUTION_ROLE_GRANTED',
+      BACKEND_REGISTERED: 'BACKEND_REGISTERED',
+      ACTIVE: 'ACTIVE',
+    },
+  };
+});
+
+jest.mock('@/utils/intents/intentNonceStore', () => {
+  class IntentSignerBusyError extends Error {}
+  class IntentSignerUnavailableError extends Error {}
+  return {
+    IntentSignerBusyError,
+    IntentSignerUnavailableError,
+    getServerSignerAddress: jest.fn(() => '0x00000000000000000000000000000000000000a1'),
+    withIntentSignerLock: jest.fn((_signer, callback) => callback({
+      fencingToken: 7,
+      assertActive: jest.fn(),
+    })),
   };
 });
 
@@ -99,9 +119,10 @@ jest.mock('next/headers', () => ({
 import { verifyProvisioningToken } from '@/utils/auth/provisioningToken';
 import { recoverProvisioningWalletAddress } from '@/utils/auth/provisioningTypedData';
 import {
-  consumeProvisioningJti,
-  updateProvisioningAudit,
+  startOrResumeProvisioningSaga,
+  advanceProvisioningSaga,
 } from '@/utils/auth/provisioningReplayStore';
+import { getServerSignerAddress, withIntentSignerLock } from '@/utils/intents/intentNonceStore';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { headers } from 'next/headers';
 import { POST } from '../api/institutions/registerConsumer/route.js';
@@ -127,7 +148,11 @@ describe('/api/institutions/registerConsumer route', () => {
       if (!signature) throw new Error('Wallet signature is required');
       return '0x1234567890123456789012345678901234567890';
     });
-    consumeProvisioningJti.mockResolvedValue('provisioning:jti:consumer-jti');
+    startOrResumeProvisioningSaga.mockResolvedValue({
+      resumed: false,
+      record: { jti: 'consumer-jti', stage: 'WALLET_VERIFIED' },
+    });
+    advanceProvisioningSaga.mockResolvedValue({});
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
@@ -253,6 +278,7 @@ describe('/api/institutions/registerConsumer route', () => {
 
     const readContract = {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue(null),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(''),
     };
 
     const writeContract = {
@@ -293,18 +319,25 @@ describe('/api/institutions/registerConsumer route', () => {
       'example.edu',
       'https://auth.example.com',
     );
-    expect(consumeProvisioningJti).toHaveBeenCalledWith(
+    expect(startOrResumeProvisioningSaga).toHaveBeenCalledWith(
       expect.objectContaining({ jti: 'consumer-jti', walletAddress })
     );
-    expect(updateProvisioningAudit).toHaveBeenCalledWith('consumer-jti', {
-      status: 'in-progress',
+    expect(getServerSignerAddress).toHaveBeenCalled();
+    expect(withIntentSignerLock).toHaveBeenCalledWith(
+      '0x00000000000000000000000000000000000000a1',
+      expect.any(Function),
+      expect.objectContaining({ waitMs: expect.any(Number) }),
+    );
+    expect(advanceProvisioningSaga).toHaveBeenCalledWith('consumer-jti', expect.objectContaining({
+      stage: 'INSTITUTION_ROLE_GRANTED',
       txHashes: ['0xgrantrolehash'],
-    });
-    expect(updateProvisioningAudit).toHaveBeenLastCalledWith('consumer-jti', {
-      status: 'registered',
+      fencingToken: 7,
+    }));
+    expect(advanceProvisioningSaga).toHaveBeenLastCalledWith('consumer-jti', expect.objectContaining({
+      stage: 'ACTIVE',
       txHashes: ['0xgrantrolehash', '0xbackendhash'],
-    });
-    expect(consumeProvisioningJti.mock.invocationCallOrder[0]).toBeLessThan(
+    }));
+    expect(withIntentSignerLock.mock.invocationCallOrder[0]).toBeLessThan(
       writeContract.grantInstitutionRole.mock.invocationCallOrder[0]
     );
   });

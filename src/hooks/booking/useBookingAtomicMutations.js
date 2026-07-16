@@ -89,10 +89,9 @@ const emitReservationProgress = (requestData, stage, details = {}) => {
   }
 };
 
-const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, popup, presenceFn } = {}) => {
+const awaitBackendAuthorization = async (prepareData, { backendUrl, popup, presenceFn } = {}) => {
   return awaitIntentAuthorization(prepareData, {
     backendUrl,
-    authToken,
     popup,
     presenceFn,
     source: 'booking-intent-authorization',
@@ -128,10 +127,8 @@ async function runActionIntent(action, payload) {
     );
   }
 
-  const authToken = prepareData?.backendAuthToken || null;
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
     backendUrl: prepareData?.backendUrl,
-    authToken,
   });
   const authorizationRequestId =
     authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
@@ -157,8 +154,6 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
-      backendAuthToken: authToken,
-      backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
   throw createAuthorizationCancelledError('Authorization session unavailable');
@@ -220,11 +215,9 @@ export const useReservationRequestSSO = (options = {}) => {
         blockNumber: prepareData?.onChain?.blockNumber || null,
       });
 
-      const authToken = prepareData?.backendAuthToken || null
       emitReservationProgress(requestData, 'awaiting_authorization');
       const authorizationStatus = await awaitBackendAuthorization(prepareData, {
         backendUrl: prepareData?.backendUrl,
-        authToken,
         popup: authorizationPopup,
       })
       const authorizationRequestId =
@@ -252,8 +245,6 @@ export const useReservationRequestSSO = (options = {}) => {
           requestId,
           intent: prepareData.intent,
           authorization: authorizationStatus,
-          backendAuthToken: authToken,
-          backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
         }
       }
       throw createAuthorizationCancelledError('Authorization session unavailable')
@@ -272,8 +263,6 @@ export const useReservationRequestSSO = (options = {}) => {
           data?.intent?.reservationKey ||
           intentId ||
           `intent-${Date.now()}`;
-        const authToken = data?.backendAuthToken;
-
         // Optimistic booking for lab calendars (SSO flow)
         try {
           addBooking(
@@ -320,7 +309,6 @@ export const useReservationRequestSSO = (options = {}) => {
           (async () => {
             try {
               const result = await pollIntentStatus(intentId, { 
-                authToken, 
                 backendUrl: data?.backendUrl || variables.backendUrl 
               });
               const status = result?.status;
@@ -507,7 +495,6 @@ export const useCancelReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.backendAuthToken;
         updateBooking(reservationKey, {
           reservationKey,
           intentRequestId: intentId,
@@ -535,7 +522,6 @@ export const useCancelReservationRequestSSO = (options = {}) => {
           (async () => {
             try {
               const result = await pollIntentStatus(intentId, {
-                authToken,
                 backendUrl: data?.backendUrl || institutionBackendUrl,
                 signal: abortController.signal,
               });
@@ -701,13 +687,10 @@ export const useCancelBookingSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.backendAuthToken;
-
         if (intentId) {
           (async () => {
             try {
               const result = await pollIntentStatus(intentId, {
-                authToken,
                 backendUrl: data?.backendUrl || institutionBackendUrl,
               });
               const status = result?.status;

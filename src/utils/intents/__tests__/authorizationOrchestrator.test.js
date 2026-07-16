@@ -39,22 +39,19 @@ describe('authorizationOrchestrator', () => {
     ).toBe('https://institution.example')
   })
 
-  test('pollIntentPresence returns present when backend has the intent', async () => {
+  test('pollIntentPresence uses the same-origin proxy in the browser', async () => {
     global.fetch.mockResolvedValueOnce({ ok: true, status: 200 })
 
     const status = await pollIntentPresence('req-1', {
       backendUrl: 'https://institution.example',
-      authToken: 'token-1',
     })
 
     expect(status).toBe('present')
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://institution.example/intents/req-1',
+      '/api/backend/intents/req-1',
       expect.objectContaining({
         method: 'GET',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-1',
-        }),
+        headers: { 'Content-Type': 'application/json' },
       })
     )
   })

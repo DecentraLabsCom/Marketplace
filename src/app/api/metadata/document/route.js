@@ -2,28 +2,12 @@ import { NextResponse } from 'next/server'
 import {
   institutionalBackendFetch,
 } from '@/utils/api/gatewayProxy'
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
+import { assertDeclaredLabResource, MetadataFetchError } from '@/utils/metadata/metadataPolicy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 const checkRate = createRateLimiter({ operation: 'metadata-document', windowMs: 60_000, maxRequests: 30 })
-
-const configuredMetadataOrigins = () => String(process.env.ALLOWED_METADATA_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
-
-const configuredBlobOrigin = () => {
-  try {
-    const blobUrl = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
-    return blobUrl.protocol === 'https:' && !blobUrl.username && !blobUrl.password
-      ? blobUrl.origin
-      : null
-  } catch {
-    return null
-  }
-}
 
 const normalizeLabId = (value) => {
   try {
@@ -59,8 +43,8 @@ const responseHeaders = (contentType, disposition) => ({
 
 /**
  * Proxy lab documents through the Marketplace so the browser never embeds an
- * arbitrary provider origin. Only exact HTTPS origins trusted on-chain (or
- * explicitly configured) are eligible.
+ * arbitrary provider origin. Only exact URLs declared in the laboratory's
+ * exact on-chain metadata are eligible.
  */
 export async function GET(request) {
   const rateLimitResponse = createRateLimitResponse(await checkRate(request))
@@ -98,21 +82,9 @@ export async function GET(request) {
   }
 
   try {
-    const trustedOrigins = new Set([
-      ...configuredMetadataOrigins(),
-      configuredBlobOrigin(),
-      ...(await resolveProviderMetadataOrigins({ labId })),
-    ].filter(Boolean))
+    const declaredUri = await assertDeclaredLabResource(labId, parsedUri.toString(), 'document')
 
-    if (!trustedOrigins.has(parsedUri.origin)) {
-      return publicErrorResponse({
-        status: 403,
-        code: 'DOCUMENT_ORIGIN_NOT_ALLOWED',
-        message: 'This document origin is not trusted for the laboratory.',
-      })
-    }
-
-    const upstreamResponse = await institutionalBackendFetch(parsedUri.toString(), {
+    const upstreamResponse = await institutionalBackendFetch(declaredUri, {
       cache: 'no-store',
     })
 
@@ -157,6 +129,15 @@ export async function GET(request) {
       headers: responseHeaders(contentType, disposition),
     })
   } catch (error) {
+    if (error instanceof MetadataFetchError) {
+      return publicErrorResponse({
+        status: error.status,
+        code: error.code,
+        message: 'This document is not declared for the laboratory.',
+        error,
+        context: 'metadata-document-declaration',
+      })
+    }
     return publicErrorResponse({
       status: 502,
       code: 'DOCUMENT_FETCH_FAILED',

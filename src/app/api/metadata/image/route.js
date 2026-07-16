@@ -1,5 +1,5 @@
-import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
+import { assertDeclaredLabResource, MetadataFetchError } from '@/utils/metadata/metadataPolicy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 
@@ -11,29 +11,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
   'image/png',
   'image/webp',
 ])
-const DEFAULT_IMAGE_ORIGINS = [
-  'https://ipfs.io',
-  'https://cloudflare-ipfs.com',
-  'https://gateway.pinata.cloud',
-  'https://nftstorage.link',
-]
 const checkRate = createRateLimiter({ operation: 'metadata-image', windowMs: 60_000, maxRequests: 120 })
-
-const configuredMetadataOrigins = () => String(process.env.ALLOWED_METADATA_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
-
-const configuredBlobOrigin = () => {
-  try {
-    const blobUrl = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
-    return blobUrl.protocol === 'https:' && !blobUrl.username && !blobUrl.password
-      ? blobUrl.origin
-      : null
-  } catch {
-    return null
-  }
-}
 
 const normalizeLabId = (value) => {
   try {
@@ -55,8 +33,8 @@ const responseHeaders = (contentType) => ({
 
 /**
  * Proxy trusted lab images through the Marketplace origin. The browser only
- * sees a same-origin URL, while the server still validates the lab/provider
- * relationship before fetching the remote bytes.
+ * sees a same-origin URL, while the server verifies that the exact resource
+ * is declared in the laboratory's exact on-chain metadata document.
  */
 export async function GET(request) {
   const rateLimitResponse = createRateLimitResponse(await checkRate(request))
@@ -94,22 +72,9 @@ export async function GET(request) {
   }
 
   try {
-    const trustedOrigins = new Set([
-      ...DEFAULT_IMAGE_ORIGINS,
-      ...configuredMetadataOrigins(),
-      configuredBlobOrigin(),
-      ...(await resolveProviderMetadataOrigins({ labId })),
-    ].filter(Boolean))
+    const declaredUri = await assertDeclaredLabResource(labId, parsedUri.toString(), 'image')
 
-    if (!trustedOrigins.has(parsedUri.origin)) {
-      return publicErrorResponse({
-        status: 403,
-        code: 'IMAGE_ORIGIN_NOT_ALLOWED',
-        message: 'This image origin is not trusted for the laboratory.',
-      })
-    }
-
-    const upstreamResponse = await institutionalBackendFetch(parsedUri.toString(), {
+    const upstreamResponse = await institutionalBackendFetch(declaredUri, {
       cache: 'no-store',
     })
 
@@ -160,6 +125,15 @@ export async function GET(request) {
       headers: responseHeaders(contentType),
     })
   } catch (error) {
+    if (error instanceof MetadataFetchError) {
+      return publicErrorResponse({
+        status: error.status,
+        code: error.code,
+        message: 'This image is not declared for the laboratory.',
+        error,
+        context: 'metadata-image-declaration',
+      })
+    }
     return publicErrorResponse({
       status: 502,
       code: 'IMAGE_FETCH_FAILED',

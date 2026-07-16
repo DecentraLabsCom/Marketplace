@@ -35,28 +35,26 @@ export const resolveAuthorizationStatusBaseUrl = (authorizationUrl, backendUrl) 
 
 export const pollIntentPresence = async (requestId, {
   backendUrl,
-  authToken,
   maxDurationMs = 2500,
   initialDelayMs = 300,
   maxDelayMs = 800,
   stopOnUnexpected4xx = false,
 } = {}) => {
-  if (!backendUrl || !requestId) return 'unknown'
+  if (!requestId) return 'unknown'
 
   let delay = initialDelayMs
   const start = Date.now()
-  const normalizedBackend = backendUrl.replace(/\/$/, '')
+  const isBrowser = typeof window !== 'undefined'
+  if (!isBrowser && !backendUrl) return 'unknown'
+  const normalizedBackend = backendUrl?.replace(/\/$/, '')
 
   while (Date.now() - start <= maxDurationMs) {
     try {
-      const headers = { 'Content-Type': 'application/json' }
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
-        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`
-        headers.Authorization = value
-      }
-      const res = await fetch(`${normalizedBackend}/intents/${requestId}`, {
+      const res = await fetch(isBrowser
+        ? `/api/backend/intents/${encodeURIComponent(requestId)}`
+        : `${normalizedBackend}/intents/${requestId}`, {
         method: 'GET',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
       })
       if (res.ok) {
         return 'present'
@@ -83,7 +81,6 @@ export const pollIntentPresence = async (requestId, {
 
 export async function awaitIntentAuthorization(prepareData, {
   backendUrl,
-  authToken,
   popup,
   presenceFn,
   source = 'intent-authorization',
@@ -149,7 +146,6 @@ export async function awaitIntentAuthorization(prepareData, {
 
   const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: statusBackendUrl,
-    authToken: authToken || prepareData?.backendAuthToken,
   }).catch((error) => ({ __pollError: error }))
 
   let status
@@ -167,7 +163,6 @@ export async function awaitIntentAuthorization(prepareData, {
         const presenceChecker = presenceFn || pollIntentPresence
         const intentPresencePromise = presenceChecker(requestId, {
           backendUrl: prepareData?.backendUrl || backendUrl,
-          authToken: authToken || prepareData?.backendAuthToken,
           stopOnUnexpected4xx,
         })
         const graceResult = await graceResultPromise

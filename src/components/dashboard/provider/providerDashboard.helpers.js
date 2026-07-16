@@ -68,6 +68,7 @@ export function isLabIdListCache(entries) {
 export function resolveOnchainLabUri(
   uri,
   {
+    labId = null,
     blobBaseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL,
     resolveBaseUrl = getBaseUrl,
   } = {}
@@ -88,7 +89,9 @@ export function resolveOnchainLabUri(
     }
 
     const baseUrl = resolveBaseUrl().replace(/\/+$/, '')
-    return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
+    const params = new URLSearchParams({ uri: trimmed })
+    if (labId !== null && labId !== undefined && labId !== '') params.set('labId', String(labId))
+    return `${baseUrl}/api/metadata?${params.toString()}`
   }
 
   return trimmed
