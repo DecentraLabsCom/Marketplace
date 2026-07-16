@@ -158,8 +158,8 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
 
     {isMaximized && currentDoc && createPortal(
       <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Maximized document viewer">
-        <div className="relative h-[90vh] w-full max-w-6xl rounded-lg bg-white p-2">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="relative flex h-[94vh] max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col rounded-lg bg-white p-2">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
             <div className="text-sm font-medium text-gray-700">Document viewer</div>
             <div className="flex gap-2">
               <a
@@ -187,14 +187,16 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
               </button>
             </div>
           </div>
-          <MediaDisplayWithFallback
-            mediaPath={currentDoc.source}
-            mediaType={'doc'}
-            title={'maximized document'}
-            height="100%"
-            width="100%"
-            className="rounded"
-          />
+          <div className="min-h-0 flex-1 overflow-hidden pb-2">
+            <MediaDisplayWithFallback
+              mediaPath={currentDoc.source}
+              mediaType={'doc'}
+              title={'maximized document'}
+              height="100%"
+              width="100%"
+              className="rounded"
+            />
+          </div>
         </div>
       </div>,
       document.body

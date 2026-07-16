@@ -84,6 +84,20 @@ describe('DocsCarrousel', () => {
       
       expect(container.firstChild).toHaveStyle({ height: '200px' });
     });
+
+    test('should give the maximized viewer a taller, bounded layout', () => {
+      render(<DocsCarrousel docs={singleDoc} labId={7} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /maximize document/i }));
+
+      const dialog = screen.getByRole('dialog', { name: /maximized document viewer/i });
+      const viewer = dialog.querySelector('.h-\\[94vh\\]');
+      const mediaContainer = dialog.querySelector('.min-h-0.flex-1');
+
+      expect(viewer).toBeInTheDocument();
+      expect(viewer).toHaveClass('max-h-[calc(100vh-2rem)]', 'flex-col');
+      expect(mediaContainer).toHaveClass('overflow-hidden', 'pb-2');
+    });
   });
 
   describe('Navigation', () => {
