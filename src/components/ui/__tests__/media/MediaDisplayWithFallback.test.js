@@ -115,7 +115,7 @@ describe('MediaDisplayWithFallback', () => {
       });
     });
 
-    test('sandboxes document frames and suppresses the referrer', async () => {
+    test('keeps document frames same-origin and suppresses the referrer', async () => {
       global.fetch.mockResolvedValue({
         ok: true,
         headers: { get: jest.fn((name) => name === 'Content-Type' ? 'application/pdf' : '') },
@@ -133,7 +133,7 @@ describe('MediaDisplayWithFallback', () => {
 
       await waitFor(() => {
         const frame = screen.getByTitle('Safe document');
-        expect(frame).toHaveAttribute('sandbox', 'allow-downloads');
+        expect(frame).not.toHaveAttribute('sandbox');
         expect(frame).toHaveAttribute('referrerpolicy', 'no-referrer');
         expect(frame).toHaveAttribute('allow', '');
       });

@@ -353,7 +353,6 @@ export default function MediaDisplayWithFallback({
             height={height} 
             width={width} 
             className={className}
-            sandbox="allow-downloads"
             referrerPolicy="no-referrer"
             allow=""
             onError={() => {

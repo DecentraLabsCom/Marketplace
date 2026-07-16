@@ -54,7 +54,7 @@ const responseHeaders = (contentType, disposition) => ({
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'SAMEORIGIN',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'; sandbox",
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'",
 })
 
 /**

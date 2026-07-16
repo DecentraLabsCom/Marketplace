@@ -55,7 +55,7 @@ describe('GET /api/metadata/document', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Disposition')).toBe('attachment; filename="guide.html"')
-    expect(response.headers.get('Content-Security-Policy')).toBe("default-src 'none'; frame-ancestors 'self'; sandbox")
+    expect(response.headers.get('Content-Security-Policy')).toBe("default-src 'none'; frame-ancestors 'self'")
     expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN')
   })
 })
