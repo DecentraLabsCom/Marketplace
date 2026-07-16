@@ -187,8 +187,15 @@ describe("FMU Provider - Create FMU resource", () => {
   });
 
   it("should auto-detect FMU metadata from gateway", () => {
-    // Mock the describe API endpoint
-    cy.intercept("GET", "/api/simulations/describe*", {
+    // New FMU resources describe the model directly through the provider's
+    // accessURI. The Marketplace BFF is only used once the lab is registered
+    // and its on-chain accessURI can be resolved server-side.
+    cy.intercept("GET", "/api/fmu/provider-describe-token*", {
+      statusCode: 200,
+      body: { token: "test-describe-token" },
+    }).as("describeToken");
+
+    cy.intercept("GET", "https://gateway.example.test/fmu/api/v1/simulations/describe*", {
       statusCode: 200,
       body: {
         fmiVersion: "2.0",
