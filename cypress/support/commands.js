@@ -61,6 +61,11 @@ const getQueryParam = (url, key) => {
   }
 };
 
+const isFmuResource = (lab) => {
+  const resourceType = String(lab?.resourceType ?? "").trim().toLowerCase();
+  return lab?.resourceType === 1 || resourceType === "1" || resourceType === "fmu";
+};
+
 /**
  * Mock lab and provider APIs used by market, lab detail, reservation,
  * and provider dashboard views.
@@ -130,7 +135,7 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
       .filter((lab) => !category || (Array.isArray(lab.category) ? lab.category : [lab.category])
         .some((value) => String(value || "").toLowerCase() === category))
       .filter((lab) => !provider || String(lab.provider || "").toLowerCase() === provider)
-      .filter((lab) => !resourceType || (resourceType === "fmu" ? Number(lab.resourceType) === 1 : Number(lab.resourceType) !== 1));
+      .filter((lab) => !resourceType || (resourceType === "fmu" ? isFmuResource(lab) : !isFmuResource(lab)));
     if (sort === "price_asc" || sort === "price_desc") {
       filteredLabs.sort((left, right) => {
         const comparison = BigInt(left.price || "0") - BigInt(right.price || "0");
