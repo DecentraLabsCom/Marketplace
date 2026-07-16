@@ -14,7 +14,8 @@
  */
 
 // Testing utilities from React Testing Library
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
 // Mock Next.js Link component
@@ -300,14 +301,19 @@ describe("ActiveLabCard", () => {
       expect(screen.getByRole("button", { name: "Cancel Booking" })).toBeInTheDocument();
     });
 
-    test("triggers onBookingAction with booking payload", () => {
+    test("requires confirmation before triggering an upcoming cancellation", async () => {
+      const user = userEvent.setup();
       const onBookingAction = jest.fn();
       renderCard({
         actionLabel: "Cancel Booking",
         onBookingAction,
       });
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancel Booking" }));
+      await user.click(screen.getByRole("button", { name: "Cancel Booking" }));
+      expect(onBookingAction).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog", { name: /cancel reservation/i })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^cancel reservation$/i }));
       expect(onBookingAction).toHaveBeenCalledWith(expect.objectContaining({ reservationKey: "abc123xyz" }));
     });
   });

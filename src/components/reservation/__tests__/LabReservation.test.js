@@ -36,6 +36,14 @@ jest.mock("@/components/reservation/LabDetailsPanel", () => () => (
   <div data-testid="lab-details-panel">Lab Details Panel</div>
 ))
 
+jest.mock("@/components/reservation/ReservationReviewDialog", () => ({ review, onConfirm, onCancel }) => (
+  <div data-testid="reservation-review">
+    <span>{review.labName}</span>
+    <button type="button" onClick={onCancel}>Cancel review</button>
+    <button type="button" onClick={onConfirm}>Confirm reservation</button>
+  </div>
+))
+
 jest.mock("@/components/ui", () => ({
   Container: ({ children, className }) => (
     <div data-testid="container" className={className}>
@@ -116,6 +124,7 @@ describe("LabReservation Component", () => {
       maxDate: new Date("2024-12-31"),
       availableTimes: [{ value: "10:00", label: "10:00", disabled: false }],
       totalCost: BigInt(100),
+      creditBalance: BigInt(1_000),
       bookingStage: "idle",
       isFlowLocked: false,
       ssoBookingStage: "idle",
@@ -152,7 +161,7 @@ describe("LabReservation Component", () => {
     })
   })
 
-  test("submits an institutional reservation request", async () => {
+  test("requires final review confirmation before submitting an institutional reservation request", async () => {
     mockReservationRequestMutation.mutateAsync.mockResolvedValueOnce({
       requestId: "reservation-1",
       intent: { payload: { reservationKey: "reservation-1" } },
@@ -161,6 +170,9 @@ describe("LabReservation Component", () => {
     renderWithProviders(<LabReservation id="1" />)
 
     fireEvent.click(await screen.findByRole("button", { name: /book now/i }))
+
+    expect(mockReservationRequestMutation.mutateAsync).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm reservation' }))
 
     await waitFor(() => {
       expect(mockReservationRequestMutation.mutateAsync).toHaveBeenCalled()

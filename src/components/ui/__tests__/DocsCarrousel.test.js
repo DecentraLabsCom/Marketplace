@@ -68,9 +68,10 @@ describe('DocsCarrousel', () => {
       const docsWithNull = ['https://docs.example.edu/doc1.pdf', null, 'https://docs.example.edu/doc2.pdf'];
       render(<DocsCarrousel docs={docsWithNull} labId={7} />);
       
-      // Only valid documents should be rendered (filter removes null/undefined)
+      // Only the active document is mounted; the rest are not fetched until selected.
       const mediaDisplays = screen.getAllByTestId('media-display');
-      expect(mediaDisplays).toHaveLength(2);
+      expect(mediaDisplays).toHaveLength(1);
+      expect(screen.queryByText('doc 2')).not.toBeInTheDocument();
     });
 
     test('should apply custom maxHeight', () => {

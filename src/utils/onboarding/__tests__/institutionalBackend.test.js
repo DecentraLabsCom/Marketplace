@@ -6,6 +6,9 @@ import {
   resolveInstitutionalBackendUrl,
   hasInstitutionalBackend,
   clearBackendCache,
+  denyInstitutionalBackend,
+  restoreInstitutionalBackend,
+  invalidateInstitutionalBackend,
   INSTITUTIONAL_BACKEND_CACHE_TTL_MS,
 } from '../institutionalBackend'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
@@ -85,5 +88,32 @@ describe('institutionalBackend', () => {
     expect(second).toBe('https://backend.uned.es')
     expect(refreshed).toBe('https://changed.example')
     expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(2)
+  })
+
+  test('invalidates a resolved backend immediately after a registry update event', async () => {
+    mockContract.getSchacHomeOrganizationBackend
+      .mockResolvedValueOnce('https://old-backend.example')
+      .mockResolvedValueOnce('https://new-backend.example')
+
+    await expect(resolveInstitutionalBackendUrl('uned.es')).resolves.toBe('https://old-backend.example')
+    await invalidateInstitutionalBackend('uned.es')
+    await expect(resolveInstitutionalBackendUrl('uned.es')).resolves.toBe('https://new-backend.example')
+
+    expect(mockContract.getSchacHomeOrganizationBackend).toHaveBeenCalledTimes(2)
+  })
+
+  test('does not resolve a backend under emergency denylist until restored', async () => {
+    mockContract.getSchacHomeOrganizationBackend.mockResolvedValue('https://backend.uned.es')
+
+    await denyInstitutionalBackend('uned.es', { ttlSeconds: 60 })
+    await expect(resolveInstitutionalBackendUrl('uned.es')).resolves.toBeNull()
+    expect(mockContract.getSchacHomeOrganizationBackend).not.toHaveBeenCalled()
+
+    await restoreInstitutionalBackend('uned.es')
+    await expect(resolveInstitutionalBackendUrl('uned.es')).resolves.toBe('https://backend.uned.es')
+  })
+
+  test('keeps the sensitive backend resolution TTL at one minute or less', () => {
+    expect(INSTITUTIONAL_BACKEND_CACHE_TTL_MS).toBeLessThanOrEqual(60_000)
   })
 })

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import Carrousel from '@/components/ui/Carrousel'
+import Modal from '@/components/ui/Modal'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 
 /**
@@ -18,6 +19,8 @@ import { useOptimisticUI } from '@/context/OptimisticUIContext'
  */
 const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDelete, onList, onUnlist }) {
   const { getEffectiveListingState, getEffectiveLabState } = useOptimisticUI();
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [typedLabName, setTypedLabName] = React.useState('')
   
   // Get effective listing state (optimistic UI overrides server state)
   const { isListed, isPending, operation } = getEffectiveListingState(lab.id, lab.isListed);
@@ -25,6 +28,18 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
   const labState = getEffectiveLabState(lab.id, {});
   const isDeleting = !!labState.deleting;
   const isEditing = !!labState.editing;
+  const isDeleteConfirmed = typedLabName === lab.name
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false)
+    setTypedLabName('')
+  }
+
+  const confirmDelete = () => {
+    if (!isDeleteConfirmed || isDeleting) return
+    closeDeleteDialog()
+    onDelete(lab.id)
+  }
 
   return (
     <div className="p-4 border border-gray-200 rounded shadow">
@@ -112,7 +127,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                       group-hover:opacity-100 transition-opacity duration-300" />
                     )}
                 </button>
-                <button onClick={() => onDelete(lab.id)}
+                <button onClick={() => setDeleteDialogOpen(true)}
                 disabled={isDeleting}
                 className={`relative bg-[#a87583] h-1/4 overflow-hidden group hover:font-bold ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
@@ -134,6 +149,47 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                 </button>
             </div>
         </div>
+        <Modal
+          isOpen={isDeleteDialogOpen}
+          onClose={closeDeleteDialog}
+          title="Delete this lab?"
+          size="md"
+        >
+          <div className="space-y-4 text-gray-700">
+            <p>This removes the listing and its application-managed metadata.</p>
+            <p>This action cannot be reversed from the Marketplace.</p>
+            <div>
+              <label htmlFor={`delete-lab-confirmation-${lab.id}`} className="block text-sm font-semibold">
+                Type the lab name to continue: <span className="font-normal">{lab.name}</span>
+              </label>
+              <input
+                id={`delete-lab-confirmation-${lab.id}`}
+                type="text"
+                value={typedLabName}
+                onChange={(event) => setTypedLabName(event.target.value)}
+                className="mt-2 w-full rounded border border-gray-300 px-3 py-2"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100"
+              >
+                Keep lab
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={!isDeleteConfirmed || isDeleting}
+                className="rounded bg-[#a87583] px-4 py-2 text-sm font-medium text-white hover:bg-[#8a5c66] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Delete lab
+              </button>
+            </div>
+          </div>
+        </Modal>
     </div>
   );
 });

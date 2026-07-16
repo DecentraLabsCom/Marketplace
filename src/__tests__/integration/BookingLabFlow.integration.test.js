@@ -381,7 +381,13 @@ describe("LabReservation Component", () => {
     // Click the book button
     bookButton.click();
 
-    // Verify booking mutation was called
+    // Booking opens an explicit final review; no credential request or mutation
+    // may occur until the user confirms those immutable details.
+    expect(mockMutation.mutateAsync).not.toHaveBeenCalled();
+    const confirmButton = await screen.findByRole("button", { name: /confirm reservation/i });
+    confirmButton.click();
+
+    // Verify booking mutation was called after confirmation
     await waitFor(() => {
       expect(mockMutation.mutateAsync).toHaveBeenCalled();
     });

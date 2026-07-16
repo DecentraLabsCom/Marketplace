@@ -7,17 +7,44 @@
 const moduleLoadLogs = new Set();
 
 export const isDebugEnabled = () => {
-  return String(process.env.NEXT_PUBLIC_DEBUG_MODE || '').toLowerCase() === 'true';
+  return process.env.NODE_ENV === 'development';
 };
 
 const isDevelopment = () => {
-  return process.env.NODE_ENV === 'development' || isDebugEnabled();
+  return process.env.NODE_ENV === 'development';
 };
+
+const SENSITIVE_FIELD = /(?:token|authorization|cookie|secret|password|assertion|credential|private[_-]?key|api[_-]?key)/i;
+const BEARER_VALUE = /\bbearer\s+[^\s,;]+/gi;
+
+function redactString(value) {
+  return value.replace(BEARER_VALUE, 'Bearer [REDACTED]');
+}
+
+function redactLogValue(value, seen = new WeakSet()) {
+  if (typeof value === 'string') return redactString(value);
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactString(String(value.message || '')),
+    };
+  }
+  if (Array.isArray(value)) return value.map((item) => redactLogValue(item, seen));
+
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key,
+    SENSITIVE_FIELD.test(key) ? '[REDACTED]' : redactLogValue(item, seen),
+  ]));
+}
 
 const emit = (method, ...args) => {
   if (!isDevelopment()) return;
   const logger = typeof console[method] === 'function' ? console[method] : console.log;
-  logger(...args);
+  logger(...args.map((arg) => redactLogValue(arg)));
 };
 
 const devLog = {

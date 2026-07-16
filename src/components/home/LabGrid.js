@@ -28,6 +28,8 @@ export default function LabGrid({
   hasMore = false,
   onLoadMore = null,
   loadingMore = false,
+  catalogueStatus = 'fresh',
+  snapshotAt = null,
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
@@ -50,16 +52,16 @@ export default function LabGrid({
     )
   }
 
-  // Empty state (also used for error cases)
+  // An unavailable catalogue is distinct from a valid catalogue with no labs.
   if (error || labs.length === 0) {
     return (
       <div className="text-center py-12" role={error ? 'alert' : 'status'} aria-live="polite">
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
           <h2 className="text-lg font-semibold text-gray-800 mb-2">
-            No Labs Found
+            {error ? 'Catalogue temporarily unavailable' : 'No Labs Found'}
           </h2>
           <p className="text-gray-600">
-            {emptyMessage}
+            {error ? 'Please try again shortly.' : emptyMessage}
           </p>
         </div>
         {!error && hasMore && typeof onLoadMore === 'function' && (
@@ -72,6 +74,18 @@ export default function LabGrid({
   // Lab grid
   return (
     <section>
+      {catalogueStatus === 'stale' && (
+        <div
+          className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+          aria-live="polite"
+        >
+          Catalogue temporarily unavailable. Showing data last updated at{' '}
+          <time dateTime={snapshotAt || undefined}>
+            {formatSnapshotTimestamp(snapshotAt)}
+          </time>.
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {labs.map((lab, index) => (
           <LabCard
@@ -97,6 +111,12 @@ export default function LabGrid({
       )}
     </section>
   )
+}
+
+function formatSnapshotTimestamp(snapshotAt) {
+  const timestamp = Date.parse(snapshotAt)
+  if (!Number.isFinite(timestamp)) return 'the last valid snapshot'
+  return new Date(timestamp).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC')
 }
 
 function LoadMoreButton({ loadingMore, onLoadMore }) {
@@ -138,4 +158,6 @@ LabGrid.propTypes = {
   hasMore: PropTypes.bool,
   onLoadMore: PropTypes.func,
   loadingMore: PropTypes.bool,
+  catalogueStatus: PropTypes.oneOf(['fresh', 'stale', 'unavailable']),
+  snapshotAt: PropTypes.string,
 }

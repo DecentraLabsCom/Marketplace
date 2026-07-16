@@ -32,6 +32,7 @@ import {
 import { enforceTemporaryUploadQuota, TemporaryUploadLimitError } from '@/utils/storage/temporaryUploads'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import { DocumentScanError, scanDocumentBuffer } from '@/utils/storage/documentMalwareScan'
 
 const checkRate = createRateLimiter({ operation: 'provider-upload-file', windowMs: 60_000, maxRequests: 20 })
 
@@ -233,6 +234,13 @@ export async function POST(req) {
           { status: 415 },
         );
       }
+      if (normalizedDestinationFolder === 'docs') {
+        await scanDocumentBuffer({
+          buffer: sourceBuffer,
+          contentType: detectedContentType,
+          filename: file.name,
+        });
+      }
       if (isTemporaryUpload) {
         await enforceTemporaryUploadQuota({
           publicRoot: path.join(process.cwd(), 'public'),
@@ -309,6 +317,17 @@ export async function POST(req) {
       );
 
     } catch (uploadError) {
+      if (uploadError instanceof DocumentScanError) {
+        return NextResponse.json(
+          {
+            error: uploadError.code === 'DOCUMENT_MALWARE_DETECTED'
+              ? 'The document did not pass the security scan.'
+              : 'Document scanning is temporarily unavailable.',
+            code: uploadError.code,
+          },
+          { status: uploadError.status },
+        );
+      }
       if (uploadError instanceof TemporaryUploadLimitError) {
         return NextResponse.json(
           { error: uploadError.message, code: uploadError.code },

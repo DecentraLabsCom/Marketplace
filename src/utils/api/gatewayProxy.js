@@ -2,6 +2,8 @@
 import { BlockList, isIP } from 'node:net'
 import { lookup } from 'node:dns/promises'
 import { Agent } from 'undici'
+import { createHash } from 'node:crypto'
+import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
 const PRIVATE_IP_BLOCKLIST = (() => {
   const list = new BlockList()
@@ -42,6 +44,10 @@ const PRIVATE_IP_BLOCKLIST = (() => {
 
 const PINNED_AGENTS = new Map()
 const MAX_PINNED_AGENTS = 64
+const INSTITUTIONAL_CIRCUIT_FAILURE_THRESHOLD = 3
+const INSTITUTIONAL_CIRCUIT_WINDOW_SECONDS = 60
+const INSTITUTIONAL_CIRCUIT_COOLDOWN_SECONDS = 60
+const localInstitutionalCircuits = new Map()
 
 const ALLOWED_GATEWAY_ORIGINS = (process.env.ALLOWED_GATEWAY_ORIGINS || '')
   .split(',')
@@ -53,6 +59,70 @@ export class GatewayValidationError extends Error {
     super(message)
     this.name = 'GatewayValidationError'
     this.status = status
+  }
+}
+
+const institutionalCircuitKey = (prefix, origin) => `${prefix}${createHash('sha256')
+  .update(origin)
+  .digest('hex')}`
+
+const institutionalCircuitKeys = (origin) => ({
+  failures: institutionalCircuitKey('marketplace:institutional-backend:circuit:failures:', origin),
+  open: institutionalCircuitKey('marketplace:institutional-backend:circuit:open:', origin),
+})
+
+function localCircuitIsOpen(origin, now = Date.now()) {
+  const state = localInstitutionalCircuits.get(origin)
+  if (!state) return false
+  if (state.openUntil > now) return true
+  if (state.windowUntil <= now) localInstitutionalCircuits.delete(origin)
+  return false
+}
+
+async function isInstitutionalCircuitOpen(origin) {
+  if (localCircuitIsOpen(origin)) return true
+  if (!hasRedisConfig()) return false
+  try {
+    return Boolean(await redisCommand(['GET', institutionalCircuitKeys(origin).open]))
+  } catch {
+    return false
+  }
+}
+
+async function recordInstitutionalBackendFailure(origin) {
+  const now = Date.now()
+  const state = localInstitutionalCircuits.get(origin)
+  const windowUntil = state?.windowUntil > now
+    ? state.windowUntil
+    : now + INSTITUTIONAL_CIRCUIT_WINDOW_SECONDS * 1000
+  const failures = state?.windowUntil > now ? state.failures + 1 : 1
+  const openUntil = failures >= INSTITUTIONAL_CIRCUIT_FAILURE_THRESHOLD
+    ? now + INSTITUTIONAL_CIRCUIT_COOLDOWN_SECONDS * 1000
+    : 0
+  localInstitutionalCircuits.set(origin, { failures, windowUntil, openUntil })
+
+  if (!hasRedisConfig()) return
+  try {
+    const keys = institutionalCircuitKeys(origin)
+    const total = Number(await redisCommand(['INCR', keys.failures]))
+    if (total === 1) {
+      await redisCommand(['EXPIRE', keys.failures, String(INSTITUTIONAL_CIRCUIT_WINDOW_SECONDS)])
+    }
+    if (total >= INSTITUTIONAL_CIRCUIT_FAILURE_THRESHOLD) {
+      await redisCommand(['SET', keys.open, '1', 'EX', String(INSTITUTIONAL_CIRCUIT_COOLDOWN_SECONDS)])
+    }
+  } catch {
+    // A process-local breaker still protects this instance if Redis is down.
+  }
+}
+
+async function recordInstitutionalBackendSuccess(origin) {
+  localInstitutionalCircuits.delete(origin)
+  if (!hasRedisConfig()) return
+  try {
+    await redisCommand(['DEL', institutionalCircuitKeys(origin).failures])
+  } catch {
+    // The short Redis TTL self-heals if the cleanup request fails.
   }
 }
 
@@ -310,12 +380,26 @@ export async function institutionalBackendFetch(rawUrl, init = {}) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new GatewayValidationError('Unsupported institutional backend protocol')
   }
+  if (await isInstitutionalCircuitOpen(url.origin)) {
+    throw new GatewayValidationError('Institutional backend circuit is open', 503)
+  }
   const resolved = await assertInstitutionalBackendResolvesPublic(url)
-  const response = await fetch(url.toString(), {
-    ...init,
-    redirect: 'manual',
-    ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
-  })
+  let response
+  try {
+    response = await fetch(url.toString(), {
+      ...init,
+      redirect: 'manual',
+      ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+    })
+  } catch (error) {
+    await recordInstitutionalBackendFailure(url.origin)
+    throw error
+  }
+  if (response.status >= 500 || response.status === 429) {
+    await recordInstitutionalBackendFailure(url.origin)
+  } else {
+    await recordInstitutionalBackendSuccess(url.origin)
+  }
   if ([301, 302, 303, 307, 308].includes(response.status)) {
     throw new GatewayValidationError('Institutional backend redirects are not allowed', 502)
   }

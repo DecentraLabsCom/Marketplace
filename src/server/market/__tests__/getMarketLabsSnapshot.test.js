@@ -29,13 +29,19 @@ jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { buildEnrichedLab } from '@/hooks/lab/labEnrichmentHelpers'
 import { loadMetadataDocument } from '@/utils/metadata/metadataPolicy'
-import { getMarketLabsSnapshot } from '../getMarketLabsSnapshot'
+import {
+  getMarketLabsSnapshot,
+  MARKET_CATALOGUE_STATUS,
+  MARKET_SNAPSHOT_FRESHNESS_MS,
+} from '../getMarketLabsSnapshot'
+import { clearMarketSnapshotStoreForTests } from '../marketSnapshotStore'
 
 describe('getMarketLabsSnapshot', () => {
   let contract
 
   beforeEach(() => {
     jest.clearAllMocks()
+    clearMarketSnapshotStoreForTests()
     contract = {
       getLabsPaginated: jest.fn().mockResolvedValue([[7], 1]),
       getLabProviders: jest.fn().mockResolvedValue([{
@@ -125,5 +131,49 @@ describe('getMarketLabsSnapshot', () => {
       id: 7,
       isListed: false,
     })])
+  })
+
+  test('reuses the persisted page snapshot instead of repeating the RPC fan-out', async () => {
+    await getMarketLabsSnapshot()
+    await getMarketLabsSnapshot()
+
+    expect(contract.getLabsPaginated).toHaveBeenCalledTimes(1)
+    expect(contract.getLab).toHaveBeenCalledTimes(1)
+    expect(contract.ownerOf).toHaveBeenCalledTimes(1)
+    expect(contract.isTokenListed).toHaveBeenCalledTimes(1)
+    expect(contract.getLabReputation).toHaveBeenCalledTimes(1)
+    expect(loadMetadataDocument).toHaveBeenCalledTimes(1)
+  })
+
+  test('keeps the last valid snapshot and marks it stale when revalidation fails', async () => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2026-07-15T10:42:00.000Z'))
+    const freshSnapshot = await getMarketLabsSnapshot()
+
+    contract.getLabsPaginated.mockRejectedValue(new Error('RPC unavailable'))
+    jest.advanceTimersByTime(MARKET_SNAPSHOT_FRESHNESS_MS + 1)
+    const staleSnapshot = await getMarketLabsSnapshot()
+    await jest.advanceTimersByTimeAsync(0)
+
+    expect(staleSnapshot).toMatchObject({
+      catalogueStatus: MARKET_CATALOGUE_STATUS.STALE,
+      labs: freshSnapshot.labs,
+      snapshotAt: freshSnapshot.snapshotAt,
+    })
+    expect(contract.getLabsPaginated).toHaveBeenCalledTimes(2)
+    jest.useRealTimers()
+  })
+
+  test('reports the catalogue as unavailable instead of disguising an RPC failure as an empty catalogue', async () => {
+    contract.getLabsPaginated.mockRejectedValue(new Error('RPC unavailable'))
+
+    const snapshot = await getMarketLabsSnapshot()
+
+    expect(snapshot).toMatchObject({
+      catalogueStatus: MARKET_CATALOGUE_STATUS.UNAVAILABLE,
+      labs: [],
+      totalLabs: 0,
+      snapshotAt: null,
+    })
   })
 })

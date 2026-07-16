@@ -427,16 +427,22 @@ describe("Provider Dashboard Flow Integration", () => {
 
   /**
    * Test Case: Delete lab
-   * Verifies that clicking Delete calls the delete mutation
+   * Verifies that the typed confirmation calls the delete mutation
    */
-  test("deletes lab when Delete button is clicked", async () => {
+  test("deletes lab after the provider confirms its name", async () => {
     renderWithAllProviders(<ProviderDashboardPage />);
 
     // Wait for Delete button to appear
     const deleteButton = await screen.findByRole("button", { name: /delete/i });
 
-    // Click Delete button
+    // Open the destructive-action confirmation.
     fireEvent.click(deleteButton);
+
+    expect(mockDeleteLabMutation.mutateAsync).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/type the lab name/i), {
+      target: { value: "AI Research Lab" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^delete lab$/i }));
 
     // Verify mutation was called and optimistic state was set and cleared
     await waitFor(() => {

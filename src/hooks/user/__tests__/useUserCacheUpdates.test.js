@@ -21,6 +21,12 @@ import { userQueryKeys, providerQueryKeys } from "@/utils/hooks/queryKeys";
 import { useIsLabProviderSSO } from "../useUserAtomicQueries";
 import devLog from "@/utils/dev/logger";
 
+jest.mock("@/context/ClientQueryProvider", () => ({
+  clearPersistedQueryCache: jest.fn(),
+}));
+
+import { clearPersistedQueryCache } from "@/context/ClientQueryProvider";
+
 // Mock query keys to isolate tests from actual implementation details
 jest.mock("@/utils/hooks/queryKeys", () => ({
   userQueryKeys: {
@@ -282,6 +288,18 @@ describe("useUserCacheUpdates hook", () => {
 
       const session = queryClient.getQueryData(["users", "sso-session"]);
       expect(session).toBeUndefined();
+    });
+
+    test("removes reservation and booking caches and their persisted snapshot", () => {
+      queryClient.setQueryData(["reservations", "user", "0xUser456"], [{ id: 1 }]);
+      queryClient.setQueryData(["bookings", "upcoming", "0xUser456"], [{ id: 2 }]);
+      const { result } = renderHook(() => useUserCacheUpdates(), { wrapper });
+
+      result.current.clearSSOSession();
+
+      expect(queryClient.getQueryData(["reservations", "user", "0xUser456"])).toBeUndefined();
+      expect(queryClient.getQueryData(["bookings", "upcoming", "0xUser456"])).toBeUndefined();
+      expect(clearPersistedQueryCache).toHaveBeenCalledTimes(1);
     });
   });
 

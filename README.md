@@ -112,13 +112,15 @@ We run **unit, integration and Cypress E2E tests**, plus linting, in CI on every
 
 Marketplace resolves institutional backends only from the authenticated SSO institution and its on-chain institutional registry. The resolved origin must use HTTPS in production and is checked for public DNS resolution; requests use DNS pinning and reject redirects.
 
+Backend discovery is cached for at most 60 seconds. With the production Redis coordinator configured, the cache, emergency denylist and circuit breaker are shared across Marketplace instances. A confirmed provider/consumer backend registration invalidates the shared entry immediately. Platform administrators can temporarily isolate an institution through `POST /api/admin/institutions/backend-revocation` with `{ "institutionId", "ttlSeconds" }`, and restore it with `DELETE` and `{ "institutionId" }`.
+
 ### Current deployment and chain
 
 The active Marketplace deployment is `https://marketplace-decentralabs.vercel.app`. Server-generated callbacks use `NEXT_PUBLIC_BASE_URL` when it is configured and otherwise use the environment-aware fallback in `src/utils/env/baseUrl.js`; documentation and integrations must not substitute the marketing-site domains for this origin. The current contract configuration defaults to the Sepolia deployment. Ethereum mainnet is not the active production target merely because a network option exists in the SDK; a mainnet release requires its own configured contract addresses and deployment validation.
 
 ### Session storage
 
-The browser receives only an opaque `__Host-user_session` identifier. The SAML assertion is encrypted and retained server-side for no longer than the session TTL. Production deployments must configure `SESSION_STORE_REST_URL` and `SESSION_STORE_REST_TOKEN` (or the equivalent `KV_REST_API_URL`/`KV_REST_API_TOKEN` pair) plus `SESSION_ENCRYPTION_KEY`.
+The browser receives only an opaque `__Host-user_session` identifier. The complete server-side identity record, including the SAML assertion, is encrypted and retained no longer than the session TTL. Production deployments must configure `SESSION_STORE_REST_URL` and `SESSION_STORE_REST_TOKEN` (or the equivalent `KV_REST_API_URL`/`KV_REST_API_TOKEN` pair) plus a dedicated `SESSION_ENCRYPTION_KEY` (never reused as `SESSION_SECRET`).
 
 ### Service-credit policy
 
@@ -130,15 +132,21 @@ External laboratory metadata is requested through `/api/metadata?labId=<id>&uri=
 
 ### Public marketplace catalogue
 
-The public catalogue is served by `/api/market/labs` as a paginated, public DTO. It accepts `includeUnlisted`, `cursor` and `limit` query parameters; the default page size is 24 and the maximum is 100. The home page renders the first server-side page into the initial React Query cache, and subsequent pages are requested only when the user selects `Load more labs`.
+The public catalogue is served by `/api/market/labs` as a paginated, public DTO. It accepts `includeUnlisted`, `cursor`, `limit`, `q`, `searchField` (`keyword` or `name`), `category`, `provider`, `resourceType` (`lab` or `fmu`) and `sort` (`price_asc` or `price_desc`). Search, filtering and sorting run against the server-side catalogue before cursor pagination, so a matching lab is not hidden merely because its original page has not yet been downloaded. The default page size is 24 and the maximum is 100. The home page renders the first server-side result and its filter facets into the initial React Query cache; subsequent result pages are requested only when the user selects `Load more labs`.
 
-The route caches each page for 60 seconds and exposes `Server-Timing`, `X-Market-RPC-Calls` and `X-Market-Payload-Bytes` response headers for performance observability. Credentials, access URLs, provider contact details and raw on-chain structures are intentionally excluded from this public DTO.
+The route caches each page for 60 seconds and exposes `Server-Timing`, `X-Market-RPC-Calls` and `X-Market-Payload-Bytes` response headers for performance observability. Behind it, Marketplace keeps a Redis-backed read-model snapshot (with an in-process fallback for development) for five minutes by default, so ordinary catalogue requests do not repeat the per-lab RPC and metadata fan-out. Stale pages are refreshed in the background under a short shared Redis lock, preventing multiple Vercel instances from rebuilding the same page at once. Set `MARKET_SNAPSHOT_REVALIDATE_SECONDS` (30–3600, default `300`) to tune that interval; `MARKET_SNAPSHOT_RETENTION_SECONDS` controls how long the last valid snapshot is retained.
+
+If chain revalidation fails, Marketplace serves the last valid snapshot with `catalogueStatus: "stale"`, a visible timestamp, and no CDN cache. If there is no valid snapshot, the API returns non-cacheable `503` with `catalogueStatus: "unavailable"`; it never represents an infrastructure outage as an empty catalogue. Credentials, access URLs, provider contact details and raw on-chain structures are intentionally excluded from this public DTO.
 
 The normal catalogue is listed-only. `includeUnlisted=true` is an explicit discovery/administration view used by the catalogue filter; an unlisted lab is labelled as such and is not eligible for public booking. If the listing status cannot be read, the lab is excluded from the default public view rather than being treated as listed.
 
 ### Metadata and laboratory files
 
 The Marketplace does not promise decentralized metadata storage by default. Local `Lab-*.json` metadata is stored in the repository `data/` directory during development and in Vercel Blob in production. Quick Setup can reference an external HTTPS document only when its origin is trusted through the provider's on-chain institutional registration or the optional `ALLOWED_METADATA_ORIGINS` extension. A decentralized store therefore needs an accepted HTTPS gateway; an `ipfs://` URI is not automatically trusted. The Marketplace FMU upload route is intentionally disabled: `.fmu` files must be provisioned on the provider's Lab Gateway/Lab Station and registered by `accessKey`.
+
+Images fetched through the metadata proxy are decoded, size-limited and re-encoded as WebP before reaching the browser. Documents are restricted to PDF, text, DOC and DOCX; PDFs are signature-checked and all non-PDF documents are downloads. Production requires a malware-scanning service: set `DOCUMENT_MALWARE_SCAN_URL` to its HTTPS endpoint and optionally `DOCUMENT_MALWARE_SCAN_TOKEN`. The scanner receives the raw document body with its content type and must return JSON `{ "clean": true }`; uploads and proxied documents fail closed when the scanner is unavailable or returns any other verdict.
+
+Only public catalogue and metadata React Query entries are persisted in the browser. Logout removes the persisted snapshot and all reservation/booking queries. Set `NEXT_PUBLIC_RELEASE_ID` on each release to rotate the public-cache buster.
 
 ### Browser security policy
 

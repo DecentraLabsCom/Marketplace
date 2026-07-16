@@ -78,4 +78,32 @@ describe('usePublicMarketLabs', () => {
       { headers: { Accept: 'application/json' } },
     )
   })
+
+  test('sends the active search and filter contract with every catalogue page', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      headers: new Headers(),
+      json: async () => ({ labs: [], totalLabs: 0, cursor: 0, nextCursor: null }),
+    })
+
+    const { result } = renderHook(
+      () => usePublicMarketLabs({
+        filters: {
+          q: 'quantum',
+          searchField: 'keyword',
+          category: 'Physics',
+          provider: 'Provider University',
+          resourceType: 'lab',
+          sort: 'price_asc',
+        },
+      }),
+      { wrapper: createWrapper() },
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/market/labs?includeUnlisted=false&cursor=0&limit=24&q=quantum&searchField=keyword&category=Physics&provider=Provider+University&resourceType=lab&sort=price_asc',
+      { headers: { Accept: 'application/json' } },
+    )
+  })
 })

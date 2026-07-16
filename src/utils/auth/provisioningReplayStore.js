@@ -3,6 +3,7 @@ import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient';
 const DEFAULT_AUDIT_RETENTION_SECONDS = 365 * 24 * 60 * 60;
 
 export const PROVISIONING_SAGA_STAGES = Object.freeze({
+  TOKEN_ISSUED: 'TOKEN_ISSUED',
   WALLET_VERIFIED: 'WALLET_VERIFIED',
   PROVIDER_ADDED: 'PROVIDER_ADDED',
   INSTITUTION_ROLE_GRANTED: 'INSTITUTION_ROLE_GRANTED',
@@ -10,6 +11,9 @@ export const PROVISIONING_SAGA_STAGES = Object.freeze({
   ACTIVE: 'ACTIVE',
   FAILED: 'FAILED',
 });
+
+const PROVISIONING_AUDIT_INDEX_KEY = 'provisioning:index';
+const MAX_PROVISIONING_AUDIT_RESULTS = 100;
 
 export class ProvisioningReplayError extends Error {
   constructor(message = 'Provisioning token has already been consumed') {
@@ -47,12 +51,32 @@ function buildAuditRecord(claims) {
     responsiblePerson: claims.responsiblePerson || null,
     responsibleEmail: claims.responsibleEmail || null,
     issuedBy: claims.issuedBy || null,
+    providerName: claims.providerName || claims.consumerName || null,
+    providerEmail: claims.providerEmail || null,
+    providerCountry: claims.providerCountry || null,
+    agreementId: claims.agreementId || null,
     consumedAt: new Date().toISOString(),
   };
 }
 
 function provisioningKey(jti) {
   return `provisioning:jti:${jti}`;
+}
+
+function parseAuditRecord(value, errorMessage) {
+  if (typeof value !== 'string' || !value) {
+    throw new Error(errorMessage);
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error('Provisioning saga record is malformed');
+  }
+}
+
+function toIssuedAtScore(value) {
+  const score = Number(value);
+  return Number.isSafeInteger(score) && score > 0 ? score : Math.floor(Date.now() / 1000);
 }
 
 function buildSagaRecord(claims) {
@@ -62,6 +86,17 @@ function buildSagaRecord(claims) {
     stage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
     lastConfirmedStage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
     startedAt: new Date().toISOString(),
+  };
+}
+
+function buildIssuedRecord(claims) {
+  return {
+    ...buildAuditRecord(claims),
+    status: 'PENDING',
+    stage: PROVISIONING_SAGA_STAGES.TOKEN_ISSUED,
+    lastConfirmedStage: null,
+    tokenIssuedAt: new Date(toIssuedAtScore(claims.issuedAt) * 1000).toISOString(),
+    consumedAt: null,
   };
 }
 
@@ -101,6 +136,87 @@ export async function consumeProvisioningJti(claims) {
 }
 
 /**
+ * Persists a token issuance before it leaves the platform-admin boundary.
+ * This lets the admin distinguish an unconsumed token from a registration
+ * that has reached the institutional wallet verification stage.
+ */
+export async function recordProvisioningTokenIssued(claims) {
+  if (!hasRedisConfig()) {
+    throw new Error('Redis is required for provisioning audit coordination');
+  }
+
+  const key = provisioningKey(claims.jti);
+  const record = buildIssuedRecord(claims);
+  const created = await redisCommand([
+    'SET',
+    key,
+    JSON.stringify(record),
+    'NX',
+    'EX',
+    String(getRetentionSeconds(claims)),
+  ]);
+
+  if (created !== 'OK') {
+    throw new ProvisioningReplayError('Provisioning token conflicts with an existing audit record');
+  }
+
+  try {
+    await redisCommand([
+      'ZADD',
+      PROVISIONING_AUDIT_INDEX_KEY,
+      String(toIssuedAtScore(claims.issuedAt)),
+      claims.jti,
+    ]);
+  } catch (error) {
+    // Do not hand out a valid but unobservable administrator-issued token.
+    await redisCommand(['DEL', key]).catch(() => {});
+    throw error;
+  }
+
+  return record;
+}
+
+/** Returns recent provisioning audit records. Callers must authorize access. */
+export async function listProvisioningAudits({ limit = 50 } = {}) {
+  if (!hasRedisConfig()) {
+    throw new Error('Redis is required for provisioning audit access');
+  }
+
+  const normalizedLimit = Math.max(1, Math.min(MAX_PROVISIONING_AUDIT_RESULTS, Number(limit) || 50));
+  const oldestAllowed = Math.floor(Date.now() / 1000) - DEFAULT_AUDIT_RETENTION_SECONDS;
+  await redisCommand([
+    'ZREMRANGEBYSCORE',
+    PROVISIONING_AUDIT_INDEX_KEY,
+    '-inf',
+    String(oldestAllowed),
+  ]);
+
+  const jtis = await redisCommand([
+    'ZREVRANGE',
+    PROVISIONING_AUDIT_INDEX_KEY,
+    '0',
+    String(normalizedLimit - 1),
+  ]);
+  if (!Array.isArray(jtis) || jtis.length === 0) return [];
+
+  const records = [];
+  for (const jti of jtis) {
+    const value = await redisCommand(['GET', provisioningKey(jti)]);
+    if (typeof value !== 'string' || !value) {
+      await redisCommand(['ZREM', PROVISIONING_AUDIT_INDEX_KEY, jti]);
+      continue;
+    }
+
+    try {
+      records.push(JSON.parse(value));
+    } catch {
+      await redisCommand(['ZREM', PROVISIONING_AUDIT_INDEX_KEY, jti]);
+    }
+  }
+  return records;
+}
+
+/**
  * Creates a durable provisioning saga or returns the existing saga for the
  * same signed claims. A retry of the same valid token therefore resumes from
  * on-chain reconciliation instead of creating another registration attempt.
@@ -125,19 +241,35 @@ export async function startOrResumeProvisioningSaga(claims) {
     return { record: initialRecord, resumed: false };
   }
 
-  const existing = await redisCommand(['GET', key]);
-  if (typeof existing !== 'string' || !existing) {
-    throw new Error('Provisioning saga record was not found after a contention response');
-  }
-
-  let record;
-  try {
-    record = JSON.parse(existing);
-  } catch {
-    throw new Error('Provisioning saga record is malformed');
-  }
+  const record = parseAuditRecord(
+    await redisCommand(['GET', key]),
+    'Provisioning saga record was not found after a contention response'
+  );
   if (!hasMatchingImmutableClaims(record, claims)) {
     throw new ProvisioningReplayError('Provisioning token conflicts with an existing saga');
+  }
+
+  if (record.stage === PROVISIONING_SAGA_STAGES.TOKEN_ISSUED) {
+    const activated = {
+      ...record,
+      status: 'IN_PROGRESS',
+      stage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
+      lastConfirmedStage: PROVISIONING_SAGA_STAGES.WALLET_VERIFIED,
+      consumedAt: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = await redisCommand([
+      'SET',
+      key,
+      JSON.stringify(activated),
+      'XX',
+      'KEEPTTL',
+    ]);
+    if (updated !== 'OK') {
+      throw new Error('Provisioning saga record could not be activated');
+    }
+    return { record: activated, resumed: false };
   }
 
   return { record, resumed: true };
@@ -151,17 +283,10 @@ export async function advanceProvisioningSaga(jti, patch) {
     throw new Error('Redis is required for provisioning saga updates');
   }
   const key = provisioningKey(jti);
-  const existing = await redisCommand(['GET', key]);
-  if (typeof existing !== 'string' || !existing) {
-    throw new Error('Provisioning saga record was not found');
-  }
-
-  let record;
-  try {
-    record = JSON.parse(existing);
-  } catch {
-    throw new Error('Provisioning saga record is malformed');
-  }
+  const record = parseAuditRecord(
+    await redisCommand(['GET', key]),
+    'Provisioning saga record was not found'
+  );
   const stage = patch.stage || record.stage;
   const updated = {
     ...record,
@@ -195,11 +320,10 @@ export async function updateProvisioningAudit(jti, patch) {
     throw new Error('Redis is required for provisioning audit updates');
   }
   const key = provisioningKey(jti);
-  const existing = await redisCommand(['GET', key]);
-  if (typeof existing !== 'string' || !existing) {
-    throw new Error('Provisioning audit record was not found');
-  }
-  const record = JSON.parse(existing);
+  const record = parseAuditRecord(
+    await redisCommand(['GET', key]),
+    'Provisioning audit record was not found'
+  );
   const updated = {
     ...record,
     ...patch,

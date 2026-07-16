@@ -225,6 +225,7 @@ export function useLabReservationState({
     removeNotification,
   } = useNotifications()
   const {
+    balance: creditBalance,
     calculateReservationCost,
     formatPrice,
     formatTokenAmount,
@@ -774,6 +775,7 @@ export function useLabReservationState({
     periodEndMaxDate,
     calendarUserBookingsForLab,
     totalCost,
+    creditBalance,
     bookingStage: effectiveBookingStage,
     isFlowLocked: effectiveIsSSOFlowLocked,
     ssoBookingStage,

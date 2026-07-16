@@ -150,7 +150,7 @@ export default function Navbar() {
             {isPlatformAdmin && (
               <>
                 <div className="h-8 border-l border-gray-600" aria-hidden="true" />
-                {menuButton("/admin/invite-token", "Invite Token")}
+                {menuButton("/admin/invite-token", "Provision Institution")}
               </>
             )}
           </div>
@@ -209,7 +209,7 @@ export default function Navbar() {
                 )}
                 {isPlatformAdmin && (
                   <Link href="/admin/invite-token" className="w-full mt-2 pt-2 text-center font-bold border-t border-gray-300 hover:bg-hover-dark hover:text-white rounded">
-                    Invite Token
+                    Provision Institution
                   </Link>
                 )}
               </>

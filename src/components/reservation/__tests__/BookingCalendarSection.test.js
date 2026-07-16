@@ -268,6 +268,20 @@ describe("BookingCalendarSection", () => {
       expect(defaultProps.onTimeChange).toHaveBeenCalledWith("11:00");
     });
 
+    test("explains the selected slot in the lab and local time zones", () => {
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          lab={{ ...mockLab, timezone: "Europe/Madrid" }}
+        />
+      );
+
+      expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Your time:");
+      expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Lab time:");
+      expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Europe/Madrid");
+      expect(screen.getByText(/daylight-saving changes/i)).toBeInTheDocument();
+    });
+
     test("disables time select when no available slots", () => {
       const allDisabledTimes = [
         { value: "09:00", label: "09:00 AM", disabled: true, isReserved: true },

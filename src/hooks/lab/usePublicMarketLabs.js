@@ -45,11 +45,17 @@ export const fetchPublicMarketLabs = async ({
   includeUnlisted = false,
   cursor = 0,
   limit = DEFAULT_MARKET_PAGE_SIZE,
+  filters = {},
 } = {}) => {
   const params = new URLSearchParams({
     includeUnlisted: includeUnlisted ? 'true' : 'false',
     cursor: String(cursor),
     limit: String(limit),
+  })
+  ;['q', 'searchField', 'category', 'provider', 'resourceType', 'sort'].forEach((key) => {
+    if (typeof filters?.[key] === 'string' && filters[key].trim()) {
+      params.set(key, filters[key].trim())
+    }
   })
   const url = `/api/market/labs?${params.toString()}`
   const startedAt = getPerformanceNow()
@@ -64,9 +70,14 @@ export const fetchPublicMarketLabs = async ({
   return payload
 }
 
-const getInitialPage = ({ includeUnlisted, initialData }) => {
+const hasActiveFilters = (filters) => Object.values(filters || {}).some((value) => (
+  typeof value === 'string' && value.trim()
+))
+
+const getInitialPage = ({ includeUnlisted, filters, initialData }) => {
   if (
     includeUnlisted
+    || hasActiveFilters(filters)
     || !initialData
     || !Array.isArray(initialData.labs)
   ) {
@@ -90,18 +101,29 @@ export const usePublicMarketLabs = ({
   includeUnlisted = false,
   enabled = true,
   initialData = null,
+  filters = {},
 } = {}) => {
   const normalizedIncludeUnlisted = Boolean(includeUnlisted)
+  const normalizedFilters = useMemo(() => Object.fromEntries(
+    ['q', 'searchField', 'category', 'provider', 'resourceType', 'sort']
+      .flatMap((key) => (
+        typeof filters?.[key] === 'string' && filters[key].trim()
+          ? [[key, filters[key].trim()]]
+          : []
+      )),
+  ), [filters?.q, filters?.searchField, filters?.category, filters?.provider, filters?.resourceType, filters?.sort])
   const initialPage = getInitialPage({
     includeUnlisted: normalizedIncludeUnlisted,
+    filters: normalizedFilters,
     initialData,
   })
   const query = useInfiniteQuery({
-    queryKey: marketQueryKeys.publicLabs(normalizedIncludeUnlisted),
+    queryKey: marketQueryKeys.publicLabs(normalizedIncludeUnlisted, normalizedFilters),
     queryFn: ({ pageParam = 0 }) => fetchPublicMarketLabs({
       includeUnlisted: normalizedIncludeUnlisted,
       cursor: pageParam,
       limit: DEFAULT_MARKET_PAGE_SIZE,
+      filters: normalizedFilters,
     }),
     initialPageParam: initialPage?.cursor ?? 0,
     getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
@@ -127,6 +149,12 @@ export const usePublicMarketLabs = ({
       cursor: pages[0]?.cursor ?? 0,
       nextCursor: lastPage?.nextCursor ?? null,
       snapshotAt: lastPage?.snapshotAt ?? null,
+      catalogueStatus: pages.some((page) => page?.catalogueStatus === 'unavailable')
+        ? 'unavailable'
+        : pages.some((page) => page?.catalogueStatus === 'stale')
+          ? 'stale'
+          : 'fresh',
+      facets: lastPage?.facets || pages[0]?.facets || { categories: [], providers: [] },
     }
   }, [query.data])
 

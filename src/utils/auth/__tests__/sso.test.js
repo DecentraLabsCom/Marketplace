@@ -107,8 +107,8 @@ describe("SSO Utilities", () => {
 
     test("sets secure flag in production environment", async () => {
       process.env.NODE_ENV = "production";
-      // Set SESSION_SECRET for production mode
-      process.env.SESSION_SECRET = "test-session-secret-at-least-32-chars-long";
+      // The encryption key is deliberately distinct from any session-signing secret.
+      process.env.SESSION_ENCRYPTION_KEY = "a".repeat(64);
       global.fetch.mockResolvedValue({ ok: true, json: async () => ({ result: 'OK' }) });
 
       const mockResponse = {

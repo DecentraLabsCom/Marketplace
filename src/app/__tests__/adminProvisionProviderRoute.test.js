@@ -4,6 +4,7 @@
 
 import { requireAuth } from '@/utils/auth/guards';
 import { signProvisioningToken } from '@/utils/auth/provisioningToken';
+import { recordProvisioningTokenIssued } from '@/utils/auth/provisioningReplayStore'
 
 jest.mock('@/utils/auth/guards', () => {
   class HttpError extends Error {
@@ -60,6 +61,28 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
     normalizeOrganizationDomain: jest.fn((domain) => domain.toLowerCase()),
   },
 }));
+
+jest.mock('@/utils/auth/provisioningTypedData', () => ({
+  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider' },
+  getProvisioningRegistryConfig: jest.fn(() => ({
+    chainId: 11155111,
+    registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+  })),
+  normalizeBackendOrigin: jest.fn((url) => {
+    if (!url || !url.startsWith('https://')) throw new Error('Institutional backend origin must use HTTPS')
+    return url.replace(/\/$/, '')
+  }),
+  normalizeWalletAddress: jest.fn((walletAddress) => {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(walletAddress || '')) {
+      throw new Error('Wallet address must be a valid Ethereum address')
+    }
+    return walletAddress
+  }),
+}))
+
+jest.mock('@/utils/auth/provisioningReplayStore', () => ({
+  recordProvisioningTokenIssued: jest.fn(),
+}))
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -147,6 +170,27 @@ describe('/api/admin/institutions/provisionProvider route', () => {
     signProvisioningToken.mockResolvedValue({
       token: 'mock-provider-token',
       expiresAt: '2026-06-13T10:00:00.000Z',
+      payload: {
+        institutionId: 'partner.org',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        canonicalBackendOrigin: 'https://gateway.partner.org',
+        registrationType: 'provider',
+        chainId: 11155111,
+        registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
+        jti: 'provisioning-jti',
+        nonce: `0x${'11'.repeat(32)}`,
+        issuedAt: 1_700_000_000,
+        expiresAt: 1_700_000_300,
+        marketplaceBaseUrl: 'https://marketplace.example.com',
+        providerName: 'Partner Lab',
+        providerEmail: 'admin@partner.org',
+        providerCountry: 'ES',
+        providerOrganization: 'partner.org',
+        verificationMethod: 'manual_review',
+        assuranceLevel: 'partner_verified',
+        agreementId: 'AGR-2026-001',
+        issuedBy: 'ldelatorre@dia.uned.es',
+      },
     });
 
     const { POST } = await import('../api/admin/institutions/provisionProvider/route.js');
@@ -160,6 +204,7 @@ describe('/api/admin/institutions/provisionProvider route', () => {
         providerCountry: 'ES',
         providerOrganization: 'Partner.ORG',
         publicBaseUrl: 'https://gateway.partner.org/',
+        walletAddress: '0x1234567890123456789012345678901234567890',
         agreementId: 'AGR-2026-001',
       }),
     });
@@ -176,7 +221,9 @@ describe('/api/admin/institutions/provisionProvider route', () => {
         providerEmail: 'admin@partner.org',
         providerCountry: 'ES',
         providerOrganization: 'partner.org',
-        publicBaseUrl: 'https://gateway.partner.org',
+        canonicalBackendOrigin: 'https://gateway.partner.org',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        registrationType: 'provider',
         verificationMethod: 'manual_review',
         assuranceLevel: 'partner_verified',
         agreementId: 'AGR-2026-001',
@@ -196,5 +243,8 @@ describe('/api/admin/institutions/provisionProvider route', () => {
         ttlSeconds: 300,
       })
     );
+    expect(recordProvisioningTokenIssued).toHaveBeenCalledWith(
+      expect.objectContaining({ jti: 'provisioning-jti' })
+    )
   });
 });

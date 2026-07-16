@@ -21,14 +21,51 @@ export default function Market({ initialMarketSnapshot = null }) {
   const { isLoggedIn, address, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   const now = useCurrentTime({ intervalMs: 20000 });
-  
-  // State for show unlisted option
-  const [showUnlisted, setShowUnlisted] = useState(false);
   const [isFilterTransitionPending, startFilterTransition] = useTransition();
+
+  // The controls own only the selection state. Search, filters and sorting are
+  // applied by the public catalogue API across every server-side page.
+  const marketFilters = useLabFilters([], null, false, false, isHydrated, now);
+  const {
+    selectedCategory,
+    selectedPrice,
+    selectedProvider,
+    selectedFilter,
+    selectedResourceType,
+    showUnlisted,
+    searchDebounce,
+    setSelectedCategory,
+    setSelectedPrice,
+    setSelectedProvider,
+    setSelectedFilter,
+    setSelectedResourceType,
+    setShowUnlisted,
+    searchInputRef,
+    resetFilters,
+  } = marketFilters;
+  const catalogueFilters = useMemo(() => ({
+    ...(searchDebounce ? { q: searchDebounce, searchField: selectedFilter.toLowerCase() } : {}),
+    ...(selectedCategory !== 'All' ? { category: selectedCategory } : {}),
+    ...(selectedProvider !== 'All' ? { provider: selectedProvider } : {}),
+    ...(selectedResourceType !== 'All' ? { resourceType: selectedResourceType } : {}),
+    ...(selectedPrice === 'Low to High'
+      ? { sort: 'price_asc' }
+      : selectedPrice === 'High to Low'
+        ? { sort: 'price_desc' }
+        : {}),
+  }), [
+    searchDebounce,
+    selectedCategory,
+    selectedFilter,
+    selectedPrice,
+    selectedProvider,
+    selectedResourceType,
+  ]);
   const labsQuery = usePublicMarketLabs({
     includeUnlisted: showUnlisted,
     enabled: true,
     initialData: initialMarketSnapshot,
+    filters: catalogueFilters,
   });
   
   const {
@@ -43,9 +80,10 @@ export default function Market({ initialMarketSnapshot = null }) {
 
   const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
   const labsLoading = labsInitialLoading || (labsFetching && labsArray.length === 0);
+  const catalogueStatus = labsData?.catalogueStatus || 'fresh';
 
-  // Memoize labs to prevent infinite re-renders
-  const labs = useMemo(() => labsArray, [labsArray]);
+  // Only user-specific booking flags are enriched in the browser. Catalogue
+  // membership, search and sorting are determined by the server response.
   // Only surface an error when there is nothing at all to display
   const shouldShowLabsError = labsError && labsArray.length === 0;
 
@@ -95,25 +133,15 @@ export default function Market({ initialMarketSnapshot = null }) {
     hasBookingInLab: () => false
   }, [userBookingsData]);
 
-  // Use custom hook for filtering logic (with progressive loading)
-  // Pass labs immediately, userBookings only when available (for active booking marking)
-  const {
-    selectedCategory,
-    selectedPrice,
-    selectedProvider,
-    selectedFilter,
-    selectedResourceType,
-    searchFilteredLabs,
-    setSelectedCategory,
-    setSelectedPrice,
-    setSelectedProvider,
-    setSelectedFilter,
-    setSelectedResourceType,
-    categories,
-    providers,
-    searchInputRef,
-    resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated, now);
+  const labs = useMemo(() => labsArray.map((lab) => ({
+    ...lab,
+    hasActiveBooking: isLoggedIn && !bookingsLoading && Boolean(userBookings?.hasBookingInLab?.(lab.id)),
+    activeBookingKey: isLoggedIn && !bookingsLoading
+      ? userBookings?.getActiveBookingKey?.(lab.id) || null
+      : null,
+  })), [labsArray, isLoggedIn, bookingsLoading, userBookings]);
+  const categories = labsData?.facets?.categories || [];
+  const providers = labsData?.facets?.providers || [];
 
   const handleCategoryChange = useCallback((value) => {
     startFilterTransition(() => setSelectedCategory(value));
@@ -139,7 +167,6 @@ export default function Market({ initialMarketSnapshot = null }) {
   const handleReset = useCallback(() => {
     startFilterTransition(() => {
       resetFilters();
-      setShowUnlisted(false);
     });
   }, [resetFilters, startFilterTransition]);
 
@@ -172,12 +199,14 @@ export default function Market({ initialMarketSnapshot = null }) {
       ) : null}
 
       <LabGrid
-        labs={searchFilteredLabs}
+        labs={labs}
         loading={labsLoading}
         error={shouldShowLabsError}
         hasMore={Boolean(hasNextPage)}
         onLoadMore={handleLoadMore}
         loadingMore={Boolean(isFetchingNextPage)}
+        catalogueStatus={catalogueStatus}
+        snapshotAt={labsData?.snapshotAt || null}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
     </Container>
@@ -190,5 +219,6 @@ Market.propTypes = {
     cursor: PropTypes.number,
     nextCursor: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     snapshotAt: PropTypes.string,
+    catalogueStatus: PropTypes.oneOf(['fresh', 'stale', 'unavailable']),
   }),
 }

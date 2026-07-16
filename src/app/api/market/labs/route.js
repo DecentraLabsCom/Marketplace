@@ -1,36 +1,50 @@
 import { NextResponse } from 'next/server'
 import {
-  getMarketLabsSnapshot,
+  getMarketCatalogueSnapshot,
+} from '@/server/market/getMarketCatalogueSnapshot'
+import {
+  MARKET_CATALOGUE_STATUS,
   toPublicMarketSnapshot,
 } from '@/server/market/getMarketLabsSnapshot'
 import { parseMarketPageParams } from '@/utils/market/marketPagination'
+import { parseMarketCatalogueFilters } from '@/server/market/marketCatalogueFilters'
 
 export async function GET(request) {
   const includeUnlisted = request.nextUrl.searchParams.get('includeUnlisted') === 'true'
   let page
+  let filters
 
   try {
     page = parseMarketPageParams({
       cursor: request.nextUrl.searchParams.get('cursor'),
       limit: request.nextUrl.searchParams.get('limit'),
     })
+    filters = parseMarketCatalogueFilters(request.nextUrl.searchParams)
   } catch {
-    return NextResponse.json({ error: 'Invalid market pagination parameters' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid market catalogue parameters' }, { status: 400 })
   }
 
-  const snapshot = await getMarketLabsSnapshot({
+  const snapshot = await getMarketCatalogueSnapshot({
     includeUnlisted,
     ...page,
+    filters,
   })
   const publicSnapshot = toPublicMarketSnapshot(snapshot)
-  const response = NextResponse.json(publicSnapshot)
+  const isUnavailable = snapshot?.catalogueStatus === MARKET_CATALOGUE_STATUS.UNAVAILABLE
+  const isStale = snapshot?.catalogueStatus === MARKET_CATALOGUE_STATUS.STALE
+  const response = NextResponse.json(publicSnapshot, { status: isUnavailable ? 503 : 200 })
 
-  response.headers.set(
-    'Cache-Control',
-    'public, s-maxage=60, stale-while-revalidate=300',
-  )
+  response.headers.set('Cache-Control', isUnavailable
+    ? 'no-store'
+    : isStale
+      ? 'private, no-store'
+      : 'public, s-maxage=60, stale-while-revalidate=300')
 
-  if (snapshot?.metrics) {
+  if (isUnavailable) {
+    response.headers.set('Retry-After', '30')
+  }
+
+  if (!isStale && !isUnavailable && snapshot?.metrics) {
     const durationMs = Math.max(0, Number(snapshot.metrics.durationMs) || 0)
     const rpcCalls = Math.max(0, Number(snapshot.metrics.rpcCalls) || 0)
     const payloadBytes = new TextEncoder().encode(JSON.stringify(publicSnapshot)).byteLength

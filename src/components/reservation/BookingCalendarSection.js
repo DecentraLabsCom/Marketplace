@@ -10,6 +10,7 @@ import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
+import { getSelectedSlotTimeZonePresentation } from '@/utils/dates/timeZonePresentation'
 
 const toDateInputValue = (value) => {
   if (!(value instanceof Date) || isNaN(value.getTime())) return ''
@@ -142,6 +143,11 @@ export default function BookingCalendarSection({
   const totalCostLabel = pricePresentation.isFree
     ? 'Free'
     : `${formatTokenAmount(totalCost)} credits`
+  const selectedSlotTimeZones = getSelectedSlotTimeZonePresentation({
+    date,
+    selectedTime,
+    labTimeZone: lab.timezone,
+  })
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -237,6 +243,26 @@ export default function BookingCalendarSection({
               </option>
             ))}
           </select>
+          {selectedSlotTimeZones && (
+            <div
+              className="mt-3 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-gray-100"
+              aria-label="Time zone conversion"
+            >
+              <p className="text-xs text-gray-300">
+                Times in the selector use your local time. Both values automatically account for daylight-saving changes.
+              </p>
+              <dl className="mt-2 space-y-1">
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold">Your time:</dt>
+                  <dd className="text-right">{selectedSlotTimeZones.localTime} ({selectedSlotTimeZones.localTimeZone})</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold">Lab time:</dt>
+                  <dd className="text-right">{selectedSlotTimeZones.labTime} ({selectedSlotTimeZones.labTimeZone})</dd>
+                </div>
+              </dl>
+            </div>
+          )}
         </div>}
       </div>
 

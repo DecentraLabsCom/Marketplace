@@ -124,7 +124,7 @@ describe("Navbar", () => {
     expect(screen.getAllByText("Book a Lab").length).toBeGreaterThan(0);
   });
 
-  test("shows Invite Token entrypoint for allowlisted platform admins", async () => {
+  test("shows Provision Institution entrypoint for allowlisted platform admins", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ isPlatformAdmin: true }),
@@ -144,8 +144,8 @@ describe("Navbar", () => {
     render(<Navbar />);
 
     await waitFor(() => {
-      expect(screen.getByText("Invite Token")).toBeInTheDocument();
+      expect(screen.getByText("Provision Institution")).toBeInTheDocument();
     });
-    expect(screen.getByText("Invite Token")).toHaveAttribute("href", "/admin/invite-token");
+    expect(screen.getByText("Provision Institution")).toHaveAttribute("href", "/admin/invite-token");
   });
 });

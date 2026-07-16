@@ -26,7 +26,7 @@ describe('server-side session store', () => {
     global.fetch = originalFetch
   })
 
-  test('encrypts the SAML assertion before sending the session record to REST storage', async () => {
+  test('encrypts the complete identity record before sending it to REST storage', async () => {
     const { createServerSession } = await import('../sessionStore')
     const assertion = '<Assertion>private identity material</Assertion>'
 
@@ -41,8 +41,35 @@ describe('server-side session store', () => {
 
     expect(sessionId).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(command.slice(0, 2)).toEqual(['SET', expect.stringContaining(sessionId)])
-    expect(storedRecord.samlAssertion).toMatch(/^enc:v1:/)
-    expect(storedRecord.samlAssertion).not.toContain(assertion)
+    expect(Object.keys(storedRecord)).toEqual(['encryptedSession'])
+    expect(storedRecord.encryptedSession).toMatch(/^enc:v1:/)
+    expect(storedRecord.encryptedSession).not.toContain(assertion)
+    expect(storedRecord.encryptedSession).not.toContain('user@example.com')
+  })
+
+  test('does not use SESSION_SECRET as the encryption key in production', async () => {
+    process.env.NODE_ENV = 'production'
+    delete process.env.SESSION_ENCRYPTION_KEY
+    process.env.SESSION_SECRET = 'a-session-signing-secret'
+    const { createServerSession } = await import('../sessionStore')
+
+    await expect(createServerSession({ id: 'user-1' }))
+      .rejects.toThrow('A server-side session encryption key is required in production')
+  })
+
+  test('retries transient session-store failures and opens a circuit after repeated failures', async () => {
+    process.env.SESSION_STORE_MAX_ATTEMPTS = '2'
+    process.env.SESSION_STORE_CIRCUIT_FAILURES = '3'
+    global.fetch = jest.fn().mockRejectedValue(new Error('network unavailable'))
+    const { clearMemorySessionsForTests, createServerSession } = await import('../sessionStore')
+    clearMemorySessionsForTests()
+
+    await expect(createServerSession({ id: 'user-1' })).rejects.toThrow('temporarily unavailable')
+    await expect(createServerSession({ id: 'user-2' })).rejects.toThrow('temporarily unavailable')
+    await expect(createServerSession({ id: 'user-3' })).rejects.toThrow('temporarily unavailable')
+    expect(global.fetch).toHaveBeenCalledTimes(6)
+
+    await expect(createServerSession({ id: 'user-4' })).rejects.toThrow('temporarily unavailable')
+    expect(global.fetch).toHaveBeenCalledTimes(6)
   })
 })
-

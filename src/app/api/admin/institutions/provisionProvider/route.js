@@ -9,11 +9,32 @@ import {
   requireString,
   signProvisioningToken,
 } from '@/utils/auth/provisioningToken';
+import {
+  getProvisioningRegistryConfig,
+  normalizeBackendOrigin,
+  normalizeWalletAddress,
+  PROVISIONING_REGISTRATION_TYPES,
+} from '@/utils/auth/provisioningTypedData'
+import { recordProvisioningTokenIssued } from '@/utils/auth/provisioningReplayStore'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 
 export const runtime = 'nodejs';
 
-const LOCKED_FIELDS = ['providerName', 'providerEmail', 'providerCountry', 'providerOrganization'];
+const LOCKED_FIELDS = [
+  'institutionId',
+  'walletAddress',
+  'canonicalBackendOrigin',
+  'registrationType',
+  'chainId',
+  'registryContract',
+  'jti',
+  'nonce',
+  'issuedAt',
+  'expiresAt',
+  'providerName',
+  'providerEmail',
+  'providerCountry',
+];
 
 function optionalString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -26,7 +47,11 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '300', 10);
 
-    const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
+    const canonicalBackendOrigin = normalizeBackendOrigin(
+      body.publicBaseUrl,
+      'Institutional backend origin'
+    )
+    const walletAddress = normalizeWalletAddress(body.walletAddress)
     const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
     const marketplaceBaseUrl = normalizeHttpsUrl(
       process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || requestOrigin,
@@ -38,14 +63,20 @@ export async function POST(request) {
     );
 
     const providerEmail = requireEmail(body.providerEmail, 'Provider email');
+    const { chainId, registryContract } = getProvisioningRegistryConfig()
     const payload = {
       marketplaceBaseUrl,
+      institutionId: providerOrganization,
+      walletAddress,
+      canonicalBackendOrigin,
+      registrationType: PROVISIONING_REGISTRATION_TYPES.PROVIDER,
+      chainId,
+      registryContract,
       providerName: requireString(body.providerName, 'Provider name'),
       providerEmail,
       responsiblePerson: optionalString(body.responsiblePerson) || providerEmail,
       providerCountry: requireString(body.providerCountry, 'Provider country'),
       providerOrganization,
-      publicBaseUrl,
       verificationMethod: 'manual_review',
       assuranceLevel: 'partner_verified',
       issuedReason: 'approved_partner_provider',
@@ -57,17 +88,21 @@ export async function POST(request) {
       payload.agreementId = agreementId;
     }
 
-    const { token, expiresAt } = await signProvisioningToken(payload, {
+    const { token, expiresAt, payload: signedPayload } = await signProvisioningToken(payload, {
       issuer: marketplaceBaseUrl,
-      audience: publicBaseUrl,
+      audience: canonicalBackendOrigin,
       ttlSeconds,
     });
+    if (!signedPayload?.jti) {
+      throw new Error('Signed provisioning token did not include an audit identifier')
+    }
+    await recordProvisioningTokenIssued(signedPayload)
 
     devLog.log('[API] admin/provisionProvider: token issued', {
       issuedBy,
       providerOrganization,
       providerEmail: payload.providerEmail,
-      publicBaseUrl,
+      canonicalBackendOrigin,
       agreementId: agreementId || null,
       expiresAt,
     });
@@ -77,7 +112,7 @@ export async function POST(request) {
       token,
       expiresAt,
       lockedFields: LOCKED_FIELDS,
-      payload,
+      payload: signedPayload,
     });
   } catch (error) {
     devLog.error('[API] admin/provisionProvider: generation failed', sanitizeErrorForLog(error));

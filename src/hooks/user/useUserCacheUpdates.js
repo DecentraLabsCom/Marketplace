@@ -8,6 +8,7 @@ import { useCallback } from 'react'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { useIsLabProviderSSO } from './useUserAtomicQueries'
 import devLog from '@/utils/dev/logger'
+import { clearPersistedQueryCache } from '@/context/ClientQueryProvider'
 
 /**
  * Hook providing user-specific cache update functions
@@ -77,6 +78,9 @@ export function useUserCacheUpdates() {
     // Remove SSO queries from cache
     queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() })
     queryClient.removeQueries({ queryKey: userQueryKeys.all() })
+    queryClient.removeQueries({ queryKey: ['reservations'] })
+    queryClient.removeQueries({ queryKey: ['bookings'] })
+    clearPersistedQueryCache()
     
     devLog.log('🧹 SSO session cleared from cache')
   }, [queryClient])

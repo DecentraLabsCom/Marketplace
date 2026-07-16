@@ -16,7 +16,7 @@
 
 const FMU_LAB = {
   id: 10,
-  owner: "0xprovider567890123456789012345678901234567890",
+  owner: "0x5678901234567890123456789012345678901234",
   providerName: "Simulation Provider",
   providerEmail: "sim@test.edu",
   providerCountry: "DE",
@@ -67,7 +67,7 @@ describe("FMU Provider - Create FMU resource", () => {
 
     cy.wait("@getSession");
     cy.wait("@resolveInstitution");
-    cy.wait("@onboardingSession");
+    cy.wait("@keyStatus");
   };
 
   const openAddNewLabModal = () => {
@@ -110,24 +110,16 @@ describe("FMU Provider - Create FMU resource", () => {
       statusCode: 200,
       body: {
         registered: true,
-        wallet: "0xprovider567890123456789012345678901234567890",
+        wallet: "0x5678901234567890123456789012345678901234",
         backendUrl: "https://backend.example.test",
       },
     }).as("resolveInstitution");
 
-    cy.intercept("GET", "/api/onboarding/session*", {
+    cy.intercept("GET", "/api/onboarding/webauthn/key-status*", {
       statusCode: 200,
       body: {
-        meta: {
-          stableUserId: onboardingStableUserId,
-          institutionId: onboardingInstitutionId,
-        },
-      },
-    }).as("onboardingSession");
-
-    cy.intercept("GET", "**/onboarding/webauthn/key-status/**", {
-      statusCode: 200,
-      body: {
+        stableUserId: onboardingStableUserId,
+        institutionId: onboardingInstitutionId,
         hasCredential: true,
         hasPlatformCredential: true,
       },
@@ -262,6 +254,11 @@ describe("FMU Lab Detail - simulation info and navigation", () => {
     }).as("checkProvider");
 
     cy.mockLabApis([FMU_LAB]);
+    cy.mockInstitutionBookingApis();
+    cy.intercept("GET", "/api/contract/reservation/getReservationsOfToken*", {
+      statusCode: 200,
+      body: { count: 0 },
+    }).as("getReservationsOfToken");
   });
 
   it("should display FMU Simulation Details section", () => {

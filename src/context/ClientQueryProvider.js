@@ -34,12 +34,43 @@ export const globalQueryClient = new QueryClient({
 const serializeWithBigIntSupport = (value) =>
   JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item));
 
+export const PERSISTED_QUERY_CACHE_KEY = 'decentralabs-query-cache'
+export const PERSISTED_QUERY_CACHE_BUSTER = process.env.NEXT_PUBLIC_RELEASE_ID
+  ? `marketplace-public-cache-${process.env.NEXT_PUBLIC_RELEASE_ID}`
+  : 'marketplace-public-cache-v1'
+
 const persister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : null,
-  key: 'decentralabs-query-cache',
+  key: PERSISTED_QUERY_CACHE_KEY,
   serialize: serializeWithBigIntSupport,
   deserialize: JSON.parse,
 });
+
+export function clearPersistedQueryCache() {
+  try {
+    persister.removeClient?.()
+  } catch (error) {
+    devLog.warn('Unable to remove persisted public query cache:', error)
+  }
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(PERSISTED_QUERY_CACHE_KEY)
+  }
+}
+
+export function shouldPersistPublicQuery(query) {
+  if (!query || !Array.isArray(query.queryKey) || query.queryKey.length === 0) {
+    return false
+  }
+
+  const queryType = query.queryKey[0]
+  const state = query.state
+  return (
+    (queryType === 'labs' || queryType === 'metadata') &&
+    state?.status === 'success' &&
+    typeof state.data !== 'undefined'
+  )
+}
 
 // Track logged query types to avoid spam and initialization state
 const loggedQueryTypes = new Set();
@@ -91,7 +122,7 @@ export default function ClientQueryProvider({ children }) {
         persistOptions={{ 
           persister,
           maxAge: 72 * 60 * 60 * 1000, // 72 hours max age in localStorage
-          buster: '', // Add version string if you want to bust cache on app updates
+          buster: PERSISTED_QUERY_CACHE_BUSTER,
           dehydrateOptions: {
             // Only persist these query types
             shouldDehydrateQuery: (query) => {
@@ -101,26 +132,9 @@ export default function ClientQueryProvider({ children }) {
                 return false;
               }
               
-              // Persist lab, provider, and user queries
+              // Persist only anonymous catalogue data.
               const queryType = query.queryKey[0];
-              // Persist key families we want across reloads
-              // - labs: catalog and metadata
-              // - provider: single-provider details
-              // - providers: provider lists
-              // - reservations: on-chain reservation data per user/lab
-              // - bookings: client-side composed booking aggregates
-              // - auth is intentionally excluded to avoid persisting session-derived data
-              // - labImage: cached lab images (base64 data)
-              // - metadata: lab metadata including image URLs
-              const shouldPersist = (
-                queryType === 'labs' ||
-                queryType === 'provider' ||
-                queryType === 'providers' ||
-                queryType === 'reservations' ||
-                queryType === 'bookings' ||
-                queryType === 'labImage' ||
-                queryType === 'metadata'
-              );
+              const shouldPersist = shouldPersistPublicQuery(query);
               
               // Only persist successful queries with data
               if (shouldPersist) {

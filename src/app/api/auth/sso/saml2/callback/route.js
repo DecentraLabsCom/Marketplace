@@ -4,6 +4,11 @@
  */
 import { NextResponse } from 'next/server'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
+import { MAX_SAML_FORM_BYTES, extractSamlResponseIdentifiers } from '@/utils/auth/samlResponseSecurity'
+import { consumeSamlAssertionId, consumeSamlLoginTransaction } from '@/utils/auth/samlTransactionStore'
+
+const invalidSamlResponse = () => NextResponse.json({ error: 'Invalid SAML response' }, { status: 400 })
+const unavailable = () => NextResponse.json({ error: 'SSO is temporarily unavailable' }, { status: 503 })
 
 /**
  * Processes SAML2 callback response and creates user session
@@ -13,25 +18,61 @@ import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
  */
 export async function POST(request) {
   try {
-    // Step 1: Process the SAML response sent by the IdP
-    const text = await request.text();
-    const params = new URLSearchParams(text);
-    const samlResponse = params.get("SAMLResponse");
-    const userData = await parseSAMLResponse(samlResponse);
-
-    if (!userData) {
-      return NextResponse.json({ error: "Invalid SAML response" }, { status: 400 });
+    const contentLength = Number(request.headers.get('content-length'))
+    if (Number.isFinite(contentLength) && contentLength > MAX_SAML_FORM_BYTES) {
+      return NextResponse.json({ error: 'SAML response is too large' }, { status: 413 })
+    }
+    const text = await request.text()
+    if (Buffer.byteLength(text, 'utf8') > MAX_SAML_FORM_BYTES) {
+      return NextResponse.json({ error: 'SAML response is too large' }, { status: 413 })
+    }
+    const params = new URLSearchParams(text)
+    const samlResponse = params.get('SAMLResponse')
+    const relayState = params.get('RelayState')
+    let identifiers
+    try {
+      identifiers = extractSamlResponseIdentifiers(samlResponse)
+    } catch {
+      return invalidSamlResponse()
     }
 
-    // Step 2: Create a session for the authenticated user and redirect to dashboard
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
-    const response = NextResponse.redirect(`${baseUrl}/userdashboard?sso_login=1`, 303);
-    await createSession(response, userData);
-    return response;
-  } catch (error) {
-    console.error("Error processing SAML response:", error);
-    return NextResponse.json({
-      error: "Internal server error"
-    }, { status: 500 });
+    try {
+      const transaction = await consumeSamlLoginTransaction({
+        requestId: identifiers.inResponseTo,
+        relayState,
+      })
+      if (!transaction) return invalidSamlResponse()
+    } catch {
+      return unavailable()
+    }
+
+    let userData
+    try {
+      userData = await parseSAMLResponse(samlResponse)
+    } catch {
+      return invalidSamlResponse()
+    }
+
+    if (!userData) {
+      return invalidSamlResponse()
+    }
+
+    try {
+      const isFirstUse = await consumeSamlAssertionId(identifiers.assertionId)
+      if (!isFirstUse) return invalidSamlResponse()
+    } catch {
+      return unavailable()
+    }
+
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
+      const response = NextResponse.redirect(`${baseUrl}/userdashboard?sso_login=1`, 303)
+      await createSession(response, userData)
+      return response
+    } catch {
+      return unavailable()
+    }
+  } catch {
+    return invalidSamlResponse()
   }
 }

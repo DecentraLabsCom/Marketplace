@@ -1,8 +1,8 @@
 import dynamic from 'next/dynamic'
 import {
-  getMarketLabsSnapshot,
   toPublicMarketSnapshot,
 } from '@/server/market/getMarketLabsSnapshot'
+import { getMarketCatalogueSnapshot } from '@/server/market/getMarketCatalogueSnapshot'
 
 const Market = dynamic(() => import('@/components/home/Market'), {
   loading: () => (
@@ -20,7 +20,7 @@ export default async function HomePage() {
   const initialMarketSnapshot = process.env.E2E_TEST === 'true'
     ? null
     : toPublicMarketSnapshot(
-      await getMarketLabsSnapshot({ includeUnlisted: false }),
+      await getMarketCatalogueSnapshot({ includeUnlisted: false }),
     )
 
   return (

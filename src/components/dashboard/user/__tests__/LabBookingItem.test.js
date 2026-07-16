@@ -5,7 +5,7 @@
  *  - Render: lab link, provider, date/time (and fallback "Time not available").
  *  - Status badge rendering via getBookingStatusDisplay (icon + text).
  *  - Cancel flows: shows correct label for statuses (pending/confirmed), numeric/string status handling,
- *    and calls onCancel with the booking object.
+ *    and requires explicit confirmation before calling onCancel.
  *  - Credit policy: cancellation is the only user action; no cash-refund action is exposed.
  *  - Error banner: displays when hasCancellationError, clear button calls onClearError(reservationKey).
  *  - Edge cases: empty lab, missing date, missing handlers.
@@ -132,15 +132,24 @@ describe('LabBookingItem', () => {
   // Cancel button behavior
   // --------------------------------------------------------------------------
 
-  test('shows "Cancel Booking" button for confirmed booking and calls onCancel', async () => {
+  test('requires confirmation before cancelling a confirmed booking', async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
-    const booking = createBooking({ status: '1' });
+    const booking = createBooking({ status: '1', price: '100000' });
 
     render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
 
     const cancelButton = screen.getByRole('button', { name: /Cancel Booking/i });
     await user.click(cancelButton);
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: /cancel reservation/i })).toBeInTheDocument();
+    expect(screen.getByText(/Reservation ID:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0.9 credits');
+    expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/institutional credit account/i);
+    expect(screen.getByText(/Access will no longer be available/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^cancel reservation$/i }));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledWith(booking);
@@ -156,6 +165,9 @@ describe('LabBookingItem', () => {
     const cancelButton = screen.getByRole('button', { name: /Cancel Request/i });
     await user.click(cancelButton);
 
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0 credits');
+    await user.click(screen.getByRole('button', { name: /^cancel reservation$/i }));
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 

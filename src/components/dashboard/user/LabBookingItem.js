@@ -9,6 +9,7 @@ import {
     isPendingBooking
 } from '@/utils/booking/bookingStatus'
 import devLog from '@/utils/dev/logger'
+import ReservationCancellationDialog from '@/components/dashboard/user/ReservationCancellationDialog'
 
 /**
  * Individual booking item component for user dashboards and booking lists
@@ -31,6 +32,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
     onClearError = null,
     cancelState = null
 }) {
+    const [isCancellationDialogOpen, setCancellationDialogOpen] = React.useState(false)
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
     const parseUnixTime = (value) => {
@@ -113,8 +115,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
                             onClick={() => {
                                 // Log critical action for debugging
                                 if (isCancelling) return;
-                                devLog.log('Cancel booking action:', { labId: lab.id, bookingStatus: booking.status });
-                                onCancel(booking);
+                                devLog.log('Cancel booking confirmation opened:', { labId: lab.id, bookingStatus: booking.status });
+                                setCancellationDialogOpen(true);
                             }}
                             disabled={isCancelling}
                             className={`text-white px-3 py-1 rounded text-sm inline-flex items-center justify-center gap-2 ${
@@ -136,6 +138,17 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 )}
                 </div>
             </div>
+            <ReservationCancellationDialog
+                isOpen={isCancellationDialogOpen}
+                lab={lab}
+                booking={booking}
+                isProcessing={isCancelling}
+                onClose={() => setCancellationDialogOpen(false)}
+                onConfirm={() => {
+                    setCancellationDialogOpen(false)
+                    onCancel(booking)
+                }}
+            />
         </li>
     );
 });

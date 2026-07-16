@@ -864,7 +864,7 @@ export const useLabsForReservation = (options = {}) => {
         metadata: metadataData,
         images,
         includeProviderInfo: false,
-        includeProviderFallback: false,
+        includeProviderFallback: true,
         descriptionFallback: 'No description available',
         ensureNonEmptyTimeSlots: true
       });

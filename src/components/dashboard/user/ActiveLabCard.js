@@ -11,6 +11,7 @@ import DocsCarrousel from '@/components/ui/DocsCarrousel';
 import LabAccess from '@/components/home/LabAccess';
 import { getBookingStatusDisplay, isConfirmedBooking } from '@/utils/booking/bookingStatus';
 import devLog from '@/utils/dev/logger';
+import ReservationCancellationDialog from '@/components/dashboard/user/ReservationCancellationDialog';
 
 /**
  * Renders an active or upcoming lab card with details and access
@@ -34,6 +35,7 @@ export default function ActiveLabCard({
   onBookingAction = null,
   actionState = null
 }) {
+  const [isCancellationDialogOpen, setCancellationDialogOpen] = React.useState(false);
   // Debug log to see what lab data is being passed
   devLog.log('🔍 ActiveLabCard received lab data:', {
     lab,
@@ -129,7 +131,7 @@ export default function ActiveLabCard({
                   type="button"
                   onClick={() => {
                     if (isActionBusy) return;
-                    onBookingAction(booking);
+                    setCancellationDialogOpen(true);
                   }}
                   disabled={isActionBusy}
                   className={`px-3 py-1 rounded text-sm text-white whitespace-nowrap inline-flex items-center justify-center gap-2 ${
@@ -181,6 +183,17 @@ export default function ActiveLabCard({
           Explore this lab
         </Link>
       </div>
+      <ReservationCancellationDialog
+        isOpen={isCancellationDialogOpen}
+        lab={lab}
+        booking={booking}
+        isProcessing={isActionBusy}
+        onClose={() => setCancellationDialogOpen(false)}
+        onConfirm={() => {
+          setCancellationDialogOpen(false);
+          onBookingAction(booking);
+        }}
+      />
     </div>
   );
 }

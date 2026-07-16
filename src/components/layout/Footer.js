@@ -21,6 +21,7 @@ export default function Footer() {
                 alt="EU Funded"
                 width={220}
                 height={50}
+                loading="eager"
                 sizes="(max-width: 640px) 96px, 160px"
                 className="h-5 w-auto sm:h-8 md:h-7 lg:h-8 2xl:h-10"
               />

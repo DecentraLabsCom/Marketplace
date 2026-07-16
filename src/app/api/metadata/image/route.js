@@ -2,8 +2,10 @@ import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
 import { assertDeclaredLabResource, MetadataFetchError } from '@/utils/metadata/metadataPolicy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import sharp from 'sharp'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_IMAGE_PIXELS = 24_000_000
 const ALLOWED_IMAGE_TYPES = new Set([
   'image/avif',
   'image/gif',
@@ -120,9 +122,44 @@ export async function GET(request) {
       })
     }
 
-    return new Response(body, {
+    let transformed
+    try {
+      // Decode the complete input before serving it, enforce a pixel ceiling
+      // against decompression bombs and strip active/metadata payloads by
+      // emitting a freshly encoded WebP image.
+      transformed = await sharp(Buffer.from(body), {
+        failOn: 'error',
+        limitInputPixels: MAX_IMAGE_PIXELS,
+        animated: false,
+      })
+        .rotate()
+        .webp({ quality: 82, effort: 4 })
+        .toBuffer({ resolveWithObject: true })
+    } catch (error) {
+      const message = String(error?.message || '').toLowerCase()
+      const exceedsPixelLimit = message.includes('pixel limit') || message.includes('too many pixels')
+      return publicErrorResponse({
+        status: exceedsPixelLimit ? 413 : 415,
+        code: exceedsPixelLimit ? 'IMAGE_DIMENSIONS_TOO_LARGE' : 'INVALID_IMAGE_CONTENT',
+        message: exceedsPixelLimit
+          ? 'The image dimensions are too large to display.'
+          : 'The remote resource is not a valid image.',
+        error,
+        context: 'metadata-image-decode',
+      })
+    }
+
+    if (transformed.data.byteLength > MAX_IMAGE_BYTES) {
+      return publicErrorResponse({
+        status: 413,
+        code: 'IMAGE_TOO_LARGE',
+        message: 'The image is too large to display.',
+      })
+    }
+
+    return new Response(transformed.data, {
       status: 200,
-      headers: responseHeaders(contentType),
+      headers: responseHeaders('image/webp'),
     })
   } catch (error) {
     if (error instanceof MetadataFetchError) {

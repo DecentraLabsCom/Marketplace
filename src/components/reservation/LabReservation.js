@@ -13,6 +13,7 @@ import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
 import AccessControl from '@/components/auth/AccessControl'
 import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
+import ReservationReviewDialog from '@/components/reservation/ReservationReviewDialog'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationMissingInstitutionalBackend,
@@ -50,6 +51,7 @@ export default function LabReservation({ id }) {
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
+  const [reservationReview, setReservationReview] = useState(null)
   
   // Auto-select lab when labId is provided from URL
   useEffect(() => {
@@ -106,6 +108,7 @@ export default function LabReservation({ id }) {
     periodEndMaxDate,
     calendarUserBookingsForLab,
     totalCost,
+    creditBalance,
     ssoBookingStage,
     isSSOFlowLocked,
     reservationButtonState,
@@ -187,11 +190,9 @@ export default function LabReservation({ id }) {
     }
   }
   
-  // Server-side booking (SSO users)
-  const handleServerSideBooking = async () => {
-    const bookingData = validateAndCalculateBooking()
-    if (!bookingData) return
-
+  // Server-side booking (SSO users). This only runs after the user has
+  // explicitly confirmed the immutable review snapshot.
+  const handleServerSideBooking = async (bookingData) => {
     if (!institutionBackendUrl) {
       notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
       return
@@ -299,10 +300,29 @@ export default function LabReservation({ id }) {
   }
   
   // Main booking handler
-  const handleBooking = async () => {
+  const handleBooking = () => {
     if (reservationButtonState?.isBusy || isBooking) return
     if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
-    return await handleServerSideBooking()
+    if (!institutionBackendUrl) {
+      notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
+      return
+    }
+    const bookingData = validateAndCalculateBooking()
+    if (!bookingData) return
+    setReservationReview(buildReservationReview({
+      bookingData,
+      selectedLab,
+      totalCost,
+      creditBalance,
+      formatPrice,
+      formatTokenAmount,
+    }))
+  }
+
+  const handleConfirmBooking = async () => {
+    if (!reservationReview?.bookingData || isBooking) return
+    setReservationReview(null)
+    await handleServerSideBooking(reservationReview.bookingData)
   }
   
   if (!isClient) return null
@@ -402,8 +422,87 @@ export default function LabReservation({ id }) {
           </>
         )}
       </Container>
+      {reservationReview && (
+        <ReservationReviewDialog
+          review={reservationReview}
+          onConfirm={handleConfirmBooking}
+          onCancel={() => setReservationReview(null)}
+          isConfirming={isBooking}
+        />
+      )}
     </AccessControl>
   )
+}
+
+const toNonNegativeBigInt = (value) => {
+  try {
+    const parsed = typeof value === 'bigint' ? value : BigInt(value ?? 0)
+    return parsed >= 0n ? parsed : 0n
+  } catch {
+    return 0n
+  }
+}
+
+const formatReviewDateTime = (unixTimestamp, timeZone = undefined) => {
+  const date = new Date(Number(unixTimestamp) * 1_000)
+  const options = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }
+  try {
+    const value = new Intl.DateTimeFormat(undefined, timeZone ? { ...options, timeZone } : options).format(date)
+    return timeZone ? `${value} (${timeZone})` : value
+  } catch {
+    return new Intl.DateTimeFormat(undefined, options).format(date)
+  }
+}
+
+const formatDuration = ({ start, end }) => {
+  const minutes = Math.max(0, Math.round((Number(end) - Number(start)) / 60))
+  if (minutes >= 1_440 && minutes % 1_440 === 0) {
+    const days = minutes / 1_440
+    return `${days} day${days === 1 ? '' : 's'}`
+  }
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
+function buildReservationReview({
+  bookingData,
+  selectedLab,
+  totalCost,
+  creditBalance,
+  formatPrice,
+  formatTokenAmount,
+}) {
+  const safeFormatTokenAmount = typeof formatTokenAmount === 'function'
+    ? formatTokenAmount
+    : (value) => String(value ?? 0)
+  const reservationCost = toNonNegativeBigInt(totalCost)
+  const balance = toNonNegativeBigInt(creditBalance)
+  const remainingBalance = balance > reservationCost ? balance - reservationCost : 0n
+  const timeZone = typeof selectedLab?.timezone === 'string' && selectedLab.timezone.trim()
+    ? selectedLab.timezone.trim()
+    : null
+
+  return {
+    bookingData,
+    labName: selectedLab?.name || `Lab ${bookingData.labId}`,
+    provider: selectedLab?.provider || 'Provider information unavailable',
+    labTime: formatReviewDateTime(bookingData.start, timeZone || undefined),
+    userTime: `${formatReviewDateTime(bookingData.start)} (local time)`,
+    duration: formatDuration(bookingData),
+    unitPrice: typeof formatPrice === 'function'
+      ? `${formatPrice(selectedLab?.price, selectedLab?.priceUnit)} credits/${selectedLab?.priceUnit || 'hour'}`
+      : 'Not available',
+    totalCost: `${safeFormatTokenAmount(reservationCost)} credits`,
+    creditBalanceAfter: `${safeFormatTokenAmount(remainingBalance)} credits`,
+    cancellationPolicy: 'Eligible cancellations before the access period return applicable credits to the institutional credit account. Completed, expired, or lab-specific restrictions can prevent a return.',
+    termsUrl: selectedLab?.termsOfUse?.url || null,
+  }
 }
 
 LabReservation.propTypes = {

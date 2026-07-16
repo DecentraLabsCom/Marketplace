@@ -11,8 +11,8 @@ import Footer from '../Footer'
  * Mock Next.js Image component to render as a standard img element
  * Simplifies testing by avoiding Next.js internal image optimization
  */
-jest.mock('next/image', () => ({ src, alt }) => (
-  <img src={src} alt={alt} data-testid="mock-image" />
+jest.mock('next/image', () => ({ src, alt, ...props }) => (
+  <img src={src} alt={alt} data-testid="mock-image" {...props} />
 ))
 
 /**
@@ -60,6 +60,7 @@ describe('Footer', () => {
       expect(images).toHaveLength(3)
       expect(images[0]).toHaveAttribute('src', '/eu_funded_en.jpg')
       expect(images[0]).toHaveAttribute('alt', 'EU Funded')
+      expect(images[0]).toHaveAttribute('loading', 'eager')
       expect(images[1]).toHaveAttribute('src', '/ngi_sargasso.jpg')
       expect(images[1]).toHaveAttribute('alt', 'NGI Sargasso')
       expect(images[2]).toHaveAttribute('src', '/vietsch-logo.jpg')

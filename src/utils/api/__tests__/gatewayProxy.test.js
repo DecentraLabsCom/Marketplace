@@ -407,6 +407,18 @@ describe('gatewayProxy', () => {
       ).rejects.toThrow(/redirects are not allowed/)
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
+
+    test('opens the backend circuit after repeated transient failures', async () => {
+      global.fetch.mockResolvedValue({ status: 503, headers: new Headers() })
+      const url = 'https://consumer.example.com/auth/checkin-institutional'
+
+      await mod.institutionalBackendFetch(url)
+      await mod.institutionalBackendFetch(url)
+      await mod.institutionalBackendFetch(url)
+
+      await expect(mod.institutionalBackendFetch(url)).rejects.toThrow(/circuit is open/)
+      expect(global.fetch).toHaveBeenCalledTimes(3)
+    })
   })
 
   // ─── buildGatewayTargetUrl ──────────────────────────────────────

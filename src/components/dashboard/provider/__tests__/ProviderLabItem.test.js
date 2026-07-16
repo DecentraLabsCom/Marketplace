@@ -176,11 +176,19 @@ describe("ProviderLabItem", () => {
       expect(mockHandlers.onUnlist).toHaveBeenCalledTimes(1);
     });
 
-    test("calls onDelete with lab id when Delete button clicked", async () => {
+    test("requires the lab name before deleting the lab", async () => {
       const user = userEvent.setup();
       renderItem();
 
       await user.click(screen.getByRole("button", { name: /delete/i }));
+
+      expect(mockHandlers.onDelete).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog", { name: /delete this lab/i })).toBeInTheDocument();
+      expect(screen.getByText(/removes the listing and its application-managed metadata/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^delete lab$/i })).toBeDisabled();
+
+      await user.type(screen.getByLabelText(/type the lab name/i), mockLab.name);
+      await user.click(screen.getByRole("button", { name: /^delete lab$/i }));
 
       expect(mockHandlers.onDelete).toHaveBeenCalledWith("1");
       expect(mockHandlers.onDelete).toHaveBeenCalledTimes(1);
@@ -352,11 +360,13 @@ describe("ProviderLabItem", () => {
   });
 
   describe("Edge Cases", () => {
-    test("handles lab with numeric id", async () => {
+    test("deletes a lab with a numeric id after explicit confirmation", async () => {
       const user = userEvent.setup();
       renderItem({ lab: { ...mockLab, id: 123 } });
 
       await user.click(screen.getByRole("button", { name: /delete/i }));
+      await user.type(screen.getByLabelText(/type the lab name/i), mockLab.name);
+      await user.click(screen.getByRole("button", { name: /^delete lab$/i }));
 
       expect(mockHandlers.onDelete).toHaveBeenCalledWith(123);
     });

@@ -34,6 +34,9 @@ const DEFAULT_LABS = [
     uri: "Lab-Test-University-1.json",
     price: "1000000000000000000",
     isListed: true,
+    // Keep the default mock reservable. A zero close timestamp means 1970 to
+    // the availability code, which correctly makes every current slot invalid.
+    closes: 2_000_000_000,
     reputation: {
       score: 0,
       totalEvents: 0,
@@ -84,11 +87,13 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
     return {
       id: Number(lab.id),
       name: lab.metadata?.name || `Lab ${lab.id}`,
+      description: lab.metadata?.description || "",
       provider: lab.providerName || "Mock Provider",
       image: lab.image || "",
       price: String(lab.price || "0"),
       priceUnit: lab.priceUnit || "hour",
       category: lab.category || lab.metadata?.category || [],
+      keywords: lab.metadata?.keywords || [],
       rating: lab.rating || lab.reputation || null,
       resourceType: lab.resourceType || resourceTypeAttribute?.value || 0,
       isListed: lab.isListed ?? true,
@@ -103,8 +108,38 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
     const visibleLabs = includeUnlisted
       ? publicLabs
       : publicLabs.filter((lab) => lab.isListed);
-    const pageLabs = visibleLabs.slice(cursor, cursor + limit);
-    const nextCursor = cursor + pageLabs.length < visibleLabs.length
+    const query = String(req.query?.q || "").trim().toLowerCase();
+    const searchField = String(req.query?.searchField || "keyword");
+    const category = String(req.query?.category || "").trim().toLowerCase();
+    const provider = String(req.query?.provider || "").trim().toLowerCase();
+    const resourceType = String(req.query?.resourceType || "").trim().toLowerCase();
+    const sort = String(req.query?.sort || "").trim().toLowerCase();
+    const matchesQuery = (lab) => {
+      if (!query) return true;
+      if (searchField === "name") return String(lab.name || "").toLowerCase().includes(query);
+      return [
+        lab.name,
+        lab.provider,
+        lab.description,
+        ...(Array.isArray(lab.category) ? lab.category : [lab.category]),
+        ...(Array.isArray(lab.keywords) ? lab.keywords : [lab.keywords]),
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    };
+    const filteredLabs = visibleLabs
+      .filter((lab) => matchesQuery(lab))
+      .filter((lab) => !category || (Array.isArray(lab.category) ? lab.category : [lab.category])
+        .some((value) => String(value || "").toLowerCase() === category))
+      .filter((lab) => !provider || String(lab.provider || "").toLowerCase() === provider)
+      .filter((lab) => !resourceType || (resourceType === "fmu" ? Number(lab.resourceType) === 1 : Number(lab.resourceType) !== 1));
+    if (sort === "price_asc" || sort === "price_desc") {
+      filteredLabs.sort((left, right) => {
+        const comparison = BigInt(left.price || "0") - BigInt(right.price || "0");
+        if (comparison === 0n) return left.id - right.id;
+        return (comparison > 0n ? 1 : -1) * (sort === "price_desc" ? -1 : 1);
+      });
+    }
+    const pageLabs = filteredLabs.slice(cursor, cursor + limit);
+    const nextCursor = cursor + pageLabs.length < filteredLabs.length
       ? String(cursor + pageLabs.length)
       : null;
 
@@ -112,11 +147,15 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
       statusCode: 200,
       body: {
         labs: pageLabs,
-        totalLabs: visibleLabs.length,
+        totalLabs: filteredLabs.length,
         returnedLabs: pageLabs.length,
         cursor,
         nextCursor,
         snapshotAt: new Date().toISOString(),
+        facets: {
+          categories: [...new Set(visibleLabs.flatMap((lab) => Array.isArray(lab.category) ? lab.category : [lab.category]).filter(Boolean))].sort(),
+          providers: [...new Set(visibleLabs.map((lab) => lab.provider).filter(Boolean))].sort(),
+        },
       },
     });
   }).as("getAllLabs");

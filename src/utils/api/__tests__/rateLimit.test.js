@@ -62,6 +62,29 @@ describe('distributed rate limiter', () => {
     expect(result).toMatchObject({ limited: true, remaining: 0, retryAfterSec: 12 })
   })
 
+  test('enforces distinct user, institution and IP limits', async () => {
+    process.env.NODE_ENV = 'test'
+    const checkRate = createRateLimiter({
+      operation: 'dimensioned-operation',
+      windowMs: 60_000,
+      limits: { ip: 30, user: 2, institution: 4 },
+    })
+    const request = new Request('https://market.example/api/test', {
+      headers: { 'x-forwarded-for': '203.0.113.77' },
+    })
+
+    await expect(checkRate(request, { userId: 'first@uni.example', institutionId: 'uni.example' }))
+      .resolves.toMatchObject({ limited: false })
+    await expect(checkRate(request, { userId: 'first@uni.example', institutionId: 'uni.example' }))
+      .resolves.toMatchObject({ limited: false })
+    await expect(checkRate(request, { userId: 'first@uni.example', institutionId: 'uni.example' }))
+      .resolves.toMatchObject({ limited: true, limit: 2 })
+    await expect(checkRate(request, { userId: 'second@uni.example', institutionId: 'uni.example' }))
+      .resolves.toMatchObject({ limited: false })
+    await expect(checkRate(request, { userId: 'second@uni.example', institutionId: 'uni.example' }))
+      .resolves.toMatchObject({ limited: false })
+  })
+
   test('fails closed in production when Redis is not configured', async () => {
     delete process.env.KV_REST_API_URL
     delete process.env.KV_REST_API_TOKEN

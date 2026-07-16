@@ -4,6 +4,21 @@
  * Lightweight coverage to ensure reservation UI loads for authenticated users.
  */
 describe("Lab Booking Flow", () => {
+  const onboardingStableUserId = "test-user@institution.edu";
+  const onboardingInstitutionId = "institution.edu";
+  const onboardingMarkerKey = `institutional_browser_passkey:${onboardingInstitutionId}:${onboardingStableUserId}`;
+
+  const visitReservation = () => {
+    cy.visit("/reservation/1", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem(
+          onboardingMarkerKey,
+          JSON.stringify({ verifiedAt: Date.now(), advisoryDismissedAt: null }),
+        );
+      },
+    });
+  };
+
   beforeEach(() => {
     cy.clearCookies();
     cy.clearLocalStorage();
@@ -20,7 +35,27 @@ describe("Lab Booking Flow", () => {
       body: { isLabProvider: false, isProvider: false },
     }).as("checkProvider");
 
+    cy.intercept("GET", "/api/contract/institution/resolve*", {
+      statusCode: 200,
+      body: {
+        registered: true,
+        wallet: "0x3333333333333333333333333333333333333333",
+        backendUrl: "https://institution.example.test",
+      },
+    }).as("resolveInstitution");
+
+    cy.intercept("GET", "/api/onboarding/webauthn/key-status*", {
+      statusCode: 200,
+      body: {
+        stableUserId: onboardingStableUserId,
+        institutionId: onboardingInstitutionId,
+        hasCredential: true,
+        hasPlatformCredential: true,
+      },
+    }).as("keyStatus");
+
     cy.mockLabApis();
+    cy.mockInstitutionBookingApis();
 
     cy.intercept("GET", "/api/contract/reservation/getReservationsOfToken*", {
       statusCode: 200,
@@ -29,9 +64,11 @@ describe("Lab Booking Flow", () => {
   });
 
   it("should render reservation form for authenticated user", () => {
-    cy.visit("/reservation/1");
+    visitReservation();
 
     cy.wait("@getSession");
+    cy.wait("@resolveInstitution");
+    cy.wait("@keyStatus");
     // Ensure mocked lab list is loaded (avoid Wallet-mode race that triggers on-chain calls)
     cy.wait("@getAllLabs");
     cy.wait("@getLab");
@@ -43,5 +80,21 @@ describe("Lab Booking Flow", () => {
     cy.get("#duration-select").should("be.visible");
     cy.get("#time-select").should("be.visible");
     cy.contains("button", /book now/i).should("exist");
+  });
+
+  it("requires a final review before requesting the institutional passkey", () => {
+    visitReservation();
+    cy.wait("@getSession");
+    cy.wait("@resolveInstitution");
+    cy.wait("@keyStatus");
+    cy.wait("@getAllLabs");
+    cy.wait("@getLab");
+    cy.wait("@getMetadata");
+
+    cy.get("#time-select").should("not.be.disabled");
+    cy.contains("button", /book now/i).should("not.be.disabled").click();
+    cy.get('[role="dialog"]').should("be.visible");
+    cy.contains("h2", "Review reservation").should("be.visible");
+    cy.contains("button", "Confirm reservation").should("be.visible");
   });
 });

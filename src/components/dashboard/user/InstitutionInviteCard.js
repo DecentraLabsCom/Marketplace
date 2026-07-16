@@ -117,7 +117,6 @@ export default function InstitutionInviteCard({
       setExpiresAt(data.expiresAt);
       setPayload(data.payload || null);
 
-      devLog.log('InstitutionInviteCard: Provisioning token generated', data);
       notifyInstitutionProvisioningGenerated(addTemporaryNotification, 'provider');
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to generate provisioning token', error);
@@ -288,7 +287,6 @@ export default function InstitutionInviteCard({
       setExpiresAt(data.expiresAt);
       setPayload(data.payload || null);
 
-      devLog.log('InstitutionInviteCard: Consumer provisioning token generated', data);
       notifyInstitutionProvisioningGenerated(addTemporaryNotification, 'consumer');
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to generate consumer provisioning token', error);

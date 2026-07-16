@@ -11,6 +11,8 @@ import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient';
 import {
   ProvisioningReplayError,
   consumeProvisioningJti,
+  recordProvisioningTokenIssued,
+  listProvisioningAudits,
   startOrResumeProvisioningSaga,
   advanceProvisioningSaga,
   updateProvisioningAudit,
@@ -94,6 +96,41 @@ describe('provisioning jti consumption', () => {
     ]);
   });
 
+  test('records an issued token before the institutional backend consumes it', async () => {
+    await recordProvisioningTokenIssued(claims);
+
+    expect(redisCommand.mock.calls[0][0]).toEqual([
+      'SET',
+      'provisioning:jti:token-jti',
+      expect.stringContaining('"stage":"TOKEN_ISSUED"'),
+      'NX',
+      'EX',
+      expect.any(String),
+    ]);
+    expect(redisCommand.mock.calls[1][0]).toEqual([
+      'ZADD',
+      'provisioning:index',
+      String(claims.issuedAt),
+      claims.jti,
+    ]);
+  });
+
+  test('lists recent durable provisioning audits without returning stale index entries', async () => {
+    redisCommand
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(['token-jti', 'missing-jti'])
+      .mockResolvedValueOnce(JSON.stringify({ ...claims, stage: 'ACTIVE', status: 'ACTIVE' }))
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(1);
+
+    const records = await listProvisioningAudits();
+
+    expect(records).toEqual([
+      expect.objectContaining({ jti: 'token-jti', stage: 'ACTIVE', status: 'ACTIVE' }),
+    ]);
+    expect(redisCommand.mock.calls[4][0]).toEqual(['ZREM', 'provisioning:index', 'missing-jti']);
+  });
+
   test('creates a durable provisioning saga at wallet verification', async () => {
     const saga = await startOrResumeProvisioningSaga(claims);
 
@@ -104,6 +141,35 @@ describe('provisioning jti consumption', () => {
       stage: 'WALLET_VERIFIED',
       lastConfirmedStage: 'WALLET_VERIFIED',
     });
+  });
+
+  test('activates an administrator-issued token when the backend consumes it', async () => {
+    redisCommand
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        ...claims,
+        status: 'PENDING',
+        stage: 'TOKEN_ISSUED',
+        lastConfirmedStage: null,
+        consumedAt: null,
+      }))
+      .mockResolvedValueOnce('OK');
+
+    const saga = await startOrResumeProvisioningSaga(claims);
+
+    expect(saga).toMatchObject({ resumed: false });
+    expect(saga.record).toMatchObject({
+      status: 'IN_PROGRESS',
+      stage: 'WALLET_VERIFIED',
+      lastConfirmedStage: 'WALLET_VERIFIED',
+    });
+    expect(redisCommand.mock.calls[2][0]).toEqual([
+      'SET',
+      'provisioning:jti:token-jti',
+      expect.stringContaining('"consumedAt"'),
+      'XX',
+      'KEEPTTL',
+    ]);
   });
 
   test('resumes the same saga instead of treating a valid retry as a new write', async () => {

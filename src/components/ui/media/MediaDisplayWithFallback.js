@@ -355,6 +355,7 @@ export default function MediaDisplayWithFallback({
             className={className}
             referrerPolicy="no-referrer"
             allow=""
+            sandbox=""
             onError={() => {
               setHasDocError(true);
               setIsLoadingDoc(false);

@@ -3,6 +3,7 @@
     "nameID": "test-user@institution.edu",
     "name": "Test User",
     "email": "test-user@institution.edu",
+    "affiliation": "institution.edu",
     "institutionName": "Test University",
     "role": "student"
   },

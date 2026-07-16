@@ -133,7 +133,7 @@ describe('MediaDisplayWithFallback', () => {
 
       await waitFor(() => {
         const frame = screen.getByTitle('Safe document');
-        expect(frame).not.toHaveAttribute('sandbox');
+        expect(frame).toHaveAttribute('sandbox', '');
         expect(frame).toHaveAttribute('referrerpolicy', 'no-referrer');
         expect(frame).toHaveAttribute('allow', '');
       });

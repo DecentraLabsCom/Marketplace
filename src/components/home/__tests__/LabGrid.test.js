@@ -110,9 +110,9 @@ describe("LabGrid", () => {
       render(<LabGrid labs={[]} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
+        expect(screen.getByText("Catalogue temporarily unavailable")).toBeInTheDocument();
         expect(
-          screen.getByText("No labs found matching your criteria.")
+          screen.getByText("Please try again shortly.")
         ).toBeInTheDocument();
       });
     });
@@ -121,7 +121,7 @@ describe("LabGrid", () => {
       render(<LabGrid labs={mockLabs} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
+        expect(screen.getByText("Catalogue temporarily unavailable")).toBeInTheDocument();
         expect(screen.queryByTestId("lab-card-1")).not.toBeInTheDocument();
       });
     });
@@ -130,8 +130,22 @@ describe("LabGrid", () => {
       render(<LabGrid labs={[]} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
+        expect(screen.getByText("Catalogue temporarily unavailable")).toBeInTheDocument();
       });
+    });
+
+    test("identifies the timestamp of a stale catalogue without hiding its labs", async () => {
+      render(
+        <LabGrid
+          labs={mockLabs}
+          catalogueStatus="stale"
+          snapshotAt="2026-07-15T10:42:00.000Z"
+        />
+      );
+
+      expect(await screen.findByText(/Catalogue temporarily unavailable/)).toBeInTheDocument();
+      expect(screen.getByText(/Showing data last updated at/)).toBeInTheDocument();
+      expect(screen.getByTestId("lab-card-1")).toBeInTheDocument();
     });
   });
 

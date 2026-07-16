@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InviteTokenPage from '../InviteTokenPage';
 
@@ -9,8 +9,9 @@ jest.mock('@/components/ui', () => ({
 describe('InviteTokenPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    Object.assign(navigator, {
-      clipboard: {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
         writeText: jest.fn(),
       },
     });
@@ -38,11 +39,19 @@ describe('InviteTokenPage', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ records: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           token: 'mock-invite-token',
           expiresAt: '2026-06-13T10:00:00.000Z',
         }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [] }),
       });
 
     render(<InviteTokenPage />);
@@ -54,6 +63,7 @@ describe('InviteTokenPage', () => {
     await user.clear(screen.getByLabelText(/provider country/i));
     await user.type(screen.getByLabelText(/provider country/i), 'PT');
     await user.type(screen.getByLabelText(/public base url/i), 'https://gateway.partner.org');
+    await user.type(screen.getByLabelText(/institutional wallet address/i), '0x1234567890123456789012345678901234567890');
     await user.type(screen.getByLabelText(/agreement id/i), 'AGR-2026-001');
     await user.click(screen.getByRole('button', { name: /generate/i }));
 
@@ -61,21 +71,97 @@ describe('InviteTokenPage', () => {
       expect(screen.getByDisplayValue('mock-invite-token')).toBeInTheDocument();
     });
 
-    expect(global.fetch).toHaveBeenLastCalledWith(
+    expect(global.fetch).toHaveBeenCalledWith(
       '/api/admin/institutions/provisionProvider',
       expect.objectContaining({
         method: 'POST',
         credentials: 'include',
       })
     );
-    const body = JSON.parse(global.fetch.mock.calls[1][1].body);
+    const provisionRequest = global.fetch.mock.calls.find(([url]) => url === '/api/admin/institutions/provisionProvider');
+    const body = JSON.parse(provisionRequest[1].body);
     expect(body).toMatchObject({
       providerName: 'Partner Lab',
       providerEmail: 'admin@partner.org',
       providerCountry: 'PT',
       providerOrganization: 'partner.org',
       publicBaseUrl: 'https://gateway.partner.org',
+      walletAddress: '0x1234567890123456789012345678901234567890',
       agreementId: 'AGR-2026-001',
     });
   });
+
+  test('shows durable provisioning status to platform admins without exposing a token', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isPlatformAdmin: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          records: [{
+            id: 'provisioning-1',
+            institutionId: 'partner.edu',
+            walletAddress: '0x1234567890123456789012345678901234567890',
+            canonicalBackendOrigin: 'https://gateway.partner.edu',
+            registrationType: 'provider',
+            stage: 'ACTIVE',
+            status: 'ACTIVE',
+            tokenConsumed: true,
+            txHashes: ['0xabc'],
+            suspended: false,
+          }],
+        }),
+      })
+
+    render(<InviteTokenPage />)
+
+    expect(await screen.findByRole('heading', { name: /provision institution/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /provisioning status/i })).toBeInTheDocument()
+    expect(screen.getByText('partner.edu')).toBeInTheDocument()
+    expect(screen.getByText(/token consumed/i)).toBeInTheDocument()
+    expect(screen.getByText(/backend registered/i)).toBeInTheDocument()
+    expect(screen.getByText('0xabc')).toBeInTheDocument()
+    expect(screen.queryByText('mock-invite-token')).not.toBeInTheDocument()
+  })
+
+  test('requires confirmation before suspending an institutional backend', async () => {
+    const record = {
+      id: 'provisioning-1',
+      institutionId: 'partner.edu',
+      registrationType: 'provider',
+      status: 'ACTIVE',
+      stage: 'ACTIVE',
+      tokenConsumed: true,
+      backendRegistered: true,
+      suspended: false,
+    }
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ isPlatformAdmin: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ records: [record] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ records: [{ ...record, suspended: true }] }) })
+
+    const user = userEvent.setup()
+    render(<InviteTokenPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Suspend backend' }))
+    const dialog = screen.getByRole('dialog', { name: /suspend institutional backend/i })
+    expect(within(dialog).getByText(/immediately blocks marketplace discovery/i)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Suspend backend' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/admin/institutions/backend-revocation',
+        expect.objectContaining({ method: 'POST', credentials: 'include' })
+      )
+    })
+    const suspendRequest = global.fetch.mock.calls.find(([url]) => url === '/api/admin/institutions/backend-revocation')
+    expect(JSON.parse(suspendRequest[1].body)).toEqual({ institutionId: 'partner.edu', ttlSeconds: 3600 })
+    expect(await screen.findByText('Suspended')).toBeInTheDocument()
+  })
 });

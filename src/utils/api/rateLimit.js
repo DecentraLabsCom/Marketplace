@@ -3,17 +3,35 @@ import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
 const RATE_LIMIT_SCRIPT = `
 local limited = 0
-local remaining = tonumber(ARGV[1])
+local remaining = nil
 local reset_ms = 0
-for _, key in ipairs(KEYS) do
-  local count = redis.call('INCR', key)
-  if count == 1 then redis.call('PEXPIRE', key, ARGV[2]) end
+local limited_limit = 0
+for index, key in ipairs(KEYS) do
+  local limit = tonumber(ARGV[index])
+  local count = tonumber(redis.call('GET', key) or '0')
   local ttl = redis.call('PTTL', key)
-  if count > tonumber(ARGV[1]) then limited = 1 end
-  remaining = math.min(remaining, math.max(0, tonumber(ARGV[1]) - count))
+  if count >= limit then
+    limited = 1
+    if limited_limit == 0 or limit < limited_limit then limited_limit = limit end
+  end
+  local key_remaining = math.max(0, limit - count)
+  if remaining == nil then remaining = key_remaining else remaining = math.min(remaining, key_remaining) end
   reset_ms = math.max(reset_ms, ttl)
 end
-return { limited, remaining, reset_ms }
+if limited == 1 then return { limited, remaining or 0, reset_ms, limited_limit } end
+
+remaining = nil
+reset_ms = 0
+for index, key in ipairs(KEYS) do
+  local limit = tonumber(ARGV[index])
+  local count = redis.call('INCR', key)
+  if count == 1 then redis.call('PEXPIRE', key, ARGV[#ARGV]) end
+  local ttl = redis.call('PTTL', key)
+  local key_remaining = math.max(0, limit - count)
+  if remaining == nil then remaining = key_remaining else remaining = math.min(remaining, key_remaining) end
+  reset_ms = math.max(reset_ms, ttl)
+end
+return { 0, remaining or 0, reset_ms, 0 }
 `
 
 const memoryStores = new Map()
@@ -41,7 +59,7 @@ export function resolveClientIp(request) {
   return forwarded?.split(',')[0]?.trim() || 'unknown'
 }
 
-function getIdentityKeys(operation, request, identity = {}) {
+function getIdentityDimensions(operation, request, identity = {}, limits = {}) {
   const ip = normalizeIdentity(resolveClientIp(request), 'unknown-ip')
   const user = normalizeIdentity(
     identity.userId || identity.stableUserId || identity.email,
@@ -52,32 +70,60 @@ function getIdentityKeys(operation, request, identity = {}) {
     'anonymous-institution',
   )
   const prefix = `marketplace:rate:${normalizeIdentity(operation, 'unknown-operation')}`
-  const dimensions = identity.userId || identity.stableUserId || identity.email
-    ? [`ip:${ip}`, `user:${user}`, `institution:${institution}`]
-    : [`ip:${ip}`]
+  const isAuthenticated = Boolean(identity.userId || identity.stableUserId || identity.email)
+  const dimensions = isAuthenticated
+    ? [
+      { value: `ip:${ip}`, limit: limits.ip },
+      { value: `user:${user}`, limit: limits.user },
+      { value: `institution:${institution}`, limit: limits.institution },
+    ]
+    : [{ value: `ip:${ip}`, limit: limits.anonymousIp }]
 
-  return dimensions.map((dimension) => `${prefix}:${hashKeyPart(dimension)}`)
+  return dimensions.map(({ value, limit }) => ({
+    key: `${prefix}:${hashKeyPart(value)}`,
+    limit,
+  }))
 }
 
-function createMemoryRateCheck({ operation, windowMs, maxRequests }) {
+function createMemoryRateCheck({ operation, windowMs, limits }) {
   const store = memoryStores.get(operation) || new Map()
   memoryStores.set(operation, store)
 
   return (request, identity = {}) => {
-    const key = getIdentityKeys(operation, request, identity).join('|')
     const now = Date.now()
-    let entry = store.get(key)
-    if (!entry || now >= entry.resetAt) {
-      entry = { count: 0, resetAt: now + windowMs }
-      store.set(key, entry)
+    const dimensions = getIdentityDimensions(operation, request, identity, limits)
+    const entries = dimensions.map(({ key, limit }) => {
+      let entry = store.get(key)
+      if (!entry || now >= entry.resetAt) {
+        entry = { count: 0, resetAt: now + windowMs }
+      }
+      return {
+        key,
+        entry,
+        limit,
+      }
+    })
+    const limitingResult = entries.find(({ entry, limit }) => entry.count >= limit)
+    const remaining = Math.min(...entries.map(({ entry, limit }) => Math.max(0, limit - entry.count)))
+    const resetAt = Math.max(...entries.map(({ entry }) => entry.resetAt))
+    if (limitingResult) {
+      return {
+        limited: true,
+        limit: limitingResult.limit,
+        remaining,
+        resetAt,
+      }
     }
 
-    entry.count += 1
+    entries.forEach(({ key, entry }) => {
+      entry.count += 1
+      store.set(key, entry)
+    })
     return {
-      limited: entry.count > maxRequests,
-      limit: maxRequests,
-      remaining: Math.max(0, maxRequests - entry.count),
-      resetAt: entry.resetAt,
+      limited: false,
+      limit: Math.min(...entries.map(({ limit }) => limit)),
+      remaining: Math.min(...entries.map(({ entry, limit }) => Math.max(0, limit - entry.count))),
+      resetAt,
     }
   }
 }
@@ -89,7 +135,7 @@ function parseRedisResult(result, maxRequests, now = Date.now()) {
   const resetMs = Math.max(0, Number(values[2]) || 0)
   return {
     limited,
-    limit: maxRequests,
+    limit: Number(values[3]) || maxRequests,
     remaining: Math.min(maxRequests, remaining),
     resetAt: now + resetMs,
     retryAfterSec: Math.max(1, Math.ceil(resetMs / 1000)),
@@ -105,8 +151,19 @@ export function createRateLimiter({
   operation = 'unknown',
   windowMs = 60_000,
   maxRequests = 15,
+  limits: configuredLimits = {},
 } = {}) {
-  const memoryCheck = createMemoryRateCheck({ operation, windowMs, maxRequests })
+  const normalizedMax = Number.isSafeInteger(maxRequests) && maxRequests > 0 ? maxRequests : 15
+  const normalizeLimit = (value, fallback) => (
+    Number.isSafeInteger(value) && value > 0 ? value : fallback
+  )
+  const limits = {
+    user: normalizeLimit(configuredLimits.user, normalizedMax),
+    institution: normalizeLimit(configuredLimits.institution, normalizedMax * 10),
+    ip: normalizeLimit(configuredLimits.ip, normalizedMax * 3),
+    anonymousIp: normalizeLimit(configuredLimits.anonymousIp, normalizedMax),
+  }
+  const memoryCheck = createMemoryRateCheck({ operation, windowMs, limits })
 
   return async function check(request, identity = {}) {
     // Jest runs with NODE_ENV=test. Never let the local test process mutate a
@@ -117,25 +174,25 @@ export function createRateLimiter({
 
     if (!hasRedisConfig()) {
       if (process.env.NODE_ENV === 'production') {
-        return { limited: true, unavailable: true, limit: maxRequests, remaining: 0, retryAfterSec: 5 }
+        return { limited: true, unavailable: true, limit: normalizedMax, remaining: 0, retryAfterSec: 5 }
       }
       return memoryCheck(request, identity)
     }
 
     try {
-      const keys = getIdentityKeys(operation, request, identity)
+      const dimensions = getIdentityDimensions(operation, request, identity, limits)
       const result = await redisCommand([
         'EVAL',
         RATE_LIMIT_SCRIPT,
-        String(keys.length),
-        ...keys,
-        String(maxRequests),
+        String(dimensions.length),
+        ...dimensions.map(({ key }) => key),
+        ...dimensions.map(({ limit }) => String(limit)),
         String(windowMs),
       ])
-      return parseRedisResult(result, maxRequests)
+      return parseRedisResult(result, normalizedMax)
     } catch {
       if (process.env.NODE_ENV === 'production') {
-        return { limited: true, unavailable: true, limit: maxRequests, remaining: 0, retryAfterSec: 5 }
+        return { limited: true, unavailable: true, limit: normalizedMax, remaining: 0, retryAfterSec: 5 }
       }
       return memoryCheck(request, identity)
     }

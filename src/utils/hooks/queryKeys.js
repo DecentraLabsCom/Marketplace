@@ -76,7 +76,12 @@ export const labQueryKeys = {
 // Public marketplace catalogue query keys
 export const marketQueryKeys = {
   all: () => ['market'],
-  publicLabs: (includeUnlisted = false) => ['market', 'public-labs', Boolean(includeUnlisted)],
+  publicLabs: (includeUnlisted = false, filters = {}) => [
+    'market',
+    'public-labs',
+    Boolean(includeUnlisted),
+    filters,
+  ],
 };
 
 // User query keys

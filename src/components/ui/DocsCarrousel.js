@@ -67,13 +67,19 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
     <>
     <div className="relative w-full overflow-hidden" 
       style={{ height: viewerHeight }}>
-        {normalizedDocs.map((doc, index) => (
-          <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
-                    index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            <MediaDisplayWithFallback mediaPath={doc.source} mediaType={'doc'} title={`doc ${index + 1}`} height={viewerHeight} width="100%"
-            className="rounded-lg" />
+        {currentDoc && (
+          <div className="absolute inset-0">
+            <MediaDisplayWithFallback
+              key={currentDoc.source}
+              mediaPath={currentDoc.source}
+              mediaType="doc"
+              title={`doc ${currentIndex + 1}`}
+              height={viewerHeight}
+              width="100%"
+              className="rounded-lg"
+            />
           </div>
-        ))}
+        )}
 
       {currentDoc && (
         <div className="absolute right-2 top-2 z-30 flex gap-2">

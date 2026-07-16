@@ -29,10 +29,16 @@ jest.mock('@vercel/blob', () => ({
 
 jest.mock('sharp', () => jest.fn())
 
+jest.mock('@/utils/storage/documentMalwareScan', () => ({
+  scanDocumentBuffer: jest.fn().mockResolvedValue({ scanned: true }),
+  DocumentScanError: class DocumentScanError extends Error {},
+}))
+
 import { POST } from '../uploadFile/route'
 import { HttpError, requireAuth, requireLabOwner, requireProviderRole } from '@/utils/auth/guards'
 import getIsVercel from '@/utils/isVercel'
 import { put } from '@vercel/blob'
+import { scanDocumentBuffer } from '@/utils/storage/documentMalwareScan'
 
 const mockRequireAuth = requireAuth
 const mockRequireLabOwner = requireLabOwner
@@ -106,5 +112,19 @@ describe('/api/provider/uploadFile security', () => {
       expect.any(Buffer),
       expect.objectContaining({ access: 'public' }),
     )
+  })
+
+  test('scans documents before storing them', async () => {
+    const response = await POST(uploadRequest({
+      labId: '7',
+      destinationFolder: 'docs',
+      file: new File([Buffer.from('%PDF-1.7\ncontents')], 'guide.pdf', { type: 'application/pdf' }),
+    }))
+
+    expect(response.status).toBe(201)
+    expect(scanDocumentBuffer).toHaveBeenCalledWith(expect.objectContaining({
+      contentType: 'application/pdf',
+      filename: 'guide.pdf',
+    }))
   })
 })

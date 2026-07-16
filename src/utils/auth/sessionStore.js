@@ -6,6 +6,41 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const ENCRYPTED_VALUE_PREFIX = 'enc:v1:'
 const memorySessions = new Map()
 const developmentEncryptionKey = randomBytes(32)
+let remoteFailureCount = 0
+let remoteCircuitOpenUntil = 0
+
+const parseBoundedInteger = (value, fallback, minimum, maximum) => {
+  const parsed = Number.parseInt(value || '', 10)
+  return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback
+}
+
+const remoteRequestTimeoutMs = () => parseBoundedInteger(
+  process.env.SESSION_STORE_TIMEOUT_MS,
+  2_000,
+  100,
+  10_000,
+)
+
+const remoteRequestAttempts = () => parseBoundedInteger(
+  process.env.SESSION_STORE_MAX_ATTEMPTS,
+  2,
+  1,
+  3,
+)
+
+const circuitFailureThreshold = () => parseBoundedInteger(
+  process.env.SESSION_STORE_CIRCUIT_FAILURES,
+  3,
+  1,
+  10,
+)
+
+const circuitCooldownMs = () => parseBoundedInteger(
+  process.env.SESSION_STORE_CIRCUIT_COOLDOWN_MS,
+  30_000,
+  1_000,
+  5 * 60_000,
+)
 
 function getRemoteConfig() {
   const url = process.env.SESSION_STORE_REST_URL
@@ -34,7 +69,6 @@ function requireSessionStoreConfig() {
 function getEncryptionKey() {
   const configured = process.env.SESSION_ENCRYPTION_KEY
     || process.env.SESSION_STORE_ENCRYPTION_KEY
-    || process.env.SESSION_SECRET
   if (!configured) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('A server-side session encryption key is required in production')
@@ -72,34 +106,83 @@ function decryptSensitiveValue(value) {
 }
 
 function protectSessionData(sessionData) {
-  const protectedData = { ...sessionData }
-  if (typeof protectedData.samlAssertion === 'string' && protectedData.samlAssertion) {
-    protectedData.samlAssertion = encryptSensitiveValue(protectedData.samlAssertion)
-  }
-  return protectedData
+  return { encryptedSession: encryptSensitiveValue(JSON.stringify(sessionData)) }
 }
 
 function unprotectSessionData(record) {
-  const sessionData = { ...record }
-  if (typeof sessionData.samlAssertion === 'string') {
-    sessionData.samlAssertion = decryptSensitiveValue(sessionData.samlAssertion)
+  if (typeof record?.encryptedSession !== 'string') throw new Error('Session record is missing encrypted identity data')
+  const payload = JSON.parse(decryptSensitiveValue(record.encryptedSession))
+  if (!payload || typeof payload !== 'object') throw new Error('Session identity payload is invalid')
+  return payload
+}
+
+async function sendRemoteCommand(command, config) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), remoteRequestTimeoutMs())
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      const error = new Error('Session store request failed')
+      error.retryable = response.status >= 500 || response.status === 429
+      throw error
+    }
+    const payload = await response.json().catch(() => ({}))
+    if (payload.error) {
+      const error = new Error('Session store rejected the request')
+      error.retryable = false
+      throw error
+    }
+    return payload.result
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error('Session store request timed out')
+      timeoutError.retryable = true
+      throw timeoutError
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
-  return sessionData
+}
+
+function recordRemoteFailure(now) {
+  remoteFailureCount += 1
+  if (remoteFailureCount >= circuitFailureThreshold()) {
+    remoteCircuitOpenUntil = now + circuitCooldownMs()
+  }
 }
 
 async function remoteCommand(command, config) {
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-  })
-  if (!response.ok) throw new Error(`Session store request failed with status ${response.status}`)
-  const payload = await response.json().catch(() => ({}))
-  if (payload.error) throw new Error('Session store rejected the request')
-  return payload.result
+  if (Date.now() < remoteCircuitOpenUntil) {
+    throw new Error('Session store is temporarily unavailable')
+  }
+
+  const attempts = remoteRequestAttempts()
+  let lastError
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const result = await sendRemoteCommand(command, config)
+      remoteFailureCount = 0
+      remoteCircuitOpenUntil = 0
+      return result
+    } catch (error) {
+      lastError = error
+      if (error?.retryable === false) break
+    }
+  }
+
+  recordRemoteFailure(Date.now())
+  devLog.warn('Session store command failed', lastError?.message || lastError)
+  throw new Error('Session store is temporarily unavailable')
 }
 
 function buildSessionId() {
@@ -140,19 +223,20 @@ export async function createServerSession(sessionData, maxAgeSec = 60 * 60 * 24)
 
   const sessionId = buildSessionId()
   const now = Date.now()
-  const record = {
-    ...protectSessionData(sessionData),
+  const expiresAt = now + ttl * 1000
+  const record = protectSessionData({
+    ...sessionData,
     sessionId,
     createdAt: now,
-    expiresAt: now + ttl * 1000,
-  }
+    expiresAt,
+  })
   const config = requireSessionStoreConfig()
 
   if (config) {
     await remoteCommand(['SET', sessionKey(sessionId), JSON.stringify(record), 'EX', String(ttl)], config)
   } else {
     sweepMemorySessions(now)
-    memorySessions.set(sessionId, record)
+    memorySessions.set(sessionId, { record, expiresAt })
     devLog.warn('Using an in-memory session store outside production; configure SESSION_STORE_REST_URL for shared sessions')
   }
 
@@ -173,7 +257,7 @@ export async function getServerSession(sessionId) {
   try {
     rawRecord = config
       ? await remoteCommand(['GET', sessionKey(sessionId)], config)
-      : memorySessions.get(sessionId)
+      : memorySessions.get(sessionId)?.record
   } catch (error) {
     devLog.warn('Session store read failed; rejecting session', error?.message || error)
     return null
@@ -182,11 +266,12 @@ export async function getServerSession(sessionId) {
   if (!rawRecord) return null
   try {
     const record = typeof rawRecord === 'string' ? JSON.parse(rawRecord) : rawRecord
-    if (!record || record.sessionId !== sessionId || record.expiresAt <= Date.now()) {
+    const session = unprotectSessionData(record)
+    if (!record || session.sessionId !== sessionId || session.expiresAt <= Date.now()) {
       if (!config) memorySessions.delete(sessionId)
       return null
     }
-    return unprotectSessionData(record)
+    return session
   } catch (error) {
     if (!config) memorySessions.delete(sessionId)
     devLog.warn('Session record is invalid; rejecting session', error?.message || error)
@@ -210,4 +295,6 @@ export function isServerSessionId(value) {
 
 export function clearMemorySessionsForTests() {
   memorySessions.clear()
+  remoteFailureCount = 0
+  remoteCircuitOpenUntil = 0
 }

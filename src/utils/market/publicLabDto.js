@@ -20,6 +20,10 @@ const normalizeCategories = (value) => {
     .filter(Boolean))]
 }
 
+const normalizeKeywords = (value) => [...new Set((Array.isArray(value) ? value : [value])
+  .map((item) => normalizeText(item))
+  .filter(Boolean))].slice(0, 32)
+
 const normalizePriceUnit = (lab) => {
   const candidate = lab?.priceUnit
     || lab?.pricing?.displayUnit
@@ -77,6 +81,7 @@ export const toPublicMarketLab = (lab) => {
   const publicLab = {
     id,
     name: normalizeText(lab?.name, `Lab ${id}`) || `Lab ${id}`,
+    description: normalizeText(lab?.description),
     provider: resolvePublicProvider(lab),
     image,
     price: typeof lab?.price === 'string' || typeof lab?.price === 'number'
@@ -84,6 +89,7 @@ export const toPublicMarketLab = (lab) => {
       : '0',
     priceUnit: normalizePriceUnit(lab),
     category: normalizeCategories(lab?.category),
+    keywords: normalizeKeywords(lab?.keywords),
     rating: normalizeRating(lab?.reputation || lab?.rating),
     resourceType: typeof lab?.resourceType === 'number' || typeof lab?.resourceType === 'string'
       ? lab.resourceType
@@ -98,11 +104,13 @@ export const toPublicMarketLab = (lab) => {
 export const PUBLIC_MARKET_LAB_FIELDS = Object.freeze([
   'id',
   'name',
+  'description',
   'provider',
   'image',
   'price',
   'priceUnit',
   'category',
+  'keywords',
   'rating',
   'resourceType',
   'isListed',

@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { buildEnrichedLab, collectMetadataImages } from '@/hooks/lab/labEnrichmentHelpers';
 import { isLocalMetadataUri, loadMetadataDocument } from '@/utils/metadata/metadataPolicy';
@@ -9,8 +8,16 @@ import {
   getNextMarketCursor,
   parseMarketPageParams,
 } from '@/utils/market/marketPagination';
+import {
+  isMarketSnapshotFresh,
+  isMarketSnapshotRevalidating,
+  MARKET_SNAPSHOT_FRESHNESS_MS,
+  readMarketSnapshot,
+  revalidateMarketSnapshot,
+  shouldRetryMarketSnapshot,
+  writeMarketSnapshot,
+} from './marketSnapshotStore';
 
-const MARKET_SNAPSHOT_REVALIDATE_SECONDS = 60;
 const DETAIL_CONCURRENCY = 8;
 const MEASURED_CONTRACT_METHODS = new Set([
   'getLabsPaginated',
@@ -23,6 +30,14 @@ const MEASURED_CONTRACT_METHODS = new Set([
   'getRegisteredSchacHomeOrganizations',
   'getSchacHomeOrganizationBackend',
 ]);
+
+export const MARKET_CATALOGUE_STATUS = Object.freeze({
+  FRESH: 'fresh',
+  STALE: 'stale',
+  UNAVAILABLE: 'unavailable',
+});
+
+export { MARKET_SNAPSHOT_FRESHNESS_MS };
 
 const toFiniteNumber = (value, fallback = 0) => {
   const numeric = Number(value);
@@ -143,15 +158,16 @@ const createMeasuredContract = (contract, metrics) => new Proxy(contract, {
   },
 });
 
-const createEmptySnapshot = ({ cursor, limit, metrics = null } = {}) => ({
+const createUnavailableSnapshot = ({ cursor, limit } = {}) => ({
   labs: [],
   totalLabs: 0,
   returnedLabs: 0,
   cursor,
   limit,
   nextCursor: null,
-  snapshotAt: new Date().toISOString(),
-  ...(metrics ? { metrics } : {}),
+  snapshotAt: null,
+  catalogueStatus: MARKET_CATALOGUE_STATUS.UNAVAILABLE,
+  errorCode: 'MARKET_CATALOGUE_UNAVAILABLE',
 });
 
 const getMarketLabsSnapshotUncached = async ({
@@ -177,7 +193,9 @@ const getMarketLabsSnapshotUncached = async ({
 
   if (paginatedLabsResult.status !== 'fulfilled') {
     metrics.durationMs = Date.now() - startedAt;
-    return createEmptySnapshot({ cursor, limit, metrics });
+    const error = new Error('Market catalogue pagination is unavailable');
+    error.metrics = metrics;
+    throw error;
   }
 
   const labIds = parseLabIdsFromPaginated(paginatedLabsResult.value);
@@ -275,17 +293,6 @@ const getMarketLabsSnapshotUncached = async ({
   };
 };
 
-const getCachedMarketLabsSnapshot = unstable_cache(
-  async (includeUnlisted = false, cursor = 0, limit = DEFAULT_MARKET_PAGE_SIZE) => (
-    getMarketLabsSnapshotUncached({ includeUnlisted, cursor, limit })
-  ),
-  ['market-labs-snapshot-v2'],
-  {
-    revalidate: MARKET_SNAPSHOT_REVALIDATE_SECONDS,
-    tags: ['market-labs-snapshot'],
-  },
-);
-
 export const toPublicMarketSnapshot = (snapshot) => ({
   labs: Array.isArray(snapshot?.labs) ? snapshot.labs : [],
   totalLabs: Number.isFinite(Number(snapshot?.totalLabs)) ? Number(snapshot.totalLabs) : 0,
@@ -295,15 +302,73 @@ export const toPublicMarketSnapshot = (snapshot) => ({
   cursor: Number.isSafeInteger(Number(snapshot?.cursor)) ? Number(snapshot.cursor) : 0,
   limit: Number.isSafeInteger(Number(snapshot?.limit)) ? Number(snapshot.limit) : DEFAULT_MARKET_PAGE_SIZE,
   nextCursor: snapshot?.nextCursor ?? null,
-  snapshotAt: snapshot?.snapshotAt || new Date().toISOString(),
+  snapshotAt: Number.isFinite(Date.parse(snapshot?.snapshotAt)) ? snapshot.snapshotAt : null,
+  catalogueStatus: Object.values(MARKET_CATALOGUE_STATUS).includes(snapshot?.catalogueStatus)
+    ? snapshot.catalogueStatus
+    : MARKET_CATALOGUE_STATUS.FRESH,
+  ...(snapshot?.catalogueStatus === MARKET_CATALOGUE_STATUS.UNAVAILABLE
+    ? { errorCode: 'MARKET_CATALOGUE_UNAVAILABLE' }
+    : {}),
+  facets: {
+    categories: Array.isArray(snapshot?.facets?.categories)
+      ? snapshot.facets.categories.filter((value) => typeof value === 'string')
+      : [],
+    providers: Array.isArray(snapshot?.facets?.providers)
+      ? snapshot.facets.providers.filter((value) => typeof value === 'string')
+      : [],
+  },
 });
 
 export async function getMarketLabsSnapshot({ includeUnlisted = false, cursor, limit } = {}) {
   const page = parseMarketPageParams({ cursor, limit });
+  const snapshotPage = {
+    includeUnlisted: Boolean(includeUnlisted),
+    ...page,
+  };
+  const cachedSnapshot = await readMarketSnapshot(snapshotPage);
+
+  if (cachedSnapshot && isMarketSnapshotFresh(cachedSnapshot)) {
+    return {
+      ...cachedSnapshot,
+      catalogueStatus: MARKET_CATALOGUE_STATUS.FRESH,
+    };
+  }
+
+  const staleSnapshot = cachedSnapshot
+    ? {
+      ...cachedSnapshot,
+      catalogueStatus: MARKET_CATALOGUE_STATUS.STALE,
+    }
+    : null;
+
+  if (staleSnapshot && (
+    isMarketSnapshotRevalidating(snapshotPage)
+    || !shouldRetryMarketSnapshot(snapshotPage)
+  )) {
+    return staleSnapshot;
+  }
+
+  const refreshSnapshot = () => revalidateMarketSnapshot(snapshotPage, async () => {
+    const freshSnapshot = await getMarketLabsSnapshotUncached(snapshotPage);
+    const storedSnapshot = { ...freshSnapshot };
+    delete storedSnapshot.metrics;
+    await writeMarketSnapshot(snapshotPage, storedSnapshot);
+    return {
+      ...freshSnapshot,
+      catalogueStatus: MARKET_CATALOGUE_STATUS.FRESH,
+    };
+  });
+
+  if (staleSnapshot) {
+    // A stale catalogue is still a truthful response. Refresh it in the
+    // background so a visitor never pays the complete per-lab RPC fan-out.
+    void refreshSnapshot().catch(() => {});
+    return staleSnapshot;
+  }
 
   try {
-    return await getCachedMarketLabsSnapshot(Boolean(includeUnlisted), page.cursor, page.limit);
+    return await refreshSnapshot();
   } catch {
-    return createEmptySnapshot(page);
+    return createUnavailableSnapshot(page);
   }
 }

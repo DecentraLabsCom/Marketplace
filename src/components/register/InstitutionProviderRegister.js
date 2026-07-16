@@ -64,7 +64,6 @@ export default function InstitutionProviderRegister() {
       const invite = await inviteResponse.json()
       setInviteData(invite)
       notifyInstitutionProviderInviteGenerated(addTemporaryNotification)
-      devLog.log('InstitutionProviderRegister: Invite token generated', invite)
     } catch (error) {
       devLog.error('InstitutionProviderRegister: Error during institutional provider registration', error)
       notifyInstitutionProviderRegistrationFailed(

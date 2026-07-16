@@ -29,6 +29,7 @@ import {
   withIntentSignerLock,
 } from '@/utils/intents/intentNonceStore';
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
+import { invalidateInstitutionalBackend } from '@/utils/onboarding/institutionalBackend'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -285,6 +286,7 @@ export async function POST(request) {
           );
           const receipt = await transaction.wait();
           txHashes.push(receipt?.hash ?? transaction?.hash);
+          await invalidateInstitutionalBackend(normalizedOrganization);
           await recordProvisioningResult(payload.jti, {
             stage: PROVISIONING_SAGA_STAGES.PROVIDER_ADDED,
             txHashes: [...txHashes],
