@@ -71,8 +71,6 @@ describe('POST /api/auth/fmu-session', () => {
     await expect(response.json()).resolves.toEqual({ gatewayOrigin: 'https://lite.lab.example' })
     expect(resolveLabAccessGateway).toHaveBeenCalledWith({
       labId: '42',
-      gatewayUrl: 'https://lite.lab.example/fmu/',
-      requireLabMatch: true,
     })
     expect(gatewayFetch).toHaveBeenCalledWith(
       'https://lite.lab.example/auth/access',

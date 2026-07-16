@@ -16,8 +16,6 @@ const originalFetch = global.fetch;
 
 describe("Lab Authentication Utilities", () => {
   const labId = "lab-123";
-  const authEndpoint = "https://auth.example.com/auth";
-
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
@@ -42,7 +40,6 @@ describe("Lab Authentication Utilities", () => {
       const result = await submitInstitutionalCheckIn({
         reservationKey: "rk-1",
         labId,
-        authEndpoint,
       });
 
       expect(global.fetch).toHaveBeenCalledWith("/api/auth/checkin", {
@@ -52,7 +49,6 @@ describe("Lab Authentication Utilities", () => {
         body: JSON.stringify({
           reservationKey: "rk-1",
           labId,
-          authEndpoint,
         }),
       });
       expect(result).toEqual({ valid: true });
@@ -65,7 +61,7 @@ describe("Lab Authentication Utilities", () => {
       });
 
       await expect(
-        submitInstitutionalCheckIn({ reservationKey: "rk-1", labId, authEndpoint })
+        submitInstitutionalCheckIn({ reservationKey: "rk-1", labId })
       ).rejects.toThrow("Institutional check-in failed. Status: 500");
     });
   });
@@ -83,7 +79,6 @@ describe("Lab Authentication Utilities", () => {
       const result = await authenticateLabAccessSSO({
         labId,
         reservationKey: "rk-1",
-        authEndpoint,
       });
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -94,7 +89,6 @@ describe("Lab Authentication Utilities", () => {
         body: JSON.stringify({
           labId,
           reservationKey: "rk-1",
-          authEndpoint,
         }),
       });
       expect(result).toEqual({
@@ -116,7 +110,7 @@ describe("Lab Authentication Utilities", () => {
       });
 
       await expect(
-        authenticateLabAccessSSO({ labId, reservationKey: "rk-1", authEndpoint })
+        authenticateLabAccessSSO({ labId, reservationKey: "rk-1" })
       ).rejects.toThrow("SSO authentication failed. Status: 401");
 
       expect(global.fetch).toHaveBeenCalledTimes(1);

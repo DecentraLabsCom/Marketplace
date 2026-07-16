@@ -429,37 +429,6 @@ describe('/api/auth/lab-access route', () => {
     )
   })
 
-  test('rejects auth endpoint that does not match on-chain gateway', async () => {
-    requireAuth.mockResolvedValue({
-      samlAssertion: 'assert',
-      affiliation: 'uned.es',
-      eduPersonPrincipalName: 'user-1@uned.es',
-    })
-
-    getContractInstance.mockResolvedValue({
-      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
-    })
-
-    const { POST } = await import('../api/auth/lab-access/route.js')
-
-    const req = new Request('http://localhost/api/auth/lab-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        labId: '10',
-        reservationKey: '0xabc',
-        authEndpoint: 'https://evil.example.com/auth',
-      }),
-    })
-
-    const res = await POST(req)
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toMatchObject({
-      error: 'The provider access endpoint is invalid.',
-      code: 'BAD_REQUEST',
-    })
-  })
-
   test('requests provider credential with reservationKey and labId', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',

@@ -85,7 +85,6 @@ describe('LabAccess', () => {
       expect(mockAuthenticateLabAccessSSO).toHaveBeenCalledWith({
         labId: '123',
         reservationKey: 'rk-1',
-        authEndpoint: 'https://auth.example.com/auth',
       })
     })
 
@@ -148,7 +147,6 @@ describe('LabAccess', () => {
       expect(mockAuthenticateLabAccessSSO).toHaveBeenCalledWith({
         labId: '123',
         reservationKey: '0xabc123',
-        authEndpoint: 'https://auth.example.com/auth',
       })
     })
   })

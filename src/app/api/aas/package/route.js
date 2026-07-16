@@ -19,7 +19,7 @@ function encodeAasId(id) {
 }
 
 /**
- * GET /api/aas/package?labId=1[&gatewayUrl=https://...]
+ * GET /api/aas/package?labId=1
  *
  * Proxy for the AASX package download from the provider's Gateway BaSyx instance.
  * Fetches GET /aas/shells/{aasIdEncoded}/package from the provider gateway and
@@ -41,17 +41,12 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const labId = searchParams.get('labId')
-    const gatewayUrl = searchParams.get('gatewayUrl')
 
     if (!labId) {
       return NextResponse.json({ error: 'Missing required parameter: labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({
-      labId,
-      gatewayUrl,
-      requireLabMatch: Boolean(labId && gatewayUrl),
-    })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
 
     const aasId = `urn:decentralabs:lab:${labId}`
     const packagePath = `/aas/shells/${encodeAasId(aasId)}/package`

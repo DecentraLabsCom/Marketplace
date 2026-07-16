@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
+import { buildDirectFmuDescribeUrl } from '@/utils/fmu/describeUrl'
 import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
 import { PRICE_UNIT_OPTIONS } from './labBookingPeriodOptions'
 
@@ -64,7 +65,6 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
     abortRef.current = controller
     setDescribeFetch({ loading: true, error: null, fetched: false })
     try {
-      const gwParam = encodeURIComponent(gatewayUrl)
       let describeAuthHeader = {}
       try {
         const tokenRes = await fetch(
@@ -84,10 +84,14 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         devLog.warn('FMU provider describe token request failed, continuing without bearer token', tokenError)
       }
       const labParam = localLab?.id ? `&labId=${encodeURIComponent(String(localLab.id))}` : ''
-      const res = await fetch(
-        `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`,
-        { signal: controller.signal, headers: describeAuthHeader }
-      )
+      const describeUrl = localLab?.id
+        ? `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}${labParam}`
+        : buildDirectFmuDescribeUrl(gatewayUrl, fmuFileName)
+      const res = await fetch(describeUrl, {
+        signal: controller.signal,
+        headers: describeAuthHeader,
+        ...(localLab?.id ? {} : { mode: 'cors' }),
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `Gateway returned ${res.status}`)

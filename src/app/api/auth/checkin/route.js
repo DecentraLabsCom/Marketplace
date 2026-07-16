@@ -20,15 +20,13 @@ import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimi
 
 const checkRate = createRateLimiter({ operation: 'auth-checkin', windowMs: 60_000, maxRequests: 20 })
 
-async function resolveAuthContext(labId, authEndpoint) {
+async function resolveAuthContext(labId) {
   if (!labId) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
   try {
     const gatewayBase = await resolveProviderAuthBackend({
       labId,
-      gatewayUrl: authEndpoint,
-      requireLabMatch: true,
     })
     return {
       authBase: `${gatewayBase}/auth`,
@@ -106,7 +104,7 @@ export async function POST(req) {
     if (rateLimitResponse) return rateLimitResponse
     const body = await req.json().catch(() => ({}))
 
-    const { reservationKey, labId, authEndpoint } = body || {}
+    const { reservationKey, labId } = body || {}
     if (!reservationKey && !labId) {
       throw new BadRequestError('Missing reservationKey or labId')
     }
@@ -115,7 +113,7 @@ export async function POST(req) {
       throw new BadRequestError('SSO session missing samlAssertion')
     }
 
-    const { authBase, audience } = await resolveAuthContext(labId, authEndpoint)
+    const { authBase, audience } = await resolveAuthContext(labId)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }

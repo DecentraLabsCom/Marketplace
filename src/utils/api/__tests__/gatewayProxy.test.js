@@ -496,10 +496,8 @@ describe('gatewayProxy', () => {
       expect(mockContract.getLabAccessURI).toHaveBeenCalledWith(42)
     })
 
-    test('allows a validated access URI before a new lab has an on-chain id', async () => {
-      await expect(mod.resolveLabAccessGateway({
-        gatewayUrl: 'https://lite.lab.example/fmu',
-      })).resolves.toBe('https://lite.lab.example')
+    test('requires an on-chain lab id before resolving an access gateway', async () => {
+      await expect(mod.resolveLabAccessGateway({})).rejects.toThrow(/Missing labId/)
       expect(mockContract.getLabAuthURI).not.toHaveBeenCalled()
       expect(mockContract.getLabAccessURI).not.toHaveBeenCalled()
     })
@@ -514,23 +512,16 @@ describe('gatewayProxy', () => {
       await expect(mod.resolveLabAccessGateway({ labId: '1' })).rejects.toThrow(/access URI/)
     })
 
-    test('validates the provider endpoint against authURI', async () => {
+    test('resolves the provider endpoint only from the on-chain authURI', async () => {
       mockContract.getLabAuthURI.mockResolvedValue('https://full.institution.example/auth')
-      await expect(
-        mod.resolveProviderAuthBackend({
-          labId: '1',
-          gatewayUrl: 'https://lite.lab.example/fmu',
-          requireLabMatch: true,
-        })
-      ).rejects.toThrow(/does not match on-chain/)
+      await expect(mod.resolveProviderAuthBackend({ labId: '1' }))
+        .resolves.toBe('https://full.institution.example')
     })
 
     test('validates the resource endpoint against accessURI and returns its gateway origin', async () => {
       mockContract.getLabAccessURI.mockResolvedValue('https://lite.lab.example/fmu')
       const result = await mod.resolveLabAccessGateway({
         labId: '1',
-        gatewayUrl: 'https://lite.lab.example/fmu/',
-        requireLabMatch: true,
       })
       expect(result).toBe('https://lite.lab.example')
     })
@@ -539,8 +530,7 @@ describe('gatewayProxy', () => {
       mockContract.getLabAccessURI.mockResolvedValue('https://lite.lab.example/fmu')
       await expect(mod.resolveLabAccessGateway({
         labId: '1',
-        gatewayUrl: 'https://lite.lab.example/guacamole',
-      })).rejects.toThrow(/does not match on-chain/)
+      })).resolves.toBe('https://lite.lab.example')
     })
 
     test.each(['-1', 'abc', '1.5'])('rejects invalid labId %s', async (labId) => {

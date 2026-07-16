@@ -14,7 +14,7 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 const checkRate = createRateLimiter({ operation: 'simulation-history', windowMs: 60_000, maxRequests: 30 })
 
 /**
- * GET /api/simulations/history?labId=xxx&gatewayUrl=yyy&limit=20&offset=0
+ * GET /api/simulations/history?labId=xxx&limit=20&offset=0
  */
 export async function GET(request) {
   try {
@@ -22,7 +22,6 @@ export async function GET(request) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
     if (rateLimitResponse) return rateLimitResponse
     const { searchParams } = new URL(request.url)
-    const gatewayUrl = searchParams.get('gatewayUrl')
     const labId = searchParams.get('labId')
     const reservationKey = searchParams.get('reservationKey')
     const limit = searchParams.get('limit') || '20'
@@ -32,7 +31,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/history', {
       labId,
       limit,

@@ -17,7 +17,7 @@ const checkRate = createRateLimiter({ operation: 'simulation-run', windowMs: 60_
  * POST /api/simulations/run
  *
  * Proxies simulation execution requests to the Lab Gateway FMU runner.
- * Expects JSON body: { labId, reservationKey, parameters, options, gatewayUrl? }
+ * Expects JSON body: { labId, reservationKey, parameters, options }
  */
 export async function POST(request) {
   try {
@@ -25,13 +25,13 @@ export async function POST(request) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
     if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
-    const { labId, reservationKey, parameters, options, gatewayUrl } = body
+    const { labId, reservationKey, parameters, options } = body
 
     if (!labId) {
       return NextResponse.json({ error: 'Missing required field: labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/run')
 
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {

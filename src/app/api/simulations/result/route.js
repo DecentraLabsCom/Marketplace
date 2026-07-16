@@ -14,7 +14,7 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 const checkRate = createRateLimiter({ operation: 'simulation-result', windowMs: 60_000, maxRequests: 20 })
 
 /**
- * GET /api/simulations/result?simId=...&labId=...&gatewayUrl=...
+ * GET /api/simulations/result?simId=...&labId=...
  */
 export async function GET(request) {
   try {
@@ -24,7 +24,6 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const simId = searchParams.get('simId')
     const labId = searchParams.get('labId')
-    const gatewayUrl = searchParams.get('gatewayUrl')
     const reservationKey = searchParams.get('reservationKey')
 
     if (!simId) {
@@ -34,7 +33,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, `/fmu/api/v1/simulations/${encodeURIComponent(simId)}/result`)
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {
       labId,

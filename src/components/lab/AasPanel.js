@@ -29,7 +29,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
     let cancelled = false
     setState({ loading: true, data: null, error: null })
 
-    const params = new URLSearchParams({ labId: String(labId), gatewayUrl })
+    const params = new URLSearchParams({ labId: String(labId) })
     fetch(`/api/aas/shell?${params.toString()}`, { cache: 'no-store' })
       .then(async (res) => {
         if (cancelled) return
@@ -69,7 +69,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const aasxPackageUrl = (() => {
     try {
       // Route through the Marketplace proxy to avoid CORS issues on the download
-      const params = new URLSearchParams({ labId: String(labId), gatewayUrl })
+      const params = new URLSearchParams({ labId: String(labId) })
       return `/api/aas/package?${params.toString()}`
     } catch {
       return null

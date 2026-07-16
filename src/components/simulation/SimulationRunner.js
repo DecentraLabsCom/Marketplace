@@ -103,9 +103,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const authData = await authenticateLabAccessSSO({
         labId,
         reservationKey,
-        // Deliberately omit accessURI-derived endpoints. The Marketplace API
-        // resolves and validates the canonical on-chain authURI for labId.
-        authEndpoint: null,
       })
 
       const accessCode = authData?.accessCode
@@ -120,7 +117,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
         throw new Error('Gateway returned a different FMU reservation context')
       }
       const gatewayOrigin = await establishFmuGatewaySession({
-        labURL,
         accessCode,
         labId,
         reservationKey: canonicalReservationKey,
@@ -180,7 +176,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const body = {
         labId: lab.id ?? lab.tokenId,
         reservationKey,
-        gatewayUrl,
         parameters,
         options: reqOptions,
       }
@@ -257,7 +252,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
         simId: String(simId),
         labId,
         reservationKey: String(reservationKey || ''),
-        gatewayUrl,
       })
       const res = await fetchGateway(
         `/api/simulations/result?${resultQuery.toString()}`,
@@ -325,7 +319,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const qs = new URLSearchParams({
         labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey: String(reservationKey),
-        gatewayUrl: String(lab.accessURI || ''),
       })
       const response = await fetchGateway(`/api/simulations/proxy?${qs.toString()}`, {
         credentials: 'include',

@@ -8,6 +8,8 @@ const mockHandleGuardError = jest.fn((error) =>
   Response.json({ error: error.message, code: error.code }, { status: error.status })
 )
 const mockGetContractInstance = jest.fn()
+const mockBlobGet = jest.fn()
+const mockBlobPut = jest.fn()
 
 class HttpError extends Error {
   constructor(message, status = 500, code = 'HTTP_ERROR') {
@@ -46,6 +48,11 @@ jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   getContractInstance: (...args) => mockGetContractInstance(...args),
 }))
 
+jest.mock('@vercel/blob', () => ({
+  get: (...args) => mockBlobGet(...args),
+  put: (...args) => mockBlobPut(...args),
+}))
+
 describe('/api/provider/saveLabData route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -54,6 +61,8 @@ describe('/api/provider/saveLabData route', () => {
     mockGetContractInstance.mockResolvedValue({
       tokenURI: jest.fn().mockResolvedValue('Lab-provider-8.json'),
     })
+    mockBlobGet.mockReset()
+    mockBlobPut.mockReset()
   })
 
   test('returns 403 creator mismatch when requireLabOwner blocks SSO user', async () => {
@@ -185,5 +194,45 @@ describe('/api/provider/saveLabData route', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_URI_FORMAT' })
     expect(mockRequireLabOwner).not.toHaveBeenCalled()
+  })
+
+  test('reads existing Vercel Blob metadata through the Blob SDK pathname API', async () => {
+    const previousVercel = process.env.VERCEL
+    process.env.VERCEL = '1'
+    mockBlobGet.mockResolvedValue({
+      statusCode: 200,
+      stream: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ _meta: { version: 4 } })))
+          controller.close()
+        },
+      }),
+    })
+
+    try {
+      const { POST } = await import('../api/provider/saveLabData/route.js')
+      const response = await POST(new Request('http://localhost/api/provider/saveLabData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          labData: {
+            id: 8,
+            uri: 'Lab-provider-8.json',
+            category: ['1.3'],
+          },
+        }),
+      }))
+
+      expect(response.status).toBe(200)
+      expect(mockBlobGet).toHaveBeenCalledWith('data/Lab-provider-8.json', { access: 'public' })
+      expect(mockBlobPut).toHaveBeenCalledWith(
+        'data/Lab-provider-8.json',
+        expect.any(String),
+        expect.objectContaining({ allowOverwrite: true }),
+      )
+    } finally {
+      if (previousVercel === undefined) delete process.env.VERCEL
+      else process.env.VERCEL = previousVercel
+    }
   })
 })

@@ -559,15 +559,11 @@ function numericLabIdFrom(labId) {
 
 async function resolveOnChainEndpoint({
   labId,
-  providedUrl,
-  requireLabMatch,
   contractReader,
   normalize,
   missingMessage,
-  mismatchMessage,
 }) {
   const numericLabId = numericLabIdFrom(labId)
-  const normalizedFromRequest = providedUrl ? normalize(providedUrl) : null
 
   const contract = await getContractInstance()
   const onChainUri = await contract[contractReader](numericLabId)
@@ -577,44 +573,25 @@ async function resolveOnChainEndpoint({
 
   const normalizedOnChain = normalize(String(onChainUri))
 
-  if (requireLabMatch && normalizedFromRequest && normalizedFromRequest !== normalizedOnChain) {
-    throw new GatewayValidationError(mismatchMessage)
-  }
-
   await assertGatewayUrlResolvesPublic(normalizedOnChain)
   return normalizedOnChain
 }
 
-export async function resolveProviderAuthBackend({ labId, gatewayUrl, requireLabMatch = true } = {}) {
+export async function resolveProviderAuthBackend({ labId } = {}) {
   return resolveOnChainEndpoint({
     labId,
-    providedUrl: gatewayUrl,
-    requireLabMatch,
     contractReader: 'getLabAuthURI',
     normalize: normalizeGatewayBaseUrl,
     missingMessage: 'Lab has no configured provider auth URI',
-    mismatchMessage: 'Provided auth endpoint does not match on-chain provider auth URI',
   })
 }
 
-export async function resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch = true } = {}) {
-  if (labId === undefined || labId === null || labId === '') {
-    if (!gatewayUrl) {
-      throw new GatewayValidationError('Missing labId or lab access URI')
-    }
-    const accessUrl = normalizeLabAccessUrl(gatewayUrl)
-    await assertGatewayUrlResolvesPublic(accessUrl)
-    return new URL(accessUrl).origin
-  }
-
+export async function resolveLabAccessGateway({ labId } = {}) {
   const accessUrl = await resolveOnChainEndpoint({
     labId,
-    providedUrl: gatewayUrl,
-    requireLabMatch,
     contractReader: 'getLabAccessURI',
     normalize: normalizeLabAccessUrl,
     missingMessage: 'Lab has no configured access URI',
-    mismatchMessage: 'Provided lab destination does not match on-chain lab access URI',
   })
   return new URL(accessUrl).origin
 }

@@ -48,7 +48,7 @@ function extractCollectionProperties(submodelElements, collectionIdShort) {
 }
 
 /**
- * GET /api/aas/shell?labId=1[&gatewayUrl=https://...]
+ * GET /api/aas/shell?labId=1
  *
  * Fetches the AAS shell and Nameplate submodel from the provider's Gateway BaSyx
  * instance. Both identifiers are derived deterministically from the labId:
@@ -67,17 +67,12 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const labId = searchParams.get('labId')
-    const gatewayUrl = searchParams.get('gatewayUrl')
 
     if (!labId) {
       return NextResponse.json({ error: 'Missing required parameter: labId' }, { status: 400 })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({
-      labId,
-      gatewayUrl,
-      requireLabMatch: Boolean(labId && gatewayUrl),
-    })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
 
     const shellId = `urn:decentralabs:lab:${labId}`
     const nameplateId = `urn:decentralabs:lab:${labId}:sm:nameplate`

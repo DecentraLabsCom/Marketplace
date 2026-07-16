@@ -103,8 +103,6 @@ describe('POST /api/simulations/run', () => {
     expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
     expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({
       labId: '1',
-      gatewayUrl: undefined,
-      requireLabMatch: true,
     })
   })
 
@@ -263,10 +261,7 @@ describe('GET /api/simulations/describe', () => {
     expect(data.error).toMatch(/fmuFileName/i)
   })
 
-  test('returns 400 when gatewayUrl is missing', async () => {
-    gatewayProxy.resolveLabAccessGateway.mockRejectedValueOnce(
-      new gatewayProxy.GatewayValidationError('Missing labId or gatewayUrl', 400)
-    )
+  test('returns 400 when labId is missing', async () => {
     const request = new Request(
       'http://localhost/api/simulations/describe?fmuFileName=test.fmu'
     )
@@ -275,7 +270,7 @@ describe('GET /api/simulations/describe', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('The simulation description parameters are invalid.')
+    expect(data.error).toMatch(/labId/i)
   })
 
   test('proxies to gateway and returns model description', async () => {
@@ -290,7 +285,7 @@ describe('GET /api/simulations/describe', () => {
     })
 
     const request = new Request(
-      'http://localhost/api/simulations/describe?fmuFileName=spring.fmu&gatewayUrl=https://gw.example.com/auth'
+      'http://localhost/api/simulations/describe?fmuFileName=spring.fmu&labId=42'
     )
 
     const response = await GET(request)
@@ -320,7 +315,7 @@ describe('GET /api/simulations/describe', () => {
     })
 
     const request = new Request(
-      'http://localhost/api/simulations/describe?fmuFileName=missing.fmu&gatewayUrl=https://gw.example.com/auth'
+      'http://localhost/api/simulations/describe?fmuFileName=missing.fmu&labId=42'
     )
 
     const response = await GET(request)
@@ -331,7 +326,7 @@ describe('GET /api/simulations/describe', () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('Connection refused'))
 
     const request = new Request(
-      'http://localhost/api/simulations/describe?fmuFileName=test.fmu&gatewayUrl=https://gw.example.com/auth'
+      'http://localhost/api/simulations/describe?fmuFileName=test.fmu&labId=42'
     )
 
     const response = await GET(request)

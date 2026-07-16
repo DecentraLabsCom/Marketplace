@@ -1,4 +1,5 @@
 import devLog from '@/utils/dev/logger'
+import { buildDirectFmuDescribeUrl } from '@/utils/fmu/describeUrl'
 
 export async function resolveFmuDescribeHeaders(fmuFileName, gatewayUrl) {
   if (!fmuFileName || !gatewayUrl) return {}
@@ -31,10 +32,13 @@ export async function verifyFmuReference(labData) {
   }
 
   const headers = await resolveFmuDescribeHeaders(fmuFileName, gatewayUrl)
-  const gwParam = encodeURIComponent(gatewayUrl)
-  const labParam = labData?.id ? `&labId=${encodeURIComponent(String(labData.id))}` : ''
-  const describeUrl = `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`
-  const res = await fetch(describeUrl, { headers })
+  const describeUrl = labData?.id
+    ? `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&labId=${encodeURIComponent(String(labData.id))}`
+    : buildDirectFmuDescribeUrl(gatewayUrl, fmuFileName)
+  const res = await fetch(describeUrl, {
+    headers,
+    ...(labData?.id ? {} : { mode: 'cors' }),
+  })
   if (!res.ok) {
     let detail = `Gateway returned ${res.status}`
     try {

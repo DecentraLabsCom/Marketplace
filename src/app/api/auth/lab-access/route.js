@@ -60,15 +60,13 @@ function normalizeOrganizationDomain(domain) {
   return normalized
 }
 
-async function resolveAuthContext(labId, authEndpoint) {
+async function resolveAuthContext(labId) {
   if (!labId) {
     throw new BadRequestError('labId is required to verify auth endpoint')
   }
   try {
     const gatewayBase = await resolveProviderAuthBackend({
       labId,
-      gatewayUrl: authEndpoint,
-      requireLabMatch: true,
     })
     return {
       authBase: `${gatewayBase}/auth`,
@@ -187,7 +185,7 @@ export async function POST(req) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
     if (rateLimitResponse) return rateLimitResponse
     const body = await req.json().catch(() => ({}))
-    const { labId, reservationKey, authEndpoint } = body || {}
+    const { labId, reservationKey } = body || {}
     if (!labId && !reservationKey) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
@@ -196,7 +194,7 @@ export async function POST(req) {
       throw new BadRequestError('Missing SSO session')
     }
 
-    const { authBase, audience: providerAudience } = await resolveAuthContext(labId, authEndpoint)
+    const { authBase, audience: providerAudience } = await resolveAuthContext(labId)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
     }

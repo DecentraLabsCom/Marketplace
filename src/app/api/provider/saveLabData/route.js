@@ -7,7 +7,7 @@
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
-import { put } from '@vercel/blob'
+import { get, put } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
 import {
   CALENDAR_PERIOD_BOOKING_MODE,
@@ -398,15 +398,13 @@ export async function POST(req) {
       }
     } else {
       try {
-        const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL.replace(/\/+$/, '');
-        const blobUrl = `${blobBase}/data/${blobName}`;
-        const response = await fetch(blobUrl);
-        if (response.ok) {
+        const blobResponse = await get(`data/${blobName}`, { access: 'public' })
+        if (blobResponse?.statusCode === 200 && blobResponse.stream) {
           try {
-            existingData = await response.json();
-      } catch (parseError) {
-            console.warn(`Failed to parse existing blob data for ${blobName}:`, sanitizeErrorForLog(parseError));
-            existingData = null; // Treat as new file
+            existingData = await new Response(blobResponse.stream).json()
+          } catch (parseError) {
+            console.warn(`Failed to parse existing blob data for ${blobName}:`, sanitizeErrorForLog(parseError))
+            existingData = null // Treat as new file
           }
         }
         // Non-200 responses are fine - blob might not exist yet

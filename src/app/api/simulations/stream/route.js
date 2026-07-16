@@ -21,7 +21,7 @@ export async function POST(request) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
     if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
-    const { labId, reservationKey, gatewayUrl } = body
+    const { labId, reservationKey } = body
 
     if (!labId) {
       return new Response(JSON.stringify({ error: 'Missing required field: labId' }), {
@@ -30,7 +30,7 @@ export async function POST(request) {
       })
     }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({ labId, gatewayUrl, requireLabMatch: true })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/stream')
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {
       labId,
@@ -38,6 +38,8 @@ export async function POST(request) {
       gatewayOrigin: gatewayBaseUrl,
       userBinding,
     })
+    const simulationBody = { ...body }
+    delete simulationBody.gatewayUrl
 
     devLog.log(`[simulations/stream] Proxying to ${targetUrl} for lab ${labId}`)
 
@@ -47,7 +49,7 @@ export async function POST(request) {
         'Content-Type': 'application/json',
         ...gatewayHeaders,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(simulationBody),
       cache: 'no-store',
     })
 

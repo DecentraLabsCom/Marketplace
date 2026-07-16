@@ -1,9 +1,9 @@
-export async function establishFmuGatewaySession({ labURL, accessCode, labId, reservationKey }) {
+export async function establishFmuGatewaySession({ accessCode, labId, reservationKey }) {
   const response = await fetch('/api/auth/fmu-session', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ labURL, accessCode, labId, reservationKey }),
+    body: JSON.stringify({ accessCode, labId, reservationKey }),
   })
   if (!response.ok) {
     throw new Error(`FMU access-code exchange failed (${response.status})`)

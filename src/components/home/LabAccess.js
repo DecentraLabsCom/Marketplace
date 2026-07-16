@@ -137,7 +137,6 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
       const authResult = await authenticateLabAccessSSO({
         labId: id,
         reservationKey: resolvedReservationKey,
-        authEndpoint: authURI,
       });
 
       // Handle successful authentication
@@ -152,7 +151,6 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
             throw new Error('Provider did not return the canonical FMU reservationKey')
           }
           await establishFmuGatewaySession({
-            labURL: authResult.labURL,
             accessCode: authResult.accessCode,
             labId: id,
             reservationKey: canonicalReservationKey,

@@ -396,7 +396,6 @@ describe("SimulationRunner", () => {
     expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
       labId: "42",
       reservationKey: "0xabc",
-      authEndpoint: null,
     });
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });

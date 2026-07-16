@@ -24,26 +24,19 @@ function parseGatewaySession(setCookie) {
 export async function POST(request) {
   try {
     const marketplaceSession = await requireAuth()
-    const { accessCode, labURL, labId, reservationKey } = await request.json().catch(() => ({}))
-    if (!accessCode || !labURL || !labId || !reservationKey) {
-      throw new BadRequestError('accessCode, labURL, labId and reservationKey are required')
+    const { accessCode, labId, reservationKey } = await request.json().catch(() => ({}))
+    if (!accessCode || !labId || !reservationKey) {
+      throw new BadRequestError('accessCode, labId and reservationKey are required')
     }
 
     let gatewayBase
     try {
-      gatewayBase = await resolveLabAccessGateway({
-        labId,
-        gatewayUrl: labURL,
-        requireLabMatch: true,
-      })
+      gatewayBase = await resolveLabAccessGateway({ labId })
     } catch (error) {
       if (error instanceof GatewayValidationError) {
         throw new BadRequestError('The FMU gateway endpoint is invalid.')
       }
       throw error
-    }
-    if (new URL(gatewayBase).origin !== new URL(labURL).origin) {
-      throw new BadRequestError('FMU destination does not match the canonical lab access gateway')
     }
     const gatewayResponse = await gatewayFetch(`${gatewayBase}/auth/access`, {
       method: 'POST',

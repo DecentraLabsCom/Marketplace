@@ -13,7 +13,7 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 const checkRate = createRateLimiter({ operation: 'simulation-describe', windowMs: 60_000, maxRequests: 20 })
 
 /**
- * GET /api/simulations/describe?fmuFileName=xxx&gatewayUrl=yyy&labId=zzz
+ * GET /api/simulations/describe?fmuFileName=xxx&labId=zzz
  */
 export async function GET(request) {
   const rateLimitResponse = createRateLimitResponse(await checkRate(request))
@@ -22,18 +22,16 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const fmuFileName = searchParams.get('fmuFileName')
-    const gatewayUrl = searchParams.get('gatewayUrl')
     const labId = searchParams.get('labId')
 
     if (!fmuFileName) {
       return NextResponse.json({ error: 'Missing required parameter: fmuFileName' }, { status: 400 })
     }
+    if (!labId) {
+      return NextResponse.json({ error: 'Missing required parameter: labId' }, { status: 400 })
+    }
 
-    const gatewayBaseUrl = await resolveLabAccessGateway({
-      labId,
-      gatewayUrl,
-      requireLabMatch: Boolean(labId),
-    })
+    const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
 
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/describe', {
       fmuFileName,

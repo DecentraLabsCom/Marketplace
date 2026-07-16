@@ -31,7 +31,6 @@ describe('establishFmuGatewaySession', () => {
     )
     const request = global.fetch.mock.calls[0][1]
     expect(JSON.parse(request.body)).toEqual({
-      labURL: 'https://gateway.example.com/fmu/',
       accessCode: 'opaque-code',
       labId: '42',
       reservationKey: '0xabc',

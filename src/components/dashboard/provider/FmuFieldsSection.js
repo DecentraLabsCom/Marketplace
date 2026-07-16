@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Loader2, Cpu } from 'lucide-react'
 import { normalizeArray } from './labFormUtils'
 import devLog from '@/utils/dev/logger'
+import { buildDirectFmuDescribeUrl } from '@/utils/fmu/describeUrl'
 
 export default function FmuFieldsSection({
   localLab,
@@ -28,8 +29,6 @@ export default function FmuFieldsSection({
     setDescribeFetch({ loading: true, error: null, fetched: false })
 
     try {
-      const gwParam = encodeURIComponent(gatewayUrl)
-
       // Obtain a short-lived describe token from blockchain-services via the
       // Marketplace proxy. This avoids re-validating the (potentially expired)
       // SAML assertion and issues a JWT with the required accessKey claim.
@@ -53,9 +52,13 @@ export default function FmuFieldsSection({
       }
 
       const labParam = localLab?.id ? `&labId=${encodeURIComponent(String(localLab.id))}` : ''
-      const res = await fetch(`/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`, {
+      const describeUrl = localLab?.id
+        ? `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}${labParam}`
+        : buildDirectFmuDescribeUrl(gatewayUrl, fmuFileName)
+      const res = await fetch(describeUrl, {
         signal: controller.signal,
         headers: describeAuthHeader,
+        ...(localLab?.id ? {} : { mode: 'cors' }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))

@@ -9,14 +9,12 @@ import devLog from '@/utils/dev/logger'
  * @param {Object} params
  * @param {string|number} params.labId - Lab ID to access
  * @param {string} [params.reservationKey] - Optional reservation key for validation
- * @param {string} [params.authEndpoint] - Optional auth endpoint override
  * @returns {Promise<Object>} Authentication result with one-time accessCode and labURL or error
  * @throws {Error} If any step of the SSO authentication process fails
  */
 export const authenticateLabAccessSSO = async ({
   labId,
   reservationKey = null,
-  authEndpoint = null,
 } = {}) => {
   try {
     if (!labId && !reservationKey) {
@@ -27,7 +25,7 @@ export const authenticateLabAccessSSO = async ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ labId, reservationKey, authEndpoint }),
+      body: JSON.stringify({ labId, reservationKey }),
     });
 
     if (!response.ok) {
@@ -44,13 +42,12 @@ export const authenticateLabAccessSSO = async ({
 export const submitInstitutionalCheckIn = async ({
   reservationKey = null,
   labId = null,
-  authEndpoint = null,
 } = {}) => {
   const response = await fetch('/api/auth/checkin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ reservationKey, labId, authEndpoint }),
+    body: JSON.stringify({ reservationKey, labId }),
   });
 
   if (!response.ok) {
