@@ -44,10 +44,12 @@ describe('getMarketLabsSnapshot', () => {
     clearMarketSnapshotStoreForTests()
     contract = {
       getLabsPaginated: jest.fn().mockResolvedValue([[7], 1]),
-      getLabProviders: jest.fn().mockResolvedValue([{
-        account: '0x1234567890123456789012345678901234567890',
-        base: { name: 'Public Provider', email: 'private@example.edu' },
-      }]),
+      getLabProvidersPaginated: jest.fn().mockResolvedValue([[
+        {
+          account: '0x1234567890123456789012345678901234567890',
+          base: { name: 'Public Provider', email: 'private@example.edu' },
+        },
+      ], 1]),
       getLab: jest.fn().mockResolvedValue([
         7,
         ['Lab-Provider-7.json', '100000', 'https://private.example/access', 'secret-key', 123, 1],
@@ -97,6 +99,7 @@ describe('getMarketLabsSnapshot', () => {
       totalLabs: 1,
     })
     expect(contract.getLabsPaginated).toHaveBeenCalledWith(0, 24)
+    expect(contract.getLabProvidersPaginated).toHaveBeenCalledWith(0, 100)
   })
 
   test('requests the requested cursor page and exposes a next cursor', async () => {

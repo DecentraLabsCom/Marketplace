@@ -1,7 +1,8 @@
 import { createContractHandler } from '../../utils/createContractHandler'
+import { getAllLabProviders } from '@/server/contract/getAllLabProviders'
 
 export const { GET } = createContractHandler({
-  method: 'getLabProviders',
+  call: getAllLabProviders,
   transform: (providers) => ({
     providers: providers.map(provider => ({
       account: provider.account,

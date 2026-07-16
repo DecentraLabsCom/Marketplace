@@ -3,6 +3,7 @@ import { buildEnrichedLab, collectMetadataImages } from '@/hooks/lab/labEnrichme
 import { isLocalMetadataUri, loadMetadataDocument } from '@/utils/metadata/metadataPolicy';
 import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins';
 import { toPublicMarketLab } from '@/utils/market/publicLabDto';
+import { getAllLabProviders } from '@/server/contract/getAllLabProviders';
 import {
   DEFAULT_MARKET_PAGE_SIZE,
   getNextMarketCursor,
@@ -21,7 +22,7 @@ import {
 const DETAIL_CONCURRENCY = 8;
 const MEASURED_CONTRACT_METHODS = new Set([
   'getLabsPaginated',
-  'getLabProviders',
+  'getLabProvidersPaginated',
   'getLab',
   'ownerOf',
   'isTokenListed',
@@ -188,7 +189,7 @@ const getMarketLabsSnapshotUncached = async ({
 
   const [paginatedLabsResult, providersResult] = await Promise.allSettled([
     measuredContract.getLabsPaginated(cursor, limit),
-    measuredContract.getLabProviders(),
+    getAllLabProviders(measuredContract),
   ]);
 
   if (paginatedLabsResult.status !== 'fulfilled') {
