@@ -68,7 +68,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       let describeAuthHeader = {}
       try {
         const tokenRes = await fetch(
-          `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}`,
+        `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}`,
           { credentials: 'include', signal: controller.signal }
         )
         if (tokenRes.ok) {

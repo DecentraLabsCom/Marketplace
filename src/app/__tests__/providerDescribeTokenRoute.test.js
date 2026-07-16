@@ -74,6 +74,17 @@ jest.mock('@/utils/api/gatewayProxy', () => ({
   GatewayValidationError,
 }))
 
+const mockGetContractInstance = jest.fn()
+const mockResolveInstitutionAddressFromSession = jest.fn()
+
+jest.mock('@/app/api/contract/utils/contractInstance', () => ({
+  getContractInstance: (...args) => mockGetContractInstance(...args),
+}))
+
+jest.mock('@/app/api/contract/utils/institutionSession', () => ({
+  resolveInstitutionAddressFromSession: (...args) => mockResolveInstitutionAddressFromSession(...args),
+}))
+
 // ── Next.js server ────────────────────────────────────────────────────────────
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -97,7 +108,12 @@ const SESSION = {
   eduPersonTargetedID: 'targeted-user-1',
 }
 const VALID_GATEWAY = 'https://sarlab.dia.uned.es'
+const VALID_AUTH_URI = `${VALID_GATEWAY}/auth`
+const PROVIDER_WALLET = '0x1111111111111111111111111111111111111111'
 const VALID_FMU = 'BouncingBall.fmu'
+const mockContract = {
+  getProviderAuthURI: jest.fn(),
+}
 
 function buildRequest(params = {}) {
   const search = new URLSearchParams(params).toString()
@@ -115,6 +131,13 @@ describe('/api/fmu/provider-describe-token route', () => {
     mockRequireAuth.mockResolvedValue(SESSION)
     mockRequireProviderRole.mockReturnValue(undefined) // no-op: provider is authorised
     mockNormalizeGatewayBaseUrl.mockReturnValue(VALID_GATEWAY)
+    mockGetContractInstance.mockResolvedValue(mockContract)
+    mockResolveInstitutionAddressFromSession.mockResolvedValue({
+      institutionAddress: PROVIDER_WALLET,
+      normalizedDomain: 'uned.es',
+    })
+    mockContract.getProviderAuthURI.mockReset()
+    mockContract.getProviderAuthURI.mockResolvedValue(VALID_AUTH_URI)
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace.jwt.token')
     global.fetch = jest.fn()
@@ -174,16 +197,20 @@ describe('/api/fmu/provider-describe-token route', () => {
     await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('fmuFileName') })
   })
 
-  test('returns 400 when gatewayUrl is missing', async () => {
+  test('does not require a request gatewayUrl', async () => {
     const { GET } = await import('../api/fmu/provider-describe-token/route.js')
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ token: 'gw.token', expiresIn: 60 }),
+    })
 
     const res = await GET(buildRequest({ fmuFileName: VALID_FMU }))
 
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('gatewayUrl') })
+    expect(res.status).toBe(200)
   })
 
-  test('returns 400 when gatewayUrl fails SSRF validation', async () => {
+  test('returns 400 when the provider authURI from the contract fails validation', async () => {
     mockNormalizeGatewayBaseUrl.mockImplementation(() => {
       throw new GatewayValidationError('Gateway host is not allowed')
     })
@@ -296,6 +323,22 @@ describe('/api/fmu/provider-describe-token route', () => {
     const [_url, fetchOpts] = global.fetch.mock.calls[0]
     expect(fetchOpts.headers.Authorization).toBe('Bearer marketplace.jwt.token')
     expect(fetchOpts.method).toBe('POST')
+  })
+
+  test('resolves the gateway exclusively from the provider authURI on-chain', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ token: 'gw.token', expiresIn: 60 }),
+    })
+
+    const { GET } = await import('../api/fmu/provider-describe-token/route.js')
+
+    await GET(buildRequest({ fmuFileName: VALID_FMU, gatewayUrl: 'https://attacker.example' }))
+
+    expect(mockResolveInstitutionAddressFromSession).toHaveBeenCalledWith(SESSION, mockContract)
+    expect(mockContract.getProviderAuthURI).toHaveBeenCalledWith(PROVIDER_WALLET)
+    expect(mockNormalizeGatewayBaseUrl).toHaveBeenCalledWith(VALID_AUTH_URI)
+    expect(global.fetch.mock.calls[0][0]).toBe(`${VALID_GATEWAY}/auth/fmu/provider-describe-token`)
   })
 
   test('calls gateway with fmuFileName in request body', async () => {

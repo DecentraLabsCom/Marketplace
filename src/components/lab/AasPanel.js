@@ -1,6 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
+import {
+  parseSafeExternalHttpUrl,
+  safeExternalHttpsUrl,
+} from '@/utils/security/safeUrl'
 
 /**
  * AasPanel — shows Digital Twin (AAS) metadata for a lab resource in the Marketplace.
@@ -83,13 +87,14 @@ export default function AasPanel({ labId, gatewayUrl }) {
 
   // FMU-specific fields from SimulationModels submodel (optional)
   const simLicense = simulationInfo?.license || null
-  const simDocsUrl = simulationInfo?.documentationUrl || null
+  const simDocsUrl = safeExternalHttpsUrl(simulationInfo?.documentationUrl)
   const simContactEmail = simulationInfo?.contactEmail || null
 
   // Build a direct link to the raw AAS JSON on the provider's gateway
   const aasShellViewUrl = (() => {
     try {
-      const base = new URL(gatewayUrl)
+      const base = parseSafeExternalHttpUrl(gatewayUrl)
+      if (!base || base.search || base.hash) return null
       const origin = `${base.protocol}//${base.host}`
       const basePath = base.pathname.replace(/\/+$/, '').replace(/\/auth$/, '')
       const aasId = `urn:decentralabs:lab:${labId}`

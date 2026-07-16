@@ -17,6 +17,7 @@ import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { isFmu, getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
+import { safeExternalHttpUrl } from '@/utils/security/safeUrl'
 
 let countryLocaleRegistered = false
 
@@ -118,6 +119,7 @@ export default function LabDetail({ id }) {
   const labIsFmu = isFmu(lab);
   const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
   const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
+  const safeAccessUri = safeExternalHttpUrl(lab?.accessURI)
 
   return (
     <Container padding="sm">
@@ -161,7 +163,7 @@ export default function LabDetail({ id }) {
             </button>
 
             {/* Demo Access */}
-            {lab?.demoEnabled && (
+            {lab?.demoEnabled && safeAccessUri && (
               <div className="mt-3 w-2/3 mx-auto">
                 {demoAvailData?.isAvailable === false ? (
                   <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
@@ -169,7 +171,7 @@ export default function LabDetail({ id }) {
                   </p>
                 ) : (
                   <a
-                    href={lab?.accessURI}
+                    href={safeAccessUri || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-center px-4 py-2 rounded bg-brand/20 border border-brand text-brand hover:bg-brand hover:text-white transition-colors text-sm font-medium"

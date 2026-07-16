@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
-import { GatewayValidationError, gatewayFetch, normalizeGatewayBaseUrl } from '@/utils/api/gatewayProxy'
+import {
+  GatewayValidationError,
+  gatewayFetch,
+  normalizeGatewayBaseUrl,
+} from '@/utils/api/gatewayProxy'
 import {
   handleGuardError,
   requireAuth,
@@ -20,7 +26,7 @@ function buildBackendAudiences(targetAudience) {
 }
 
 /**
- * GET /api/fmu/provider-describe-token?fmuFileName=X&gatewayUrl=Y
+ * GET /api/fmu/provider-describe-token?fmuFileName=X
  *
  * Obtains a short-lived JWT from the gateway's blockchain-services that allows
  * calling the FMU describe endpoint for a specific FMU file. No SAML assertion
@@ -37,13 +43,9 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url)
     const fmuFileName = searchParams.get('fmuFileName')
-    const gatewayUrl = searchParams.get('gatewayUrl')
 
     if (!fmuFileName) {
       return NextResponse.json({ error: 'Missing required parameter: fmuFileName' }, { status: 400 })
-    }
-    if (!gatewayUrl) {
-      return NextResponse.json({ error: 'Missing required parameter: gatewayUrl' }, { status: 400 })
     }
 
     if (!(await marketplaceJwtService.isConfigured())) {
@@ -56,7 +58,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Missing SSO identity' }, { status: 401 })
     }
 
-    const gatewayBaseUrl = normalizeGatewayBaseUrl(gatewayUrl)
+    const contract = await getContractInstance()
+    const { institutionAddress } = await resolveInstitutionAddressFromSession(session, contract)
+    const providerAuthURI = await contract.getProviderAuthURI(institutionAddress)
+    const gatewayBaseUrl = normalizeGatewayBaseUrl(providerAuthURI)
     const authBase = `${gatewayBaseUrl}/auth`
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({

@@ -5,7 +5,7 @@ export async function resolveFmuDescribeHeaders(fmuFileName, gatewayUrl) {
 
   try {
     const tokenRes = await fetch(
-      `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${encodeURIComponent(gatewayUrl)}`,
+      `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}`,
       { credentials: 'include' },
     )
     if (!tokenRes.ok) return {}

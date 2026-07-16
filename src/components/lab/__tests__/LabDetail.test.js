@@ -387,5 +387,17 @@ describe("LabDetail", () => {
       // When data is undefined (loading), isAvailable is not false → show button
       expect(screen.getByRole("link", { name: /Try.*demo/i })).toBeInTheDocument();
     });
+
+    test("does not render an unsafe demo URL as a link", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...demoLab, accessURI: "javascript:alert(document.cookie)" },
+      });
+      useCheckAvailable.mockReturnValue({ data: { isAvailable: true } });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+    });
   });
 });

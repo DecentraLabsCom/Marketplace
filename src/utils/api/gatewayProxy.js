@@ -49,11 +49,6 @@ const INSTITUTIONAL_CIRCUIT_WINDOW_SECONDS = 60
 const INSTITUTIONAL_CIRCUIT_COOLDOWN_SECONDS = 60
 const localInstitutionalCircuits = new Map()
 
-const ALLOWED_GATEWAY_ORIGINS = (process.env.ALLOWED_GATEWAY_ORIGINS || '')
-  .split(',')
-  .map((entry) => entry.trim())
-  .filter(Boolean)
-
 export class GatewayValidationError extends Error {
   constructor(message, status = 400) {
     super(message)
@@ -164,10 +159,7 @@ function assertPublicHostAllowed(hostname, { always = false } = {}) {
   }
 }
 
-function assertGatewayHostAllowed(hostname, origin) {
-  if (ALLOWED_GATEWAY_ORIGINS.length > 0 && !ALLOWED_GATEWAY_ORIGINS.includes(origin)) {
-    throw new GatewayValidationError('Gateway origin is not in ALLOWED_GATEWAY_ORIGINS')
-  }
+function assertGatewayHostAllowed(hostname) {
   assertPublicHostAllowed(hostname)
 }
 

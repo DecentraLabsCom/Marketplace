@@ -41,7 +41,6 @@ describe('gatewayProxy', () => {
   beforeEach(async () => {
     jest.resetModules()
     originalNodeEnv = process.env.NODE_ENV
-    delete process.env.ALLOWED_GATEWAY_ORIGINS
     mod = await import('../gatewayProxy')
   })
 
@@ -226,25 +225,6 @@ describe('gatewayProxy', () => {
       })
     })
 
-    // ── ALLOWED_GATEWAY_ORIGINS ──
-
-    describe('ALLOWED_GATEWAY_ORIGINS allowlist', () => {
-      beforeEach(async () => {
-        process.env.ALLOWED_GATEWAY_ORIGINS = 'https://gw1.example.com,https://gw2.example.com'
-        jest.resetModules()
-        mod = await import('../gatewayProxy')
-      })
-
-      test('allows URL whose origin is in the allowlist', () => {
-        expect(() => mod.normalizeGatewayBaseUrl('https://gw1.example.com/auth')).not.toThrow()
-      })
-
-      test('rejects URL whose origin is NOT in the allowlist', () => {
-        expect(() => mod.normalizeGatewayBaseUrl('https://evil.example.com')).toThrow(
-          /ALLOWED_GATEWAY_ORIGINS/
-        )
-      })
-    })
   })
 
   describe('gatewayFetch DNS pinning and redirects', () => {
@@ -334,7 +314,6 @@ describe('gatewayProxy', () => {
 
     beforeEach(async () => {
       process.env.NODE_ENV = 'production'
-      delete process.env.ALLOWED_GATEWAY_ORIGINS
       jest.resetModules()
       dnsLookup = require('node:dns/promises').lookup
       dnsLookup.mockReset()
