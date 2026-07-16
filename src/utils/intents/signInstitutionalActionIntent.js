@@ -2,21 +2,9 @@ import { randomUUID } from 'crypto';
 import { ethers, TypedDataEncoder } from 'ethers';
 import { getNextIntentNonce } from './intentNonceStore';
 import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
+import { ACTION_CODES } from './actionCodes';
 
-export { INTENT_META_TYPES };
-
-export const ACTION_CODES = {
-  LAB_ADD: 1,
-  LAB_ADD_AND_LIST: 2,
-  LAB_SET_URI: 3,
-  LAB_UPDATE: 4,
-  LAB_DELETE: 5,
-  LAB_LIST: 6,
-  LAB_UNLIST: 7,
-  REQUEST_BOOKING: 8,
-  CANCEL_REQUEST_BOOKING: 9,
-  CANCEL_BOOKING: 10,
-};
+export { ACTION_CODES, INTENT_META_TYPES };
 
 export const ACTION_PAYLOAD_TYPES = {
   ActionIntentPayload: [

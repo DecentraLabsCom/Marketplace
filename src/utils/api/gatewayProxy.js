@@ -137,6 +137,20 @@ async function assertInstitutionalBackendResolvesPublic(url) {
   return resolvePublicGatewayAddress(url.hostname)
 }
 
+export function createPinnedLookup(resolved) {
+  return (_hostname, options, callback) => {
+    // Undici asks for all addresses when it establishes a TLS connection.
+    // Its callback must then receive an array, whereas node:dns.lookup uses
+    // the scalar (address, family) form when `all` is not requested.
+    if (options?.all) {
+      callback(null, [{ address: resolved.address, family: resolved.family }])
+      return
+    }
+
+    callback(null, resolved.address, resolved.family)
+  }
+}
+
 function pinnedAgent(url, resolved) {
   const key = `${url.protocol}//${url.host}|${resolved.address}|${resolved.family}`
   let agent = PINNED_AGENTS.get(key)
@@ -144,7 +158,7 @@ function pinnedAgent(url, resolved) {
 
   agent = new Agent({
     connect: {
-      lookup: (_hostname, _options, callback) => callback(null, resolved.address, resolved.family),
+      lookup: createPinnedLookup(resolved),
     },
   })
   PINNED_AGENTS.set(key, agent)

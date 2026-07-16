@@ -15,7 +15,7 @@ import {
   resolveAuthorizationStatusBaseUrl,
 } from '@/utils/intents/authorizationOrchestrator'
 import devLog from '@/utils/dev/logger'
-import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
+import { ACTION_CODES } from '@/utils/intents/actionCodes'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import createPendingBookingPayload from './utils/createPendingBookingPayload'

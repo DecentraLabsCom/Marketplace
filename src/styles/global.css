@@ -428,6 +428,7 @@ body {
 /* Style override for DatePicker external component: react-datepicker */
 .readonly-calendar .react-datepicker__day {
   cursor: default !important;
+  -webkit-user-select: none;
   user-select: none;
 }
 

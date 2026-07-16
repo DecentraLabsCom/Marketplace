@@ -113,9 +113,9 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
           flex list-none justify-center p-0 pointer-events-auto">
           {normalizedDocs.map((_, index) => (
             <button key={index} type="button" data-twe-slide-to={index}
-              className={`mx-[3px] box-content h-[3px] w-[30px] flex-initial cursor-pointer border-0 border-y-[10px] 
-              border-solid border-transparent bg-white hover:bg-primary-500 bg-clip-padding p-0 indent-[999px] opacity-80 
-              transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.1,0.25,1.0)] motion-reduce:transition-none 
+              className={`mx-0.75 box-content h-0.75 w-7.5 flex-initial cursor-pointer border-0 border-y-10 
+              border-solid border-transparent bg-white hover:bg-primary-500 bg-clip-padding p-0 indent-249.75 opacity-80 
+              transition-opacity duration-600 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] motion-reduce:transition-none 
               ${ index === currentIndex ? 'opacity-100 bg-primary-200' : '' }`}
               aria-current={index === currentIndex ? 'true' : 'false'} aria-label={`Slide ${index + 1}`}
               onClick={() => handleSlide(index)} />

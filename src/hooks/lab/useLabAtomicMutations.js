@@ -10,7 +10,7 @@ import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import { awaitIntentAuthorization } from '@/utils/intents/authorizationOrchestrator'
-import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
+import { ACTION_CODES } from '@/utils/intents/actionCodes'
 import {
   resolveIntentRequestId,
   assertInstitutionIntentExecuted,

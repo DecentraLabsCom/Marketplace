@@ -290,6 +290,17 @@ describe('gatewayProxy', () => {
       )
     })
 
+    test('returns the DNS answer in the shape required by Undici when all addresses are requested', () => {
+      const callback = jest.fn()
+      const lookup = mod.createPinnedLookup({ address: '93.184.216.34', family: 4 })
+
+      lookup('gateway.example.com', { all: true }, callback)
+
+      expect(callback).toHaveBeenCalledWith(null, [
+        { address: '93.184.216.34', family: 4 },
+      ])
+    })
+
     test('rejects a cross-origin redirect', async () => {
       global.fetch.mockResolvedValue({
         status: 302,

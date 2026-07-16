@@ -1,4 +1,4 @@
-import { ACTION_CODES } from './signInstitutionalActionIntent'
+import { ACTION_CODES } from './actionCodes'
 
 export const DIRECT_BOOKING_ACTION = 11
 
