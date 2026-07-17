@@ -17,7 +17,6 @@
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useUserCacheUpdates } from "../useUserCacheUpdates";
-import { userQueryKeys } from "@/utils/hooks/queryKeys";
 import { useIsLabProviderSSO } from "../useUserAtomicQueries";
 import devLog from "@/utils/dev/logger";
 
