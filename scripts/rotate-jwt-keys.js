@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { execSync } from 'child_process';
+import { writeFileWithDescriptor } from '../src/utils/security/atomicFile.js';
 
 // Configuration
 const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
@@ -167,16 +168,16 @@ function updateRotationMetadata() {
   };
   
   // If metadata exists, increment rotation count
-  if (fs.existsSync(metadataPath)) {
-    try {
+  try {
       const existingMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
       metadata.rotationCount = (existingMetadata.rotationCount || 0) + 1;
-    } catch (error) {
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
       console.log('⚠️  Could not read existing metadata, starting fresh');
     }
   }
   
-  fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+  writeFileWithDescriptor(metadataPath, JSON.stringify(metadata, null, 2));
   console.log('📊 Rotation metadata updated');
   console.log('   Count:', metadata.rotationCount);
   console.log('   Next scheduled:', metadata.nextScheduledRotation.split('T')[0]);
@@ -198,8 +199,7 @@ async function rotateKeys() {
       
       // Check if rotation is needed based on metadata
       const metadataPath = path.join(KEYS_DIR, 'rotation-metadata.json');
-      if (fs.existsSync(metadataPath)) {
-        try {
+      try {
           const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
           const lastRotation = new Date(metadata.lastRotation);
           const daysSinceRotation = (Date.now() - lastRotation.getTime()) / (1000 * 60 * 60 * 24);
@@ -209,7 +209,8 @@ async function rotateKeys() {
             console.log('❓ Use --force flag to rotate anyway');
             process.exit(0);
           }
-        } catch (error) {
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
           console.log('⚠️  Could not read rotation metadata');
         }
       }

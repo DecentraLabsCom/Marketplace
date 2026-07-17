@@ -5,6 +5,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
+import { normalizeFmuFileName } from '@/utils/fmu/fmuFileName'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import {
   GatewayValidationError,
@@ -42,10 +43,12 @@ export async function GET(request) {
     if (rateLimitResponse) return rateLimitResponse
 
     const { searchParams } = new URL(request.url)
-    const fmuFileName = searchParams.get('fmuFileName')
+    const fmuFileName = normalizeFmuFileName(searchParams.get('fmuFileName'))
 
-    if (!fmuFileName) {
-      return NextResponse.json({ error: 'Missing required parameter: fmuFileName' }, { status: 400 })
+    if (fmuFileName === null) {
+      return NextResponse.json({
+        error: 'Invalid required parameter: fmuFileName must be a safe .fmu filename',
+      }, { status: 400 })
     }
 
     if (!(await marketplaceJwtService.isConfigured())) {

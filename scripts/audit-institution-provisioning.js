@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { Contract, JsonRpcProvider } from 'ethers';
+import { isMoralisRpcUrl } from '../src/utils/security/rpcEndpoint.js';
 
 const REGISTRY_ABI = [
   'function getAllInstitutions() view returns (address[])',
@@ -34,7 +35,7 @@ const outputPath = outputArgument?.slice('--output='.length)
 const configuredFromBlock = process.env.PROVISIONING_AUDIT_FROM_BLOCK
   ? Number.parseInt(process.env.PROVISIONING_AUDIT_FROM_BLOCK, 10)
   : null;
-const defaultBlockChunk = rpcUrl?.includes('moralis-nodes.com') ? '100' : '50000';
+const defaultBlockChunk = isMoralisRpcUrl(rpcUrl) ? '100' : '50000';
 const blockChunk = Number.parseInt(
   process.env.PROVISIONING_AUDIT_BLOCK_CHUNK || defaultBlockChunk,
   10

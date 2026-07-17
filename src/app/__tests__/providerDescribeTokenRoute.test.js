@@ -197,6 +197,19 @@ describe('/api/fmu/provider-describe-token route', () => {
     await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('fmuFileName') })
   })
 
+  test.each(['../private.fmu', 'folder/private.fmu', 'folder\\private.fmu'])(
+    'rejects path-like FMU filename %s before issuing a token',
+    async (fmuFileName) => {
+      const { GET } = await import('../api/fmu/provider-describe-token/route.js')
+
+      const res = await GET(buildRequest({ fmuFileName }))
+
+      expect(res.status).toBe(400)
+      expect(marketplaceJwtService.generateSamlAuthToken).not.toHaveBeenCalled()
+      expect(global.fetch).not.toHaveBeenCalled()
+    },
+  )
+
   test('does not require a request gatewayUrl', async () => {
     const { GET } = await import('../api/fmu/provider-describe-token/route.js')
 
