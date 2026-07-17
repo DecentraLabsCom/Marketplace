@@ -37,6 +37,37 @@ export const createAuthorizationCancelledError = (message = 'Authorization cance
   return err
 }
 
+export const createAuthorizationNotConfirmedError = (
+  message = 'Authorization could not be confirmed',
+) => {
+  const err = new Error(message)
+  err.code = 'INTENT_AUTH_NOT_CONFIRMED'
+  return err
+}
+
+export const isIntentAuthorizationConfirmed = (status) => {
+  const normalized = String(status || '').toUpperCase()
+  return normalized === 'SUCCESS' || normalized === 'AUTHORIZED'
+}
+
+export const assertIntentAuthorizationConfirmed = (authorizationStatus) => {
+  const normalized = String(authorizationStatus?.status || '').toUpperCase()
+
+  if (normalized === 'FAILED') {
+    throw new Error(authorizationStatus?.error || 'Intent authorization failed')
+  }
+  if (normalized === 'CANCELLED') {
+    throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled by user')
+  }
+  if (!isIntentAuthorizationConfirmed(normalized)) {
+    throw createAuthorizationNotConfirmedError(
+      authorizationStatus?.error || 'Authorization was not confirmed by the backend',
+    )
+  }
+
+  return authorizationStatus
+}
+
 export const createAuthorizationSessionUnavailableError = (message = 'Authorization session unavailable') => {
   const err = new Error(message)
   err.code = 'INTENT_AUTH_SESSION_UNAVAILABLE'

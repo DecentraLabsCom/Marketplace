@@ -108,7 +108,6 @@ export default function LabReservation({ id }) {
     periodEndMaxDate,
     calendarUserBookingsForLab,
     totalCost,
-    creditBalance,
     ssoBookingStage,
     isSSOFlowLocked,
     reservationButtonState,
@@ -313,7 +312,6 @@ export default function LabReservation({ id }) {
       bookingData,
       selectedLab,
       totalCost,
-      creditBalance,
       formatPrice,
       formatTokenAmount,
     }))
@@ -443,7 +441,7 @@ const toNonNegativeBigInt = (value) => {
   }
 }
 
-const formatReviewDateTime = (unixTimestamp, timeZone = undefined) => {
+const formatReviewDateTime = (unixTimestamp) => {
   const date = new Date(Number(unixTimestamp) * 1_000)
   const options = {
     year: 'numeric',
@@ -454,27 +452,16 @@ const formatReviewDateTime = (unixTimestamp, timeZone = undefined) => {
     hourCycle: 'h23',
   }
   try {
-    const value = new Intl.DateTimeFormat(undefined, timeZone ? { ...options, timeZone } : options).format(date)
-    return timeZone ? `${value} (${timeZone})` : value
+    return new Intl.DateTimeFormat(undefined, options).format(date)
   } catch {
     return new Intl.DateTimeFormat(undefined, options).format(date)
   }
-}
-
-const formatDuration = ({ start, end }) => {
-  const minutes = Math.max(0, Math.round((Number(end) - Number(start)) / 60))
-  if (minutes >= 1_440 && minutes % 1_440 === 0) {
-    const days = minutes / 1_440
-    return `${days} day${days === 1 ? '' : 's'}`
-  }
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }
 
 function buildReservationReview({
   bookingData,
   selectedLab,
   totalCost,
-  creditBalance,
   formatPrice,
   formatTokenAmount,
 }) {
@@ -482,24 +469,17 @@ function buildReservationReview({
     ? formatTokenAmount
     : (value) => String(value ?? 0)
   const reservationCost = toNonNegativeBigInt(totalCost)
-  const balance = toNonNegativeBigInt(creditBalance)
-  const remainingBalance = balance > reservationCost ? balance - reservationCost : 0n
-  const timeZone = typeof selectedLab?.timezone === 'string' && selectedLab.timezone.trim()
-    ? selectedLab.timezone.trim()
-    : null
 
   return {
     bookingData,
     labName: selectedLab?.name || `Lab ${bookingData.labId}`,
     provider: selectedLab?.provider || 'Provider information unavailable',
-    labTime: formatReviewDateTime(bookingData.start, timeZone || undefined),
-    userTime: `${formatReviewDateTime(bookingData.start)} (local time)`,
-    duration: formatDuration(bookingData),
+    startingTime: `${formatReviewDateTime(bookingData.start)} (local time)`,
+    endTime: `${formatReviewDateTime(bookingData.end)} (local time)`,
     unitPrice: typeof formatPrice === 'function'
       ? `${formatPrice(selectedLab?.price, selectedLab?.priceUnit)} credits/${selectedLab?.priceUnit || 'hour'}`
       : 'Not available',
     totalCost: `${safeFormatTokenAmount(reservationCost)} credits`,
-    creditBalanceAfter: `${safeFormatTokenAmount(remainingBalance)} credits`,
     cancellationPolicy: 'Eligible cancellations before the access period return applicable credits to the institutional credit account. Completed, expired, or lab-specific restrictions can prevent a return.',
     termsUrl: selectedLab?.termsOfUse?.url || null,
   }

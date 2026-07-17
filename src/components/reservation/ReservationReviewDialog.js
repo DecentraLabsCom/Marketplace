@@ -40,25 +40,19 @@ export default function ReservationReviewDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="reservation-review-title"
-        aria-describedby="reservation-review-description"
         onKeyDown={(event) => {
           if (event.key === 'Escape' && !isConfirming) onCancel()
         }}
       >
         <h2 id="reservation-review-title" className="text-xl font-bold">Review reservation</h2>
-        <p id="reservation-review-description" className="mt-1 text-sm text-slate-300">
-          Confirm these details before your institutional passkey is requested.
-        </p>
 
         <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <ReviewItem label="Laboratory" value={review.labName} />
           <ReviewItem label="Provider" value={review.provider} />
-          <ReviewItem label="Lab time" value={review.labTime} />
-          <ReviewItem label="Your local time" value={review.userTime} />
-          <ReviewItem label="Duration" value={review.duration} />
+          <ReviewItem label="Starting time" value={review.startingTime} />
+          <ReviewItem label="End time" value={review.endTime} />
           <ReviewItem label="Unit price" value={review.unitPrice} />
           <ReviewItem label="Credits to be held" value={review.totalCost} />
-          <ReviewItem label="Estimated institutional credit balance after reservation" value={review.creditBalanceAfter} />
         </dl>
 
         <div className="mt-5 space-y-3 rounded-lg border border-slate-700 bg-slate-800 p-4 text-sm">
@@ -81,9 +75,6 @@ export default function ReservationReviewDialog({
             ) : (
               'No lab-specific terms were published.'
             )}
-          </p>
-          <p className="text-slate-300">
-            The institutional backend validates availability and the authoritative credit amount before creating the reservation.
           </p>
         </div>
 
@@ -129,12 +120,10 @@ ReservationReviewDialog.propTypes = {
   review: PropTypes.shape({
     labName: PropTypes.string,
     provider: PropTypes.string,
-    labTime: PropTypes.string,
-    userTime: PropTypes.string,
-    duration: PropTypes.string,
+    startingTime: PropTypes.string,
+    endTime: PropTypes.string,
     unitPrice: PropTypes.string,
     totalCost: PropTypes.string,
-    creditBalanceAfter: PropTypes.string,
     cancellationPolicy: PropTypes.string,
     termsUrl: PropTypes.string,
   }),

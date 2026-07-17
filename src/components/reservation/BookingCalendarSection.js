@@ -148,6 +148,15 @@ export default function BookingCalendarSection({
     selectedTime,
     labTimeZone: lab.timezone,
   })
+  const priceSummary = (
+    <div
+      className="rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-center"
+      aria-label="Booking price summary"
+    >
+      <span className="block text-gray-300">Total cost:</span>
+      <span className="mt-1 block text-white font-semibold">{totalCostLabel}</span>
+    </div>
+  )
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -243,37 +252,29 @@ export default function BookingCalendarSection({
               </option>
             ))}
           </select>
-          {selectedSlotTimeZones && (
-            <div
-              className="mt-3 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-gray-100"
-              aria-label="Time zone conversion"
-            >
-              <dl className="mt-2 space-y-1">
-                <div className="flex justify-between gap-3">
-                  <dt className="font-semibold">Your time:</dt>
-                  <dd className="text-right">{selectedSlotTimeZones.localTime} ({selectedSlotTimeZones.localTimeZone})</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="font-semibold">Lab time:</dt>
-                  <dd className="text-right">{selectedSlotTimeZones.labTime} ({selectedSlotTimeZones.labTimeZone})</dd>
-                </div>
-              </dl>
-            </div>
-          )}
         </div>}
+
+        {priceSummary}
       </div>
 
       <div className="w-full lg:w-96 flex flex-col">
-        <div className="rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm" aria-label="Booking price summary">
-          <div className="flex justify-between gap-4">
-            <span className="text-gray-300">Unit price:</span>
-            <span className="text-white font-semibold">{pricePresentation.text}</span>
+        {selectedSlotTimeZones && (
+          <div
+            className="mt-3 lg:mt-9 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-gray-100"
+            aria-label="Time zone conversion"
+          >
+            <dl className="space-y-1">
+              <div className="flex flex-nowrap justify-between gap-3">
+                <dt className="font-semibold whitespace-nowrap">Your time:</dt>
+                <dd className="text-right whitespace-nowrap">{selectedSlotTimeZones.localTime} ({selectedSlotTimeZones.localTimeZone})</dd>
+              </div>
+              <div className="flex flex-nowrap justify-between gap-3">
+                <dt className="font-semibold whitespace-nowrap">Lab time:</dt>
+                <dd className="text-right whitespace-nowrap">{selectedSlotTimeZones.labTime} ({selectedSlotTimeZones.labTimeZone})</dd>
+              </div>
+            </dl>
           </div>
-          <div className="mt-2 flex justify-between gap-4">
-            <span className="text-gray-300">Total cost:</span>
-            <span className="text-white font-semibold">{totalCostLabel}</span>
-          </div>
-        </div>
+        )}
         {/* Payment balance information is only relevant to the non-SSO fallback path. */}
         {!isSSO && (
           <div className="mt-4">

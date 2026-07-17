@@ -125,6 +125,7 @@ export async function awaitIntentAuthorization(prepareData, {
       if (expectedOrigin && event.origin !== expectedOrigin) return
       const payload = event?.data
       if (!payload || payload.type !== 'intent-authorization') return
+      if (event.source !== authPopup) return
       resolve({
         __message: true,
         status: payload.status,
@@ -178,18 +179,17 @@ export async function awaitIntentAuthorization(prepareData, {
         } else if (graceResult && graceResult.__closed) {
           const intentPresence = await intentPresencePromise
           if (intentPresence === 'present') {
-            status = { status: 'SUCCESS', requestId }
-          } else if (intentPresence === 'absent') {
+            // Registration/presence is not WebAuthn authorization or execution.
             status = {
-              status: 'CANCELLED',
+              status: 'PENDING_AUTHORIZATION',
               requestId,
-              error: 'Authorization window closed',
+              error: 'Authorization window closed before backend confirmation',
             }
           } else {
             status = {
               status: 'UNKNOWN',
               requestId,
-              error: 'Authorization window closed',
+              error: 'Authorization window closed before backend confirmation',
             }
           }
         } else {

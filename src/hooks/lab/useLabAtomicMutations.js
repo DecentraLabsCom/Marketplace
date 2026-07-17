@@ -13,9 +13,9 @@ import { awaitIntentAuthorization } from '@/utils/intents/authorizationOrchestra
 import { ACTION_CODES } from '@/utils/intents/actionCodes'
 import {
   resolveIntentRequestId,
+  assertIntentAuthorizationConfirmed,
   assertInstitutionIntentExecuted,
   createIntentMutationError,
-  createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
 } from '@/utils/intents/clientFlowShared'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
@@ -99,33 +99,16 @@ async function runActionIntent(action, payload) {
     backendUrl: prepareData?.backendUrl,
     presenceFn: payload?.presenceFn,
   });
+  assertIntentAuthorizationConfirmed(authorizationStatus)
   const authorizationRequestId =
     authorizationStatus?.requestId || resolveRequestId(prepareData);
-  if (authorizationStatus) {
-    const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
-    if (normalizedStatus === 'FAILED') {
-      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
-    }
-    if (normalizedStatus === 'CANCELLED') {
-      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled');
-    }
-    if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
-      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled');
-    }
-    if (normalizedStatus === 'SUCCESS') {
-      markBrowserCredentialVerifiedFromIntent(prepareData);
-    }
+  markBrowserCredentialVerifiedFromIntent(prepareData)
+  return {
+    ...prepareData,
+    requestId: authorizationRequestId,
+    intent: prepareData.intent,
+    authorization: authorizationStatus,
   }
-  if (authorizationStatus) {
-    const requestId = authorizationRequestId;
-    return {
-      ...prepareData,
-      requestId,
-      intent: prepareData.intent,
-      authorization: authorizationStatus,
-    };
-  }
-  throw createAuthorizationCancelledError('Authorization session unavailable');
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

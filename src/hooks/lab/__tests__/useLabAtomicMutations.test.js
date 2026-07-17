@@ -116,6 +116,42 @@ describe('institutional lab mutations', () => {
     expect(verifyInstitutionReportedExecution).toHaveBeenCalledWith('req-1', expect.any(Object))
   })
 
+  test('does not poll execution when authorization is not confirmed', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'PENDING_AUTHORIZATION', requestId: 'req-pending' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-pending',
+        intent: { meta: { requestId: 'req-pending' }, payload: {} },
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          uri: 'Lab-Provider-1.json',
+          price: '0',
+          accessURI: '',
+          accessKey: '',
+          backendUrl: 'https://backend.example',
+        })
+      ).rejects.toMatchObject({ code: 'INTENT_AUTH_NOT_CONFIRMED' })
+    })
+
+    expect(pollIntentStatus).not.toHaveBeenCalled()
+  })
+
   test('add-lab performs a follow-up poll when executed without labId', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default

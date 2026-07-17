@@ -7,7 +7,9 @@ import {
   resolveIntentRequestId,
   createIntentMutationError,
   createAuthorizationCancelledError,
+  createAuthorizationNotConfirmedError,
   createAuthorizationSessionUnavailableError,
+  isIntentAuthorizationConfirmed,
   markBrowserCredentialVerifiedFromIntent,
   normalizeAuthorizationUrl,
   resolveAuthorizationInfo,
@@ -34,7 +36,16 @@ describe('clientFlowShared', () => {
 
   test('createAuthorization errors set stable codes', () => {
     expect(createAuthorizationCancelledError().code).toBe('INTENT_AUTH_CANCELLED')
+    expect(createAuthorizationNotConfirmedError().code).toBe('INTENT_AUTH_NOT_CONFIRMED')
     expect(createAuthorizationSessionUnavailableError().code).toBe('INTENT_AUTH_SESSION_UNAVAILABLE')
+  })
+
+  test('only explicit authorization statuses are considered confirmed', () => {
+    expect(isIntentAuthorizationConfirmed('SUCCESS')).toBe(true)
+    expect(isIntentAuthorizationConfirmed('AUTHORIZED')).toBe(true)
+    expect(isIntentAuthorizationConfirmed('PENDING_AUTHORIZATION')).toBe(false)
+    expect(isIntentAuthorizationConfirmed('UNKNOWN')).toBe(false)
+    expect(isIntentAuthorizationConfirmed('EXECUTED')).toBe(false)
   })
 
   test('normalizeAuthorizationUrl rebuilds malformed intents host against backend URL', () => {

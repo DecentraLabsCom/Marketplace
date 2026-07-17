@@ -128,7 +128,7 @@ describe('authorizationOrchestrator', () => {
     }))
   })
 
-  test('awaitIntentAuthorization uses presence fallback when popup closes before status arrives', async () => {
+  test('awaitIntentAuthorization does not treat intent presence as authorization when popup closes', async () => {
     jest.useFakeTimers()
     const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
     window.open = jest.fn(() => popup)
@@ -152,12 +152,40 @@ describe('authorizationOrchestrator', () => {
     const result = await promise
 
     expect(result).toMatchObject({
-      status: 'SUCCESS',
+      status: 'PENDING_AUTHORIZATION',
       requestId: 'req-auth-3',
     })
     expect(presenceFn).toHaveBeenCalledWith('req-auth-3', expect.objectContaining({
       stopOnUnexpected4xx: true,
     }))
+  })
+
+  test('awaitIntentAuthorization returns UNKNOWN when popup closes without intent confirmation', async () => {
+    jest.useFakeTimers()
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+    pollIntentAuthorizationStatus.mockImplementationOnce(() => new Promise(() => {}))
+    const presenceFn = jest.fn(async () => 'absent')
+
+    const promise = awaitIntentAuthorization({
+      authorizationUrl: 'https://institution.example/intents/authorize/session-6',
+      authorizationSessionId: 'session-6',
+      backendUrl: 'https://institution.example',
+      intent: { meta: { requestId: 'req-auth-6' } },
+    }, {
+      presenceFn,
+      source: 'booking-intent-authorization',
+      closePopupInFinally: true,
+    })
+
+    popup.closed = true
+    await jest.advanceTimersByTimeAsync(1400)
+    const result = await promise
+
+    expect(result).toMatchObject({
+      status: 'UNKNOWN',
+      requestId: 'req-auth-6',
+    })
   })
 
   test('awaitIntentAuthorization preserves lab behavior: FAILED throws before closing popup when closePopupInFinally=false', async () => {

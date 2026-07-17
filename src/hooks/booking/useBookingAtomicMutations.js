@@ -21,9 +21,9 @@ import { enqueueReconciliationEntry } from '@/utils/optimistic/reconciliationQue
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
 import {
   resolveIntentRequestId,
+  assertIntentAuthorizationConfirmed,
   assertInstitutionIntentExecuted,
   createIntentMutationError,
-  createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
   openPendingAuthorizationPopup,
   closeAuthorizationPopup,
@@ -130,33 +130,16 @@ async function runActionIntent(action, payload) {
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
     backendUrl: prepareData?.backendUrl,
   });
+  assertIntentAuthorizationConfirmed(authorizationStatus)
   const authorizationRequestId =
     authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
-  if (authorizationStatus) {
-    const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
-    if (normalizedStatus === 'FAILED') {
-      throw new Error(authorizationStatus?.error || 'Intent authorization failed');
-    }
-    if (normalizedStatus === 'CANCELLED') {
-      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled by user');
-    }
-    if (normalizedStatus === 'UNKNOWN' && !authorizationRequestId) {
-      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled by user');
-    }
-    if (normalizedStatus === 'SUCCESS') {
-      markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true });
-    }
+  markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true });
+  return {
+    ...prepareData,
+    requestId: authorizationRequestId,
+    intent: prepareData.intent,
+    authorization: authorizationStatus,
   }
-  if (authorizationStatus) {
-    const requestId = authorizationRequestId;
-    return {
-      ...prepareData,
-      requestId,
-      intent: prepareData.intent,
-      authorization: authorizationStatus,
-    };
-  }
-  throw createAuthorizationCancelledError('Authorization session unavailable');
 }
 
 // ===== MUTATIONS =====
@@ -220,34 +203,17 @@ export const useReservationRequestSSO = (options = {}) => {
         backendUrl: prepareData?.backendUrl,
         popup: authorizationPopup,
       })
+      assertIntentAuthorizationConfirmed(authorizationStatus)
       const authorizationRequestId =
         authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
-      if (authorizationStatus) {
-        const normalizedStatus = (authorizationStatus.status || '').toUpperCase()
-        if (normalizedStatus === 'FAILED') {
-          throw new Error(authorizationStatus?.error || 'Intent authorization failed')
-        }
-        if (normalizedStatus === 'CANCELLED') {
-          throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled by user')
-        }
-        if (normalizedStatus === 'UNKNOWN' && !authorizationRequestId) {
-          throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled by user')
-        }
-        if (normalizedStatus === 'SUCCESS') {
-          markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true })
-        }
+      markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true })
+      emitReservationProgress(requestData, 'request_submitted', { requestId: authorizationRequestId });
+      return {
+        ...prepareData,
+        requestId: authorizationRequestId,
+        intent: prepareData.intent,
+        authorization: authorizationStatus,
       }
-      if (authorizationStatus) {
-        const requestId = authorizationRequestId
-        emitReservationProgress(requestData, 'request_submitted', { requestId });
-        return {
-          ...prepareData,
-          requestId,
-          intent: prepareData.intent,
-          authorization: authorizationStatus,
-        }
-      }
-      throw createAuthorizationCancelledError('Authorization session unavailable')
     },
     onSuccess: (data, variables) => {
       try {

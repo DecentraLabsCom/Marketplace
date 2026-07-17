@@ -186,6 +186,38 @@ describe('institutional reservation request mutations', () => {
     });
   });
 
+  test('does not submit a reservation when authorization is not confirmed', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({
+      status: 'UNKNOWN',
+      requestId: 'req-auth-unknown',
+    });
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-unknown',
+          authorizationSessionId: 'session-unknown',
+          backendUrl: 'https://institution.example',
+          intent: { meta: { requestId: 'req-auth-unknown' } },
+        }),
+    });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ tokenId: 'tk-unknown', start: 111, end: 222, userAddress: 'u1' })
+      ).rejects.toMatchObject({ code: 'INTENT_AUTH_NOT_CONFIRMED' });
+    });
+
+    expect(bookingMocks.addBooking).not.toHaveBeenCalled();
+    expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
+    expect(mockSetOptimisticBookingState).not.toHaveBeenCalled();
+  });
+
   test('intent denial removes optimistic booking cache entries', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);

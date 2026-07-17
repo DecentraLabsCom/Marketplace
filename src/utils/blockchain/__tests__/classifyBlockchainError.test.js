@@ -95,6 +95,15 @@ describe('classifyBlockchainError', () => {
       expect(result.priority).toBe('high')
     })
 
+    test('classifies INTENT_AUTH_NOT_CONFIRMED', () => {
+      const error = new Error('authorization pending')
+      error.code = 'INTENT_AUTH_NOT_CONFIRMED'
+
+      const result = classifyBlockchainError(error)
+      expect(result.message).toBe('Authorization not confirmed')
+      expect(result.priority).toBe('high')
+    })
+
     test('classifies WEBAUTHN_CREDENTIAL_NOT_REGISTERED', () => {
       const error = new Error('no credential')
       error.code = 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'

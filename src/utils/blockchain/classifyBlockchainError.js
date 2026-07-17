@@ -17,6 +17,11 @@ const ERROR_CODE_MAP = {
     priority: 'normal',
     duration: 3500,
   },
+  INTENT_AUTH_NOT_CONFIRMED: {
+    message: 'Authorization not confirmed',
+    priority: 'high',
+    duration: 5000,
+  },
   INTENT_AUTH_SESSION_UNAVAILABLE: {
     message: '❌ Authorization session expired',
     priority: 'high',

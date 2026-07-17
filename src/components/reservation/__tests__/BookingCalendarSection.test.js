@@ -327,14 +327,13 @@ describe("BookingCalendarSection", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
 
       expect(screen.getByTestId("lab-token-info")).toBeInTheDocument();
-      expect(screen.getByText(/credits \/ hour/)).toBeInTheDocument();
     });
 
     test("hides payment info for SSO users", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={true} />);
 
       expect(screen.queryByTestId("lab-token-info")).not.toBeInTheDocument();
-      expect(screen.getByText("Unit price:")).toBeInTheDocument();
+      expect(screen.queryByText("Unit price:")).not.toBeInTheDocument();
       expect(screen.getByText("Total cost:")).toBeInTheDocument();
       expect(screen.getByText("1.50 credits")).toBeInTheDocument();
     });
@@ -349,17 +348,38 @@ describe("BookingCalendarSection", () => {
     });
 
     test("aligns the booking price summary with the top of the duration selector", () => {
-      render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          isSSO={false}
+          lab={{ ...mockLab, timezone: "Europe/Madrid" }}
+        />
+      );
 
       const durationField = screen.getByLabelText("Duration:").parentElement;
       const durationColumn = durationField.parentElement;
       const priceSummary = screen.getByLabelText("Booking price summary");
-      const priceColumn = priceSummary.parentElement;
+      const timeZoneSummary = screen.getByLabelText("Time zone conversion");
+      const timeZoneColumn = timeZoneSummary.parentElement;
 
       expect(priceSummary).toHaveClass("rounded-lg");
-      expect(priceSummary).not.toHaveClass("mt-4");
-      expect(priceColumn.firstElementChild).toBe(priceSummary);
+      expect(priceSummary).toHaveClass("text-center");
+      expect(priceSummary.parentElement).toBe(durationColumn);
       expect(durationColumn.firstElementChild).toBe(durationField);
+      expect(timeZoneColumn).toHaveClass("lg:w-96");
+      expect(timeZoneSummary).toHaveClass("lg:mt-9");
+      expect(timeZoneSummary).toHaveTextContent("Your time:");
+      expect(timeZoneSummary).toHaveTextContent("Lab time:");
+    });
+
+    test("shows only the centered total cost in the price summary", () => {
+      render(<BookingCalendarSection {...defaultProps} />);
+
+      const priceSummary = screen.getByLabelText("Booking price summary");
+
+      expect(priceSummary).toHaveTextContent("Total cost:1.50 credits");
+      expect(priceSummary).not.toHaveTextContent("Unit price:");
+      expect(priceSummary.querySelectorAll(":scope > span")).toHaveLength(2);
     });
   });
 
@@ -407,7 +427,7 @@ describe("BookingCalendarSection", () => {
       );
 
       expect(formatPrice).toHaveBeenCalledWith("100", "hour");
-      expect(screen.getByText("100.00 credits / hour")).toBeInTheDocument();
+      expect(screen.queryByText("Unit price:")).not.toBeInTheDocument();
     });
     
     test("recalculates price when duration changes", () => {
@@ -425,7 +445,7 @@ describe("BookingCalendarSection", () => {
       });
 
       expect(formatPrice).toHaveBeenCalledWith("100", "hour");
-      expect(screen.getByText(/-formatted credits/)).toBeInTheDocument();
+      expect(screen.queryByText(/-formatted credits/)).not.toBeInTheDocument();
     });
 
     test("renders calendar-period duration options without time selector", () => {
@@ -465,7 +485,7 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByLabelText("End date:")).toHaveAttribute("min", "2025-11-02");
       expect(screen.getByLabelText("End date:")).toHaveAttribute("max", "2025-11-30");
       expect(screen.queryByLabelText("Starting time:")).not.toBeInTheDocument();
-      expect(screen.getByText("100-day credits / day")).toBeInTheDocument();
+      expect(screen.getByLabelText("Booking price summary")).toHaveTextContent("1.50 credits");
 
       fireEvent.change(screen.getByLabelText("End date:"), {
         target: { value: "2025-11-15" },
