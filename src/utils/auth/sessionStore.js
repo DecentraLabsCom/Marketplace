@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import devLog from '@/utils/dev/logger'
+import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
 
 const SESSION_KEY_PREFIX = 'marketplace:session:'
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/
@@ -209,17 +210,10 @@ function sweepMemorySessions(now = Date.now()) {
   }
 }
 
-export async function createServerSession(sessionData, maxAgeSec = 60 * 60 * 24) {
+export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
   requireValidSessionData(sessionData)
   let ttl = Number(maxAgeSec)
   if (!Number.isSafeInteger(ttl) || ttl <= 0) throw new Error('Invalid session TTL')
-
-  const assertionExpiresAt = Number(sessionData.samlExpiresAt)
-  if (Number.isFinite(assertionExpiresAt)) {
-    const assertionTtl = Math.floor((assertionExpiresAt - Date.now()) / 1000)
-    if (assertionTtl <= 0) throw new Error('SAML assertion has expired')
-    ttl = Math.min(ttl, assertionTtl)
-  }
 
   const sessionId = buildSessionId()
   const now = Date.now()

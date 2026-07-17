@@ -267,42 +267,6 @@ describe("useLabFilters", () => {
     });
   });
 
-  describe("Reset Functionality", () => {
-    test("resets all filters to default state", () => {
-      const { result } = renderHook(() => useLabFilters(mockLabs));
-
-      act(() => {
-        result.current.setSelectedCategory("AI");
-        result.current.setSelectedPrice("Low to High");
-        result.current.setSelectedProvider("OpenAI");
-        result.current.setShowUnlisted(true);
-      });
-
-      act(() => {
-        result.current.resetFilters();
-      });
-
-      expect(result.current.selectedCategory).toBe("All");
-      expect(result.current.selectedPrice).toBe("Sort by Price");
-      expect(result.current.selectedProvider).toBe("All");
-      expect(result.current.showUnlisted).toBe(false);
-      expect(result.current.searchDebounce).toBe("");
-    });
-
-    test("clears search input ref when resetting", () => {
-      const { result } = renderHook(() => useLabFilters(mockLabs));
-
-      const mockInput = { value: "test" };
-      result.current.searchInputRef.current = mockInput;
-
-      act(() => {
-        result.current.resetFilters();
-      });
-
-      expect(result.current.searchInputRef.current.value).toBe("");
-    });
-  });
-
   describe("Edge Cases", () => {
     test("handles labs with null category gracefully", () => {
       const labsWithNull = [{ ...mockLabs[0], category: null }];

@@ -101,6 +101,7 @@ describe("SSO Utilities", () => {
           httpOnly: true,
           sameSite: "lax",
           path: "/",
+          maxAge: 30 * 60,
         })
       );
     });

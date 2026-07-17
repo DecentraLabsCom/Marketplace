@@ -268,7 +268,7 @@ describe("BookingCalendarSection", () => {
       expect(defaultProps.onTimeChange).toHaveBeenCalledWith("11:00");
     });
 
-    test("explains the selected slot in the lab and local time zones", () => {
+    test("shows the selected slot in both time zones without the DST clarification", () => {
       render(
         <BookingCalendarSection
           {...defaultProps}
@@ -279,7 +279,8 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Your time:");
       expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Lab time:");
       expect(screen.getByLabelText("Time zone conversion")).toHaveTextContent("Europe/Madrid");
-      expect(screen.getByText(/daylight-saving changes/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Times in the selector/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/daylight-saving changes/i)).not.toBeInTheDocument();
     });
 
     test("disables time select when no available slots", () => {
@@ -345,6 +346,20 @@ describe("BookingCalendarSection", () => {
 
       expect(screen.getByTestId("token-price")).toHaveTextContent("100");
       expect(screen.getByTestId("token-duration")).toHaveTextContent("45");
+    });
+
+    test("aligns the booking price summary with the top of the duration selector", () => {
+      render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
+
+      const durationField = screen.getByLabelText("Duration:").parentElement;
+      const durationColumn = durationField.parentElement;
+      const priceSummary = screen.getByLabelText("Booking price summary");
+      const priceColumn = priceSummary.parentElement;
+
+      expect(priceSummary).toHaveClass("rounded-lg");
+      expect(priceSummary).not.toHaveClass("mt-4");
+      expect(priceColumn.firstElementChild).toBe(priceSummary);
+      expect(durationColumn.firstElementChild).toBe(durationField);
     });
   });
 

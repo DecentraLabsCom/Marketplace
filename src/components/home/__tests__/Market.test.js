@@ -30,7 +30,6 @@ jest.mock('@/hooks/lab/useLabs', () => ({
     categories: [],
     providers: [],
     searchInputRef: { current: null },
-    resetFilters: jest.fn(),
   })),
 }))
 

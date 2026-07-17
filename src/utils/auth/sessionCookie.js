@@ -10,12 +10,12 @@ import {
   getServerSession,
   isServerSessionId,
 } from './sessionStore'
+import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
 
 const COOKIE_NAME = '__Host-user_session'
 const LEGACY_COOKIE_NAME = 'user_session'
-const DEFAULT_MAX_AGE = 60 * 60 * 24
 
-export function getSessionCookieOptions(maxAgeSec = DEFAULT_MAX_AGE) {
+export function getSessionCookieOptions(maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
   return {
     name: COOKIE_NAME,
     httpOnly: true,
@@ -29,7 +29,7 @@ export function getSessionCookieOptions(maxAgeSec = DEFAULT_MAX_AGE) {
 /**
  * Creates one opaque cookie and persists the complete session server-side.
  */
-export async function createSessionCookie(sessionData, maxAgeSec = DEFAULT_MAX_AGE) {
+export async function createSessionCookie(sessionData, maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
   const { sessionId } = await createServerSession(sessionData, maxAgeSec)
   return [{
     ...getSessionCookieOptions(maxAgeSec),

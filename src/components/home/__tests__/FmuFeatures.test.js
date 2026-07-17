@@ -118,7 +118,6 @@ const baseFilterProps = {
   onProviderChange: jest.fn(),
   onFilterChange: jest.fn(),
   onShowUnlistedChange: jest.fn(),
-  onReset: jest.fn(),
   searchInputRef: { current: null },
   loading: false,
 };

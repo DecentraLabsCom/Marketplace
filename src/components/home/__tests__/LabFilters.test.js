@@ -32,7 +32,6 @@ describe("LabFilters - unit tests", () => {
     onProviderChange: jest.fn(),
     onFilterChange: jest.fn(),
     onShowUnlistedChange: jest.fn(),
-    onReset: jest.fn(),
     searchInputRef: { current: null },
     loading: false,
   };
@@ -253,22 +252,20 @@ describe("LabFilters - unit tests", () => {
   });
 
   describe("Reset", () => {
-    test("keeps the default layout unchanged by hiding reset until needed", () => {
-      render(<LabFilters {...defaultProps} />);
+    test("does not render a reset button when filters are active", () => {
+      render(
+        <LabFilters
+          {...defaultProps}
+          selectedCategory="Biology"
+          selectedPrice="Low to High"
+          selectedProvider="Lab A"
+          selectedFilter="Name"
+          selectedResourceType="lab"
+          showUnlisted={true}
+        />
+      );
 
       expect(screen.queryByRole("button", { name: /reset filters/i })).not.toBeInTheDocument();
-    });
-
-    test("renders and invokes reset after a filter becomes active", async () => {
-      const user = userEvent.setup();
-      const { rerender } = render(<LabFilters {...defaultProps} />);
-
-      await user.selectOptions(screen.getByLabelText(/filter by category/i), "Biology");
-      rerender(<LabFilters {...defaultProps} selectedCategory="Biology" />);
-      const resetButton = screen.getByRole("button", { name: /reset filters/i });
-      await user.click(resetButton);
-
-      expect(defaultProps.onReset).toHaveBeenCalledTimes(1);
     });
   });
 

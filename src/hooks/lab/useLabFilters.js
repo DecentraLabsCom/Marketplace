@@ -2,7 +2,7 @@
  * Hook for managing lab filtering and search functionality
  * Centralizes search state, filtering logic, and debounced search
  */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { getResourceType } from '@/utils/resourceType'
 
 /**
@@ -27,7 +27,6 @@ import { getResourceType } from '@/utils/resourceType'
  * @returns {Array} returns.categories - Available categories for filtering
  * @returns {Array} returns.providers - Available providers for filtering
  * @returns {Object} returns.searchInputRef - Ref for search input element
- * @returns {Function} returns.resetFilters - Reset all filters function
  */
 export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false, isHydrated = true, now = null) {
   const searchInputRef = useRef(null)
@@ -194,20 +193,6 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     }))
   }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData, now])
 
-  // Reset filters function
-  const resetFilters = useCallback(() => {
-    setSelectedCategory("All")
-    setSelectedPrice("Sort by Price")
-    setSelectedProvider("All")
-    setSelectedFilter("Keyword")
-    setSelectedResourceType("All")
-    setShowUnlisted(false)
-    setSearchDebounce("")
-    if (searchInputRef.current) {
-      searchInputRef.current.value = ""
-    }
-  }, [])
-
   return {
     // State
     selectedCategory,
@@ -234,7 +219,5 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     // Refs
     searchInputRef,
     
-    // Actions
-    resetFilters
   }
 }

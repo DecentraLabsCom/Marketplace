@@ -41,7 +41,6 @@ export default function Market({ initialMarketSnapshot = null }) {
     setSelectedResourceType,
     setShowUnlisted,
     searchInputRef,
-    resetFilters,
   } = marketFilters;
   const catalogueFilters = useMemo(() => ({
     ...(searchDebounce ? { q: searchDebounce, searchField: selectedFilter.toLowerCase() } : {}),
@@ -163,13 +162,6 @@ export default function Market({ initialMarketSnapshot = null }) {
     startFilterTransition(() => setSelectedResourceType(value));
   }, [setSelectedResourceType, startFilterTransition]);
 
-  // Handle reset to also reset showUnlisted
-  const handleReset = useCallback(() => {
-    startFilterTransition(() => {
-      resetFilters();
-    });
-  }, [resetFilters, startFilterTransition]);
-
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -192,7 +184,6 @@ export default function Market({ initialMarketSnapshot = null }) {
           onShowUnlistedChange={setShowUnlisted}
           selectedResourceType={selectedResourceType}
           onResourceTypeChange={handleResourceTypeChange}
-          onReset={handleReset}
           searchInputRef={searchInputRef}
           loading={labsLoading || isFilterTransitionPending}
         />

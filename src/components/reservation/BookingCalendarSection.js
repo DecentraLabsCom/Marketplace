@@ -248,9 +248,6 @@ export default function BookingCalendarSection({
               className="mt-3 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-gray-100"
               aria-label="Time zone conversion"
             >
-              <p className="text-xs text-gray-300">
-                Times in the selector use your local time. Both values automatically account for daylight-saving changes.
-              </p>
               <dl className="mt-2 space-y-1">
                 <div className="flex justify-between gap-3">
                   <dt className="font-semibold">Your time:</dt>
@@ -267,18 +264,7 @@ export default function BookingCalendarSection({
       </div>
 
       <div className="w-full lg:w-96 flex flex-col">
-        {/* Payment balance information is only relevant to the non-SSO fallback path. */}
-        {!isSSO && (
-          <label className="block text-lg font-semibold mb-2">Payment info:</label>
-        )}
-        {!isSSO && (
-          <LabCreditInfo
-            className="h-fit"
-            labPrice={lab.price}
-            durationMinutes={isCalendarPeriod ? duration * 24 * 60 : duration}
-          />
-        )}
-        <div className="mt-4 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm" aria-label="Booking price summary">
+        <div className="rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm" aria-label="Booking price summary">
           <div className="flex justify-between gap-4">
             <span className="text-gray-300">Unit price:</span>
             <span className="text-white font-semibold">{pricePresentation.text}</span>
@@ -288,6 +274,17 @@ export default function BookingCalendarSection({
             <span className="text-white font-semibold">{totalCostLabel}</span>
           </div>
         </div>
+        {/* Payment balance information is only relevant to the non-SSO fallback path. */}
+        {!isSSO && (
+          <div className="mt-4">
+            <label className="block text-lg font-semibold mb-2">Payment info:</label>
+            <LabCreditInfo
+              className="h-fit"
+              labPrice={lab.price}
+              durationMinutes={isCalendarPeriod ? duration * 24 * 60 : duration}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

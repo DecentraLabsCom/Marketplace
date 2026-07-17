@@ -41,10 +41,24 @@ describe('server-side session store', () => {
 
     expect(sessionId).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(command.slice(0, 2)).toEqual(['SET', expect.stringContaining(sessionId)])
+    expect(command.slice(3)).toEqual(['EX', String(30 * 60)])
     expect(Object.keys(storedRecord)).toEqual(['encryptedSession'])
     expect(storedRecord.encryptedSession).toMatch(/^enc:v1:/)
     expect(storedRecord.encryptedSession).not.toContain(assertion)
     expect(storedRecord.encryptedSession).not.toContain('user@example.com')
+  })
+
+  test('does not shorten the Marketplace session to the SAML assertion lifetime', async () => {
+    const { createServerSession } = await import('../sessionStore')
+
+    await createServerSession({
+      id: 'user-1',
+      email: 'user@example.com',
+      samlExpiresAt: Date.now() + 60 * 1000,
+    })
+
+    const command = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(command.slice(3)).toEqual(['EX', String(30 * 60)])
   })
 
   test('does not use SESSION_SECRET as the encryption key in production', async () => {

@@ -1,0 +1,1 @@
+export const MARKETPLACE_SESSION_TTL_SECONDS = 30 * 60

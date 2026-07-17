@@ -51,10 +51,17 @@ const nextConfig = {
       "/api/contract/reservation/getLabCreditAddress",
       "/api/contract/reservation/getReservationsOfTokenByUser",
     ];
+    const sameOriginDocumentHeaders = [
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+    ];
     return [
       {
         source: '/:path*',
         headers: securityHeaders,
+      },
+      {
+        source: '/api/metadata/document',
+        headers: sameOriginDocumentHeaders,
       },
       ...noStoreSources.map((source) => ({
         source,

@@ -22,7 +22,6 @@ import PropTypes from 'prop-types'
  * @param {Function} props.onFilterChange - Search filter type handler
  * @param {Function} props.onResourceTypeChange - Resource type filter handler
  * @param {Function} props.onShowUnlistedChange - Show unlisted labs handler
- * @param {Function} props.onReset - Reset filters handler
  * @param {Object} props.searchInputRef - Ref for search input
  * @param {boolean} props.loading - Loading state
  */
@@ -41,13 +40,11 @@ export default function LabFilters({
   onFilterChange,
   onResourceTypeChange,
   onShowUnlistedChange,
-  onReset,
   searchInputRef,
   loading = false
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
-  const [searchValue, setSearchValue] = useState('')
   
   useEffect(() => {
     setIsHydrated(true)
@@ -84,21 +81,6 @@ export default function LabFilters({
   const handleListingToggle = () => {
     onShowUnlistedChange(!showUnlisted);
   }
-
-  const handleReset = () => {
-    setSearchValue('')
-    onReset()
-  }
-
-  const hasActiveFilters = Boolean(
-    searchValue.trim()
-    || selectedCategory !== 'All'
-    || selectedPrice !== 'Sort by Price'
-    || selectedProvider !== 'All'
-    || selectedFilter !== 'Keyword'
-    || selectedResourceType !== 'All'
-    || showUnlisted
-  )
 
   return (
     <section className="mb-6 flex flex-col md:flex-row md:space-x-4 space-y-2 md:space-y-0 items-stretch md:items-center justify-center w-full">
@@ -171,7 +153,6 @@ export default function LabFilters({
               id="search-bar"
               type="text"
               placeholder="Type here..."
-              onInput={(event) => setSearchValue(event.currentTarget.value)}
               onKeyDown={handleKeyDown}
             className="w-full bg-transparent placeholder:text-slate-500 text-header-bg text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-header-bg shadow-sm focus:shadow"
             disabled={effectiveLoading}
@@ -233,16 +214,6 @@ export default function LabFilters({
         </select>
       </div>
 
-      {hasActiveFilters && (
-        <button
-          type="button"
-          onClick={handleReset}
-          disabled={effectiveLoading}
-          className="w-full md:w-auto py-1.75 px-3 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Reset filters
-        </button>
-      )}
     </section>
   )
 }
@@ -261,7 +232,6 @@ LabFilters.propTypes = {
   onFilterChange: PropTypes.func.isRequired,
   onResourceTypeChange: PropTypes.func,
   onShowUnlistedChange: PropTypes.func.isRequired,
-  onReset: PropTypes.func.isRequired,
   searchInputRef: PropTypes.object.isRequired,
   loading: PropTypes.bool
 }
