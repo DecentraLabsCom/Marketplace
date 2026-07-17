@@ -195,8 +195,20 @@ describe("FMU Provider - Create FMU resource", () => {
       body: { token: "test-describe-token" },
     }).as("describeToken");
 
+    cy.intercept("OPTIONS", "https://gateway.example.test/fmu/api/v1/simulations/describe*", {
+      statusCode: 204,
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, OPTIONS",
+        "access-control-allow-headers": "Authorization",
+      },
+    }).as("describeSimulationPreflight");
+
     cy.intercept("GET", "https://gateway.example.test/fmu/api/v1/simulations/describe*", {
       statusCode: 200,
+      headers: {
+        "access-control-allow-origin": "*",
+      },
       body: {
         fmiVersion: "2.0",
         simulationType: "CoSimulation",

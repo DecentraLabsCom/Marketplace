@@ -8,6 +8,32 @@ describe("Lab Booking Flow", () => {
   const onboardingInstitutionId = "institution.edu";
   const onboardingMarkerKey = `institutional_browser_passkey:${onboardingInstitutionId}:${onboardingStableUserId}`;
 
+  const createBookingLab = () => {
+    const opens = new Date();
+    opens.setHours(0, 0, 0, 0);
+    opens.setDate(opens.getDate() + 1);
+    const closes = new Date(opens);
+    closes.setDate(closes.getDate() + 30);
+
+    return {
+      id: 1,
+      owner: "0xprovider1230000000000000000000000000000000000",
+      providerName: "Test University",
+      providerEmail: "provider@test.edu",
+      providerCountry: "ES",
+      uri: "Lab-Test-University-1.json",
+      price: "1000000000000000000",
+      isListed: true,
+      opens: Math.floor(opens.getTime() / 1000),
+      closes: Math.floor(closes.getTime() / 1000),
+      metadata: {
+        name: "Physics Lab",
+        description: "Advanced physics experiments",
+        attributes: [],
+      },
+    };
+  };
+
   const visitReservation = () => {
     cy.visit("/reservation/1", {
       onBeforeLoad(win) {
@@ -54,7 +80,9 @@ describe("Lab Booking Flow", () => {
       },
     }).as("keyStatus");
 
-    cy.mockLabApis();
+    // Keep the selected day in the future so the test is not dependent on
+    // the wall-clock time at which the CI runner executes it.
+    cy.mockLabApis([createBookingLab()]);
     cy.mockInstitutionBookingApis();
 
     cy.intercept("GET", "/api/contract/reservation/getReservationsOfToken*", {
