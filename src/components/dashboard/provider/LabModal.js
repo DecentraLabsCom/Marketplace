@@ -634,7 +634,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     } catch (error) {
       devLog.error('Error saving lab:', error);
     }
-  }
+  };
 
   const handleSubmitQuick = async (e) => {
     e.preventDefault();
@@ -784,7 +784,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         </div>
       </div>
     </div>
-  )
+  );
 };
 
 LabModal.propTypes = {

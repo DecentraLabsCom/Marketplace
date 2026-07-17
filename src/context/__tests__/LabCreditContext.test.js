@@ -13,7 +13,7 @@
  * - Hook validation
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { LabCreditProvider, useLabCredit } from '@/context/LabCreditContext';
 
 // Mock the underlying useLabCredit hook

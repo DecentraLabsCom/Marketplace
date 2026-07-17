@@ -33,8 +33,8 @@ export class IntentSignerBusyError extends Error {
 }
 
 export class IntentSignerUnavailableError extends Error {
-  constructor() {
-    super('The intent signer coordination store is unavailable')
+  constructor(message = 'The intent signer coordination store is unavailable') {
+    super(message)
     this.name = 'IntentSignerUnavailableError'
     this.code = 'INTENT_SIGNER_COORDINATOR_UNAVAILABLE'
     this.status = 503

@@ -38,6 +38,7 @@ function redactString(value) {
 
 function redactLogValue(value, seen = new WeakSet()) {
   if (typeof value === 'string') return redactString(value);
+  if (typeof value === 'bigint') return value.toString();
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return '[Circular]';
   seen.add(value);
@@ -59,7 +60,7 @@ function redactLogValue(value, seen = new WeakSet()) {
 const emit = (method, ...args) => {
   if (!isDevelopment()) return;
   const logger = typeof console[method] === 'function' ? console[method] : console.log;
-  logger(...args.map((arg) => redactLogValue(arg)));
+  logger(...args.map((arg) => JSON.stringify(redactLogValue(arg))));
 };
 
 const devLog = {

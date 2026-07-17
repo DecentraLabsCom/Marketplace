@@ -186,7 +186,7 @@ describe('useBookingSpecializedQueries', () => {
         error: null,
       })
       
-      const { result } = renderHook(
+      renderHook(
         () => useUserBookingsForMarket('0x123', { enabled: false }),
         { wrapper: createWrapper() }
       )

@@ -4,7 +4,7 @@
  */
 import { useMemo } from 'react'
 import { filterBookingsByDisplayMode, isPendingBooking, isConfirmedBooking } from '@/utils/booking/bookingStatus'
-import { parseDateSafe, isSameCalendarDay } from '@/utils/dates/parseDateSafe'
+import { isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
 
 /**

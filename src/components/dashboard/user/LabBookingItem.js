@@ -32,7 +32,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
     onClearError = null,
     cancelState = null
 }) {
-    const [isCancellationDialogOpen, setCancellationDialogOpen] = React.useState(false)
+    const [isCancellationDialogOpen, setCancellationDialogOpen] = React.useState(false);
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
     const parseUnixTime = (value) => {

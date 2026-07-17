@@ -17,7 +17,7 @@ import {
 import devLog from '@/utils/dev/logger'
 import { ACTION_CODES } from '@/utils/intents/actionCodes'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
-import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
+import { enqueueReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
 import {
   resolveIntentRequestId,
@@ -102,8 +102,8 @@ const awaitBackendAuthorization = async (prepareData, { backendUrl, popup, prese
         currentPrepareData?.backendUrl || currentBackendUrl
       ),
     closePopupInFinally: true,
-  })
-}
+  });
+};
 
 async function runActionIntent(action, payload) {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {

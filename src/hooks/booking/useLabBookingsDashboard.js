@@ -108,8 +108,6 @@ export const useLabBookingsDashboard = (labId, {
   });
   
   // Process reservation data and determine statuses
-  const now = Math.floor(Date.now() / 1000);
-  
   // Get optimistic bookings from cache for this lab
   const queryClient = useQueryClient();
   const optimisticBookings = queryClient.getQueryData(bookingQueryKeys.byLab(labId)) || [];

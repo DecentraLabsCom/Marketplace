@@ -455,7 +455,7 @@ describe("LabFormWizard - Unit tests", () => {
       const errorSubmit = jest
         .fn()
         .mockRejectedValue(new Error("Submit failed"));
-      const { props } = renderWizard({ onSubmit: errorSubmit, lab: {} });
+      renderWizard({ onSubmit: errorSubmit, lab: {} });
 
       await user.click(getSubmitButton());
 

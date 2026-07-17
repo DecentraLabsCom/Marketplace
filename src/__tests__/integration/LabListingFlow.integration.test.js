@@ -19,7 +19,6 @@ import { mockUser } from "@/test-utils/mocks/mockData";
 import {
   createValidLabFormData,
   createValidQuickSetupData,
-  createExistingLab,
 } from "@/test-utils/fixtures/labData";
 import {
   fillFullSetupForm,

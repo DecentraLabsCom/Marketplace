@@ -388,7 +388,7 @@ export default function UserDashboard() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Dashboard</h2>
             <p className="text-red-600 mb-4">
-              {bookingsError && (bookingsErrorDetails?.message || 'Failed to load booking data')}
+              {bookingsErrorDetails?.message || 'Failed to load booking data'}
             </p>
             <button 
               onClick={() => window.location.reload()}
@@ -487,7 +487,7 @@ export default function UserDashboard() {
               <BookingsList
                 bookings={userBookings}
                 currentTime={now}
-                isLoading={bookingsLoading && userBookings.length === 0}
+                isLoading={false}
                 type="upcoming"
                 onCancel={handleCancellation}
                 onClearError={handleClearCancellationError}
@@ -512,7 +512,7 @@ export default function UserDashboard() {
               <BookingsList
                 bookings={userBookings}
                 currentTime={now}
-                isLoading={bookingsLoading && userBookings.length === 0}
+                isLoading={false}
                 type="past"
               />
             </div>

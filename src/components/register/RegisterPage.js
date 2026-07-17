@@ -64,7 +64,7 @@ export default function RegisterPage() {
     )
   }
 
-  if (isSSO && user && isInstitutionRegistered) {
+  if (user && isInstitutionRegistered) {
     return (
       <Container padding="sm" className="text-center mt-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">

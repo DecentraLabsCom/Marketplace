@@ -73,7 +73,7 @@ export async function GET(request) {
     const effectiveExists = exists && !invalidReservation;
 
     // Determine reservation state
-    let reservationState = 'Unknown';
+    let reservationState;
     let isConfirmed = false;
     
     if (!effectiveExists) {

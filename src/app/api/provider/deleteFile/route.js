@@ -8,7 +8,6 @@ import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
-import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 import { 
   requireAuth, 
@@ -108,28 +107,19 @@ export async function POST(req) {
             await requireLabOwner(session, managedPath.labId)
         }
 
-        const timestamp = new Date().toISOString();
-        
         filePath = managedPath.relativePath
 
         const isVercel = getIsVercel();
         const publicDir = path.join(process.cwd(), 'public'); 
         const fullFilePath = resolveManagedLocalPath(publicDir, filePath)
 
-        let deleteSuccessful = false;
-        let deletionMethod = '';
-
         // Attempt file deletion
         if (!isVercel) {
             try {
                 await fs.unlink(fullFilePath); 
-                deleteSuccessful = true;
-                deletionMethod = 'local';
                 console.log(`Successfully deleted file locally: ${fullFilePath}`);
             } catch (deleteError) {
                 if (deleteError.code === 'ENOENT') {
-                    deleteSuccessful = true; // File already doesn't exist
-                    deletionMethod = 'local-not-found';
                     console.warn(`File not found, but deletion considered successful: ${fullFilePath}`);
                 } else {
                     console.error('Error deleting file locally:', deleteError);
@@ -148,8 +138,6 @@ export async function POST(req) {
                     ? managedPath.sourceUrl.toString()
                     : managedPath.blobPath
                 const result = await del(blobPath);
-                deleteSuccessful = true;
-                deletionMethod = result ? 'blob-deleted' : 'blob-not-found';
                 console.log(`Blob deletion result for ${blobPath}: ${result ? 'deleted' : 'not found'}`);
             } catch (blobError) {
                 console.error("Error deleting blob from Vercel:", blobError);
@@ -164,7 +152,7 @@ export async function POST(req) {
         }
 
         // Delete empty folders if lab is being deleted
-        if (deleteSuccessful && deletingLab && managedPath.kind === 'permanent') {
+        if (deletingLab && managedPath.kind === 'permanent') {
             const pathSegments = filePath.split(path.sep); 
 
             if (pathSegments.length < 3) {

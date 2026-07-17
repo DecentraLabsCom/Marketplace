@@ -11,10 +11,9 @@ import {
 import { useInstitutionRegistration } from '@/hooks/user/useInstitutionRegistration'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
-  ErrorBoundary, 
-  useErrorHandler, 
-  ErrorSeverity,
-  ErrorCategory 
+  ErrorBoundary,
+  useErrorHandler,
+  ErrorCategory
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
 import devLog from '@/utils/dev/logger'
@@ -249,10 +248,7 @@ function UserDataCore({ children }) {
     });
 
     // Get provider details only if user is a provider
-    const { 
-        data: providersData,
-        isLoading: isProvidersLoading 
-    } = useGetLabProviders({
+    const { data: providersData } = useGetLabProviders({
         isSSO: currentIsSSO, // Pass explicitly to avoid context dependency
         enabled: Boolean(providerStatus?.isLabProvider), // Only fetch if user is confirmed provider
         staleTime: 10 * 60 * 1000, // 10 minutes for provider list
@@ -279,7 +275,7 @@ function UserDataCore({ children }) {
         }
 
         // For React Query errors, check if there's meaningful content
-        if (error && typeof error === 'object') {
+        if (typeof error === 'object') {
             const hasMessage = error.message && error.message.trim().length > 0;
             const hasName = error.name && error.name.trim().length > 0;
             const hasCode = error.code !== undefined;

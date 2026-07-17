@@ -73,7 +73,7 @@ export default function MediaDisplayWithFallback({
   // State to control if local fallback for IMAGES has also failed
   const [hasLocalFallbackFailed, setHasLocalFallbackFailed] = useState(false);
   
-  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
+  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
 
   // --- States for Document (iframe) handling ---
   const [currentDocSrc, setCurrentDocSrc] = useState(''); // The final URL for the iframe src
@@ -142,9 +142,9 @@ export default function MediaDisplayWithFallback({
       if (docAttemptPhase === 0) { // Phase 0: External URL check
         if (isExternalUrl(mediaPath)) {
           if (!isAllowedExternalDocumentUrl(mediaPath)) {
-            setHasDocError(true)
-            setIsLoadingDoc(false)
-            return
+             setHasDocError(true);
+             setIsLoadingDoc(false);
+             return;
           }
           urlToAttempt = mediaPath;
           // Since we can't fetch external URLs reliably, we'll set it directly for iframe

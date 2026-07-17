@@ -17,7 +17,6 @@
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useBookingCacheUpdates } from "../useBookingCacheUpdates";
-import { bookingQueryKeys } from "@/utils/hooks/queryKeys";
 
 // Mock the query keys to avoid dependencies on the actual implementation
 jest.mock("@/utils/hooks/queryKeys", () => ({

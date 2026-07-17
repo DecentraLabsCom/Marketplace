@@ -25,14 +25,6 @@ jest.mock('node:dns/promises', () => ({
 
 let originalNodeEnv
 
-function setEnv(key, value) {
-  if (value === undefined) {
-    delete process.env[key]
-  } else {
-    process.env[key] = value
-  }
-}
-
 // ─── Tests ──────────────────────────────────────────────────────────
 
 describe('gatewayProxy', () => {

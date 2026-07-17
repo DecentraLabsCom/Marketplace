@@ -16,7 +16,6 @@
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useLabCacheUpdates } from "../useLabCacheUpdates";
-import { labQueryKeys } from "@/utils/hooks/queryKeys";
 import devLog from "@/utils/dev/logger";
 
 // Mock external dependencies to isolate hook testing
@@ -153,7 +152,6 @@ describe("useLabCacheUpdates", () => {
 
     // ID matching fallback: matches by 'id' when 'labId' differs
     test("matches lab by id when labId does not match", () => {
-      const labWithId = { ...mockLab, labId: undefined };
       queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
@@ -198,7 +196,6 @@ describe("useLabCacheUpdates", () => {
 
     // ID-based removal fallback
     test("removes lab by id when labId does not match", () => {
-      const labWithId = { ...mockLab, labId: undefined };
       queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
@@ -248,12 +245,6 @@ describe("useLabCacheUpdates", () => {
 
     // Optimistic update resolution
     test("replaces optimistic lab with real lab data", () => {
-      const optimisticLab = {
-        id: "temp-123",
-        labId: "temp-123",
-        name: "Temp Lab",
-        isPending: true,
-      };
       queryClient.setQueryData(["labs", "all"], ["temp-123"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
@@ -266,11 +257,6 @@ describe("useLabCacheUpdates", () => {
 
     // Optimistic rollback behavior
     test("removes optimistic lab from cache", () => {
-      const optimisticLab = {
-        id: "temp-456",
-        labId: "temp-456",
-        name: "Temp Lab",
-      };
       queryClient.setQueryData(["labs", "all"], ["temp-456", "lab-1"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
@@ -284,7 +270,6 @@ describe("useLabCacheUpdates", () => {
 
     // Cache propagation: updates both list and detail caches
     test("replaces optimistic lab and updates specific cache", () => {
-      const optimisticLab = { id: "temp-789", name: "Temp Lab" };
       queryClient.setQueryData(["labs", "all"], ["temp-789"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });

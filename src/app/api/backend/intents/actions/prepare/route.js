@@ -231,7 +231,7 @@ export async function POST(request) {
       const contract = action === ACTION_CODES.CANCEL_REQUEST_BOOKING
         ? null
         : await getContractInstance()
-      const [executorAddress, adminAddress, chainNowSec] = await Promise.all([
+      await Promise.all([
         executorPromise,
         adminPromise,
         chainNowPromise,

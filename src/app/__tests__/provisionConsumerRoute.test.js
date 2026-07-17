@@ -289,7 +289,6 @@ describe('/api/institutions/provisionConsumer route', () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
     
-    const json = await res.json();
     expect(signProvisioningToken).toHaveBeenCalledWith(
       expect.objectContaining({ consumerName: 'AUTO', institutionId: 'auto.edu' }),
       expect.any(Object)
@@ -323,8 +322,6 @@ describe('/api/institutions/provisionConsumer route', () => {
     });
 
     const res = await POST(req);
-    const json = await res.json();
-    
     expect(signProvisioningToken).toHaveBeenCalledWith(
       expect.objectContaining({ registrationType: 'consumer' }),
       expect.any(Object)

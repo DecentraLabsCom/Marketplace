@@ -25,7 +25,7 @@ export const USER_QUERY_CONFIG = {
   refetchInterval: false,
   refetchOnReconnect: true,
   retry: 1,
-}
+};
 
 // ===== useGetLabProviders Hook Family =====
 

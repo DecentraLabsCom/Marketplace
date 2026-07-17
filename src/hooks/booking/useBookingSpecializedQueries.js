@@ -27,7 +27,7 @@ const EMPTY_ARRAY = [];
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  const nowEpochSeconds = Math.floor(useCurrentTime({ intervalMs: 20000 }).getTime() / 1000)
+  const nowEpochSeconds = Math.floor(useCurrentTime({ intervalMs: 20000 }).getTime() / 1000);
 
   // Step 1: Get user reservation count from the institutional session
   const reservationCountResult = useQuery({

@@ -117,8 +117,8 @@ export async function POST(req) {
     // ===== AUTHENTICATION & AUTHORIZATION =====
     // Require a valid authenticated session
     const session = await requireAuth();
-    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
-    if (rateLimitResponse) return rateLimitResponse
+    const rateLimitResponse = createRateLimitResponse(await checkRate(req, session));
+    if (rateLimitResponse) return rateLimitResponse;
     
     // Parse form data to get file and labId
     const formData = await req.formData();

@@ -177,7 +177,7 @@ describe("contextUtils", () => {
         return { data: "test" };
       };
 
-      const { result, rerender } = renderHook(
+      const { rerender } = renderHook(
         ({ factory, deps }) =>
           useOptimizedContextValue(factory, deps, "TestContext"),
         {

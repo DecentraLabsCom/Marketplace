@@ -4,7 +4,6 @@ import { isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
 import { getMaxConcurrentUsers } from '@/utils/resourceType'
 
-const MINUTES_IN_DAY = 24 * 60
 const WEEKDAYS = [
   'SUNDAY',
   'MONDAY',

@@ -121,7 +121,6 @@ export function parseManagedFilePath(rawPath) {
   if (/^https?:\/\//i.test(input)) {
     try {
       sourceUrl = new URL(input)
-      relative = sourceUrl.pathname
     } catch {
       throw new Error('Invalid managed file path')
     }

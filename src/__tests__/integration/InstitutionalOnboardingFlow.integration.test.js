@@ -162,7 +162,7 @@ const setupMockHook = (state) => {
 const mockStartOnboarding = jest.fn();
 const mockReset = jest.fn();
 
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { renderWithAllProviders } from "@/test-utils/test-providers";
 import InstitutionalOnboardingModal from "@/components/auth/InstitutionalOnboardingModal";
 import { mockUser } from "@/test-utils/mocks/mockData";

@@ -8,6 +8,7 @@ import path from 'node:path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { get, put } from '@vercel/blob'
+import { z } from 'zod'
 import getIsVercel from '@/utils/isVercel'
 import {
   CALENDAR_PERIOD_BOOKING_MODE,
@@ -23,7 +24,6 @@ import {
   HttpError,
   BadRequestError
 } from '@/utils/auth/guards'
-import { resolveManagedMetadataPath } from '@/utils/storage/fileSecurity'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   CLASSIFICATION_SCHEMES,
@@ -39,6 +39,23 @@ const checkRate = createRateLimiter({ operation: 'provider-save-lab-data', windo
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 const PERIOD_UNITS = ['day', 'week', 'month']
 const INTERNAL_LAB_URI_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-\d+\.json$/
+const MAX_PERSISTED_METADATA_BYTES = 1024 * 1024
+
+const persistedMetadataSchema = z.object({
+  name: z.string().max(200),
+  description: z.string().max(20_000),
+  image: z.string().max(4_096),
+  attributes: z.array(z.object({
+    trait_type: z.string().max(64),
+    value: z.unknown(),
+  }).strict()).max(128),
+  _meta: z.object({
+    lastUpdated: z.string().datetime(),
+    uri: z.string().regex(INTERNAL_LAB_URI_PATTERN),
+    version: z.number().int().positive(),
+    cacheBreaker: z.number().int().nonnegative(),
+  }).strict(),
+}).strict()
 
 const extractInternalLabUri = (value) => {
   if (!value) return null
@@ -306,7 +323,7 @@ export async function POST(req) {
       defaultStartTime,
       defaultStopTime,
       defaultStepSize
-    } = labData || {};
+    } = labData;
 
     // Validate required fields
     if (!uri) {
@@ -379,7 +396,10 @@ export async function POST(req) {
     if (metadataFilename !== normalizedUri) {
       throw new BadRequestError('Invalid metadata filename')
     }
-    const filePath = resolveManagedMetadataPath(dataRoot, metadataFilename)
+    const filePath = path.resolve(dataRoot, metadataFilename)
+    if (filePath !== dataRoot && !filePath.startsWith(`${dataRoot}${path.sep}`)) {
+      throw new BadRequestError('Invalid metadata filename')
+    }
     const blobName = normalizedUri;
     let existingData = null;
     const timestamp = new Date().toISOString();
@@ -520,12 +540,31 @@ export async function POST(req) {
       }
     };
 
-    // Replace the document atomically. Merging preserved unknown legacy fields
-    // (including stale URLs) even after a provider removed them from the form.
-    const finalData = newData;
+    // Validate the exact document that will be persisted. This keeps the local
+    // file fallback bounded and limited to the metadata shape generated here.
+    const parsedMetadata = persistedMetadataSchema.safeParse(newData)
+    if (!parsedMetadata.success) {
+      return NextResponse.json(
+        {
+          error: 'Metadata exceeds the allowed persisted document limits',
+          code: 'INVALID_METADATA',
+        },
+        { status: 400 },
+      )
+    }
+    const finalData = parsedMetadata.data
 
     // Save the data
     const labJSON = JSON.stringify(finalData, null, 2);
+    if (Buffer.byteLength(labJSON, 'utf8') > MAX_PERSISTED_METADATA_BYTES) {
+      return NextResponse.json(
+        {
+          error: 'Metadata exceeds the maximum persisted size',
+          code: 'INVALID_METADATA',
+        },
+        { status: 400 },
+      )
+    }
     
     try {
       if (!isVercel) {

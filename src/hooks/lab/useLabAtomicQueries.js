@@ -25,7 +25,7 @@ const LAB_QUERY_CONFIG = {
   refetchOnReconnect: true,
   retry: 1,
   placeholderData: keepPreviousData,
-}
+};
 
 // Export configuration for use in composed hooks
 export { LAB_QUERY_CONFIG };

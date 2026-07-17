@@ -105,7 +105,7 @@ describe("useBookingFilter", () => {
     });
 
     test("uses default display mode when not provided", () => {
-      const { result } = renderHook(() => useBookingFilter(mockBookings));
+      renderHook(() => useBookingFilter(mockBookings));
 
       expect(filterBookingsByDisplayMode).toHaveBeenCalledWith(
         mockBookings,

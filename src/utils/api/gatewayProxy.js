@@ -189,7 +189,7 @@ async function resolvePublicGatewayAddress(hostname, { always = false } = {}) {
 async function assertGatewayUrlResolvesPublic(rawUrl) {
   if (process.env.NODE_ENV !== 'production') return null
   const parsed = new URL(rawUrl)
-  assertGatewayHostAllowed(parsed.hostname, parsed.origin)
+  assertGatewayHostAllowed(parsed.hostname)
   return resolvePublicGatewayAddress(parsed.hostname)
 }
 
@@ -249,7 +249,7 @@ export function normalizeGatewayBaseUrl(rawUrl) {
   }
 
   const origin = `${parsed.protocol}//${parsed.host}`
-  assertGatewayHostAllowed(parsed.hostname, origin)
+  assertGatewayHostAllowed(parsed.hostname)
 
   let path = parsed.pathname.replace(/\/+$/, '')
   if (path.toLowerCase().endsWith('/auth')) {
@@ -306,7 +306,7 @@ export function normalizeLabAccessUrl(rawUrl) {
     throw new GatewayValidationError('Lab access URI must not contain credentials, query parameters or fragments')
   }
 
-  assertGatewayHostAllowed(parsed.hostname, parsed.origin)
+  assertGatewayHostAllowed(parsed.hostname)
   const path = parsed.pathname.replace(/\/+$/, '')
   return `${parsed.origin}${path}`
 }
@@ -335,7 +335,7 @@ export async function gatewayFetch(rawUrl, init = {}, redirectCount = 0) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new GatewayValidationError('Unsupported gatewayUrl protocol')
   }
-  assertGatewayHostAllowed(url.hostname, url.origin)
+  assertGatewayHostAllowed(url.hostname)
   const resolved = await assertGatewayUrlResolvesPublic(url)
   const response = await fetch(url.toString(), {
     ...init,

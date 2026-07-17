@@ -573,7 +573,7 @@ describe("useLabSpecializedQueries", () => {
 
     test("handles null lab ID", () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useLabById(null), { wrapper });
+      renderHook(() => useLabById(null), { wrapper });
 
       expect(mockUseLab).toHaveBeenCalledWith(
         null,
@@ -831,7 +831,7 @@ describe("useLabSpecializedQueries", () => {
 
     test("handles no owner address", () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useLabsForProvider(null), {
+      renderHook(() => useLabsForProvider(null), {
         wrapper,
       });
 
@@ -873,8 +873,6 @@ describe("useLabSpecializedQueries", () => {
 
   describe("useLabsForReservation", () => {
     test("normalizes lab ids when getAllLabs cache includes lab objects", async () => {
-      const labAtomicQueries = require("@/hooks/lab/useLabAtomicQueries");
-
       mockUseAllLabsSSO.mockImplementation((options = {}) => ({
         data: options.select
           ? options.select([{ id: "7", name: "Temp Lab" }, "8", { labId: 9 }])

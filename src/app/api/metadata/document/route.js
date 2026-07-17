@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import {
   institutionalBackendFetch,
 } from '@/utils/api/gatewayProxy'

@@ -3,7 +3,6 @@
  */
 
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
-import devLog from '@/utils/dev/logger';
 
 jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   getContractInstance: jest.fn(),

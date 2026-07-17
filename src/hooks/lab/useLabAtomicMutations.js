@@ -642,7 +642,6 @@ export const useUnlistLab = (options = {}) => {
 
 // Intent hook for setTokenURI (institution executes)
 export const useSetTokenURISSO = (options = {}) => {
-  const queryClient = useQueryClient();
   const { updateLab } = useLabCacheUpdates();
 
   return useMutation({

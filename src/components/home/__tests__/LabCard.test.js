@@ -17,7 +17,7 @@
  */
 
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import LabCard from "../LabCard";
 
 // Mock Setup
@@ -594,7 +594,7 @@ describe("LabCard - Price Formatting", () => {
 
 describe("LabCard - Active Booking Styling", () => {
   test("applies border and glow animation when activeBooking is true", () => {
-    const { container } = renderLabCard({ activeBooking: true });
+    renderLabCard({ activeBooking: true });
 
     const card = screen.getByTestId("card-container");
     expect(card.className).toMatch(/border-4/);
@@ -603,7 +603,7 @@ describe("LabCard - Active Booking Styling", () => {
   });
 
   test("does not apply active styling when activeBooking is false", () => {
-    const { container } = renderLabCard({ activeBooking: false });
+    renderLabCard({ activeBooking: false });
 
     const card = screen.getByTestId("card-container");
     expect(card.className).not.toMatch(/border-4/);
@@ -611,7 +611,7 @@ describe("LabCard - Active Booking Styling", () => {
   });
 
   test("maintains hover effects in both states", () => {
-    const { container, rerender } = render(
+    const { rerender } = render(
       <LabCard {...defaultProps} activeBooking={false} />
     );
 

@@ -46,7 +46,6 @@ import {
   notifyLabDeleted,
   notifyLabDeletedCascadeWarning,
   notifyLabDeleteFailed,
-  notifyLabInvalidPrice,
   notifyLabListed,
   notifyLabListFailed,
   notifyLabLegacyBlocked,
@@ -104,7 +103,6 @@ export default function ProviderDashboard() {
     address,
     user,
     isSSO,
-    isProvider,
     isProviderLoading,
     isLoading,
     institutionBackendUrl,
@@ -134,8 +132,6 @@ export default function ProviderDashboard() {
   const loading = allLabsResult?.isLoading || false;
   const labsError = allLabsResult?.isError || false;
   const labsErrorDetails = allLabsResult?.error || null;
-  
-  const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
   // Extract owned labs - already filtered by useLabsForProvider
   const ownedLabs = useMemo(() => {

@@ -19,7 +19,6 @@ import {
   normalizeBookingStatusState,
   isCancelledBooking,
   isAccessAuthorizedBooking,
-  isCollectedBooking,
   isPendingBooking,
   isConfirmedBooking,
   getBookingStatusText,

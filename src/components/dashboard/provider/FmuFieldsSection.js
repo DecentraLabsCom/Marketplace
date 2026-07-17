@@ -66,7 +66,6 @@ export default function FmuFieldsSection({
       }
       const data = await res.json()
       // Apply all metadata fields in a single update to avoid stale-closure overwrites
-      const applyMetadata = applyFmuMetadata || handleBasicChange
       if (applyFmuMetadata) {
         applyFmuMetadata({
           fmiVersion: data.fmiVersion || '',

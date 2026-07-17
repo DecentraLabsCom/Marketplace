@@ -3,7 +3,7 @@ import {
   getSessionPucHash,
   resolveInstitutionAddressFromSession,
 } from '../../utils/institutionSession'
-import { handleGuardError, requireAuth } from '@/utils/auth/guards'
+import { requireAuth } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 

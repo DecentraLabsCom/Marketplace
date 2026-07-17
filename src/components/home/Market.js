@@ -210,7 +210,7 @@ export default function Market({ initialMarketSnapshot = null }) {
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
     </Container>
-  )
+  );
 }
 
 Market.propTypes = {

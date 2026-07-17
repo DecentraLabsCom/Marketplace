@@ -14,7 +14,6 @@ import PropTypes from 'prop-types'
 import { useInstitutionalOnboarding, OnboardingState } from '@/hooks/user/useInstitutionalOnboarding'
 import { Button } from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import { designSystem } from '@/styles/designSystem'
 
 /**
  * Loading spinner component

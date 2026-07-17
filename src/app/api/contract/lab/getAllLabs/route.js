@@ -69,7 +69,6 @@ export async function GET() {
         total: typeof result?.total === 'bigint' ? result.total.toString() : result?.total
       });
       const arrayLike = (value) => value && typeof value.length === 'number';
-      const totalCandidate = typeof result?.[0] === 'bigint' ? result[0] : result?.total;
       let idsCandidate =
         Array.isArray(result?.[0]) || arrayLike(result?.[0]) ? result[0]
         : Array.isArray(result?.[1]) || arrayLike(result?.[1]) ? result[1]

@@ -33,8 +33,8 @@ describe('development logger', () => {
     })
 
     expect(info).toHaveBeenCalledWith(
-      'calling with Bearer [REDACTED]',
-      { token: '[REDACTED]', nested: { authorization: '[REDACTED]', safe: 'ok' } },
+      JSON.stringify('calling with Bearer [REDACTED]'),
+      JSON.stringify({ token: '[REDACTED]', nested: { authorization: '[REDACTED]', safe: 'ok' } }),
     )
   })
 
@@ -47,8 +47,8 @@ describe('development logger', () => {
     })
 
     expect(warn).toHaveBeenCalledWith(
-      'request failed\\u000d\\u000a forged-entry',
-      { 'user\\u000afield': 'value\\u000d\\u000aforged-entry\\u2028' },
+      JSON.stringify('request failed\\u000d\\u000a forged-entry'),
+      JSON.stringify({ 'user\\u000afield': 'value\\u000d\\u000aforged-entry\\u2028' }),
     )
   })
 })

@@ -29,7 +29,7 @@ export default function SimulationHistory({ labId, reservationKey, gatewayUrl, g
       }
 
       const qs = new URLSearchParams({
-        labId: labId ?? '',
+        labId: String(labId),
         reservationKey: reservationKey ?? '',
         limit: '20',
         offset: '0',

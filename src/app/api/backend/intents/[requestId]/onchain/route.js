@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
-import devLog from '@/utils/dev/logger'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const INTENT_STATE_NAMES = ['NONE', 'PENDING', 'EXECUTED', 'CANCELLED', 'EXPIRED']

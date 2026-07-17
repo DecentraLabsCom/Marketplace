@@ -21,7 +21,6 @@
 import { renderHook } from "@testing-library/react";
 import { useLabValidation } from "../useLabValidation";
 import { validateLabFull, validateLabQuick } from "@/utils/labValidation";
-import devLog from "@/utils/dev/logger";
 
 jest.mock("@/utils/labValidation");
 jest.mock("@/utils/dev/logger");

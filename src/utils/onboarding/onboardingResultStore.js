@@ -99,7 +99,7 @@ export function findResultByUser(stableUserId, institutionId = null) {
   }
   
   // Search through all results for matching user
-  for (const [key, value] of onboardingResults.entries()) {
+  for (const value of onboardingResults.values()) {
     if (value.stableUserId === stableUserId) {
       if (!institutionId || value.institutionId === institutionId) {
         return value

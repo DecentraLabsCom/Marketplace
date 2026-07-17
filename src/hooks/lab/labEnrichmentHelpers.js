@@ -175,9 +175,9 @@ export const buildEnrichedLab = ({
     if (metadata.description) enrichedLab.description = metadata.description;
     if (metadata.image) enrichedLab.image = metadata.image;
     if (metadata.classification) {
-      const labels = getClassificationLabels(metadata.classification)
-      if (labels.length > 0) enrichedLab.category = labels
-      enrichedLab.classification = metadata.classification
+      const labels = getClassificationLabels(metadata.classification);
+      if (labels.length > 0) enrichedLab.category = labels;
+      enrichedLab.classification = metadata.classification;
     }
     if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
     if (metadata.docs) enrichedLab.docs = metadata.docs;

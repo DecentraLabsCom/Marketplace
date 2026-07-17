@@ -21,7 +21,6 @@ import {
   useReservationSSO,
   useReservationsOfTokenSSO,
   BOOKING_QUERY_CONFIG,
-  useReservation,
 } from "@/hooks/booking/useBookingAtomicQueries";
 
 // Mock fetch globally
