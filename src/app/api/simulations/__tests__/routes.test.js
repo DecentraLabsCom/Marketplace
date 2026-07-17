@@ -32,6 +32,8 @@ jest.mock('@/utils/api/gatewayProxy', () => {
   }
 })
 
+import { FMU_CONTEXT_COOKIE, encodeFmuContexts } from '@/utils/auth/fmuSessionStore'
+
 let gatewayProxy
 let authGuards
 
@@ -100,7 +102,7 @@ describe('POST /api/simulations/run', () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({
       labId: '1',
     })
@@ -139,10 +141,8 @@ describe('POST /api/simulations/run', () => {
     )
   })
 
-  test('rejects an unauthenticated request before resolving the gateway', async () => {
-    authGuards.requireAuth.mockRejectedValueOnce(
-      new authGuards.UnauthorizedError('No valid session. Please log in.'),
-    )
+  test('rejects a browser request without a resource context', async () => {
+    gatewayProxy.extractBearerHeader.mockReturnValueOnce(null)
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ status: 'completed' }),
@@ -156,8 +156,42 @@ describe('POST /api/simulations/run', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(401)
-    expect(gatewayProxy.resolveLabAccessGateway).not.toHaveBeenCalled()
+    expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({ labId: '42' })
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  test('authorizes with the encrypted FMU capability after SSO expiry', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'completed' }),
+    })
+    authGuards.requireAuth.mockRejectedValueOnce(new authGuards.UnauthorizedError('expired'))
+    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    const { encoded } = encodeFmuContexts([], {
+      labId: '42',
+      reservationKey: '0xabc',
+      gatewayOrigin: 'https://gw.example.com',
+      resourceSessionId: 'session_identifier_aaaaaaaa',
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: 'A'.repeat(43),
+    })
+
+    const request = new Request('http://localhost/api/simulations/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}`,
+      },
+      body: JSON.stringify({ labId: '42', reservationKey: '0xabc' }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
+    expect(global.fetch.mock.calls[0][1].headers.Cookie).toBe(
+      'FMU_SESSION=session_identifier_aaaaaaaa',
+    )
   })
 
   test('forwards gateway error status', async () => {
@@ -384,7 +418,7 @@ describe('POST /api/simulations/stream', () => {
 
     const response = await POST(request)
     expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(response.headers.get('Content-Type')).toContain('application/x-ndjson')
   })
 
@@ -449,7 +483,7 @@ describe('GET /api/simulations/history', () => {
     const response = await GET(request)
     const data = await response.json()
     expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(data.simulations).toHaveLength(1)
   })
 })
@@ -506,7 +540,7 @@ describe('GET /api/simulations/result', () => {
     const response = await GET(request)
     const data = await response.json()
     expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(data.result.outputs.y).toEqual([1, 2])
   })
 })
@@ -603,7 +637,7 @@ describe('GET /api/simulations/proxy', () => {
 
     const response = await GET(request)
     expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).toHaveBeenCalledTimes(1)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(response.headers.get('Content-Type')).toContain('application/octet-stream')
     expect(response.headers.get('Content-Disposition')).toContain('fmu-proxy-lab-42.fmu')
   })

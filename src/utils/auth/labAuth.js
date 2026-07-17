@@ -39,24 +39,6 @@ export const authenticateLabAccessSSO = async ({
   }
 };
 
-export const submitInstitutionalCheckIn = async ({
-  reservationKey = null,
-  labId = null,
-} = {}) => {
-  const response = await fetch('/api/auth/checkin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ reservationKey, labId }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Institutional check-in failed. Status: ${response.status}`);
-  }
-
-  return response.json();
-};
-
 /**
  * Maps institutional authentication errors to user-friendly messages.
  * @param {Error} error - The error object from authentication process
@@ -65,8 +47,6 @@ export const submitInstitutionalCheckIn = async ({
 export const getAuthErrorMessage = (error) => {
   if (error.message.includes('Missing labId') || error.message.includes('Missing reservationKey')) {
     return 'Missing booking details for SSO access. Please try again.';
-  } else if (error.message.includes('Institutional check-in failed')) {
-    return 'Unable to record check-in. Please try again.';
   } else if (error.message.includes('SSO authentication failed')) {
     return 'Failed to authenticate with lab service. Please try again.';
   } else if (error.message.includes('Missing SSO session')) {

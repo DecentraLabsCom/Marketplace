@@ -8,7 +8,7 @@ import {
   gatewayFetch,
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
-import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { requireFmuResourceContext, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ operation: 'simulation-history', windowMs: 60_000, maxRequests: 30 })
@@ -18,9 +18,6 @@ const checkRate = createRateLimiter({ operation: 'simulation-history', windowMs:
  */
 export async function GET(request) {
   try {
-    const userBinding = await requireFmuUserBinding()
-    const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
-    if (rateLimitResponse) return rateLimitResponse
     const { searchParams } = new URL(request.url)
     const labId = searchParams.get('labId')
     const reservationKey = searchParams.get('reservationKey')
@@ -32,6 +29,15 @@ export async function GET(request) {
     }
 
     const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
+    const resourceContext = requireFmuResourceContext(request, {
+      labId,
+      reservationKey,
+      gatewayOrigin: gatewayBaseUrl,
+    })
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, {
+      userId: resourceContext?.userBinding || resourceContext?.resourceSessionId,
+    }))
+    if (rateLimitResponse) return rateLimitResponse
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/history', {
       labId,
       limit,
@@ -41,7 +47,7 @@ export async function GET(request) {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,
-      userBinding,
+      context: resourceContext,
     })
 
     devLog.log(`[simulations/history] Proxying to ${targetUrl}`)

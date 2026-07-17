@@ -70,7 +70,7 @@ export async function POST(request) {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBase,
-      jti: session.jti,
+      resourceSessionId: session.jti,
       expiresAt: Math.floor(Date.now() / 1000) + session.maxAge,
       userBinding: createFmuUserBinding(marketplaceSession),
     })

@@ -28,7 +28,7 @@ describe('FMU Marketplace session contexts', () => {
       labId: '42',
       reservationKey,
       gatewayOrigin: 'https://gateway.example.com',
-      jti,
+      resourceSessionId: jti,
       expiresAt: Math.floor(Date.now() / 1000) + 300,
       userBinding: createFmuUserBinding({ id: 'user-1' }),
     }
@@ -51,7 +51,7 @@ describe('FMU Marketplace session contexts', () => {
       reservationKey: '0xaaa',
       gatewayOrigin: 'https://gateway.example.com',
       userBinding: createFmuUserBinding({ id: 'user-1' }),
-    })).toMatchObject({ jti: 'session_identifier_aaaaaaaa' })
+    })).toMatchObject({ resourceSessionId: 'session_identifier_aaaaaaaa' })
     expect(resolveFmuGatewayHeaders(request, {
       labId: '42',
       reservationKey: '0xbbb',
@@ -91,7 +91,18 @@ describe('FMU Marketplace session contexts', () => {
     expect(encoded.length).toBeLessThanOrEqual(3800)
   })
 
-  test('binds contexts to the current Marketplace identity and rejects legacy contexts', () => {
+  test('allows a valid resource capability after the Marketplace SSO session expires', () => {
+    const stored = encodeFmuContexts([], context('0xaaa', 'session_identifier_aaaaaaaa'))
+    const request = requestWith(stored.encoded)
+
+    expect(findFmuContext(request, {
+      labId: '42',
+      reservationKey: '0xaaa',
+      gatewayOrigin: 'https://gateway.example.com',
+    })).toMatchObject({ resourceSessionId: 'session_identifier_aaaaaaaa' })
+  })
+
+  test('binds contexts to the current Marketplace identity when one is supplied', () => {
     const userOneBinding = createFmuUserBinding({ id: 'user-1' })
     const userTwoBinding = createFmuUserBinding({ id: 'user-2' })
     expect(userOneBinding).not.toBe(userTwoBinding)

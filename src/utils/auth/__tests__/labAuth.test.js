@@ -4,9 +4,9 @@
 
 import {
   authenticateLabAccessSSO,
-  submitInstitutionalCheckIn,
   getAuthErrorMessage,
 } from "../labAuth";
+import * as labAuth from "../labAuth";
 
 jest.mock("@/utils/dev/logger", () => ({
   error: jest.fn(),
@@ -30,40 +30,8 @@ describe("Lab Authentication Utilities", () => {
     global.fetch = originalFetch;
   });
 
-  describe("submitInstitutionalCheckIn", () => {
-    test("posts reservation context to the institutional check-in endpoint", async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ valid: true }),
-      });
-
-      const result = await submitInstitutionalCheckIn({
-        reservationKey: "rk-1",
-        labId,
-      });
-
-      expect(global.fetch).toHaveBeenCalledWith("/api/auth/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          reservationKey: "rk-1",
-          labId,
-        }),
-      });
-      expect(result).toEqual({ valid: true });
-    });
-
-    test("throws a descriptive error when the institutional check-in fails", async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      });
-
-      await expect(
-        submitInstitutionalCheckIn({ reservationKey: "rk-1", labId })
-      ).rejects.toThrow("Institutional check-in failed. Status: 500");
-    });
+  test("does not expose the legacy institutional check-in helper", () => {
+    expect(labAuth.submitInstitutionalCheckIn).toBeUndefined();
   });
 
   describe("authenticateLabAccessSSO", () => {
@@ -123,10 +91,6 @@ describe("Lab Authentication Utilities", () => {
       [
         "Missing labId",
         "Missing booking details for SSO access. Please try again.",
-      ],
-      [
-        "Institutional check-in failed",
-        "Unable to record check-in. Please try again.",
       ],
       [
         "SSO authentication failed. Status: 401",

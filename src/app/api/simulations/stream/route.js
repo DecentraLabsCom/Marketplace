@@ -7,7 +7,7 @@ import {
   gatewayFetch,
   resolveLabAccessGateway,
 } from '@/utils/api/gatewayProxy'
-import { requireFmuUserBinding, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
+import { requireFmuResourceContext, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ operation: 'simulation-stream', windowMs: 60_000, maxRequests: 10 })
@@ -17,9 +17,6 @@ const checkRate = createRateLimiter({ operation: 'simulation-stream', windowMs: 
  */
 export async function POST(request) {
   try {
-    const userBinding = await requireFmuUserBinding()
-    const rateLimitResponse = createRateLimitResponse(await checkRate(request, { userId: userBinding }))
-    if (rateLimitResponse) return rateLimitResponse
     const body = await request.json()
     const { labId, reservationKey } = body
 
@@ -31,12 +28,21 @@ export async function POST(request) {
     }
 
     const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
+    const resourceContext = requireFmuResourceContext(request, {
+      labId,
+      reservationKey,
+      gatewayOrigin: gatewayBaseUrl,
+    })
+    const rateLimitResponse = createRateLimitResponse(await checkRate(request, {
+      userId: resourceContext?.userBinding || resourceContext?.resourceSessionId,
+    }))
+    if (rateLimitResponse) return rateLimitResponse
     const targetUrl = buildGatewayTargetUrl(gatewayBaseUrl, '/fmu/api/v1/simulations/stream')
     const gatewayHeaders = resolveFmuGatewayHeaders(request, {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,
-      userBinding,
+      context: resourceContext,
     })
     const simulationBody = { ...body }
     delete simulationBody.gatewayUrl

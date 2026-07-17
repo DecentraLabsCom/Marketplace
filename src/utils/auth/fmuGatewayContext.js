@@ -1,9 +1,18 @@
 import { GatewayValidationError, extractBearerHeader } from '@/utils/api/gatewayProxy'
-import { requireAuth } from '@/utils/auth/guards'
-import { createFmuUserBinding, findFmuContext } from '@/utils/auth/fmuSessionStore'
+import { findFmuContext } from '@/utils/auth/fmuSessionStore'
 
-export async function requireFmuUserBinding() {
-  return createFmuUserBinding(await requireAuth())
+/**
+ * Resolve the reservation-scoped FMU capability without requiring the
+ * Marketplace SSO session to still exist. Explicit provider bearer tooling is
+ * passed through and remains authorized by the Gateway itself.
+ */
+export function requireFmuResourceContext(request, params) {
+  if (extractBearerHeader(request)) return null
+  const context = findFmuContext(request, params)
+  if (!context) {
+    throw new GatewayValidationError('FMU gateway session is missing or expired', 401)
+  }
+  return context
 }
 
 /**
@@ -15,23 +24,23 @@ export async function requireFmuUserBinding() {
  */
 export function resolveFmuGatewayHeaders(
   request,
-  { labId, reservationKey, gatewayOrigin, userBinding },
+  { labId, reservationKey, gatewayOrigin, userBinding, context },
 ) {
   const authorization = extractBearerHeader(request)
   if (authorization) return { Authorization: authorization }
 
-  const context = findFmuContext(request, {
+  const resourceContext = context || findFmuContext(request, {
     labId,
     reservationKey,
     gatewayOrigin,
     userBinding,
   })
-  if (!context) {
+  if (!resourceContext) {
     throw new GatewayValidationError('FMU gateway session is missing or expired', 401)
   }
-  if (!/^[A-Za-z0-9_-]{16,512}$/.test(context.jti)) {
+  if (!/^[A-Za-z0-9_-]{16,512}$/.test(resourceContext.resourceSessionId)) {
     throw new GatewayValidationError('FMU gateway session is invalid', 401)
   }
 
-  return { Cookie: `FMU_SESSION=${context.jti}` }
+  return { Cookie: `FMU_SESSION=${resourceContext.resourceSessionId}` }
 }

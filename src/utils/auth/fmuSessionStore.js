@@ -64,7 +64,7 @@ function activeContexts(contexts, now = Math.floor(Date.now() / 1000)) {
   return contexts.filter((item) => (
     item
     && Number(item.expiresAt) > now
-    && item.jti
+    && /^[A-Za-z0-9_-]{16,512}$/.test(String(item.resourceSessionId || ''))
     && item.gatewayOrigin
     && USER_BINDING_PATTERN.test(String(item.userBinding || ''))
   ))
@@ -92,10 +92,13 @@ export function encodeFmuContexts(existing, context) {
     labId: String(context.labId || ''),
     reservationKey: String(context.reservationKey || ''),
     gatewayOrigin: new URL(context.gatewayOrigin).origin,
-    jti: String(context.jti || ''),
+    resourceSessionId: String(context.resourceSessionId || ''),
     expiresAt: Number(context.expiresAt),
     userBinding,
   })
+  if (!/^[A-Za-z0-9_-]{16,512}$/.test(contexts[0].resourceSessionId)) {
+    throw new Error('A valid FMU resource session is required for storage')
+  }
   contexts = contexts.slice(0, MAX_CONTEXTS)
   let encoded = encrypt(contexts)
   while (encoded.length > MAX_COOKIE_LENGTH && contexts.length > 1) {
@@ -108,12 +111,23 @@ export function encodeFmuContexts(existing, context) {
 
 export function findFmuContext(request, { labId, reservationKey, gatewayOrigin, userBinding }) {
   const expectedUserBinding = String(userBinding || '')
-  if (!USER_BINDING_PATTERN.test(expectedUserBinding)) return null
-  const expectedOrigin = new URL(gatewayOrigin).origin
+  if (expectedUserBinding && !USER_BINDING_PATTERN.test(expectedUserBinding)) return null
+  let expectedOrigin
+  try {
+    expectedOrigin = new URL(gatewayOrigin).origin
+  } catch {
+    return null
+  }
   const expectedReservation = String(reservationKey || '').trim().toLowerCase()
   const matches = readFmuContexts(request).filter((item) => {
-    if (item.userBinding !== expectedUserBinding) return false
-    if (new URL(item.gatewayOrigin).origin !== expectedOrigin) return false
+    if (expectedUserBinding && item.userBinding !== expectedUserBinding) return false
+    let itemOrigin
+    try {
+      itemOrigin = new URL(item.gatewayOrigin).origin
+    } catch {
+      return false
+    }
+    if (itemOrigin !== expectedOrigin) return false
     if (String(item.labId) !== String(labId)) return false
     if (expectedReservation) {
       return String(item.reservationKey || '').trim().toLowerCase() === expectedReservation
