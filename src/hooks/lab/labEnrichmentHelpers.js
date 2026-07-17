@@ -16,7 +16,7 @@ export const normalizeLabIds = (ids) => {
   const unique = [];
   ids.forEach((id) => {
     const rawId = extractLabIdValue(id);
-    const value = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
+    const value = Number(rawId);
     if (!Number.isFinite(value)) return;
     if (seen.has(value)) return;
     seen.add(value);

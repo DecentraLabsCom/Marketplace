@@ -1,6 +1,10 @@
-import { buildEnrichedLab } from '../labEnrichmentHelpers'
+import { buildEnrichedLab, normalizeLabIds } from '../labEnrichmentHelpers'
 
 describe('labEnrichmentHelpers', () => {
+  test('normalizes numeric and bigint lab IDs consistently', () => {
+    expect(normalizeLabIds([1, 1n, '2', { tokenId: 3 }, '2'])).toEqual([1, 2, 3])
+  })
+
   test('buildEnrichedLab applies supported marketplace metadata fields and ignores legacy category', () => {
     const lab = {
       labId: 7,

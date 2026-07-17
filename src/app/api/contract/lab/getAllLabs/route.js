@@ -147,7 +147,7 @@ export async function GET() {
     const shouldFallback =
       process.env.NODE_ENV === 'production' || process.env.CI === 'true';
     if (shouldFallback) {
-      console.warn('ƒsÿ‹÷? Returning empty lab list due to provider error');
+      console.warn('Returning empty lab list due to provider error');
       return createSerializedJsonResponse([], {
         status: 200,
         headers: { 'x-labs-unavailable': '1' },

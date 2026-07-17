@@ -37,6 +37,26 @@ describe('file storage security helpers', () => {
     )).toThrow(/SVG/i)
   })
 
+  test('detects DOCX archives without trusting the declared MIME type', () => {
+    const centralDirectoryEntry = (filename) => {
+      const entry = Buffer.alloc(46 + filename.length)
+      entry.writeUInt32LE(0x02014b50, 0)
+      entry.writeUInt16LE(filename.length, 28)
+      entry.write(filename, 46)
+      return entry
+    }
+    const docx = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      centralDirectoryEntry('[Content_Types].xml'),
+      centralDirectoryEntry('word/document.xml'),
+    ])
+
+    expect(detectUploadContentType(docx)).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    expect(() => detectUploadContentType(Buffer.from([0x50, 0x4b, 0x03, 0x04]))).toThrow(/verified/i)
+  })
+
   test('generates a non-overwriting UUID filename without trusting the original name', () => {
     const stored = buildStoredFilename('../avatar.png')
 

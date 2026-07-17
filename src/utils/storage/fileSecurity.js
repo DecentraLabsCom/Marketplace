@@ -61,13 +61,13 @@ const EXTENSION_BY_CONTENT_TYPE = Object.freeze({
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
 })
 
-export function buildStoredFilename(_originalName, contentType = '') {
+export function buildStoredFilename(originalName, contentType = '') {
   const canonicalExtension = EXTENSION_BY_CONTENT_TYPE[contentType]
   if (canonicalExtension) return `${randomUUID()}${canonicalExtension}`
 
   // Keep a safe fallback for callers that do not yet have a detected type.
   // The upload route always supplies the magic-byte-derived content type.
-  const extension = path.extname(String(_originalName || '')).toLowerCase()
+  const extension = path.extname(String(originalName || '')).toLowerCase()
   const allowedExtension = /^\.(?:jpg|jpeg|png|gif|webp|pdf|txt|doc|docx)$/.test(extension)
     ? extension
     : '.bin'
@@ -76,6 +76,38 @@ export function buildStoredFilename(_originalName, contentType = '') {
 
 function isPrefix(buffer, bytes) {
   return bytes.every((byte, index) => buffer[index] === byte)
+}
+
+const ZIP_LOCAL_FILE_SIGNATURE = [0x50, 0x4b, 0x03, 0x04]
+const ZIP_CENTRAL_DIRECTORY_SIGNATURE = Buffer.from([0x50, 0x4b, 0x01, 0x02])
+
+function isDocxArchive(source) {
+  if (!isPrefix(source, ZIP_LOCAL_FILE_SIGNATURE)) return false
+
+  let hasContentTypes = false
+  let hasWordDirectory = false
+  let offset = source.indexOf(ZIP_CENTRAL_DIRECTORY_SIGNATURE)
+
+  while (offset !== -1) {
+    if (offset + 46 > source.length) break
+
+    const filenameLength = source.readUInt16LE(offset + 28)
+    const extraLength = source.readUInt16LE(offset + 30)
+    const commentLength = source.readUInt16LE(offset + 32)
+    const filenameStart = offset + 46
+    const filenameEnd = filenameStart + filenameLength
+    const entryEnd = filenameEnd + extraLength + commentLength
+    if (entryEnd > source.length) break
+
+    const filename = source.subarray(filenameStart, filenameEnd).toString('utf8')
+    if (filename === '[Content_Types].xml') hasContentTypes = true
+    if (filename.startsWith('word/')) hasWordDirectory = true
+    if (hasContentTypes && hasWordDirectory) return true
+
+    offset = source.indexOf(ZIP_CENTRAL_DIRECTORY_SIGNATURE, entryEnd)
+  }
+
+  return false
 }
 
 export function detectUploadContentType(buffer, declaredType = '') {
@@ -90,8 +122,9 @@ export function detectUploadContentType(buffer, declaredType = '') {
   if (source.subarray(0, 4).toString('ascii') === 'RIFF' && source.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp'
   if (source.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf'
   if (isPrefix(source, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) return 'application/msword'
-  if (isPrefix(source, [0x50, 0x4b, 0x03, 0x04]) && declaredType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return declaredType
+  if (isPrefix(source, ZIP_LOCAL_FILE_SIGNATURE)) {
+    if (isDocxArchive(source)) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    throw new Error('File content type could not be verified')
   }
 
   if (!source.includes(0)) {

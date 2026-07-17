@@ -147,6 +147,29 @@ describe('MediaDisplayWithFallback', () => {
    * Validates that fallback mechanisms work correctly for each media type.
    */
   describe('Fallback logic', () => {
+    test('skips the Blob phase outside Vercel and uses local storage', async () => {
+      delete process.env.NEXT_PUBLIC_VERCEL;
+      delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+      global.fetch.mockResolvedValue({
+        ok: true,
+        headers: { get: jest.fn().mockReturnValue('application/pdf') },
+      });
+
+      await act(async () => {
+        render(
+          <MediaDisplayWithFallback
+            mediaPath="labs/7/docs/manual.pdf"
+            mediaType="doc"
+            title="Local document"
+          />
+        );
+      });
+
+      await waitFor(() => expect(screen.getByTitle('Local document')).toBeInTheDocument());
+      expect(global.fetch).toHaveBeenCalledWith('/labs/7/docs/manual.pdf', expect.any(Object));
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
     test('images fallback when primary source fails', async () => {
       // Set up Vercel environment to test blob -> local fallback path
       process.env.NEXT_PUBLIC_VERCEL = 'true';

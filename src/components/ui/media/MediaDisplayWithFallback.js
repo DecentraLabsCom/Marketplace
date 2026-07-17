@@ -157,17 +157,13 @@ export default function MediaDisplayWithFallback({
           return;
         }
       } else if (docAttemptPhase === 1) { // Phase 1: Vercel Blob attempt
-        if (isVercel) {
-          urlToAttempt = getSourceUrl(mediaPath, true, isVercel);
-          currentAttemptType = 'Vercel Blob';
-        } else if (!isVercel) {
-          urlToAttempt = getSourceUrl(mediaPath, true, !isVercel);
-          currentAttemptType = 'Vercel Blob';
-        } else {
-          // If blob fails, skip Blob phase and move to local
+        if (!isVercel) {
+          // Blob storage is unavailable outside Vercel; continue with local storage.
           setDocAttemptPhase(2); // Move to Phase 2 (Local)
           return;
         }
+        urlToAttempt = getSourceUrl(mediaPath, true, isVercel);
+        currentAttemptType = 'Vercel Blob';
       } else if (docAttemptPhase === 2) { // Phase 2: Local attempt
         urlToAttempt = getSourceUrl(mediaPath, false, isVercel);
         currentAttemptType = 'Local';
