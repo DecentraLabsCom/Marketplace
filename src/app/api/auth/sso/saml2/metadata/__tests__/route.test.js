@@ -12,11 +12,11 @@ describe('GET /api/auth/sso/saml2/metadata', () => {
     jest.clearAllMocks()
     process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL = 'https://market.example/api/auth/sso/saml2/logout'
     createServiceProvider.mockReturnValue({
-      create_metadata: () => '<md:EntityDescriptor><md:SPSSODescriptor></md:SPSSODescriptor></md:EntityDescriptor>',
+      create_metadata: () => '<md:EntityDescriptor><md:SPSSODescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://market.example/api/auth/sso/saml2/callback"/></md:SPSSODescriptor></md:EntityDescriptor>',
     })
   })
 
-  test('publishes the HTTP-POST SingleLogoutService endpoint', async () => {
+  test('publishes only the HTTP-POST SingleLogoutService endpoint', async () => {
     const response = await GET()
     const metadata = await response.text()
 
@@ -24,5 +24,6 @@ describe('GET /api/auth/sso/saml2/metadata', () => {
     expect(metadata).toContain(
       '<md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://market.example/api/auth/sso/saml2/logout"/>',
     )
+    expect(metadata).not.toContain('https://market.example/api/auth/sso/saml2/callback"')
   })
 })

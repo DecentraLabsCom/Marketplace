@@ -23,6 +23,18 @@ function getLogoutServiceUrl() {
     return `${baseUrl}/api/auth/sso/saml2/logout`
 }
 
+function replaceOrAddLogoutService(metadata, serviceXml) {
+    const existingLogoutService = /[ \t]*<md:SingleLogoutService\b[^>]*\/>\s*/
+    if (existingLogoutService.test(metadata)) {
+        return metadata.replace(existingLogoutService, `${serviceXml}\n`)
+    }
+
+    return metadata.replace(
+        '</md:SPSSODescriptor>',
+        `${serviceXml}\n  </md:SPSSODescriptor>`,
+    )
+}
+
 /**
  * Generates and returns SAML2 metadata XML for service provider configuration
  * @returns {Response} XML response with SAML metadata or error response
@@ -70,10 +82,10 @@ export async function GET() {
     <md:SingleLogoutService Binding="${SAML_HTTP_POST_BINDING}" Location="${escapeXmlAttribute(getLogoutServiceUrl())}"/>`;
 
         // Insert the SLO service and AttributeConsumingService before the closing descriptor.
-        const enrichedMetadata = metadata
+        const enrichedMetadata = replaceOrAddLogoutService(metadata, singleLogoutService)
             .replace(
                 '</md:SPSSODescriptor>',
-                `${singleLogoutService}${attributeConsumingService}\n  </md:SPSSODescriptor>`
+                `${attributeConsumingService}\n  </md:SPSSODescriptor>`
             )
             // Extend validUntil to 2 years from now so federation caches don't reject it
             .replace(
