@@ -321,6 +321,9 @@ describe('/api/institutions/provisionConsumer route', () => {
       }),
     });
 
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
     expect(signProvisioningToken).toHaveBeenCalledWith(
       expect.objectContaining({ registrationType: 'consumer' }),
       expect.any(Object)
