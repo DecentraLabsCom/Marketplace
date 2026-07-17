@@ -72,10 +72,9 @@ function isValidSamlLogoutRequest(parsedXml) {
  */
 export async function POST(request) {
   const body = await request.text();
-  const samlLogoutRequest = body;
 
   try {
-    const parsedXml = await parseStringPromise(samlLogoutRequest);
+    const parsedXml = await parseStringPromise(body);
     
     // Validate SAML logout request structure and content
     if (!isValidSamlLogoutRequest(parsedXml)) {
