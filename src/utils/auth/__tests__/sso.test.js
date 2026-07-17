@@ -270,6 +270,7 @@ describe("SSO Utilities", () => {
     test("fetches and parses IDP metadata", async () => {
       xml2js.parseStringPromise.mockResolvedValue({
         "md:EntityDescriptor": {
+          $: { entityID: "https://idp.example.com/entity" },
           "md:IDPSSODescriptor": {
             "md:SingleSignOnService": {
               $: {
@@ -303,6 +304,10 @@ describe("SSO Utilities", () => {
         explicitArray: false,
       });
       expect(result).toBe(mockIDP);
+      expect(result.entity_id).toBe("https://idp.example.com/entity");
+      expect(result.signing_certificates).toEqual([
+        "-----BEGIN CERTIFICATE-----\nMIIC8DCCAdigAwIBAgIQBQa\n-----END CERTIFICATE-----",
+      ]);
     });
 
     test("creates IdentityProvider with correct URLs and certificates", async () => {

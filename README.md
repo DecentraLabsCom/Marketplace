@@ -124,6 +124,12 @@ We run **unit, integration and Cypress E2E tests**, plus linting and a productio
 - `principal_targeted_id` (default): `eduPersonPrincipalName|eduPersonTargetedID` when `eduPersonTargetedID` is received, otherwise `eduPersonPrincipalName`.
 - `principal`: always use only `eduPersonPrincipalName`.
 
+### SAML Single Logout
+
+The SP metadata publishes `/api/auth/sso/saml2/logout` with the HTTP-POST binding. The endpoint accepts IdP-initiated `SAMLRequest` messages, matches the issuer to the `entityID` from the configured IdP metadata, verifies the XML signature with the metadata signing certificate, clears local sessions, and returns a correlated `LogoutResponse` through the IdP's HTTP-Redirect SLO endpoint.
+
+Set `NEXT_PUBLIC_SAML_SP_LOGOUT_URL` to the public Marketplace URL for `/api/auth/sso/saml2/logout` in each deployment. `NEXT_PUBLIC_SAML_IDP_METADATA_URL` must point to the authoritative RedIRIS/EduGAIN IdP metadata used by the deployment.
+
 ### Institutional backend egress
 
 Marketplace resolves institutional backends only from the authenticated SSO institution and its on-chain institutional registry. The resolved origin must use HTTPS in production and is checked for public DNS resolution; requests use DNS pinning and reject redirects.

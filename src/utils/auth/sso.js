@@ -216,7 +216,8 @@ export async function createIdentityProvider() {
   const parsed = await xml2js.parseStringPromise(metadata, { explicitArray: false });
 
   // Navigate through the object to extract values
-  const idpSSO = parsed["md:EntityDescriptor"]["md:IDPSSODescriptor"];
+  const entityDescriptor = parsed["md:EntityDescriptor"] || parsed.EntityDescriptor;
+  const idpSSO = entityDescriptor["md:IDPSSODescriptor"] || entityDescriptor.IDPSSODescriptor;
   const ssoServices = Array.isArray(idpSSO["md:SingleSignOnService"])
     ? idpSSO["md:SingleSignOnService"]
     : [idpSSO["md:SingleSignOnService"]];
@@ -240,11 +241,28 @@ export async function createIdentityProvider() {
       return `-----BEGIN CERTIFICATE-----\n${formatted}\n-----END CERTIFICATE-----`;
     });
 
-  return new IdentityProvider({
+  const signingCertificates = keyDescriptors
+    .filter(k => !k.$?.use || k.$.use === 'signing')
+    .map(k => k["ds:KeyInfo"]?.["ds:X509Data"]?.["ds:X509Certificate"])
+    .filter(Boolean)
+    .map(cert => {
+      const clean = cert.replace(/\s+/g, '');
+      const formatted = clean.match(/.{1,64}/g).join('\n');
+      return `-----BEGIN CERTIFICATE-----\n${formatted}\n-----END CERTIFICATE-----`;
+    });
+
+  const identityProvider = new IdentityProvider({
     sso_login_url,
     sso_logout_url,
-    certificates,
+    certificates: signingCertificates.length > 0 ? signingCertificates : certificates,
   });
+
+  // The entity ID is the trust identifier for requests received from this IdP.
+  identityProvider.entity_id = entityDescriptor.$?.entityID;
+  identityProvider.signing_certificates = signingCertificates.length > 0
+    ? signingCertificates
+    : certificates;
+  return identityProvider;
 }
 
 export async function parseSAMLResponse(samlResponse) {

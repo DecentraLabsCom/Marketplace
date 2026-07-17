@@ -5,6 +5,24 @@
 import { NextResponse } from 'next/server'
 import { createServiceProvider } from '@/utils/auth/sso'
 
+const SAML_HTTP_POST_BINDING = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
+
+function escapeXmlAttribute(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+}
+
+function getLogoutServiceUrl() {
+    const configured = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL?.trim()
+    if (configured) return configured
+
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+    return `${baseUrl}/api/auth/sso/saml2/logout`
+}
+
 /**
  * Generates and returns SAML2 metadata XML for service provider configuration
  * @returns {Response} XML response with SAML metadata or error response
@@ -48,11 +66,14 @@ export async function GET() {
       <md:RequestedAttribute FriendlyName="c" Name="urn:oid:2.5.4.6" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri" isRequired="false"/>
     </md:AttributeConsumingService>`;
 
-        // Insert before the closing </md:SPSSODescriptor> tag
+        const singleLogoutService = `
+    <md:SingleLogoutService Binding="${SAML_HTTP_POST_BINDING}" Location="${escapeXmlAttribute(getLogoutServiceUrl())}"/>`;
+
+        // Insert the SLO service and AttributeConsumingService before the closing descriptor.
         const enrichedMetadata = metadata
             .replace(
                 '</md:SPSSODescriptor>',
-                `${attributeConsumingService}\n  </md:SPSSODescriptor>`
+                `${singleLogoutService}${attributeConsumingService}\n  </md:SPSSODescriptor>`
             )
             // Extend validUntil to 2 years from now so federation caches don't reject it
             .replace(
