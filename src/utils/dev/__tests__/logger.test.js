@@ -43,12 +43,12 @@ describe('development logger', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
     devLog.warn('request failed\r\n forged-entry', {
-      'user\nfield': 'value\r\nforged-entry',
+      'user\nfield': 'value\r\nforged-entry\u2028',
     })
 
     expect(warn).toHaveBeenCalledWith(
       'request failed\\u000d\\u000a forged-entry',
-      { 'user\\u000afield': 'value\\u000d\\u000aforged-entry' },
+      { 'user\\u000afield': 'value\\u000d\\u000aforged-entry\\u2028' },
     )
   })
 })

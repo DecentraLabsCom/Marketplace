@@ -16,12 +16,20 @@ const isDevelopment = () => {
 
 const SENSITIVE_FIELD = /(?:token|authorization|cookie|secret|password|assertion|credential|private[_-]?key|api[_-]?key)/i;
 const BEARER_VALUE = /\bbearer\s+[^\s,;]+/gi;
-const LOG_CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/g;
 
 function escapeLogControlCharacters(value) {
-  return value.replace(LOG_CONTROL_CHARACTER, (character) => (
-    `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
-  ));
+  let escaped = '';
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    const isAsciiControl = codePoint <= 0x1F;
+    const isC1Control = codePoint >= 0x7F && codePoint <= 0x9F;
+    const isLineSeparator = codePoint === 0x2028 || codePoint === 0x2029;
+
+    escaped += isAsciiControl || isC1Control || isLineSeparator
+      ? `\\u${codePoint.toString(16).padStart(4, '0')}`
+      : character;
+  }
+  return escaped;
 }
 
 function redactString(value) {
