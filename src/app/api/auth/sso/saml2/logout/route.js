@@ -5,6 +5,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { clearSessionCookies } from '@/utils/auth/sessionCookie'
+import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
+import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
 import { parseStringPromise } from 'xml2js'
 
 // Validate SAML logout request structure
@@ -82,7 +84,9 @@ export async function POST(request) {
     }
 
     const cookieStore = await cookies();
+    await revokeFmuContexts(cookieStore);
     await clearSessionCookies(cookieStore);
+    clearFmuContextCookie(cookieStore);
 
     return NextResponse.redirect("/");
   } catch (error) {

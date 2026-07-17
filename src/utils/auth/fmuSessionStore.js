@@ -76,7 +76,11 @@ function contextKey(context) {
 }
 
 export function readFmuContexts(request) {
-  return activeContexts(decrypt(rawCookie(request, FMU_CONTEXT_COOKIE)))
+  return readFmuContextsFromCookieValue(rawCookie(request, FMU_CONTEXT_COOKIE))
+}
+
+export function readFmuContextsFromCookieValue(value) {
+  return activeContexts(decrypt(value))
 }
 
 export function encodeFmuContexts(existing, context) {

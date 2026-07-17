@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
+import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
 
 /**
  * Logs out the current user by clearing session cookies
@@ -13,6 +14,7 @@ import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
  */
 export async function GET() {
     const cookieStore = await cookies();
+    await revokeFmuContexts(cookieStore);
     await clearSessionCookies(cookieStore);
     clearFmuContextCookie(cookieStore);
     
