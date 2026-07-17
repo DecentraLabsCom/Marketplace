@@ -16,9 +16,16 @@ const isDevelopment = () => {
 
 const SENSITIVE_FIELD = /(?:token|authorization|cookie|secret|password|assertion|credential|private[_-]?key|api[_-]?key)/i;
 const BEARER_VALUE = /\bbearer\s+[^\s,;]+/gi;
+const LOG_CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/g;
+
+function escapeLogControlCharacters(value) {
+  return value.replace(LOG_CONTROL_CHARACTER, (character) => (
+    `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
+  ));
+}
 
 function redactString(value) {
-  return value.replace(BEARER_VALUE, 'Bearer [REDACTED]');
+  return escapeLogControlCharacters(value.replace(BEARER_VALUE, 'Bearer [REDACTED]'));
 }
 
 function redactLogValue(value, seen = new WeakSet()) {
@@ -29,14 +36,14 @@ function redactLogValue(value, seen = new WeakSet()) {
 
   if (value instanceof Error) {
     return {
-      name: value.name,
+      name: redactString(String(value.name || 'Error')),
       message: redactString(String(value.message || '')),
     };
   }
   if (Array.isArray(value)) return value.map((item) => redactLogValue(item, seen));
 
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-    key,
+    redactString(key),
     SENSITIVE_FIELD.test(key) ? '[REDACTED]' : redactLogValue(item, seen),
   ]));
 }

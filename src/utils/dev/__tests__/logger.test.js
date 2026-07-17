@@ -37,4 +37,18 @@ describe('development logger', () => {
       { token: '[REDACTED]', nested: { authorization: '[REDACTED]', safe: 'ok' } },
     )
   })
+
+  test('escapes control characters before writing user-provided values to logs', () => {
+    process.env.NODE_ENV = 'development'
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+    devLog.warn('request failed\r\n forged-entry', {
+      'user\nfield': 'value\r\nforged-entry',
+    })
+
+    expect(warn).toHaveBeenCalledWith(
+      'request failed\\u000d\\u000a forged-entry',
+      { 'user\\u000afield': 'value\\u000d\\u000aforged-entry' },
+    )
+  })
 })

@@ -7,8 +7,10 @@ import {
   detectUploadContentType,
   getSessionUploadNamespace,
   parseManagedFilePath,
+  resolveManagedMetadataPath,
   validateDestinationFolder,
 } from '../fileSecurity'
+import path from 'node:path'
 
 describe('file storage security helpers', () => {
   test('uses a stable server-derived namespace that changes with the session', () => {
@@ -47,5 +49,15 @@ describe('file storage security helpers', () => {
       .toMatchObject({ kind: 'temporary', namespace: '0123456789abcdef0123456789abcdef', folder: 'images' })
     expect(() => parseManagedFilePath('/temp/other/images/file.png')).toThrow(/managed/i)
     expect(() => parseManagedFilePath('/etc/passwd')).toThrow(/managed/i)
+  })
+
+  test('resolves metadata filenames without allowing path components', () => {
+    const root = path.resolve('marketplace-data')
+
+    expect(resolveManagedMetadataPath(root, 'Lab-provider-8.json')).toBe(
+      path.join(root, 'Lab-provider-8.json'),
+    )
+    expect(() => resolveManagedMetadataPath(root, '../outside.json')).toThrow(/filename/i)
+    expect(() => resolveManagedMetadataPath(root, 'nested/Lab-provider-8.json')).toThrow(/filename/i)
   })
 })

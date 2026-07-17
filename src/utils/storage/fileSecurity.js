@@ -174,6 +174,23 @@ export function resolveManagedLocalPath(publicRoot, relativePath) {
   return target
 }
 
+export function resolveManagedMetadataPath(publicRoot, filename) {
+  const root = path.resolve(publicRoot)
+  const candidate = String(filename || '')
+  const basename = path.basename(candidate)
+  const windowsBasename = path.win32.basename(candidate)
+
+  if (!candidate || basename !== candidate || windowsBasename !== candidate) {
+    throw new Error('Managed metadata filename must not contain path components')
+  }
+
+  const target = path.resolve(root, basename)
+  if (path.dirname(target) !== root) {
+    throw new Error('Managed metadata filename escapes storage root')
+  }
+  return target
+}
+
 export function isTrustedBlobUrl(url) {
   if (!(url instanceof URL)) return false
   const configured = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL

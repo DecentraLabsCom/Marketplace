@@ -4,7 +4,7 @@
  * 
  * SECURITY: Requires authentication and lab ownership verification
  */
-import path from 'path'
+import path from 'node:path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { get, put } from '@vercel/blob'
@@ -23,7 +23,7 @@ import {
   HttpError,
   BadRequestError
 } from '@/utils/auth/guards'
-import { resolveManagedLocalPath } from '@/utils/storage/fileSecurity'
+import { resolveManagedMetadataPath } from '@/utils/storage/fileSecurity'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   CLASSIFICATION_SCHEMES,
@@ -374,7 +374,12 @@ export async function POST(req) {
     }
 
     const isVercel = getIsVercel();
-    const filePath = resolveManagedLocalPath(path.join(process.cwd(), 'data'), normalizedUri);
+    const dataRoot = path.join(process.cwd(), 'data')
+    const metadataFilename = path.basename(normalizedUri)
+    if (metadataFilename !== normalizedUri) {
+      throw new BadRequestError('Invalid metadata filename')
+    }
+    const filePath = resolveManagedMetadataPath(dataRoot, metadataFilename)
     const blobName = normalizedUri;
     let existingData = null;
     const timestamp = new Date().toISOString();
