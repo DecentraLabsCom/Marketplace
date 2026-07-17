@@ -88,7 +88,7 @@ export async function POST(request) {
     await clearSessionCookies(cookieStore);
     clearFmuContextCookie(cookieStore);
 
-    return NextResponse.redirect("/");
+    return NextResponse.redirect(new URL("/", request.url));
   } catch (error) {
     console.error("Error while processing SAML logout:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

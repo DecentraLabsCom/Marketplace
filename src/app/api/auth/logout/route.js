@@ -18,9 +18,6 @@ export async function GET() {
     await clearSessionCookies(cookieStore);
     clearFmuContextCookie(cookieStore);
     
-    // Add a small delay to ensure cookie clearing is processed
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
     return NextResponse.json({ 
         success: true,
         message: "Session cleared successfully",
