@@ -34,7 +34,7 @@ describe('opaque server-side sessions', () => {
     expect(session.sessionId).toBe(cookies[0].value)
   })
 
-  test('rejects legacy JWT-like cookie values instead of reading client data', async () => {
+  test('rejects JWT-like cookie values instead of reading client data', async () => {
     const session = await getSessionFromCookies({
       get: jest.fn().mockReturnValue({ value: 'eyJhbGciOiJIUzI1NiJ9.eyJzYW1sQXNzZXJ0aW9uIjoiZXZpbCJ9.signature' }),
     })

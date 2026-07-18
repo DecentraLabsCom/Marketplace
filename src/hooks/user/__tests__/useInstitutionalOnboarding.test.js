@@ -239,7 +239,10 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should treat browser as known when marker exists and local endpoint is registered', async () => {
-      window.localStorage.setItem('institutional_browser_passkey:university.edu:user123', '1')
+      window.localStorage.setItem(
+        'institutional_browser_passkey:university.edu:user123',
+        JSON.stringify({ verifiedAt: Date.now() })
+      )
 
       mockFetch.mockResolvedValueOnce({
         ok: true,

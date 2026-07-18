@@ -17,7 +17,7 @@ describe('resolveMediaUrl', () => {
     expect(resolveStoredAssetUrl('/7/images/cover.png')).toBe('/7/images/cover.png')
   })
 
-  test('resolves legacy relative assets to Blob in production', () => {
+  test('maps relative assets to Blob storage in production', () => {
     process.env.NODE_ENV = 'production'
     process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.example'
 

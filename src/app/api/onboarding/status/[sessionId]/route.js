@@ -24,9 +24,6 @@ const checkRate = createRateLimiter({ operation: 'onboarding-status', windowMs: 
  * GET /api/onboarding/status/[sessionId]
  * Checks onboarding session status from local callback cache
  * 
- * Query params:
- * - checkLocal: Must be "true" (maintained for compatibility)
- * 
  * @param {Request} request - HTTP request
  * @param {Object} context - Route context with params
  * @returns {Response} Session status from callback cache

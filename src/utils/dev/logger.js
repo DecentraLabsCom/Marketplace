@@ -100,14 +100,9 @@ const devLog = {
     emit('debug', ...args);
   },
 
-  // Backward-compatible alias used by older call sites.
-  service: (...args) => {
-    emit('log', ...args);
-  },
 };
 
-// Legacy support - export individual functions
-export const { log, warn, error, info, debug, success, mutation, moduleLoaded, service } = devLog;
+export const { log, warn, error, info, debug, success, mutation, moduleLoaded } = devLog;
 
 // Named export
 export { devLog };

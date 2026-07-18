@@ -18,13 +18,6 @@ describe('browserCredentialMarker', () => {
     jest.restoreAllMocks()
   })
 
-  it('treats legacy marker value as verified', () => {
-    window.localStorage.setItem(storageKey, '1')
-
-    expect(hasBrowserCredentialMarkerVerified(markerIdentity)).toBe(true)
-    expect(shouldShowBrowserCredentialAdvisory(markerIdentity)).toBe(false)
-  })
-
   it('marks advisory as dismissed without marking browser as verified', () => {
     markBrowserCredentialAdvisoryDismissed(markerIdentity)
 

@@ -1,8 +1,8 @@
 import { contractAddresses } from './diamond'
 
 /**
- * Service-credit ledger compatibility config.
- * Credits are currently accounted for inside the Diamond deployment.
+ * Service-credit ledger configuration.
+ * Credits are accounted for inside the Diamond deployment.
  */
 export const contractAddressesCredits = contractAddresses
 

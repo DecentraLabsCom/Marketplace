@@ -138,7 +138,6 @@ describe("useUserCacheUpdates hook", () => {
         "0xProvider123",
       ]);
       expect(providerStatus.isLabProvider).toBe(true);
-      expect(providerStatus.isProvider).toBe(true);
     });
 
     test("uses account field when address not present", () => {
@@ -315,7 +314,6 @@ describe("useUserCacheUpdates hook", () => {
         userAddress: "0xProvider123",
       });
       expect(status.isLabProvider).toBe(true);
-      expect(status.isProvider).toBe(true);
     });
 
     // Validates that fresh data from blockchain is correctly stored in cache

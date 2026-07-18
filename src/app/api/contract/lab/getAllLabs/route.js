@@ -82,10 +82,6 @@ export async function GET() {
         code: error?.code,
         reason: error?.reason,
       });
-      if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
-        console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
-        return createSerializedJsonResponse([], { status: 200 });
-      }
       throw error;
     }
     
@@ -98,7 +94,7 @@ export async function GET() {
       )
     );
 
-    // Defensive filtering: some contract versions can return IDs that were deleted on-chain.
+    // Filter IDs that no longer resolve as existing tokens.
     // Keep only IDs that still resolve as existing tokens.
     const existenceChecks = await mapWithConcurrency(
       convertedLabList,

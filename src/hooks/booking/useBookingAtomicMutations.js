@@ -192,7 +192,7 @@ export const useReservationRequestSSO = (options = {}) => {
       }
 
       emitReservationProgress(requestData, 'intent_prepared', {
-        requestId: prepareData?.requestId || prepareData?.intent?.meta?.requestId || null,
+        requestId: resolveIntentRequestId(prepareData),
         reservationKey: prepareData?.intent?.payload?.reservationKey || null,
         txHash: prepareData?.onChain?.txHash || null,
         blockNumber: prepareData?.onChain?.blockNumber || null,
@@ -217,12 +217,7 @@ export const useReservationRequestSSO = (options = {}) => {
     },
     onSuccess: (data, variables) => {
       try {
-        const intentId =
-          data?.requestId ||
-          data?.intent?.meta?.requestId ||
-          data?.intent?.requestId ||
-          data?.intent?.request_id ||
-          data?.intent?.requestId?.toString?.();
+        const intentId = resolveIntentRequestId(data);
         const reservationKey =
           data?.intent?.payload?.reservationKey ||
           data?.intent?.payload?.reservation_key ||
@@ -455,12 +450,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         return;
       }
       try {
-        const intentId =
-          data?.requestId ||
-          data?.intent?.meta?.requestId ||
-          data?.intent?.requestId ||
-          data?.intent?.request_id ||
-          data?.intent?.requestId?.toString?.();
+        const intentId = resolveIntentRequestId(data);
         updateBooking(reservationKey, {
           reservationKey,
           intentRequestId: intentId,
@@ -647,12 +637,7 @@ export const useCancelBookingSSO = (options = {}) => {
           devLog.warn('Failed to set optimistic booking state for cancel booking SSO:', err);
         }
 
-        const intentId =
-          data?.requestId ||
-          data?.intent?.meta?.requestId ||
-          data?.intent?.requestId ||
-          data?.intent?.request_id ||
-          data?.intent?.requestId?.toString?.();
+        const intentId = resolveIntentRequestId(data);
         if (intentId) {
           (async () => {
             try {

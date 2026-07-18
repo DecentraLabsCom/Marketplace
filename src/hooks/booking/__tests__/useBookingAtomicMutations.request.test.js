@@ -98,9 +98,9 @@ describe('institutional reservation request mutations', () => {
           authorizationUrl: 'https://institution.example/intents/authorize/session-1',
           authorizationSessionId: 'session-1',
           backendUrl: 'https://institution.example',
+          requestId: 'req-1',
           onChain: { txHash: '0xREGISTER', blockNumber: 123 },
           intent: {
-            meta: { requestId: 'req-1' },
             payload: { reservationKey: 'rk-1' },
           },
         }),

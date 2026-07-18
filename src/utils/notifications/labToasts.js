@@ -26,7 +26,6 @@ export const labToastIds = {
   unlisted: (labId) => `lab-unlisted:${normalizeLabId(labId)}`,
   unlistFailed: (labId) => `lab-unlist-failed:${normalizeLabId(labId)}`,
   creatorMismatch: () => 'lab-creator-mismatch',
-  legacyBlocked: () => 'lab-legacy-blocked',
 }
 
 import { notify } from './notify'
@@ -110,12 +109,4 @@ export const notifyLabCreatorMismatch = (addTemporaryNotification) =>
     'error',
     'No eres el creador de este laboratorio y no tienes permisos para gestionarlo.',
     labToastIds.creatorMismatch()
-  )
-
-export const notifyLabLegacyBlocked = (addTemporaryNotification) =>
-  notify(
-    addTemporaryNotification,
-    'warning',
-    'Este laboratorio es legacy y está pendiente de migración. Contacta con soporte para desbloquearlo.',
-    labToastIds.legacyBlocked()
   )

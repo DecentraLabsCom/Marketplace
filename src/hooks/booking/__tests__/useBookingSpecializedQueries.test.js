@@ -89,7 +89,7 @@ describe('useBookingSpecializedQueries', () => {
   describe('useUserBookingsForMarket', () => {
     it('should initialize with user address', () => {
       const { result } = renderHook(
-        () => useUserBookingsForMarket('0x123'),
+        () => useUserBookingsForMarket(),
         { wrapper: createWrapper() }
       )
 
@@ -147,7 +147,7 @@ describe('useBookingSpecializedQueries', () => {
       ])
 
       const { result } = renderHook(
-        () => useUserBookingsForMarket('0x123'),
+        () => useUserBookingsForMarket(),
         { wrapper: createWrapper() }
       )
 
@@ -168,7 +168,7 @@ describe('useBookingSpecializedQueries', () => {
       // No need to mock useQueries since count is 0
 
       const { result } = renderHook(
-        () => useUserBookingsForMarket('0x123'),
+        () => useUserBookingsForMarket(),
         { wrapper: createWrapper() }
       )
 
@@ -187,7 +187,7 @@ describe('useBookingSpecializedQueries', () => {
       })
       
       renderHook(
-        () => useUserBookingsForMarket('0x123', { enabled: false }),
+        () => useUserBookingsForMarket({ enabled: false }),
         { wrapper: createWrapper() }
       )
 
@@ -205,7 +205,7 @@ describe('useBookingSpecializedQueries', () => {
       })
 
       const { result } = renderHook(
-        () => useUserBookingsForMarket('0x123'),
+        () => useUserBookingsForMarket(),
         { wrapper: createWrapper() }
       )
 
@@ -224,7 +224,7 @@ describe('useBookingSpecializedQueries', () => {
       })
 
       const { result } = renderHook(
-        () => useUserBookingsForMarket('0x123'),
+        () => useUserBookingsForMarket(),
         { wrapper: createWrapper() }
       )
 
@@ -236,7 +236,7 @@ describe('useBookingSpecializedQueries', () => {
   describe('useBookingsForCalendar', () => {
     it('should initialize correctly', () => {
       const { result } = renderHook(
-        () => useBookingsForCalendar('0x123', 'lab456'),
+        () => useBookingsForCalendar('lab456'),
         { wrapper: createWrapper() }
       )
 
@@ -290,7 +290,7 @@ describe('useBookingSpecializedQueries', () => {
 
     it('returns null activeBooking and nextBooking when no reservations', () => {
       setupReservationsMock([])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toBeNull()
       expect(result.current.data.nextBooking).toBeNull()
       expect(result.current.data.hasActiveBooking).toBe(false)
@@ -301,7 +301,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 1, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.hasActiveBooking).toBe(true)
       expect(result.current.data.activeBooking).toMatchObject({ reservationKey: 'rk-0', labId: '1' })
       expect(result.current.data.nextBooking).toBeNull()
@@ -311,7 +311,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '2', status: 0, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toBeNull()
       expect(result.current.data.hasUpcomingBooking).toBe(true)
       expect(result.current.data.nextBooking).toMatchObject({ reservationKey: 'rk-0', labId: '2' })
@@ -321,7 +321,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '3', status: 1, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toBeNull()
       expect(result.current.data.nextBooking).toMatchObject({ labId: '3' })
     })
@@ -331,7 +331,7 @@ describe('useBookingSpecializedQueries', () => {
         { labId: 'later', status: 1, start: NOW_UNIX_S + 7200, end: NOW_UNIX_S + 10800 },
         { labId: 'earlier', status: 1, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.nextBooking).toMatchObject({ labId: 'earlier' })
     })
 
@@ -339,7 +339,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '5', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.hasActiveBooking).toBe(true)
       expect(result.current.data.activeBooking).toMatchObject({ reservationKey: 'rk-0', labId: '5' })
     })
@@ -348,7 +348,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '6', status: 4, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.nextBooking).toBeNull()
     })
 
@@ -356,7 +356,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '7', status: 1, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toBeNull()
       expect(result.current.data.nextBooking).toBeNull()
     })
@@ -366,7 +366,7 @@ describe('useBookingSpecializedQueries', () => {
         { labId: 'active', status: 1, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
         { labId: 'upcoming', status: 1, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useActiveUserBooking('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useActiveUserBooking(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toMatchObject({ labId: 'active' })
       expect(result.current.data.nextBooking).toBeNull()
     })
@@ -385,7 +385,7 @@ describe('useBookingSpecializedQueries', () => {
 
     it('returns all-zero summary when no reservations', () => {
       setupReservationsMock([])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data).toMatchObject({
         totalBookings: 0,
         activeBookings: 0,
@@ -400,7 +400,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 0, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.pendingBookings).toBe(1)
       expect(result.current.data.totalBookings).toBe(1)
     })
@@ -409,7 +409,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.cancelledBookings).toBe(1)
     })
 
@@ -417,7 +417,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 1, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.activeBookings).toBe(1)
     })
 
@@ -425,7 +425,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 1, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.upcomingBookings).toBe(1)
     })
 
@@ -433,7 +433,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 1, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.completedBookings).toBe(1)
     })
 
@@ -441,7 +441,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 3, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.completedBookings).toBe(1)
     })
 
@@ -449,7 +449,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.cancelledBookings).toBe(1)
     })
 
@@ -457,7 +457,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.activeBookings).toBe(1)
     })
 
@@ -465,7 +465,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '1', status: 2, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data.upcomingBookings).toBe(1)
     })
 
@@ -477,7 +477,7 @@ describe('useBookingSpecializedQueries', () => {
         { labId: '4', status: 3, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },   // completed
         { labId: '5', status: 4, start: NOW_UNIX_S - 7200, end: NOW_UNIX_S - 3600 },   // cancelled
       ])
-      const { result } = renderHook(() => useUserBookingSummary('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserBookingSummary(), { wrapper: createWrapper() })
       expect(result.current.data).toMatchObject({
         totalBookings: 5,
         pendingBookings: 1,
@@ -502,7 +502,7 @@ describe('useBookingSpecializedQueries', () => {
 
     it('returns null activeBooking and nextBooking when no reservations', () => {
       setupReservationsMock([])
-      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserActiveBookings(), { wrapper: createWrapper() })
       expect(result.current.data.activeBooking).toBeNull()
       expect(result.current.data.nextBooking).toBeNull()
       expect(result.current.data.hasActiveBooking).toBe(false)
@@ -512,7 +512,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '10', status: 1, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserActiveBookings(), { wrapper: createWrapper() })
       const { activeBooking } = result.current.data
       expect(activeBooking).not.toBeNull()
       expect(activeBooking.labId).toBe('10')
@@ -526,7 +526,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '10-access-authorized', status: 2, start: NOW_UNIX_S - 1800, end: NOW_UNIX_S + 1800 },
       ])
-      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserActiveBookings(), { wrapper: createWrapper() })
       expect(result.current.data.hasActiveBooking).toBe(true)
       expect(result.current.data.activeBooking).toMatchObject({ labId: '10-access-authorized', status: 2 })
       expect(result.current.data.nextBooking).toBeNull()
@@ -536,7 +536,7 @@ describe('useBookingSpecializedQueries', () => {
       setupReservationsMock([
         { labId: '11', status: 0, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserActiveBookings(), { wrapper: createWrapper() })
       const { nextBooking } = result.current.data
       expect(nextBooking).not.toBeNull()
       expect(nextBooking.labId).toBe('11')
@@ -549,7 +549,7 @@ describe('useBookingSpecializedQueries', () => {
         { labId: 'far', status: 0, start: NOW_UNIX_S + 7200, end: NOW_UNIX_S + 10800 },
         { labId: 'near', status: 0, start: NOW_UNIX_S + 3600, end: NOW_UNIX_S + 7200 },
       ])
-      const { result } = renderHook(() => useUserActiveBookings('0x123'), { wrapper: createWrapper() })
+      const { result } = renderHook(() => useUserActiveBookings(), { wrapper: createWrapper() })
       expect(result.current.data.nextBooking?.labId).toBe('near')
     })
   })

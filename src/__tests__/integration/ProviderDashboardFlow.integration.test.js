@@ -452,7 +452,7 @@ describe("Provider Dashboard Flow Integration", () => {
     });
   });
 
-  test("does not expose legacy staking modal controls in the cleaned provider runtime", async () => {
+  test("does not expose removed staking modal controls in the provider runtime", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,

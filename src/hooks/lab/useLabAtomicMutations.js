@@ -260,12 +260,7 @@ export const useUpdateLabSSO = (options = {}) => {
     onSuccess: (data, variables) => {
       try {
         if (variables.labId && variables.labData) {
-          const requestId =
-            data?.requestId ||
-            data?.intent?.meta?.requestId ||
-            data?.intent?.requestId ||
-            data?.intent?.request_id ||
-            data?.intent?.requestId?.toString?.();
+          const requestId = resolveIntentRequestId(data);
           const backendUrl = data?.backendUrl || variables?.backendUrl;
           const updatedLab = {
             ...variables.labData,
@@ -396,12 +391,7 @@ export const useDeleteLabSSO = (options = {}) => {
     onSuccess: (_data, input) => {
       const { labId } = resolveDeletePayload(input);
       try {
-        const requestId =
-          _data?.requestId ||
-          _data?.intent?.meta?.requestId ||
-          _data?.intent?.requestId ||
-          _data?.intent?.request_id ||
-          _data?.intent?.requestId?.toString?.();
+        const requestId = resolveIntentRequestId(_data);
         const backendUrl = _data?.backendUrl || resolveDeletePayload(input).backendUrl;
         updateLab(labId, {
           id: labId,
@@ -482,12 +472,7 @@ export const useListLabSSO = (options = {}) => {
       });
       devLog.log('useListLabSSO intent (webauthn):', data);
 
-      const requestId =
-        data?.requestId ||
-        data?.intent?.meta?.requestId ||
-        data?.intent?.requestId ||
-        data?.intent?.request_id ||
-        data?.intent?.requestId?.toString?.();
+      const requestId = resolveIntentRequestId(data);
       const resolvedBackendUrl = data?.backendUrl || backendUrl;
 
       if (!requestId) {
@@ -560,12 +545,7 @@ export const useUnlistLabSSO = (options = {}) => {
       });
       devLog.log('useUnlistLabSSO intent (webauthn):', data);
 
-      const requestId =
-        data?.requestId ||
-        data?.intent?.meta?.requestId ||
-        data?.intent?.requestId ||
-        data?.intent?.request_id ||
-        data?.intent?.requestId?.toString?.();
+      const requestId = resolveIntentRequestId(data);
       const resolvedBackendUrl = data?.backendUrl || backendUrl;
 
       if (!requestId) {
@@ -650,12 +630,7 @@ export const useSetTokenURISSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
 
-        const requestId =
-          _data?.requestId ||
-          _data?.intent?.meta?.requestId ||
-          _data?.intent?.requestId ||
-          _data?.intent?.request_id ||
-          _data?.intent?.requestId?.toString?.();
+        const requestId = resolveIntentRequestId(_data);
         if (requestId) {
           (async () => {
             try {

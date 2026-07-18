@@ -48,17 +48,3 @@ Use one of the existing shared Redis REST credential pairs: `KV_REST_API_URL`/`K
 A retry with the same still-valid token and wallet proof resumes that same saga. Marketplace reconciles the chain state while holding a renewable distributed lease for the actual server signer, and executes only the missing writes. The lease is renewed throughout a long transaction wait and is checked immediately before every privileged write; a lost lease fails closed. A token cannot start a different saga or alter any of its signed claims. Once it has expired, recovery requires a newly issued token with a new `jti` and nonce.
 
 Provider and consumer provisioning, as well as signed intent preparation, use that same signer-specific lease. This serializes transactions from the shared wallet and prevents concurrent nonce allocation from racing across endpoints or instances.
-
-## Legacy Blob cleanup
-
-The former unauthenticated registration flow and its `data/pendingProviders.json` Blob namespace have been removed. After deploying this release, inspect the configured Blob store with:
-
-```bash
-npm run cleanup:legacy-pending-providers
-```
-
-Only after confirming the target environment, delete the matching legacy object with:
-
-```bash
-npm run cleanup:legacy-pending-providers -- --execute
-```

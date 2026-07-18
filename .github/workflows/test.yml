@@ -22,8 +22,6 @@ jobs:
           cache: "npm"
 
       - name: 📚 Install dependencies
-        env:
-          NPM_CONFIG_LEGACY_PEER_DEPS: true
         run: npm ci --include=dev
 
       - name: 🔍 Run linting
@@ -67,8 +65,6 @@ jobs:
           cache: "npm"
 
       - name: 📚 Install dependencies
-        env:
-          NPM_CONFIG_LEGACY_PEER_DEPS: true
         run: npm ci --include=dev
 
       - name: 📥 Install Cypress binary

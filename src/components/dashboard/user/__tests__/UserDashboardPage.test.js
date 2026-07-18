@@ -207,9 +207,8 @@ describe('UserDashboard - Unit Tests', () => {
             render(<UserDashboard />);
 
             expect(await screen.findByText('User Dashboard')).toBeInTheDocument();
-            expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
-                null,
-                expect.objectContaining({
+                expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
+                    expect.objectContaining({
                     includeLabDetails: true,
                     queryOptions: expect.objectContaining({ enabled: false })
                 })
@@ -231,9 +230,8 @@ describe('UserDashboard - Unit Tests', () => {
             render(<UserDashboard />);
 
             expect(await screen.findByText('User Dashboard')).toBeInTheDocument();
-            expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
-                null,
-                expect.objectContaining({
+                expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
+                    expect.objectContaining({
                     includeLabDetails: true,
                     queryOptions: expect.objectContaining({ enabled: true })
                 })

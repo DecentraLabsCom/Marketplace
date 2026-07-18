@@ -328,7 +328,7 @@ describe('/api/auth/lab-access route', () => {
 
   test('uses only SAML-derived puc and ignores stale session id', async () => {
     requireAuth.mockResolvedValue({
-      id: 'legacy-user-id',
+      id: 'fixture-user-id',
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-3@uned.es',

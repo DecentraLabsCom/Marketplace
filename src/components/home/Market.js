@@ -14,7 +14,7 @@ import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
-import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
+import { canFetchUserBookings } from '@/utils/auth/bookingAccess'
 import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialMarketSnapshot = null }) {
@@ -99,11 +99,6 @@ export default function Market({ initialMarketSnapshot = null }) {
     address,
   }), [isLoggedIn, isSSO, address]);
 
-  const bookingsUserAddress = useMemo(
-    () => resolveBookingsUserAddress({ isSSO, address }),
-    [isSSO, address]
-  );
-
   const userBookingsOptions = useMemo(() => ({
     enabled: shouldFetchUserBookings,
     queryOptions: {
@@ -111,7 +106,7 @@ export default function Market({ initialMarketSnapshot = null }) {
     }
   }), [shouldFetchUserBookings]);
   
-  const userBookingsQuery = useUserBookingsForMarket(bookingsUserAddress, userBookingsOptions);
+  const userBookingsQuery = useUserBookingsForMarket(userBookingsOptions);
 
   const {
     data: userBookingsData,

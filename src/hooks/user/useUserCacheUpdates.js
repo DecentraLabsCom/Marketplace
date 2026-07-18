@@ -45,14 +45,12 @@ export function useUserCacheUpdates() {
         providerQueryKeys.isLabProvider(userAddress),
         {
           isLabProvider: data.isLabProvider,
-          isProvider: data.isLabProvider // Alias for backward compatibility
         }
       )
       
       devLog.success('Provider status refreshed successfully for', userAddress)
       return {
         isLabProvider: data.isLabProvider,
-        isProvider: data.isLabProvider,
         address: userAddress
       }
     } catch (error) {
@@ -99,7 +97,7 @@ export function useUserCacheUpdates() {
       queryClient.setQueryData(providerQueryKeys.byAddress(address), newProvider)
       queryClient.setQueryData(
         providerQueryKeys.isLabProvider(address),
-        { isLabProvider: true, isProvider: true }
+        { isLabProvider: true }
       )
     }
   }, [queryClient])

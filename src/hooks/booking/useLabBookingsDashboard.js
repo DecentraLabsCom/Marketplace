@@ -33,7 +33,7 @@ export const useLabBookingsDashboard = (labId, {
 } = {}) => {
   
   // ARCHITECTURE: This hook queries lab reservations (public data, not user-specific).
-  // Uses API-based queryFn for useQueries compatibility because hook-based readers cannot be extracted.
+  // Uses API-based queryFn so each query remains independently addressable.
   // Lab-centric reads are session-agnostic because they do not depend on customer wallet state.
   
   // Debug log for input parameters
@@ -44,7 +44,7 @@ export const useLabBookingsDashboard = (labId, {
     reason: 'Lab reservations are public data, queryFn must be extractable'
   });
   
-  // Step 1: Get reservation count for lab (uses API path for useQueries compatibility)
+  // Step 1: Get reservation count for lab through the API query function.
   const reservationCountResult = useReservationsOfToken(labId, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!labId && (queryOptions.enabled !== false),

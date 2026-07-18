@@ -65,7 +65,7 @@ export async function GET(request) {
     const sentinelAddress = '0x0000000000000000000000000000000000000001';
     const exists = renterAddress !== zeroAddress;
 
-    // Guard against legacy/corrupted reservations that decode with impossible fields
+    // Guard against reservations that decode with impossible fields
     const invalidReservation =
       labProviderAddress === zeroAddress ||
       renterAddress === zeroAddress ||

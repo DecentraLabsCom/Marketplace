@@ -49,7 +49,7 @@ describe('labClassifications', () => {
     expect(classification[0].scheme).toBe(CLASSIFICATION_SCHEMES.FORD)
   })
 
-  test('rejects legacy category strings and unknown classification codes', () => {
+  test('rejects unsupported category strings and unknown classification codes', () => {
     expect(normalizeClassificationEntries(['Physics'])).toEqual([])
     expect(normalizeClassificationEntries([{ scheme: CLASSIFICATION_SCHEMES.FORD, code: 'physics' }])).toEqual([])
   })

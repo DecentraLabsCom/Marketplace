@@ -26,7 +26,7 @@ describe('pricingUnits', () => {
     expect(calculateReservationTotal('29', 300, 200)).toBe(0n)
   })
 
-  test('normalizes legacy slot metadata into minute durations', () => {
+  test('normalizes slot metadata into minute durations', () => {
     expect(normalizeBookingMode({ timeSlots: [15, 60] })).toBe('slot')
     expect(normalizeAllowedDurations({ timeSlots: [15, '60', 0] })).toEqual([
       { unit: 'minute', value: 15 },

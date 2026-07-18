@@ -17,11 +17,6 @@ function getSafeLocalStorage() {
 }
 
 function parseMarkerValue(rawValue) {
-  if (rawValue === '1') {
-    // Backward compatibility with legacy marker values.
-    return { verifiedAt: Date.now(), advisoryDismissedAt: null }
-  }
-
   if (!rawValue || typeof rawValue !== 'string') {
     return { verifiedAt: null, advisoryDismissedAt: null }
   }

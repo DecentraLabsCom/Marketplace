@@ -30,7 +30,7 @@ describe("Lab Authentication Utilities", () => {
     global.fetch = originalFetch;
   });
 
-  test("does not expose the legacy institutional check-in helper", () => {
+  test("does not expose the removed institutional check-in helper", () => {
     expect(labAuth.submitInstitutionalCheckIn).toBeUndefined();
   });
 

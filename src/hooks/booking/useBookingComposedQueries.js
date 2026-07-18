@@ -1,7 +1,7 @@
 /**
  * Composed React Query Hooks for Booking/Reservation-related operations
  * 
- * This barrel re-exports the individual modules for backward compatibility.
+ * This barrel provides the booking hook exports from one module.
  * Each hook now lives in its own file for maintainability:
  * - useUserBookingsDashboard.js  - user bookings dashboard hook
  * - useLabBookingsDashboard.js   - lab bookings dashboard hook (provider view)

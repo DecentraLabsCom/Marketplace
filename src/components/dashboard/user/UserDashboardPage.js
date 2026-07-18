@@ -53,7 +53,7 @@ export default function UserDashboard() {
     isLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsDashboard(effectiveUserAddress, {
+  } = useUserBookingsDashboard({
     includeLabDetails: true, // ✅ Enable lab details since we need lab.name in bookingInfo
     queryOptions: {
       enabled: canFetchBookings,
@@ -307,8 +307,6 @@ export default function UserDashboard() {
   };
 
   // 🚀 All transaction handling is now done through React Query mutations
-  // Legacy blockchain transaction functions removed
-
   // Additional utility functions
 
   // 🚀 React Query handles all transaction management automatically
@@ -465,7 +463,6 @@ export default function UserDashboard() {
                 {/* Booking summary section - uses optimized hook */}
                 <div className="w-full">
                   <BookingSummarySection 
-                    userAddress={null}
                     options={{
                       enabled: canFetchBookings,
                       staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic

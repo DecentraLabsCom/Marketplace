@@ -68,7 +68,7 @@ describe('sessionCookie', () => {
     }));
   });
 
-  it('rejects legacy JWT or JSON cookies instead of treating them as sessions', async () => {
+  it('rejects JWT or JSON cookie values instead of treating them as sessions', async () => {
     const cookieStore = {
       get: () => ({ value: 'eyJhbGciOiJIUzI1NiJ9.eyJzYW1sQXNzZXJ0aW9uIjoic2VjcmV0In0.signature' }),
     };

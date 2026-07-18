@@ -10,7 +10,7 @@ const devLog = {
   moduleLoaded: jest.fn(),
 };
 
-// Legacy support
+// Named exports used by lightweight test fixtures.
 export const log = devLog.log;
 export const warn = devLog.warn;
 export const error = devLog.error;

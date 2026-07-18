@@ -259,8 +259,8 @@ export async function requireLabOwner(session, labId) {
             continue;
           }
           throw new ConflictError(
-            'This laboratory is legacy and pending migration.',
-            'LAB_LEGACY_BLOCKED'
+            'This laboratory is not ready for institutional management.',
+            'LAB_CREATOR_UNBOUND'
           );
         }
 

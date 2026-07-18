@@ -48,7 +48,6 @@ import {
   notifyLabDeleteFailed,
   notifyLabListed,
   notifyLabListFailed,
-  notifyLabLegacyBlocked,
   notifyLabMetadataSaveFailed,
   notifyLabMetadataUpdated,
   notifyLabNoChanges,
@@ -312,11 +311,6 @@ export default function ProviderDashboard() {
 
     if (error.code === 'LAB_CREATOR_MISMATCH') {
       notifyLabCreatorMismatch(addTemporaryNotification);
-      return true;
-    }
-
-    if (error.code === 'LAB_LEGACY_BLOCKED') {
-      notifyLabLegacyBlocked(addTemporaryNotification);
       return true;
     }
 

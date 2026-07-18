@@ -152,7 +152,7 @@ Service credits are internal settlement units: they cannot be converted into cas
 
 External laboratory metadata is requested through `/api/metadata?labId=<id>&uri=<uri>`. The server verifies the lab owner on-chain, confirms that the owner is a registered provider, and trusts only that provider's on-chain institutional backend **exact origins**. `institutionId` establishes the provider-to-institution association; it does not prove control of sibling or child hostnames. For example, registering `https://gateway.university.edu` does not trust `https://metadata.university.edu`.
 
-Use a reviewed global exception only for shared or external metadata infrastructure. Platform administrators can manage dynamic exceptions, including owner, reason and creation date, at `/api/admin/metadata-origin-exceptions`; revocation is immediate and does not require a deployment. `ALLOWED_METADATA_ORIGINS` remains a legacy static fallback for bootstrap only: every value must be an exact credential-free HTTPS origin (scheme, host and port), never an individual provider backend. Local `Lab-*.json` metadata is read only from the repository `data/` directory and does not require `labId`.
+Use a reviewed global exception only for shared or external metadata infrastructure. Platform administrators can manage dynamic exceptions, including owner, reason and creation date, at `/api/admin/metadata-origin-exceptions`; revocation is immediate and does not require a deployment. Local `Lab-*.json` metadata is read only from the repository `data/` directory and does not require `labId`.
 
 ### Public marketplace catalogue
 

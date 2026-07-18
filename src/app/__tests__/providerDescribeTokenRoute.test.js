@@ -102,7 +102,7 @@ jest.mock('@/utils/dev/logger', () => ({
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 
 const SESSION = {
-  id: 'legacy-user-id',
+  id: 'fixture-user-id',
   affiliation: 'uned.es',
   eduPersonPrincipalName: 'user-1@uned.es',
   eduPersonTargetedID: 'targeted-user-1',
@@ -300,7 +300,7 @@ describe('/api/fmu/provider-describe-token route', () => {
 
   test('uses only SAML-derived puc for marketplace token identity', async () => {
     mockRequireAuth.mockResolvedValue({
-      id: 'legacy-user-id',
+      id: 'fixture-user-id',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
       eduPersonTargetedID: 'targeted-user-1',

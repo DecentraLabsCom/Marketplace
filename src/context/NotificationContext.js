@@ -322,7 +322,7 @@ function NotificationProviderCore({ children }) {
                         priority = classified.priority;
                         duration = classified.duration;
                     }
-                    // Legacy string-matching fallbacks for non-blockchain errors
+                    // Message-based fallbacks for non-blockchain errors
                     else if (message.includes('insufficient funds')) {
                         errorMessage = '❌ Insufficient funds';
                         priority = 'high';

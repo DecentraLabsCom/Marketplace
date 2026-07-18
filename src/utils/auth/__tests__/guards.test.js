@@ -225,24 +225,6 @@ describe('guards', () => {
       });
     });
 
-    it('should reject SSO user when lab is legacy', async () => {
-      const ssoSession = {
-        ...validSession,
-        authType: 'sso',
-        samlAssertion: 'saml',
-      };
-      const mockContract = {
-        ownerOf: jest.fn().mockResolvedValue(validSession.wallet),
-      };
-      mockGetContractInstance.mockResolvedValue(mockContract);
-      mockGetPucHashFromSession.mockReturnValue('0x' + '1'.repeat(64));
-      mockReadLabCreatorPucHash.mockResolvedValue('0x' + '0'.repeat(64));
-
-      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toThrow(guards.ConflictError);
-      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toMatchObject({
-        code: 'LAB_LEGACY_BLOCKED',
-      });
-    });
   });
 
   describe('requireProviderRole', () => {

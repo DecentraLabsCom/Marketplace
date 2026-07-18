@@ -22,10 +22,9 @@ describe('clientFlowShared', () => {
     markBrowserCredentialVerified.mockClear()
   })
 
-  test('resolveIntentRequestId supports legacy payload formats', () => {
+  test('resolveIntentRequestId reads the canonical response field', () => {
     expect(resolveIntentRequestId({ requestId: 'direct-1' })).toBe('direct-1')
-    expect(resolveIntentRequestId({ intent: { meta: { requestId: 'meta-1' } } })).toBe('meta-1')
-    expect(resolveIntentRequestId({ intent: { request_id: 'snake-1' } })).toBe('snake-1')
+    expect(resolveIntentRequestId({ intent: { requestId: 'nested-1' } })).toBeUndefined()
   })
 
   test('createIntentMutationError preserves code', () => {

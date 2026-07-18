@@ -139,7 +139,7 @@ describe('authorizationOrchestrator', () => {
       authorizationUrl: 'https://institution.example/intents/authorize/session-3',
       authorizationSessionId: 'session-3',
       backendUrl: 'https://institution.example',
-      intent: { meta: { requestId: 'req-auth-3' } },
+      requestId: 'req-auth-3',
     }, {
       presenceFn,
       source: 'lab-intent-authorization',
@@ -171,7 +171,7 @@ describe('authorizationOrchestrator', () => {
       authorizationUrl: 'https://institution.example/intents/authorize/session-6',
       authorizationSessionId: 'session-6',
       backendUrl: 'https://institution.example',
-      intent: { meta: { requestId: 'req-auth-6' } },
+      requestId: 'req-auth-6',
     }, {
       presenceFn,
       source: 'booking-intent-authorization',

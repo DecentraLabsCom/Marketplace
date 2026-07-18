@@ -72,7 +72,6 @@ describe('Market', () => {
     render(<Market />)
 
     expect(mockUseUserBookingsForMarket).toHaveBeenCalledWith(
-      null,
       expect.objectContaining({ enabled: true })
     )
     expect(screen.getByText('labs:0')).toBeInTheDocument()
@@ -108,7 +107,6 @@ describe('Market', () => {
     render(<Market />)
 
     expect(mockUseUserBookingsForMarket).toHaveBeenCalledWith(
-      null,
       expect.objectContaining({ enabled: false })
     )
   })

@@ -28,10 +28,8 @@ import devLog from '@/utils/dev/logger'
 
 /**
  * Composed dashboard hook for getting user bookings with enriched details and comprehensive analytics
- * Uses the authenticated institutional session; `userAddress` remains null in the target runtime.
  * Orchestrates: reservation count → reservation keys → booking details → optional lab details → analytics
  * Provides booking summary analytics, recent activity, and status categorization for dashboard components
- * @param {string|null} userAddress - User wallet address (null for institutional users or auto-detect from context)
  * @param {Object} options - Configuration options
  * @param {boolean} [options.includeLabDetails=false] - Whether to fetch lab details for each booking
  * @param {boolean} [options.includeRecentActivity=false] - Whether to calculate recent activity summary
@@ -39,11 +37,11 @@ import devLog from '@/utils/dev/logger'
  * @param {Object} [options.queryOptions] - Override options for base booking queries only
  * @returns {Object} React Query result with enriched booking data, analytics summary, and optional recent activity
  */
-export const useUserBookingsDashboard = (userAddress, { 
+export const useUserBookingsDashboard = ({
   includeLabDetails = false,
   includeRecentActivity = false,
   limit,
-  queryOptions = {} 
+  queryOptions = {}
 } = {}) => {
   const baseQueryOptions = { ...(queryOptions || {}) };
   delete baseQueryOptions.enabled;
@@ -497,14 +495,8 @@ export const useUserBookingsDashboard = (userAddress, {
     data: {
       reservationKeys,
       bookings: enrichedBookings,
-      // Include individual analytics for backward compatibility
-      ...aggregates,
       // Include summary object with analytics and optional recent activity
       summary,
-      // Include metadata for complete compatibility
-      total: totalReservationCount,
-      fetched: enrichedBookings.length,
-      userAddress,
     },
     
     // Status
@@ -516,7 +508,6 @@ export const useUserBookingsDashboard = (userAddress, {
     
     // Meta information
     meta: {
-      userAddress,
       includeLabDetails,
       reservationCount,
       totalRequested: reservationKeys.length,

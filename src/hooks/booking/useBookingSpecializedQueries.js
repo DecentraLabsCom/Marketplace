@@ -22,11 +22,10 @@ const EMPTY_ARRAY = [];
  * Specialized hook for Market component
  * Uses composed queries to get user reservations and extract active/upcoming lab IDs
  * Institutional-only specialization for the authenticated session.
- * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
-export const useUserBookingsForMarket = (userAddress, options = {}) => {
+export const useUserBookingsForMarket = (options = {}) => {
   const nowEpochSeconds = Math.floor(useCurrentTime({ intervalMs: 20000 }).getTime() / 1000);
 
   // Step 1: Get user reservation count from the institutional session
@@ -155,7 +154,7 @@ const normalizeReservation = (payload, fallbackKey) => {
   };
 };
 
-const useUserReservationDetails = (userAddress, options = {}) => {
+const useUserReservationDetails = (options = {}) => {
   const queryEnabled = (options.enabled !== false) && (options.queryOptions?.enabled !== false);
   const baseQueryOptions = { ...(options.queryOptions || {}) };
   delete baseQueryOptions.enabled;
@@ -232,17 +231,15 @@ const useUserReservationDetails = (userAddress, options = {}) => {
 /**
  * Specialized hook for calendar availability checking
  * Uses API-only reservation pipeline for user bookings
- * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {string|number} labId - Lab ID for lab-specific bookings (not used in this version)
  * @param {Object} options - Configuration options
  * @returns {Object} User booking data for calendar slot validation
  */
-export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
-  const reservationsQuery = useUserReservationDetails(userAddress, options);
+export const useBookingsForCalendar = (labId, options = {}) => {
+  const reservationsQuery = useUserReservationDetails(options);
   const rawReservations = reservationsQuery.data || EMPTY_ARRAY;
 
   devLog.log('[useBookingsForCalendar] Processing reservations:', {
-    userAddress,
     labId,
     reservationCount: rawReservations.length
   });
@@ -282,16 +279,14 @@ export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
 /**
  * Hook for getting only active user bookings (for dashboard "active now" section)
  * More efficient than full dashboard data when you only need current active booking
- * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options  
  * @returns {Object} Active booking data - NOTE: lab details need to be fetched separately
  */
-export const useActiveUserBooking = (userAddress, options = {}) => {
-  const reservationsQuery = useUserReservationDetails(userAddress, options);
+export const useActiveUserBooking = (options = {}) => {
+  const reservationsQuery = useUserReservationDetails(options);
   const rawReservations = reservationsQuery.data || EMPTY_ARRAY;
 
   devLog.log('[useActiveUserBooking] Processing reservations:', {
-    userAddress,
     reservationCount: rawReservations.length
   });
 
@@ -345,12 +340,11 @@ export const useActiveUserBooking = (userAddress, options = {}) => {
  * Specialized hook for BookingSummarySection
  * Gets only booking analytics without lab details or individual bookings
  * Optimized for dashboard summary cards
- * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} Booking analytics summary only
  */
-export const useUserBookingSummary = (userAddress, options = {}) => {
-  const reservationsQuery = useUserReservationDetails(userAddress, options);
+export const useUserBookingSummary = (options = {}) => {
+  const reservationsQuery = useUserReservationDetails(options);
   const rawReservations = reservationsQuery.data || EMPTY_ARRAY;
 
   const summary = useMemo(() => {
@@ -427,12 +421,11 @@ export const useUserBookingSummary = (userAddress, options = {}) => {
 /**
  * Specialized hook for ActiveBookingSection
  * Gets current active and next upcoming booking with minimal lab enrichment
- * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} Active and next booking with basic lab data
  */
-export const useUserActiveBookings = (userAddress, options = {}) => {
-  const reservationsQuery = useUserReservationDetails(userAddress, options);
+export const useUserActiveBookings = (options = {}) => {
+  const reservationsQuery = useUserReservationDetails(options);
   const rawReservations = reservationsQuery.data || EMPTY_ARRAY;
 
   const { activeBooking, nextBooking } = useMemo(() => {

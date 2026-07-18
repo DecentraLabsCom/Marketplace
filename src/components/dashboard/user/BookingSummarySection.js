@@ -10,22 +10,21 @@ import devLog from '@/utils/dev/logger';
 /**
  * Renders booking statistics with optimized data fetching
  * @param {Object} props - Component props
- * @param {string} props.userAddress - User wallet address
  * @param {Object} [props.options] - Hook options
  * @returns {JSX.Element} Booking summary section
  */
-export default function BookingSummarySection({ userAddress, options = {} }) {
+export default function BookingSummarySection({ options = {} }) {
   const { 
     data: bookingsData, 
     isLoading: summaryLoading,
     isError: summaryError 
-  } = useUserBookingsDashboard(userAddress, {
+  } = useUserBookingsDashboard({
     includeLabDetails: false,
     queryOptions: options
   });
 
   // Extract summary data from bookings data
-  const summaryData = bookingsData || {};
+  const summaryData = bookingsData?.summary || {};
   const {
     totalBookings,
     activeBookings,
@@ -37,13 +36,12 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   // Debug logging
   React.useEffect(() => {
     devLog.log('🎯 BookingSummarySection - Debug:', {
-      userAddress,
       bookingsData,
       summaryData,
       isLoading: summaryLoading,
       isError: summaryError
     });
-  }, [userAddress, bookingsData, summaryData, summaryLoading, summaryError]);
+  }, [bookingsData, summaryData, summaryLoading, summaryError]);
 
   // Loading state
   if (summaryLoading) {
@@ -107,6 +105,5 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
 }
 
 BookingSummarySection.propTypes = {
-  userAddress: PropTypes.string.isRequired,
   options: PropTypes.object
 };

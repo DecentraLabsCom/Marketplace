@@ -2,11 +2,7 @@ import { markBrowserCredentialVerified } from '@/utils/onboarding/browserCredent
 import { verifyInstitutionReportedExecution } from '@/utils/intents/verifyOnchainIntentStatus'
 
 export const resolveIntentRequestId = (data) =>
-  data?.requestId ||
-  data?.intent?.meta?.requestId ||
-  data?.intent?.requestId ||
-  data?.intent?.request_id ||
-  data?.intent?.requestId?.toString?.()
+  data?.requestId
 
 export const createIntentMutationError = (payload, fallbackMessage) => {
   const message =

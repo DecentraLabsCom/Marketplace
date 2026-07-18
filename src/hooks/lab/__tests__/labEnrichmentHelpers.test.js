@@ -5,7 +5,7 @@ describe('labEnrichmentHelpers', () => {
     expect(normalizeLabIds([1, 1n, '2', { tokenId: 3 }, '2'])).toEqual([1, 2, 3])
   })
 
-  test('buildEnrichedLab applies supported marketplace metadata fields and ignores legacy category', () => {
+  test('buildEnrichedLab applies supported marketplace metadata fields and ignores unsupported category', () => {
     const lab = {
       labId: 7,
       base: {
@@ -46,16 +46,16 @@ describe('labEnrichmentHelpers', () => {
     })
   })
 
-  test('buildEnrichedLab does not show categories from incompatible legacy metadata', () => {
+  test('buildEnrichedLab does not show categories from unsupported metadata', () => {
     const lab = { labId: 8, base: { uri: 'Lab-provider-8.json' } }
     const metadata = {
-      name: 'Legacy Lab',
+      name: 'Unclassified Lab',
       category: ['Physics'],
       attributes: [{ trait_type: 'category', value: ['Physics'] }],
     }
 
     expect(buildEnrichedLab({ lab, metadata })).toMatchObject({
-      name: 'Legacy Lab',
+      name: 'Unclassified Lab',
     })
     expect(buildEnrichedLab({ lab, metadata }).category).toBeUndefined()
   })

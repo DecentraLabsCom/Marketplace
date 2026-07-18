@@ -23,7 +23,7 @@ export function normalizeResourceTypeCode(value) {
 /**
  * Extract the resourceType from a lab/resource attributes array or object
  * @param {Object} resource - Resource object (may have .attributes or .resourceType)
- * @returns {'lab'|'fmu'} The resource type, defaults to 'lab' for backward compatibility
+ * @returns {'lab'|'fmu'} The resource type
  */
 export function getResourceType(resource) {
   if (!resource) return RESOURCE_TYPES.LAB

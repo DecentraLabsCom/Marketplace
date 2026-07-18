@@ -550,7 +550,7 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
     });
 
     test("initializes with default options", () => {
-      const { result } = renderHook(() => useUserBookingsDashboard("0x123"), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useUserBookingsDashboard(), { wrapper: createWrapper() });
 
       expect(result.current).toBeDefined();
       expect(mockUseReservationsOfSSO).toHaveBeenCalled();
@@ -564,9 +564,9 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
         error: null,
       });
 
-      const { result } = renderHook(() => useUserBookingsDashboard("0x123"), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useUserBookingsDashboard(), { wrapper: createWrapper() });
 
-      expect(result.current.data.total).toBe(2);
+      expect(result.current.data.summary.totalBookings).toBe(2);
       expect(result.current.meta.reservationCount).toBe(2);
     });
 
@@ -579,12 +579,12 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
       });
 
       const { result } = renderHook(() =>
-        useUserBookingsDashboard("0x123", { limit: 5 }),
+        useUserBookingsDashboard({ limit: 5 }),
         { wrapper: createWrapper() }
       );
 
       expect(result.current.meta.reservationCount).toBe(5);
-      expect(result.current.data.total).toBe(10);
+      expect(result.current.data.summary.totalBookings).toBe(10);
     });
 
     test("handles zero reservations", () => {
@@ -595,9 +595,9 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
         error: null,
       });
 
-      const { result } = renderHook(() => useUserBookingsDashboard("0x123"), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useUserBookingsDashboard(), { wrapper: createWrapper() });
 
-      expect(result.current.data.total).toBe(0);
+      expect(result.current.data.summary.totalBookings).toBe(0);
       expect(result.current.meta.reservationCount).toBe(0);
     });
 
@@ -609,7 +609,7 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
         error: null,
       });
 
-      const { result } = renderHook(() => useUserBookingsDashboard("0x123"), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useUserBookingsDashboard(), { wrapper: createWrapper() });
 
       expect(result.current.isLoading).toBe(true);
     });
@@ -623,7 +623,7 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
         error: mockError,
       });
 
-      const { result } = renderHook(() => useUserBookingsDashboard("0x123"), { wrapper: createWrapper() });
+      const { result } = renderHook(() => useUserBookingsDashboard(), { wrapper: createWrapper() });
 
       expect(result.current.error).toBe(mockError);
     });

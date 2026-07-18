@@ -387,14 +387,14 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("does not render legacy staking controls in the cleaned provider runtime", () => {
+    test("does not render removed staking controls in the provider runtime", () => {
       renderWithClient(<ProviderDashboard />);
 
       expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
 
-    test("does not render legacy staking controls for SSO users", () => {
+    test("does not render removed staking controls for SSO users", () => {
       mockUserData.isSSO = true;
       renderWithClient(<ProviderDashboard />);
 
@@ -972,41 +972,6 @@ describe("ProviderDashboard Component", () => {
         });
       });
 
-      test("shows legacy blocked toast for SSO list authorization errors", async () => {
-        mockUserData.isSSO = true;
-        mockUserData.institutionBackendUrl = "https://institution.example";
-        mockLabsData.data = {
-          labs: [{ id: "1", name: "Lab", listed: false }],
-        };
-        mockListLabMutate.mockRejectedValueOnce({
-          code: "LAB_LEGACY_BLOCKED",
-          message: "Conflict",
-        });
-
-        renderWithClient(<ProviderDashboard />);
-
-        const listButton = await screen.findByTestId("list-1");
-
-        await act(async () => {
-          fireEvent.click(listButton);
-        });
-
-        await waitFor(() => {
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-            "warning",
-            expect.stringContaining("Este laboratorio es legacy"),
-            null,
-            expect.any(Object)
-          );
-        });
-
-        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
-          "error",
-          expect.stringContaining("Failed to list lab"),
-          null,
-          expect.any(Object)
-        );
-      });
     });
   });
 

@@ -13,7 +13,6 @@ import {
 import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
 
 const COOKIE_NAME = '__Host-user_session'
-const LEGACY_COOKIE_NAME = 'user_session'
 
 export function getSessionCookieOptions(maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
   return {
@@ -75,7 +74,7 @@ export async function clearSessionCookies(cookieStore) {
     await deleteServerSession(values[0]).catch(() => {})
   }
 
-  const names = new Set([COOKIE_NAME, LEGACY_COOKIE_NAME])
+  const names = new Set([COOKIE_NAME])
   cookieStore.getAll?.().forEach((cookie) => {
     if (cookie.name.startsWith(`${COOKIE_NAME}.`)) names.add(cookie.name)
   })

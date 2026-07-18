@@ -79,7 +79,7 @@ export default function LabReservation({ id }) {
   )
 
   const canFetchUserBookings = Boolean(selectedLab?.id && isSSO)
-  const { data: userBookingsData } = useBookingsForCalendar(null, selectedLab?.id, {
+  const { data: userBookingsData } = useBookingsForCalendar(selectedLab?.id, {
     enabled: canFetchUserBookings,
     isSSO
   })

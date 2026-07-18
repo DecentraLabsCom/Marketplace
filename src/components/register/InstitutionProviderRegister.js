@@ -12,8 +12,8 @@ import {
 } from '@/utils/notifications/institutionToasts'
 
 /**
- * Institutional provider registration flow for SSO users
- * NOTE: On-chain provider registration via marketplace is deprecated; handled in institutional backend.
+ * Institutional provider registration flow for SSO users.
+ * Registration is handled by the institutional backend and this flow issues its invite token.
  */
 export default function InstitutionProviderRegister() {
   const { user, address, isConnected } = useUser()
