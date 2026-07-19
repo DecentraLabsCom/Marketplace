@@ -44,7 +44,6 @@ import {
   notifyLabCreatedMetadataWarning,
   notifyLabCreateFailed,
   notifyLabDeleted,
-  notifyLabDeletedCascadeWarning,
   notifyLabDeleteFailed,
   notifyLabListed,
   notifyLabListFailed,
@@ -785,8 +784,6 @@ export default function ProviderDashboard() {
 
       // React Query mutations and event contexts will further ensure cache consistency
       devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
-      
-      notifyLabDeletedCascadeWarning(addTemporaryNotification, labId);
 
       // Clear optimistic deleting state
       clearOptimisticLabState(String(labId));

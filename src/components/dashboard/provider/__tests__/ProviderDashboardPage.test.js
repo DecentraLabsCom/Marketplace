@@ -198,7 +198,7 @@ jest.mock("@/components/dashboard/provider/ProviderLabsList", () => ({
         {ownedLabs.map((lab) => (
           <div key={lab.id || lab.name} data-testid={`lab-item-${lab.id}`}>
             <span data-testid={`lab-name-${lab.id}`}>{lab.name}</span>
-            <button onClick={onEdit} data-testid={`edit-${lab.id}`}>
+            <button onClick={() => onEdit(lab.id)} data-testid={`edit-${lab.id}`}>
               Edit
             </button>
             <button
@@ -811,14 +811,17 @@ describe("ProviderDashboard Component", () => {
             expect.objectContaining({ labId: "1" })
           );
           expectTempNotificationCall("success", expect.stringContaining("Lab deleted"));
-          expectTempNotificationCall(
-            "warning",
-            expect.stringContaining("associated reservations")
-          );
           // Ensure optimistic deleting state was set and then cleared
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
         });
+
+        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
+          "warning",
+          expect.stringContaining("associated reservations"),
+          null,
+          expect.any(Object)
+        );
       });
 
       test("passes backendUrl in SSO delete payload", async () => {
@@ -1078,7 +1081,7 @@ describe("ProviderDashboard Component", () => {
       renderWithClient(<ProviderDashboard />);
 
       const calendar = screen.getByTestId("calendar");
-      const dateButton = calendar.querySelector("button");
+      const dateButton = within(calendar).getByRole("button", { name: /change date/i });
       const initiallySelectedDate = screen.getByTestId("selected-date").textContent;
 
       fireEvent.click(dateButton);
