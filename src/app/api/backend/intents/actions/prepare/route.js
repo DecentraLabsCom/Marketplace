@@ -277,7 +277,6 @@ export async function POST(request) {
     let intentPackage
     let adminSignature
     let authorization
-    let backendAuth
     let onChain
     let authorizationPromise
 
@@ -312,7 +311,11 @@ export async function POST(request) {
           })
 
         const signature = await signIntentMeta(packageValue.meta, packageValue.typedData)
-        const authToken = await getIntentBackendAuthToken()
+        const authToken = await getIntentBackendAuthToken({
+          backendUrl,
+          institutionId: schacHomeOrganization,
+          scope: 'intents:authorize',
+        })
         const serializedMeta = serializeIntent(packageValue.meta)
         const serializedPayload = serializeIntent(packageValue.payload)
         const authorizationRequest = requestIntentAuthorizationSession({
@@ -352,7 +355,6 @@ export async function POST(request) {
 
       intentPackage = coordinated.packageValue
       adminSignature = coordinated.signature
-      backendAuth = coordinated.authToken
       authorizationPromise = coordinated.authorizationRequest
       const registrationSubmission = coordinated.registrationSubmission || {}
       onChain = {
@@ -363,9 +365,14 @@ export async function POST(request) {
 
       if (coordinated.receipt) {
         try {
+          const minedAuthToken = await getIntentBackendAuthToken({
+            backendUrl,
+            institutionId: schacHomeOrganization,
+            scope: 'intents:registration-mined',
+          })
           const signalResult = await notifyIntentRegistrationMined({
             backendUrl,
-            backendAuthToken: backendAuth.token,
+            backendAuthToken: minedAuthToken.token,
             requestId: intentPackage.meta.requestId,
             txHash: registrationSubmission.txHash || null,
             blockNumber: coordinated.receipt.blockNumber || null,

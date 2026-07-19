@@ -16,7 +16,7 @@ export const parseMovementLimit = (value) => {
 
 export async function proxyCreditAccount(resource, request) {
   try {
-    const { backendUrl, session } = await resolveBackendUrlForSession()
+    const { backendUrl, session, institutionDomain } = await resolveBackendUrlForSession()
     if (!session.isSSO) throw new ForbiddenError('Institutional SSO session required')
     if (!backendUrl) {
       return publicErrorResponse({ status: 424, code: 'BACKEND_NOT_CONFIGURED', message: 'The institutional billing service is not configured.', context: 'billing-proxy' })
@@ -34,7 +34,11 @@ export async function proxyCreditAccount(resource, request) {
           ? `${base}/credit-accounts/${encodedAddress}/movements?limit=${parseMovementLimit(new URL(request.url).searchParams.get('limit'))}`
           : `${base}/funding-orders?institution=${encodedAddress}`
     const upstream = await institutionalBackendFetch(path, {
-      headers: await resolveForwardHeaders(),
+      headers: await resolveForwardHeaders({
+        backendUrl,
+        institutionId: institutionDomain,
+        scope: 'billing:read',
+      }),
       cache: 'no-store',
     })
     if (upstream.status === 404) return NextResponse.json(null, { status: 404 })

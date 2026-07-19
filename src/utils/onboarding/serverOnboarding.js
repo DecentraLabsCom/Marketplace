@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
@@ -69,10 +69,11 @@ export async function getOnboardingContext({ includeBackend = true } = {}) {
 }
 
 export async function createOnboardingBackendHeaders(context) {
-  const token = await marketplaceJwtService.generateIntentBackendToken({
+  const token = await createInstitutionalServiceToken({
+    backendUrl: context.backendUrl,
+    institutionId: context.institutionId,
     scope: 'onboarding:webauthn',
     expiresInSeconds: 60,
-    subject: context.stableUserId,
     claims: {
       puc: context.stableUserId,
       affiliation: context.institutionId,
@@ -82,8 +83,6 @@ export async function createOnboardingBackendHeaders(context) {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token.token}`,
   }
-  const apiKey = process.env.INSTITUTION_BACKEND_SP_API_KEY
-  if (apiKey) headers['x-api-key'] = apiKey
   return headers
 }
 

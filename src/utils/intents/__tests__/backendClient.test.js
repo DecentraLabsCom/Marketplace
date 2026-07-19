@@ -6,9 +6,21 @@ import {
   hasUsableAuthorizationSession,
   resolveAuthorizationUrl,
   notifyIntentRegistrationMined,
+  createIntentBackendHeaders,
 } from '../backendClient'
 
 describe('backendClient', () => {
+  test('does not attach a shared institutional API key', () => {
+    process.env.INSTITUTION_BACKEND_SP_API_KEY = 'shared-secret-that-must-not-be-forwarded'
+
+    expect(createIntentBackendHeaders('backend-token')).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer backend-token',
+    })
+
+    delete process.env.INSTITUTION_BACKEND_SP_API_KEY
+  })
+
   test('mapAuthorizationErrorCode maps known backend errors', () => {
     expect(mapAuthorizationErrorCode('webauthn_credential_not_registered')).toBe('WEBAUTHN_CREDENTIAL_NOT_REGISTERED')
     expect(mapAuthorizationErrorCode('missing_puc_for_webauthn')).toBe('MISSING_PUC_FOR_WEBAUTHN')

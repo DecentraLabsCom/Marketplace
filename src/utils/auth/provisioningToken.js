@@ -49,9 +49,14 @@ export async function getProvisioningJwks() {
 
 export async function signProvisioningToken(claims, {
   issuer = 'marketplace-provisioning',
-  audience = 'blockchain-services',
+  audience,
+  subject = 'marketplace',
   ttlSeconds = 900,
 } = {}) {
+  const tokenAudience = requireString(audience, 'Token audience');
+  if (subject !== 'marketplace') {
+    throw new Error('Provisioning token subject must be marketplace');
+  }
   const { privateKey, kid } = await getKeyMaterial();
   const payload = createProvisioningPayload(claims, { ttlSeconds });
 
@@ -60,7 +65,8 @@ export async function signProvisioningToken(claims, {
     .setIssuedAt(payload.issuedAt)
     .setExpirationTime(payload.expiresAt)
     .setIssuer(issuer)
-    .setAudience(audience)
+    .setAudience(tokenAudience)
+    .setSubject(subject)
     .setJti(payload.jti)
     .sign(privateKey);
 
@@ -144,19 +150,6 @@ export function requireEmail(value, label = 'email') {
     throw new Error(`Invalid ${label}`);
   }
   return email;
-}
-
-export function requireApiKey(value) {
-  const isDev = process.env.NODE_ENV !== 'production';
-  if ((!value || typeof value !== 'string' || value.trim().length === 0) && isDev) {
-    return 'dev-only-institutional-services-api-key-32chars';
-  }
-
-  const key = requireString(value, 'API key');
-  if (key.length < 32) {
-    throw new Error('API key must be at least 32 characters');
-  }
-  return key;
 }
 
 export function extractBearerToken(authorizationHeader) {

@@ -7,7 +7,7 @@ import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publi
 
 export async function GET(request, { params }) {
   try {
-    const { backendUrl } = await resolveBackendUrlForSession()
+    const { backendUrl, institutionDomain } = await resolveBackendUrlForSession()
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
@@ -20,7 +20,11 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }
 
-    const headers = await resolveForwardHeaders()
+    const headers = await resolveForwardHeaders({
+      backendUrl,
+      institutionId: institutionDomain,
+      scope: 'intents:status',
+    })
     const res = await institutionalBackendFetch(
       `${backendUrl}/intents/authorize/status/${encodeURIComponent(sessionId)}`, {
       method: 'GET',

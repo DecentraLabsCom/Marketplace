@@ -193,11 +193,11 @@ describe('/api/auth/lab-access route', () => {
     expect(JSON.parse(global.fetch.mock.calls[1][1].body).marketplaceToken).toBe('provider-marketplace-token')
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ audience: ['https://consumer.example.com', 'blockchain-services'] })
+      expect.objectContaining({ audience: 'https://consumer.example.com' })
     )
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ audience: ['https://gateway.example.com', 'blockchain-services'] })
+      expect.objectContaining({ audience: 'https://gateway.example.com' })
     )
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
       expect.objectContaining({

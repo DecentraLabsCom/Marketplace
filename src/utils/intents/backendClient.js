@@ -1,4 +1,4 @@
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
 import {
   institutionalBackendFetch,
   normalizeInstitutionalBackendBaseUrl,
@@ -8,23 +8,14 @@ function normalizeBackendUrl(backendUrl) {
   return normalizeInstitutionalBackendBaseUrl(backendUrl)
 }
 
-export function getIntentBackendApiKey() {
-  return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
-}
-
-export async function getIntentBackendAuthToken() {
-  return marketplaceJwtService.generateIntentBackendToken()
+export async function getIntentBackendAuthToken({ backendUrl, institutionId, scope }) {
+  return createInstitutionalServiceToken({ backendUrl, institutionId, scope })
 }
 
 export function createIntentBackendHeaders(backendAuthToken) {
   const headers = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${backendAuthToken}`,
-  }
-
-  const apiKey = getIntentBackendApiKey()
-  if (apiKey) {
-    headers['x-api-key'] = apiKey
   }
 
   return headers

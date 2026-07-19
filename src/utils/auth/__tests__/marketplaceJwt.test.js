@@ -363,6 +363,7 @@ describe("MarketplaceJwtService", () => {
         puc: "puc-1",
         affiliation: "uned.es",
         payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
+        audience: "https://backend.example.edu",
       });
 
       expect(token).toBe("mocked.jwt.token");
@@ -390,6 +391,7 @@ describe("MarketplaceJwtService", () => {
     test("uses empty affiliation when missing", async () => {
       const token = await MarketplaceJwtService.generateSamlAuthToken({
         puc: "puc-1",
+        audience: "https://backend.example.edu",
       });
 
       expect(token).toBe("mocked.jwt.token");
@@ -418,6 +420,7 @@ describe("MarketplaceJwtService", () => {
         puc: "puc-1",
         affiliation: "uned.es",
         payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
+        audience: "https://backend.example.edu",
         purpose: "lab_access",
         reservationKey: "0xabc",
         labId: 42,
@@ -438,19 +441,10 @@ describe("MarketplaceJwtService", () => {
       );
     });
 
-    test('uses default audience when none provided', async () => {
-      // no env vars set
-      await MarketplaceJwtService.generateSamlAuthToken({
+    test('requires an exact backend audience', async () => {
+      await expect(MarketplaceJwtService.generateSamlAuthToken({
         puc: 'puc-default',
-      });
-
-      expect(jwt.sign).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(String),
-        expect.objectContaining({
-          audience: 'blockchain-services',
-        })
-      );
+      })).rejects.toThrow('SAML auth JWT audience is required');
     });
 
     test('passes audience and subject through to jwt.sign', async () => {
@@ -476,27 +470,55 @@ describe("MarketplaceJwtService", () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
       delete process.env.INTENTS_JWT_EXPIRATION_SECONDS;
 
-      const result = await MarketplaceJwtService.generateIntentBackendToken();
+      const result = await MarketplaceJwtService.generateIntentBackendToken({
+        audience: 'https://backend.example.edu',
+        institutionId: 'example.edu',
+        scope: 'intents:status',
+      });
 
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 60) * 1000).toISOString();
       expect(result.expiresAt).toBe(expectedExpiresAt);
     });
 
-    test('generateIntentBackendToken defaults audience to blockchain-services', async () => {
+    test('generateIntentBackendToken requires an exact backend audience and institution', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
-      await MarketplaceJwtService.generateIntentBackendToken();
+      await expect(MarketplaceJwtService.generateIntentBackendToken()).rejects.toThrow(
+        'Intent backend JWT audience is required',
+      );
+      expect(jwt.sign).not.toHaveBeenCalled();
+    });
+
+    test('generateIntentBackendToken uses marketplace subject and a concrete scope', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      await MarketplaceJwtService.generateIntentBackendToken({
+        audience: 'https://backend.example.edu',
+        institutionId: 'example.edu',
+        scope: 'billing:read',
+      });
+
+      const payload = jwt.sign.mock.calls[0][0];
+      expect(payload.institutionId).toBe('example.edu');
+      expect(payload.scope).toBe('billing:read');
       expect(jwt.sign).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(String),
-        expect.objectContaining({ audience: 'blockchain-services' })
+        expect.objectContaining({
+          audience: 'https://backend.example.edu',
+          subject: 'marketplace',
+        })
       );
     });
 
     test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
 
-      const result = await MarketplaceJwtService.generateIntentBackendToken({ expiresInSeconds: 30 });
+      const result = await MarketplaceJwtService.generateIntentBackendToken({
+        expiresInSeconds: 30,
+        audience: 'https://backend.example.edu',
+        institutionId: 'example.edu',
+        scope: 'intents:submit',
+      });
 
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 30) * 1000).toISOString();
@@ -509,7 +531,8 @@ describe("MarketplaceJwtService", () => {
 
       await MarketplaceJwtService.generateIntentBackendToken({
         audience: 'my-aud',
-        subject: 'my-sub',
+        institutionId: 'example.edu',
+        scope: 'intents:submit',
         claims: extra,
       });
 
@@ -525,7 +548,7 @@ describe("MarketplaceJwtService", () => {
         expect.any(String),
         expect.objectContaining({
           audience: 'my-aud',
-          subject: 'my-sub',
+          subject: 'marketplace',
         })
       );
     });

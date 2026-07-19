@@ -2,8 +2,7 @@
  * Shared utilities for institutional backend proxy endpoints
  * Used by API routes in /api/backend/intents/** to forward requests to institutional backends
  */
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
-import devLog from '@/utils/dev/logger'
+import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
 import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { requireAuth } from '@/utils/auth/guards'
@@ -24,24 +23,14 @@ export async function resolveBackendUrlForSession() {
 }
 
 /**
- * Resolves server-generated credentials for forwarding to the canonical
- * institutional backend. Client authorization and API-key headers are ignored.
+ * Resolves a short-lived, scoped service credential for the canonical
+ * institutional backend. Client credentials are ignored.
  * @returns {Promise<Object>} Headers object for backend request
  */
-export async function resolveForwardHeaders() {
+export async function resolveForwardHeaders({ backendUrl, institutionId, scope } = {}) {
   const headers = { 'Content-Type': 'application/json' }
 
-  try {
-    const backendAuth = await marketplaceJwtService.generateIntentBackendToken()
-    headers.Authorization = `Bearer ${backendAuth.token}`
-  } catch (error) {
-    devLog.warn('[API] Failed to generate intent backend token for proxy', error)
-  }
-
-  const apiKey = process.env.INSTITUTION_BACKEND_SP_API_KEY
-  if (apiKey) {
-    headers['x-api-key'] = apiKey
-  }
-  
+  const backendAuth = await createInstitutionalServiceToken({ backendUrl, institutionId, scope })
+  headers.Authorization = `Bearer ${backendAuth.token}`
   return headers
 }

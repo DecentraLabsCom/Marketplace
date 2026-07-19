@@ -18,12 +18,12 @@ import {
   requireProviderRole,
 } from '@/utils/auth/guards'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { normalizeInstitutionalServiceAudience } from '@/utils/auth/institutionalServiceCredential'
 
 const checkRate = createRateLimiter({ operation: 'fmu-provider-describe-token', windowMs: 60_000, maxRequests: 30 })
 
 function buildBackendAudiences(targetAudience) {
-  const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
-  return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
+  return normalizeInstitutionalServiceAudience(targetAudience)
 }
 
 /**

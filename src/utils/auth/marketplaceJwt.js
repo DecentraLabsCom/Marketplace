@@ -207,6 +207,10 @@ class MarketplaceJwtService {
         }
       }
 
+      if (typeof audience !== 'string' || !audience.trim()) {
+        throw new Error('SAML auth JWT audience is required');
+      }
+
       const nowSec = Math.floor(Date.now() / 1000);
       const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
 
@@ -246,7 +250,7 @@ class MarketplaceJwtService {
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
-        audience: audience || process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
+        audience: audience.trim(),
         subject: puc,
         jwtid: randomUUID(),
       });
@@ -265,17 +269,19 @@ class MarketplaceJwtService {
    * Intended for short-lived service-to-service calls to /intents endpoints.
    *
    * @param {Object} [options]
-   * @param {string} [options.scope] - Space-delimited scope string
-   * @param {string} [options.audience] - JWT audience
-   * @param {number} [options.expiresInSeconds] - TTL in seconds
-   * @param {string} [options.subject] - JWT subject
+   * @param {string} options.scope - One concrete operation scope
+   * @param {string} options.audience - Exact institutional backend origin
+   * @param {string} options.institutionId - Authenticated institution identifier
+   * @param {number} [options.expiresInSeconds] - TTL in seconds, capped at 60
+   * @param {string} [options.subject] - Must be marketplace
    * @returns {Promise<{ token: string, expiresAt: string }>}
    */
   async generateIntentBackendToken({
     scope,
     audience,
     expiresInSeconds,
-    subject,
+    subject = 'marketplace',
+    institutionId,
     claims,
   } = {}) {
     try {
@@ -287,12 +293,29 @@ class MarketplaceJwtService {
         throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
 
+      if (typeof audience !== 'string' || !audience.trim()) {
+        throw new Error('Intent backend JWT audience is required');
+      }
+      if (typeof scope !== 'string' || !scope.trim() || /\s/.test(scope.trim())) {
+        throw new Error('Intent backend JWT scope must be one concrete scope');
+      }
+      const claimsInstitutionId = claims && typeof claims === 'object' ? claims.institutionId : null;
+      const resolvedInstitutionId = institutionId || claimsInstitutionId;
+      if (typeof resolvedInstitutionId !== 'string' || !resolvedInstitutionId.trim()) {
+        throw new Error('Intent backend JWT institutionId is required');
+      }
+      if (subject !== 'marketplace') {
+        throw new Error('Intent backend JWT subject must be marketplace');
+      }
+
       const nowSec = Math.floor(Date.now() / 1000);
       const ttlSeconds = parseInt(
         expiresInSeconds ?? process.env.INTENTS_JWT_EXPIRATION_SECONDS ?? '60',
         10,
       );
-      const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 60;
+      const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0
+        ? Math.min(ttlSeconds, 60)
+        : 60;
       const expSec = nowSec + safeTtl;
 
       const extraClaims = claims && typeof claims === 'object' ? { ...claims } : {};
@@ -304,10 +327,12 @@ class MarketplaceJwtService {
       delete extraClaims.aud;
       delete extraClaims.sub;
       delete extraClaims.jti;
+      delete extraClaims.institutionId;
 
       const payload = {
         ...extraClaims,
-        scope: scope || process.env.INTENTS_JWT_SCOPE || 'intents:submit intents:status',
+        institutionId: resolvedInstitutionId.trim(),
+        scope: scope.trim(),
         iat: nowSec,
         exp: expSec,
       };
@@ -315,8 +340,8 @@ class MarketplaceJwtService {
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
-        audience: audience || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
-        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'blockchain-services',
+        audience: audience.trim(),
+        subject: 'marketplace',
         jwtid: randomUUID(),
       });
 
@@ -489,6 +514,10 @@ class MarketplaceJwtService {
 
       const nowSec = Math.floor(Date.now() / 1000);
       const ttlSeconds = parseInt(process.env.INSTITUTION_INVITE_EXPIRATION_SECONDS || '259200', 10); // 3 days
+      const inviteAudience = process.env.INSTITUTION_INVITE_AUDIENCE;
+      if (typeof inviteAudience !== 'string' || !inviteAudience.trim()) {
+        throw new Error('Institution invite JWT audience is required');
+      }
 
       const payload = {
         type: 'institution_invite',
@@ -500,7 +529,7 @@ class MarketplaceJwtService {
         nonce: `${issuerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         iat: nowSec,
         exp: nowSec + ttlSeconds,
-        aud: process.env.INSTITUTION_INVITE_AUDIENCE || 'blockchain-services',
+        aud: inviteAudience.trim(),
       };
 
       const token = jwt.sign(payload, this.privateKey, {

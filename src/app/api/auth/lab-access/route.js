@@ -21,6 +21,7 @@ import {
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import { normalizeInstitutionalServiceAudience } from '@/utils/auth/institutionalServiceCredential'
 
 const checkRate = createRateLimiter({ operation: 'auth-lab-access', windowMs: 60_000, maxRequests: 20 })
 
@@ -95,8 +96,7 @@ function computeSamlAssertionHash(samlAssertion) {
 }
 
 function buildBackendAudiences(targetAudience) {
-  const fallbackAudience = process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services'
-  return [...new Set([targetAudience, fallbackAudience].filter(Boolean))]
+  return normalizeInstitutionalServiceAudience(targetAudience)
 }
 
 function normalizeBackendBase(endpoint) {
