@@ -374,7 +374,7 @@ export default function UserDashboard() {
           </Stack>
         </Container>
       </AccessControl>
-    )
+    );
   }
 
   if (bookingsLoading) {
@@ -394,7 +394,7 @@ export default function UserDashboard() {
           </Stack>
         </Container>
       </AccessControl>
-    )
+    );
   }
 
   // ❌ Error handling for React Query
@@ -554,5 +554,5 @@ export default function UserDashboard() {
         </div>
       </Container>
     </AccessControl>
-  )
+  );
 }
