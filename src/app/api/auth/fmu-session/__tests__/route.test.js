@@ -45,7 +45,7 @@ describe('POST /api/auth/fmu-session', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    requireAuth.mockResolvedValue({ id: 'user-1' })
+    requireAuth.mockResolvedValue({ id: 'user-1', sessionId: 'a'.repeat(43) })
     resolveLabAccessGateway.mockResolvedValue('https://lite.lab.example')
     gatewayFetch.mockResolvedValue({
       status: 204,
@@ -125,7 +125,7 @@ describe('POST /api/auth/fmu-session', () => {
       expiresAt: Math.floor(Date.now() / 1000) + 300,
       userBinding: createFmuUserBinding({ id: 'user-1' }),
     })
-    requireAuth.mockResolvedValue({ id: 'user-2' })
+    requireAuth.mockResolvedValue({ id: 'user-2', sessionId: 'b'.repeat(43) })
     const { POST } = await import('../route')
 
     const response = await POST(new Request('https://marketplace.example.com/api/auth/fmu-session', {

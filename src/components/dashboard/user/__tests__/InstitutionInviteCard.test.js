@@ -41,7 +41,8 @@ describe('InstitutionInviteCard', () => {
       json: async () => ({
         pairingId: 'pairing-1',
         challenge: `0x${'11'.repeat(32)}`,
-        expiresAt: '2025-01-01T00:00:00.000Z',
+        pairingExpiresAt: '2025-01-01T00:00:00.000Z',
+        tokenExpiresAt: '2025-01-01T00:05:00.000Z',
         status: 'AWAITING_BACKEND',
         institutionId: 'uned.es',
         registrationType: 'provider',
@@ -63,6 +64,23 @@ describe('InstitutionInviteCard', () => {
     expect(screen.getByText(new RegExp(`0x${'11'.repeat(32)}`))).toBeInTheDocument();
     expect(screen.queryByLabelText(/Institutional wallet address/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Public base URL/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Pairing expires/i)).toBeInTheDocument();
+    expect(screen.getByText(/Token expires/i)).toBeInTheDocument();
+  });
+
+  test('offers an explicit cancellation action for an active pairing', async () => {
+    const user = userEvent.setup();
+
+    render(<InstitutionInviteCard />);
+    await user.click(screen.getByRole('button', { name: /Generate pairing challenge/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Cancel pairing/i })).toBeInTheDocument());
+
+    global.fetch.mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) });
+    await user.click(screen.getByRole('button', { name: /Cancel pairing/i }));
+
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/institutions/provisioning/pairings/pairing-1', expect.objectContaining({
+      method: 'DELETE',
+    }));
   });
 
   test('does not render for non-admin SSO users', () => {

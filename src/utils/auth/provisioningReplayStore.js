@@ -1,4 +1,4 @@
-import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient';
+import { hasRedisConfig, redisCommand } from '../redis/restClient.js';
 
 const DEFAULT_AUDIT_RETENTION_SECONDS = 365 * 24 * 60 * 60;
 
@@ -10,6 +10,7 @@ export const PROVISIONING_SAGA_STAGES = Object.freeze({
   BACKEND_REGISTERED: 'BACKEND_REGISTERED',
   ACTIVE: 'ACTIVE',
   FAILED: 'FAILED',
+  RECONCILIATION_REQUIRED: 'RECONCILIATION_REQUIRED',
 });
 
 const PROVISIONING_AUDIT_INDEX_KEY = 'provisioning:index';
@@ -295,6 +296,8 @@ export async function advanceProvisioningSaga(jti, patch) {
       ? 'ACTIVE'
       : stage === PROVISIONING_SAGA_STAGES.FAILED
         ? 'FAILED'
+        : stage === PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED
+          ? 'RECONCILIATION_REQUIRED'
         : 'IN_PROGRESS',
     stage,
     lastConfirmedStage: stage === PROVISIONING_SAGA_STAGES.FAILED
@@ -311,6 +314,47 @@ export async function advanceProvisioningSaga(jti, patch) {
   ]);
   if (result !== 'OK') {
     throw new Error('Provisioning saga record could not be updated');
+  }
+  return updated;
+}
+
+/**
+ * Stops provisioning when an on-chain transition cannot be durably reflected
+ * in Redis. The reconciliation job can later repair this marker from chain
+ * state without replaying an already-confirmed write.
+ */
+export async function markProvisioningReconciliationRequired(jti, patch = {}) {
+  if (!hasRedisConfig()) {
+    throw new Error('Redis is required for provisioning reconciliation markers');
+  }
+
+  const key = provisioningKey(jti);
+  const record = parseAuditRecord(
+    await redisCommand(['GET', key]),
+    'Provisioning saga record was not found while marking reconciliation',
+  );
+  const updated = {
+    ...record,
+    ...patch,
+    status: 'RECONCILIATION_REQUIRED',
+    stage: PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED,
+    lastConfirmedStage: record.lastConfirmedStage
+      || (record.stage !== PROVISIONING_SAGA_STAGES.FAILED
+        && record.stage !== PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED
+        ? record.stage
+        : null),
+    reconciliationRequiredAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const result = await redisCommand([
+    'SET',
+    key,
+    JSON.stringify(updated),
+    'XX',
+    'KEEPTTL',
+  ]);
+  if (result !== 'OK') {
+    throw new Error('Provisioning reconciliation marker could not be persisted');
   }
   return updated;
 }
@@ -339,4 +383,5 @@ export async function updateProvisioningAudit(jti, patch) {
   if (result !== 'OK') {
     throw new Error('Provisioning audit record could not be updated');
   }
+  return updated;
 }

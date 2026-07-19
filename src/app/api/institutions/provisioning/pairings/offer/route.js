@@ -10,11 +10,14 @@ import {
   publicProvisioningPairing,
   transitionProvisioningPairing,
 } from '@/utils/auth/provisioningPairingStore';
+import { provisioningPairingRateLimitResponse } from '@/utils/auth/provisioningPairingRateLimit';
 
 export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
+    const rateLimitResponse = await provisioningPairingRateLimitResponse('offer', request);
+    if (rateLimitResponse) return rateLimitResponse;
     const body = await request.json().catch(() => ({}));
     const pairing = await getProvisioningPairingByChallenge(body?.challenge);
     if (!pairing || isProvisioningPairingExpired(pairing)) {

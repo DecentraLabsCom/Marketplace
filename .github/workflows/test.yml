@@ -50,6 +50,27 @@ jobs:
           path: coverage/
           retention-days: 7
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build Next.js app
+        run: npm run build
+
   cypress-e2e:
     name: Cypress E2E
     runs-on: ubuntu-latest

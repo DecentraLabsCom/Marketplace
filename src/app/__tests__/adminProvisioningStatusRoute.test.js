@@ -79,4 +79,28 @@ describe('GET /api/admin/institutions/provisioning-status', () => {
     const body = await response.json()
     expect(body.records[0]).not.toHaveProperty('nonce')
   })
+
+  test('does not present a failed saga with confirmed writes as a definitive failure', async () => {
+    listProvisioningAudits.mockResolvedValueOnce([{
+      jti: 'provisioning-2',
+      institutionId: 'partner.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+      registrationType: 'provider',
+      stage: 'FAILED',
+      status: 'FAILED',
+      lastConfirmedStage: 'PROVIDER_ADDED',
+      txHashes: [`0x${'b'.repeat(64)}`],
+    }])
+
+    const { GET } = await import('../api/admin/institutions/provisioning-status/route')
+    const response = await GET(new Request('https://marketplace.example/api/admin/institutions/provisioning-status'))
+    const body = await response.json()
+
+    expect(body.records[0]).toMatchObject({
+      status: 'RECONCILIATION_REQUIRED',
+      stage: 'RECONCILIATION_REQUIRED',
+      requiresReconciliation: true,
+      definitiveFailure: false,
+    })
+  })
 })

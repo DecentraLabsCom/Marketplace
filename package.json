@@ -35,7 +35,8 @@
     "pre-commit": "node scripts/pre-commit-check.js",
     "coverage:summary": "node scripts/coverage-report.js",
     "audit:production": "npm audit --omit=dev --audit-level=high",
-    "audit:institution-provisioning": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/audit-institution-provisioning.js"
+    "audit:institution-provisioning": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/audit-institution-provisioning.js",
+    "reconcile:institution-provisioning": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reconcile-institution-provisioning.js"
   },
   "dependencies": {
     "@base-org/account": "~2.5.4",
@@ -58,7 +59,6 @@
     "eslint-plugin-drizzle": "^0.2.3",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-unicorn": "^71.1.0",
     "ethers": "^6.16.0",
     "i18n-iso-countries": "^7.14.0",
     "jose": "^6.2.3",
@@ -82,13 +82,13 @@
     "xml-crypto": "^6.1.2",
     "xml2js": "^0.6.2",
     "xpath": "^0.0.34",
-    "zod": "^4.4.3"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cypress/code-coverage": "^4.0.3",
     "@eslint/compat": "^2.1.0",
     "@eslint/eslintrc": "^3",
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.5",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/postcss": "^4.3.2",
     "@tailwindcss/typography": "^0.5.19",
@@ -102,7 +102,7 @@
     "@types/xml2js": "^0.4.14",
     "baseline-browser-mapping": "^2.9.14",
     "cypress": "^15.18.1",
-    "eslint": "^10.7.0",
+    "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.10",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-jest": "^29.15.4",
@@ -115,7 +115,7 @@
     "postcss": "^8.5.16",
     "start-server-and-test": "^3.0.11",
     "tailwindcss": "^4.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "js-yaml": "^4.1.1",

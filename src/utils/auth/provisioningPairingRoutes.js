@@ -67,7 +67,10 @@ export async function assertPairingBelongsToSession(pairingId, sessionContext) {
   if (!pairing || pairing.institutionId !== sessionContext.institutionId) {
     throw new HttpError(404, 'Provisioning pairing not found', 'PAIRING_NOT_FOUND');
   }
-  if (isProvisioningPairingExpired(pairing)) {
+  if (
+    ['AWAITING_BACKEND', 'AWAITING_APPROVAL'].includes(pairing.status)
+    && isProvisioningPairingExpired(pairing)
+  ) {
     throw new HttpError(410, 'Provisioning pairing has expired', 'PAIRING_EXPIRED');
   }
   return pairing;

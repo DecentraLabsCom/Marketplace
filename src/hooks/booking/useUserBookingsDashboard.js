@@ -324,6 +324,35 @@ export const useUserBookingsDashboard = ({
   
   const hasErrors = baseErrors.length > 0;
   const hasPartialErrors = keyErrors.length > 0 || bookingErrors.length > 0 || labErrors.length > 0 || metadataErrors.length > 0 || ownerErrors.length > 0 || providerErrors.length > 0;
+  const allQueryResults = [
+    reservationCountResult,
+    ...reservationKeyResults,
+    ...bookingDetailsResults,
+    ...labDetailsResults,
+    ...labMetadataResults,
+    ...labOwnerResults,
+  ];
+  const lastSuccessfulAtMs = allQueryResults.reduce((latest, result) => (
+    result?.isSuccess && Number(result.dataUpdatedAt) > latest
+      ? Number(result.dataUpdatedAt)
+      : latest
+  ), 0);
+  const failedKeys = [
+    ...keyErrors.map((error) => error?.message || 'reservation-key'),
+    ...bookingErrors.map((error) => error?.message || 'booking-detail'),
+    ...labErrors.map((error) => error?.message || 'lab-detail'),
+    ...metadataErrors.map((error) => error?.message || 'metadata'),
+    ...ownerErrors.map((error) => error?.message || 'lab-owner'),
+    ...providerErrors.map((error) => error?.message || 'provider-mapping'),
+  ];
+  const errorInfo = {
+    hasErrors,
+    hasPartialErrors,
+    hasCompleteData: !hasErrors && !hasPartialErrors,
+    message: hasPartialErrors ? 'Bookings list is incomplete.' : null,
+    failedKeys,
+    lastSuccessfulAt: lastSuccessfulAtMs > 0 ? new Date(lastSuccessfulAtMs).toISOString() : null,
+  };
 
   // Enrich with optional lab details (keep flat shape)
   const enrichedBookings = bookings.map((booking) => {
@@ -495,6 +524,7 @@ export const useUserBookingsDashboard = ({
     data: {
       reservationKeys,
       bookings: enrichedBookings,
+      errorInfo,
       // Include summary object with analytics and optional recent activity
       summary,
     },
@@ -514,6 +544,9 @@ export const useUserBookingsDashboard = ({
       successCount: bookingDetailsResults.filter(r => r.isSuccess).length,
       failedCount: bookingDetailsResults.filter(r => r.error).length,
       hasPartialFailures: hasPartialErrors,
+      message: errorInfo.message,
+      failedKeys,
+      lastSuccessfulAt: errorInfo.lastSuccessfulAt,
       errors: [...baseErrors, ...keyErrors, ...bookingErrors, ...labErrors, ...metadataErrors, ...ownerErrors],
       timestamp: new Date().toISOString()
     },
@@ -525,14 +558,16 @@ export const useUserBookingsDashboard = ({
     labDetailsResults,
 
     // Utility functions
-    refetch: () => {
-      reservationCountResult.refetch();
-      reservationKeyResults.forEach(result => result.refetch && result.refetch());
-      bookingDetailsResults.forEach(result => result.refetch && result.refetch());
-      labDetailsResults.forEach(result => result.refetch && result.refetch());
-      labMetadataResults.forEach(result => result.refetch && result.refetch());
-      labOwnerResults.forEach(result => result.refetch && result.refetch());
-      if (includeLabDetails) providerMapping.providersResult?.refetch();
-    }
+    refetch: () => Promise.all([
+      reservationCountResult.refetch(),
+      ...reservationKeyResults.map(result => result.refetch?.()).filter(Boolean),
+      ...bookingDetailsResults.map(result => result.refetch?.()).filter(Boolean),
+      ...labDetailsResults.map(result => result.refetch?.()).filter(Boolean),
+      ...labMetadataResults.map(result => result.refetch?.()).filter(Boolean),
+      ...labOwnerResults.map(result => result.refetch?.()).filter(Boolean),
+      ...(includeLabDetails && providerMapping.providersResult?.refetch
+        ? [providerMapping.providersResult.refetch()]
+        : []),
+    ]),
   };
 };

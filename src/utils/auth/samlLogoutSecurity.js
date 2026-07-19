@@ -46,6 +46,14 @@ function getRequiredAttribute(node, name, errorMessage) {
   return value
 }
 
+function getRequiredChildText(node, name, namespace, errorMessage) {
+  const nodes = directChildrenByName(node, name, namespace)
+  if (nodes.length !== 1) throw new Error(errorMessage)
+  const value = nodes[0].textContent?.trim()
+  if (!value) throw new Error(errorMessage)
+  return value
+}
+
 export function decodeSamlLogoutRequest(value) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error('Missing SAML logout request')
@@ -98,7 +106,20 @@ export function extractSamlLogoutRequest(xml) {
   const issuer = issuerNodes[0].textContent?.trim()
   if (!issuer) throw new Error('Empty SAML logout request issuer')
 
-  return { requestId, issuer }
+  const nameId = getRequiredChildText(
+    root,
+    'NameID',
+    SAML_ASSERTION_NAMESPACE,
+    'Missing or ambiguous SAML logout request NameID',
+  )
+  const sessionIndex = getRequiredChildText(
+    root,
+    'SessionIndex',
+    SAML_PROTOCOL_NAMESPACE,
+    'Missing or ambiguous SAML logout request SessionIndex',
+  )
+
+  return { requestId, issuer, nameId, sessionIndex }
 }
 
 export function verifySamlLogoutRequestSignature(xml, certificate, requestId) {

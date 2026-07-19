@@ -596,6 +596,8 @@ describe("SSO Utilities", () => {
     test("parses SAML response and extracts user data", async () => {
       const mockSAMLAssertion = {
         user: {
+          name_id: "saml-name-id-1",
+          session_index: "saml-session-index-1",
           attributes: {
             eduPersonTargetedID: "targeted-user-1",
             eduPersonPrincipalName: "user@university.edu",
@@ -639,6 +641,8 @@ describe("SSO Utilities", () => {
           "urn:decentralabs:entitlement:institution-admin",
         ],
         organizationName: "Test University",
+        samlNameId: "saml-name-id-1",
+        samlSessionIndex: "saml-session-index-1",
         samlAssertion: "saml-response-data",
       });
     });

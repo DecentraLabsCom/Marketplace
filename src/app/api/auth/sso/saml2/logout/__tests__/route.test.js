@@ -1,11 +1,17 @@
 /** @jest-environment node */
 
 jest.mock('next/headers', () => ({ cookies: jest.fn() }))
-jest.mock('@/utils/auth/sessionCookie', () => ({ clearSessionCookies: jest.fn() }))
+jest.mock('@/utils/auth/sessionCookie', () => ({
+  clearSessionCookies: jest.fn(),
+  getSessionFromCookies: jest.fn(),
+}))
 jest.mock('@/utils/auth/fmuSessionStore', () => ({ clearFmuContextCookie: jest.fn() }))
 jest.mock('@/utils/auth/revokeFmuContexts', () => ({ revokeFmuContexts: jest.fn() }))
 jest.mock('@/utils/auth/samlLogoutReplayStore', () => ({
   consumeSamlLogoutRequestId: jest.fn(),
+}))
+jest.mock('@/utils/auth/revokeSamlBoundSessions', () => ({
+  revokeSamlBoundSessions: jest.fn(),
 }))
 jest.mock('@/utils/auth/sso', () => ({
   createIdentityProvider: jest.fn(),
@@ -18,10 +24,11 @@ jest.mock('@/utils/auth/samlLogoutSecurity', () => ({
 }))
 
 import { cookies } from 'next/headers'
-import { clearSessionCookies } from '@/utils/auth/sessionCookie'
+import { clearSessionCookies, getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
 import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
 import { consumeSamlLogoutRequestId } from '@/utils/auth/samlLogoutReplayStore'
+import { revokeSamlBoundSessions } from '@/utils/auth/revokeSamlBoundSessions'
 import { createIdentityProvider, createServiceProvider } from '@/utils/auth/sso'
 import {
   decodeSamlLogoutRequest,
@@ -59,9 +66,19 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     createIdentityProvider.mockResolvedValue(identityProvider)
     createServiceProvider.mockReturnValue(serviceProvider)
     decodeSamlLogoutRequest.mockReturnValue('<samlp:LogoutRequest />')
-    extractSamlLogoutRequest.mockReturnValue({ requestId: '_logout-1', issuer })
+    extractSamlLogoutRequest.mockReturnValue({
+      requestId: '_logout-1',
+      issuer,
+      nameId: 'name-id-1',
+      sessionIndex: 'session-index-1',
+    })
+    getSessionFromCookies.mockResolvedValue({
+      samlNameId: 'name-id-1',
+      samlSessionIndex: 'session-index-1',
+    })
     verifySamlLogoutRequestSignature.mockReturnValue(true)
     consumeSamlLogoutRequestId.mockResolvedValue(true)
+    revokeSamlBoundSessions.mockResolvedValue([])
   })
 
   test('verifies the issuer and signature before clearing sessions and returning a SAML response redirect', async () => {
@@ -79,6 +96,7 @@ describe('POST /api/auth/sso/saml2/logout', () => {
       '_logout-1',
     )
     expect(consumeSamlLogoutRequestId).toHaveBeenCalledWith('_logout-1')
+    expect(revokeSamlBoundSessions).toHaveBeenCalledWith('name-id-1', 'session-index-1')
     expect(serviceProvider.create_logout_response_url).toHaveBeenCalledWith(
       identityProvider,
       { in_response_to: '_logout-1', relay_state: 'relay-1' },
@@ -87,6 +105,29 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     expect(revokeFmuContexts).toHaveBeenCalledWith(cookieStore)
     expect(clearSessionCookies).toHaveBeenCalledWith(cookieStore)
     expect(clearFmuContextCookie).toHaveBeenCalledWith(cookieStore)
+  })
+
+  test('does not clear a browser session for a different SAML identity', async () => {
+    getSessionFromCookies.mockResolvedValue({
+      samlNameId: 'different-name-id',
+      samlSessionIndex: 'session-index-1',
+    })
+
+    const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
+
+    expect(response.status).toBe(400)
+    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(clearSessionCookies).not.toHaveBeenCalled()
+    expect(revokeSamlBoundSessions).not.toHaveBeenCalled()
+  })
+
+  test('processes IdP-initiated logout when the browser does not send the Lax session cookie', async () => {
+    getSessionFromCookies.mockResolvedValue(null)
+    const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
+
+    expect(response.status).toBe(303)
+    expect(revokeSamlBoundSessions).toHaveBeenCalledWith('name-id-1', 'session-index-1')
+    expect(clearSessionCookies).toHaveBeenCalledWith(cookieStore)
   })
 
   test('rejects an issuer that is not published by the configured IdP metadata', async () => {

@@ -9,12 +9,19 @@ import {
 import { recordProvisioningTokenIssued } from '@/utils/auth/provisioningReplayStore';
 import { publicProvisioningPairing, transitionProvisioningPairing } from '@/utils/auth/provisioningPairingStore';
 import { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain';
+import { provisioningPairingRateLimitResponse } from '@/utils/auth/provisioningPairingRateLimit';
 
 export const runtime = 'nodejs';
 
 export async function POST(request, { params }) {
   try {
     const sessionContext = await requireProvisioningPairingSession();
+    const rateLimitResponse = await provisioningPairingRateLimitResponse(
+      'approve',
+      request,
+      { ...sessionContext.session, institutionId: sessionContext.institutionId },
+    );
+    if (rateLimitResponse) return rateLimitResponse;
     const pairing = await assertPairingBelongsToSession(params.pairingId, sessionContext);
     if (pairing.status !== 'AWAITING_APPROVAL') {
       return NextResponse.json({ error: 'Pairing is not awaiting approval' }, { status: 409 });
@@ -61,6 +68,9 @@ export async function POST(request, { params }) {
       token: signed.token,
       tokenPayload: signed.payload,
       approvedAt: new Date().toISOString(),
+      tokenExpiresAt: signed.payload.expiresAt,
+    }, {
+      retentionExpiresAt: signed.payload.expiresAt,
     });
     return NextResponse.json({
       ...publicProvisioningPairing(updated),

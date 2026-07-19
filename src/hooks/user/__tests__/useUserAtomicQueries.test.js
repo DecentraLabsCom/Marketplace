@@ -266,6 +266,7 @@ describe("useUserAtomicQueries", () => {
         id: "123",
       },
       isSSO: true,
+      logoutNonce: null,
     };
 
     test("fetches SSO session successfully", async () => {
@@ -299,6 +300,7 @@ describe("useUserAtomicQueries", () => {
           id: "123",
         },
         isSSO: true,
+        logoutNonce: null,
       };
 
       global.fetch.mockResolvedValueOnce({
@@ -327,7 +329,7 @@ describe("useUserAtomicQueries", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(result.current.data).toEqual({ user: null, isSSO: false });
+      expect(result.current.data).toEqual({ user: null, isSSO: false, logoutNonce: null });
     });
 
     test("handles 404 not found gracefully", async () => {
@@ -342,7 +344,7 @@ describe("useUserAtomicQueries", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(result.current.data).toEqual({ user: null, isSSO: false });
+      expect(result.current.data).toEqual({ user: null, isSSO: false, logoutNonce: null });
     });
 
     test("uses correct query key", () => {

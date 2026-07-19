@@ -139,7 +139,7 @@ const getSSOSessionQueryFn = createSSRSafeQuery(async () => {
   if (!response.ok) {
     // If session doesn't exist or expired, return null instead of throwing
     if (response.status === 401 || response.status === 404) {
-      return { user: null, isSSO: false };
+      return { user: null, isSSO: false, logoutNonce: null };
     }
     throw new Error(`Failed to fetch SSO session: ${response.status}`);
   }
@@ -150,9 +150,10 @@ const getSSOSessionQueryFn = createSSRSafeQuery(async () => {
   // Return consistent format
   return {
     user: data.user,
-    isSSO: Boolean(data.user)
+    isSSO: Boolean(data.user),
+    logoutNonce: data.logoutNonce || null,
   };
-}, { user: null, isSSO: false }); // Return null user during SSR
+}, { user: null, isSSO: false, logoutNonce: null }); // Return null user during SSR
 
 /**
  * SSO Session Query Hook

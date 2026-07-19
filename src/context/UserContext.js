@@ -471,8 +471,12 @@ function UserDataCore({ children }) {
             // Call logout endpoint and wait for completion
             devLog.log('🌐 Calling logout endpoint...');
             const response = await fetch("/api/auth/logout", {
-                method: 'GET',
-                credentials: 'include'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': ssoData?.logoutNonce || '',
+                },
+                credentials: 'include',
             });
             
             if (!response.ok) {
@@ -525,7 +529,7 @@ function UserDataCore({ children }) {
             setTimeout(() => setIsLoggingOut(false), 3000);
             return true;
         }
-    }, [queryClient, handleError, clearSSOSession]);
+    }, [queryClient, handleError, clearSSOSession, ssoData?.logoutNonce]);
 
     // Institutional onboarding handlers
     const resolveBrowserMarkerIdentity = useCallback(() => ({

@@ -17,6 +17,8 @@ describe('SAML logout request security', () => {
       Version="2.0"
       IssueInstant="${new Date().toISOString()}">
       <saml:Issuer>https://idp.example/entity</saml:Issuer>
+      <saml:NameID>name-id-1</saml:NameID>
+      <samlp:SessionIndex>session-index-1</samlp:SessionIndex>
     </samlp:LogoutRequest>`.trim()
 
   test('decodes a base64 SAMLRequest and accepts raw XML', () => {
@@ -36,7 +38,16 @@ describe('SAML logout request security', () => {
     expect(result).toEqual({
       requestId: '_logout-1',
       issuer: 'https://idp.example/entity',
+      nameId: 'name-id-1',
+      sessionIndex: 'session-index-1',
     })
+  })
+
+  test('rejects a logout request that cannot be correlated to a SAML session', () => {
+    expect(() => extractSamlLogoutRequest(validXml.replace('<saml:NameID>name-id-1</saml:NameID>', '')))
+      .toThrow('Missing or ambiguous SAML logout request NameID')
+    expect(() => extractSamlLogoutRequest(validXml.replace('<samlp:SessionIndex>session-index-1</samlp:SessionIndex>', '')))
+      .toThrow('Missing or ambiguous SAML logout request SessionIndex')
   })
 
   test('rejects an expired or malformed logout request', () => {

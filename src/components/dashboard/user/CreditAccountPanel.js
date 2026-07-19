@@ -78,11 +78,34 @@ const formatDateTime = (isoString) => {
 };
 
 export default function CreditAccountPanel() {
-  const { data: account, isLoading: accountLoading } = useCreditAccountSummary();
-  const { data: lots } = useCreditLots();
-  const { data: fundingOrders } = useFundingOrders();
-  const { data: movements } = useCreditMovements({ limit: 10 });
+  const accountQuery = useCreditAccountSummary();
+  const lotsQuery = useCreditLots();
+  const fundingOrdersQuery = useFundingOrders();
+  const movementsQuery = useCreditMovements({ limit: 10 });
+  const { data: account, isLoading: accountLoading, isError: accountErrorState, error: accountError } = accountQuery;
+  const { data: lots } = lotsQuery;
+  const { data: fundingOrders } = fundingOrdersQuery;
+  const { data: movements } = movementsQuery;
   const [showAllMovements, setShowAllMovements] = useState(false);
+
+  const detailQueries = [lotsQuery, fundingOrdersQuery, movementsQuery];
+  const hasDetailError = detailQueries.some((query) => query.isError);
+  const isMissingAccount = accountError?.status === 404 || accountError?.code === 'CREDIT_ACCOUNT_NOT_FOUND';
+  const lastSuccessfulUpdate = [
+    accountQuery.dataUpdatedAt,
+    lotsQuery.dataUpdatedAt,
+    fundingOrdersQuery.dataUpdatedAt,
+    movementsQuery.dataUpdatedAt,
+  ].reduce((latest, value) => Math.max(latest, Number(value) || 0), 0);
+
+  const retryAll = () => {
+    detailQueries.forEach((query) => query.refetch?.());
+    accountQuery.refetch?.();
+  };
+
+  const lastUpdatedLabel = lastSuccessfulUpdate > 0
+    ? `Last successful update: ${formatDateTime(new Date(lastSuccessfulUpdate).toISOString())}`
+    : null;
 
   const expiringLots = useMemo(() => {
     if (!Array.isArray(lots)) return [];
@@ -119,7 +142,41 @@ export default function CreditAccountPanel() {
     );
   }
 
-  if (!account) return null;
+  if (accountErrorState && !account) {
+    return (
+      <div
+        data-testid="credit-account-panel-status"
+        className="rounded-xl p-5 space-y-3"
+        style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}
+      >
+        <div role="alert" className="text-sm text-amber-200">
+          <p className="font-semibold">{isMissingAccount ? 'No credit account exists' : 'Credit account could not be loaded'}</p>
+          <p className="mt-1 opacity-80">
+            {isMissingAccount
+              ? 'Your institution does not have a service-credit account yet.'
+              : 'The credit service is temporarily unavailable. Your data has not been removed.'}
+          </p>
+        </div>
+        {lastUpdatedLabel && <p className="text-xs opacity-60" style={{ color: 'var(--color-text-primary)' }}>{lastUpdatedLabel}</p>}
+        <button
+          type="button"
+          onClick={retryAll}
+          className="text-xs px-3 py-1.5 rounded border border-slate-500 hover:border-slate-300"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!account) {
+    return (
+      <div role="alert" data-testid="credit-account-panel-status" className="rounded-xl p-5 text-sm text-amber-200">
+        Credit account could not be loaded
+      </div>
+    );
+  }
 
   return (
     <div
@@ -135,6 +192,22 @@ export default function CreditAccountPanel() {
         <span className="text-base">💳</span>
         Service Credit Account
       </h3>
+
+      {accountErrorState && (
+        <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
+          <p>Credit account could not be loaded. Showing the last successful data.</p>
+          {lastUpdatedLabel && <p className="mt-1 opacity-80">{lastUpdatedLabel}</p>}
+          <button type="button" onClick={retryAll} className="mt-2 underline">Retry</button>
+        </div>
+      )}
+
+      {hasDetailError && !accountErrorState && (
+        <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
+          <p>Credit account details could not be loaded. Some sections may be incomplete.</p>
+          {lastUpdatedLabel && <p className="mt-1 opacity-80">{lastUpdatedLabel}</p>}
+          <button type="button" onClick={retryAll} className="mt-2 underline">Retry</button>
+        </div>
+      )}
 
       {/* Balance grid */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs" style={{ color: 'var(--color-text-primary)' }}>
@@ -238,6 +311,10 @@ export default function CreditAccountPanel() {
         <p className="text-xs opacity-50" style={{ color: 'var(--color-text-primary)' }}>
           No pending top-up orders. Contact your administrator to request service-credit top-up.
         </p>
+      )}
+
+      {!accountErrorState && !hasDetailError && lastUpdatedLabel && (
+        <p className="text-xs opacity-50" style={{ color: 'var(--color-text-primary)' }}>{lastUpdatedLabel}</p>
       )}
     </div>
   );

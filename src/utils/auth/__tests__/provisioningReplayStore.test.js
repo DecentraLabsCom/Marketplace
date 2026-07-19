@@ -15,6 +15,7 @@ import {
   listProvisioningAudits,
   startOrResumeProvisioningSaga,
   advanceProvisioningSaga,
+  markProvisioningReconciliationRequired,
   updateProvisioningAudit,
 } from '../provisioningReplayStore';
 
@@ -233,5 +234,37 @@ describe('provisioning jti consumption', () => {
       lastConfirmedStage: 'INSTITUTION_ROLE_GRANTED',
       errorCode: 'RPC_UNAVAILABLE',
     });
+  });
+
+  test('marks the saga as reconciliation-required when an audit write cannot be trusted', async () => {
+    redisCommand
+      .mockResolvedValueOnce(JSON.stringify({
+        jti: claims.jti,
+        status: 'IN_PROGRESS',
+        stage: 'PROVIDER_ADDED',
+        lastConfirmedStage: 'PROVIDER_ADDED',
+        txHashes: ['0xabc'],
+      }))
+      .mockResolvedValueOnce('OK');
+
+    const updated = await markProvisioningReconciliationRequired(claims.jti, {
+      errorCode: 'PROVISIONING_AUDIT_WRITE_FAILED',
+      failedStage: 'INSTITUTION_ROLE_GRANTED',
+    });
+
+    expect(updated).toMatchObject({
+      status: 'RECONCILIATION_REQUIRED',
+      stage: 'RECONCILIATION_REQUIRED',
+      lastConfirmedStage: 'PROVIDER_ADDED',
+      errorCode: 'PROVISIONING_AUDIT_WRITE_FAILED',
+      failedStage: 'INSTITUTION_ROLE_GRANTED',
+    });
+    expect(redisCommand.mock.calls[1][0]).toEqual([
+      'SET',
+      'provisioning:jti:token-jti',
+      expect.stringContaining('"stage":"RECONCILIATION_REQUIRED"'),
+      'XX',
+      'KEEPTTL',
+    ]);
   });
 });

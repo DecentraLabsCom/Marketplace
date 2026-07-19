@@ -142,7 +142,7 @@ The active Marketplace deployment is `https://marketplace-decentralabs.vercel.ap
 
 ### Session storage
 
-The browser receives only an opaque `__Host-user_session` identifier. The complete server-side identity record, including the SAML assertion, is encrypted and retained no longer than the session TTL. Production deployments must configure `SESSION_STORE_REST_URL` and `SESSION_STORE_REST_TOKEN` (or the equivalent `KV_REST_API_URL`/`KV_REST_API_TOKEN` pair) plus a dedicated `SESSION_ENCRYPTION_KEY` (never reused as `SESSION_SECRET`).
+The browser receives only an opaque `__Host-user_session` identifier. The complete server-side identity record, including the SAML assertion, is encrypted and retained no longer than the session TTL. Production deployments must configure `SESSION_STORE_REST_URL` and `SESSION_STORE_REST_TOKEN` (or the equivalent `KV_REST_API_URL`/`KV_REST_API_TOKEN` pair) plus a dedicated `SESSION_ENCRYPTION_KEY` (never reused as `SESSION_SECRET`). The same distributed store retains encrypted SAML `NameID`/`SessionIndex` bindings and FMU capability snapshots so IdP-initiated logout survives restarts.
 
 ### Service-credit policy
 

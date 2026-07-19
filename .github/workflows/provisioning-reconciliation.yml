@@ -1,0 +1,41 @@
+name: Institutional provisioning reconciliation
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    name: Reconcile provisioning sagas
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RPC_URL: ${{ secrets.MARKETPLACE_RECONCILIATION_RPC_URL }}
+      NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_SEPOLIA: ${{ secrets.MARKETPLACE_RECONCILIATION_DIAMOND_ADDRESS }}
+      KV_REST_API_URL: ${{ secrets.MARKETPLACE_RECONCILIATION_KV_REST_API_URL }}
+      KV_REST_API_TOKEN: ${{ secrets.MARKETPLACE_RECONCILIATION_KV_REST_API_TOKEN }}
+      PROVISIONING_ALERT_WEBHOOK_URL: ${{ secrets.MARKETPLACE_PROVISIONING_ALERT_WEBHOOK_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Validate reconciliation configuration
+        run: |
+          test -n "$RPC_URL"
+          test -n "$NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_SEPOLIA"
+          test -n "$KV_REST_API_URL"
+          test -n "$KV_REST_API_TOKEN"
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Reconcile provisioning sagas against chain state
+        run: npm run reconcile:institution-provisioning

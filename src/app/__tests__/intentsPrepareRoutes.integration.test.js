@@ -194,7 +194,8 @@ describe('Unified intent prepare route', () => {
         price: 123n,
         start: BigInt(nowSec + 300),
         end: BigInt(nowSec + 420),
-        renter: '0x00000000000000000000000000000000000000a3',
+        renter: '0x00000000000000000000000000000000000000a1',
+        status: 1,
       }),
       ownerOf: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000dead'),
     })
@@ -348,6 +349,17 @@ describe('Unified intent prepare route', () => {
   })
 
   test('prepares cancellation of a reservation request with the reservation payload', async () => {
+    getContractInstance.mockResolvedValueOnce({
+      getReservation: jest.fn().mockResolvedValue({
+        labId: 9n,
+        price: 123n,
+        start: BigInt(nowSec + 300),
+        end: BigInt(nowSec + 420),
+        renter: '0x00000000000000000000000000000000000000a1',
+        status: 0,
+      }),
+    })
+
     const res = await prepareIntentPOST(buildRequest({
       action: ACTION_CODES.CANCEL_REQUEST_BOOKING,
       payload: { reservationKey: validReservationKey },

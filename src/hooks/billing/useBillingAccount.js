@@ -12,9 +12,19 @@ import devLog from '@/utils/dev/logger';
 
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
 
+export class BillingFetchError extends Error {
+  constructor(url, status) {
+    super(`HTTP ${status} from ${url}`);
+    this.name = 'BillingFetchError';
+    this.url = url;
+    this.status = status;
+    this.code = status === 404 ? 'CREDIT_ACCOUNT_NOT_FOUND' : 'BILLING_REQUEST_FAILED';
+  }
+}
+
 const safeFetch = async (url) => {
   const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  if (!res.ok) throw new BillingFetchError(url, res.status);
   return res.json();
 };
 

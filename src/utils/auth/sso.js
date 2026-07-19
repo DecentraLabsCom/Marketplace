@@ -5,6 +5,8 @@ import enLocale from 'i18n-iso-countries/langs/en.json'
 import esLocale from 'i18n-iso-countries/langs/es.json'
 import devLog from '@/utils/dev/logger'
 import { createSessionCookie } from './sessionCookie'
+import { deleteServerSession } from './sessionStore'
+import { registerSamlSessionBinding } from './samlSessionStateStore'
 import { resolveInstitutionDomain } from './institutionDomain'
 import { shouldIncludeEduPersonTargetedId } from './puc'
 export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
@@ -142,6 +144,22 @@ export async function createSession(response, userData) {
   // Persist the session server-side and set only its opaque identifier.
   const cookieConfigs = await createSessionCookie(userData);
   const configs = Array.isArray(cookieConfigs) ? cookieConfigs : [cookieConfigs];
+  const samlNameId = String(userData?.samlNameId || '').trim()
+  const samlSessionIndex = String(userData?.samlSessionIndex || '').trim()
+  const sessionId = configs[0]?.value
+  if (samlNameId && samlSessionIndex && sessionId) {
+    try {
+      await registerSamlSessionBinding({
+        sessionId,
+        nameId: samlNameId,
+        sessionIndex: samlSessionIndex,
+        ttlSeconds: configs[0]?.maxAge,
+      })
+    } catch (error) {
+      await deleteServerSession(sessionId).catch(() => {})
+      throw error
+    }
+  }
   configs.forEach((cookieConfig) => {
     response.cookies.set(cookieConfig.name, cookieConfig.value, {
       httpOnly: cookieConfig.httpOnly,
@@ -312,6 +330,12 @@ export async function parseSAMLResponse(samlResponse) {
 
       const attrs = samlAssertion?.user?.attributes || {};
       logReceivedAttributeKeys(attrs)
+      const samlNameId = typeof samlAssertion?.user?.name_id === 'string'
+        ? samlAssertion.user.name_id.trim()
+        : ''
+      const samlSessionIndex = typeof samlAssertion?.user?.session_index === 'string'
+        ? samlAssertion.user.session_index.trim()
+        : ''
       
       const country = getFirstAttribute(attrs, [
         'c',
@@ -399,6 +423,9 @@ export async function parseSAMLResponse(samlResponse) {
       if (eduPersonTargetedID) {
         userData.eduPersonTargetedID = eduPersonTargetedID;
       }
+
+      if (samlNameId) userData.samlNameId = samlNameId;
+      if (samlSessionIndex) userData.samlSessionIndex = samlSessionIndex;
 
       if (entitlements.length > 0) {
         userData.entitlements = entitlements;

@@ -3,6 +3,10 @@ import {
   FMU_CONTEXT_COOKIE,
   readFmuContextsFromCookieValue,
 } from '@/utils/auth/fmuSessionStore'
+import {
+  clearFmuCapabilitiesForSession,
+  getFmuCapabilitiesForSession,
+} from '@/utils/auth/samlSessionStateStore'
 
 async function revokeContextList(contexts) {
   await Promise.allSettled(contexts.map(async ({ gatewayOrigin, resourceSessionId }) => {
@@ -42,4 +46,23 @@ export async function revokeFmuContextsExceptUser(cookieStore, userBinding) {
   const retained = contexts.filter((context) => context.userBinding === expectedUserBinding)
   await revokeContextList(contexts.filter((context) => context.userBinding !== expectedUserBinding))
   return retained
+}
+
+/**
+ * Revoke the durable capability snapshots associated with Marketplace sessions
+ * found through a SAML NameID/SessionIndex binding.
+ */
+export async function revokeFmuContextsForSessions(sessionIds) {
+  const normalizedIds = [...new Set((Array.isArray(sessionIds) ? sessionIds : [])
+    .filter((sessionId) => /^[A-Za-z0-9_-]{43}$/.test(String(sessionId))))]
+  const contexts = (await Promise.all(
+    normalizedIds.map((sessionId) => getFmuCapabilitiesForSession(sessionId)),
+  )).flat()
+  await revokeContextList(contexts)
+  await Promise.all(normalizedIds.map((sessionId) => clearFmuCapabilitiesForSession(sessionId)))
+  return normalizedIds
+}
+
+export async function revokeFmuContextsForSession(sessionId) {
+  return revokeFmuContextsForSessions([sessionId])
 }

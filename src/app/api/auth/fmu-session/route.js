@@ -12,6 +12,7 @@ import {
   fmuContextCookieOptions,
   readFmuContexts,
 } from '@/utils/auth/fmuSessionStore'
+import { registerFmuCapabilityForSession } from '@/utils/auth/samlSessionStateStore'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 function parseGatewaySession(setCookie) {
@@ -19,6 +20,15 @@ function parseGatewaySession(setCookie) {
   const maxAge = Number(String(setCookie || '').match(/Max-Age=(\d+)/i)?.[1])
   if (!/^[A-Za-z0-9_-]{16,512}$/.test(jti || '') || !Number.isFinite(maxAge) || maxAge < 1) return null
   return { jti, maxAge }
+}
+
+async function revokeGatewaySession(gatewayBase, sessionId) {
+  if (!gatewayBase || !sessionId) return
+  await gatewayFetch(`${gatewayBase}/auth/fmu/revoke`, {
+    method: 'POST',
+    headers: { Cookie: `FMU_SESSION=${sessionId}` },
+    cache: 'no-store',
+  }).catch(() => {})
 }
 
 export async function POST(request) {
@@ -74,6 +84,21 @@ export async function POST(request) {
       expiresAt: Math.floor(Date.now() / 1000) + session.maxAge,
       userBinding: createFmuUserBinding(marketplaceSession),
     })
+    const storedContext = contexts.find((context) => context.resourceSessionId === session.jti)
+    if (!marketplaceSession.sessionId || !storedContext) {
+      await revokeGatewaySession(gatewayBase, session.jti)
+      throw new Error('Marketplace session binding is unavailable')
+    }
+    try {
+      await registerFmuCapabilityForSession({
+        sessionId: marketplaceSession.sessionId,
+        context: storedContext,
+        ttlSeconds: session.maxAge,
+      })
+    } catch (error) {
+      await revokeGatewaySession(gatewayBase, session.jti)
+      throw error
+    }
     const response = NextResponse.json({ gatewayOrigin: new URL(gatewayBase).origin })
     response.cookies.set(FMU_CONTEXT_COOKIE, encoded, fmuContextCookieOptions(contexts))
     return response

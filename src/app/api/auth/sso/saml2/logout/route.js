@@ -5,10 +5,11 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { clearSessionCookies } from '@/utils/auth/sessionCookie'
+import { clearSessionCookies, getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
 import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
 import { consumeSamlLogoutRequestId } from '@/utils/auth/samlLogoutReplayStore'
+import { revokeSamlBoundSessions } from '@/utils/auth/revokeSamlBoundSessions'
 import { createIdentityProvider, createServiceProvider } from '@/utils/auth/sso'
 import {
   decodeSamlLogoutRequest,
@@ -67,7 +68,7 @@ export async function POST(request) {
     }
 
     const { xml, relayState } = parseRequestBody(body)
-    const { requestId, issuer } = extractSamlLogoutRequest(xml)
+    const { requestId, issuer, nameId, sessionIndex } = extractSamlLogoutRequest(xml)
     const identityProvider = await createIdentityProvider()
     if (!identityProvider?.entity_id || identityProvider.entity_id !== issuer) {
       return invalidRequest()
@@ -79,6 +80,15 @@ export async function POST(request) {
       verifySamlLogoutRequestSignature(xml, certificate, requestId)
     ))
     if (!isValidSignature) return invalidRequest()
+
+    const cookieStore = await cookies()
+    const session = await getSessionFromCookies(cookieStore)
+    if (session && (
+      session.samlNameId !== nameId ||
+      session.samlSessionIndex !== sessionIndex
+    )) {
+      return invalidRequest()
+    }
 
     const serviceProvider = createServiceProvider()
     if (typeof serviceProvider?.create_logout_response_url !== 'function') {
@@ -94,7 +104,7 @@ export async function POST(request) {
     )
     if (!await consumeSamlLogoutRequestId(requestId)) return invalidRequest()
 
-    const cookieStore = await cookies()
+    await revokeSamlBoundSessions(nameId, sessionIndex)
     await revokeFmuContexts(cookieStore)
     await clearSessionCookies(cookieStore)
     clearFmuContextCookie(cookieStore)

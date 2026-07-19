@@ -4,6 +4,7 @@ import {
   pairingErrorResponse,
   requireProvisioningPairingSession,
 } from '@/utils/auth/provisioningPairingRoutes';
+import { provisioningPairingRateLimitResponse } from '@/utils/auth/provisioningPairingRateLimit';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +15,12 @@ export const runtime = 'nodejs';
 export async function POST(request) {
   try {
     const sessionContext = await requireProvisioningPairingSession();
+    const rateLimitResponse = await provisioningPairingRateLimitResponse(
+      'create',
+      request,
+      { ...sessionContext.session, institutionId: sessionContext.institutionId },
+    );
+    if (rateLimitResponse) return rateLimitResponse;
     const pairing = await createPairingForSession('provider', sessionContext);
     return NextResponse.json(pairing, { status: 201 });
   } catch (error) {

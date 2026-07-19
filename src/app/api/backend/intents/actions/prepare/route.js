@@ -46,6 +46,7 @@ import { getCachedAdminAddress, getCachedIntentExecutorForInstitution } from '@/
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import { cancellationStateError, hasCancellationOwnership } from '@/utils/intents/cancellationOwnership'
 
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
 
@@ -67,8 +68,32 @@ async function resolveCancellationReservationSnapshot(reservationKey) {
     price: reservation?.price?.toString?.() ?? null,
     start: reservation?.start?.toString?.() ?? null,
     end: reservation?.end?.toString?.() ?? null,
+    status: Number(reservation?.status),
     renter,
   }
+}
+
+async function validateCancellationBeforeIntent({ action, snapshot, session }) {
+  const contract = await getContractInstance()
+  const { institutionAddress } = await resolveInstitutionAddressFromSession(session, contract)
+  if (!hasCancellationOwnership(snapshot, institutionAddress)) {
+    return {
+      contract,
+      error: NextResponse.json(
+        { error: 'Reservation does not belong to the current institution' },
+        { status: 403 },
+      ),
+    }
+  }
+
+  const stateError = cancellationStateError(action, snapshot)
+  if (stateError) {
+    return {
+      contract,
+      error: NextResponse.json({ error: stateError.message }, { status: stateError.status }),
+    }
+  }
+  return { contract, error: null }
 }
 
 function resolveAuthorizationMessage(error) {
@@ -210,14 +235,13 @@ export async function POST(request) {
       validateActionPayload(action, payloadInput)
     }
 
-    const executorPromise = getCachedIntentExecutorForInstitution(schacHomeOrganization)
-    const adminPromise = getCachedAdminAddress()
-    const chainNowPromise = resolveChainNowSec()
-
     let kind
     let effectiveAction = action
     let preparedReservation = null
     let cancellationSnapshot = null
+    let executorPromise
+    let adminPromise
+    let chainNowPromise
 
     if (isReservationIntentAction(action)) {
       if (action === ACTION_CODES.CANCEL_REQUEST_BOOKING) {
@@ -226,6 +250,19 @@ export async function POST(request) {
         if (!cancellationSnapshot) {
           return NextResponse.json({ error: 'Reservation not found for cancellation action' }, { status: 404 })
         }
+        const cancellationValidation = await validateCancellationBeforeIntent({
+          action,
+          snapshot: cancellationSnapshot,
+          session,
+        })
+        if (cancellationValidation.error) return cancellationValidation.error
+        executorPromise = getCachedIntentExecutorForInstitution(schacHomeOrganization)
+        adminPromise = getCachedAdminAddress()
+        chainNowPromise = resolveChainNowSec()
+      } else {
+        executorPromise = getCachedIntentExecutorForInstitution(schacHomeOrganization)
+        adminPromise = getCachedAdminAddress()
+        chainNowPromise = resolveChainNowSec()
       }
 
       const contract = action === ACTION_CODES.CANCEL_REQUEST_BOOKING
@@ -253,7 +290,16 @@ export async function POST(request) {
         if (!cancellationSnapshot) {
           return NextResponse.json({ error: 'Reservation not found for cancellation action' }, { status: 404 })
         }
+        const cancellationValidation = await validateCancellationBeforeIntent({
+          action,
+          snapshot: cancellationSnapshot,
+          session,
+        })
+        if (cancellationValidation.error) return cancellationValidation.error
       }
+      executorPromise = getCachedIntentExecutorForInstitution(schacHomeOrganization)
+      adminPromise = getCachedAdminAddress()
+      chainNowPromise = resolveChainNowSec()
       const [executorAddress, adminAddress, chainNowSec] = await Promise.all([
         executorPromise,
         adminPromise,

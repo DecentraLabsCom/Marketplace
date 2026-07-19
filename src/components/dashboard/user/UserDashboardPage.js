@@ -52,7 +52,9 @@ export default function UserDashboard() {
     data: userBookingsData, 
     isLoading: bookingsLoading, 
     isError: bookingsError,
-    error: bookingsErrorDetails 
+    error: bookingsErrorDetails,
+    meta: bookingsMeta,
+    refetch: refetchBookings,
   } = useUserBookingsDashboard({
     includeLabDetails: true, // ✅ Enable lab details since we need lab.name in bookingInfo
     queryOptions: {
@@ -69,6 +71,25 @@ export default function UserDashboard() {
     userBookingsData?.bookings || [], 
     [userBookingsData?.bookings]
   );
+  const bookingErrorInfo = userBookingsData?.errorInfo || bookingsMeta || {};
+  const hasPartialBookingFailures = Boolean(
+    bookingErrorInfo.hasPartialErrors || bookingErrorInfo.hasPartialFailures
+  );
+  const hasNoBookings = Boolean(
+    !bookingsError
+    && userBookingsData
+    && !hasPartialBookingFailures
+    && userBookings.length === 0
+  );
+
+  const formatLastSuccessfulUpdate = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString('en-IE', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  };
 
   const { addTemporaryNotification } = useNotifications();
   // 🚀 Unified React Query mutations for cancellation
@@ -420,13 +441,29 @@ export default function UserDashboard() {
           </div>
 
           <div className='flex-1'>
-            {/* Dev logging for partial data issues - no user warning */}
-            {userBookingsData?.errorInfo?.hasErrors && (
-              devLog.warn('Partial bookings data loaded:', {
-                message: userBookingsData.errorInfo.message,
-                failedKeys: userBookingsData.errorInfo.failedKeys,
-                userAddress: address
-              })
+            {hasPartialBookingFailures && (
+              <div role="alert" className="mb-4 rounded-lg border border-amber-400/50 bg-amber-400/10 p-4 text-sm text-amber-100">
+                <p className="font-semibold">Bookings list is incomplete.</p>
+                <p className="mt-1 opacity-80">Some reservations or lab details could not be loaded.</p>
+                {formatLastSuccessfulUpdate(bookingErrorInfo.lastSuccessfulAt) && (
+                  <p className="mt-1 opacity-80">
+                    Last successful update: {formatLastSuccessfulUpdate(bookingErrorInfo.lastSuccessfulAt)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => refetchBookings?.()}
+                  className="mt-2 underline"
+                >
+                  Retry bookings
+                </button>
+              </div>
+            )}
+
+            {hasNoBookings && (
+              <div data-testid="bookings-empty-state" className="mb-4 rounded-lg border border-slate-500/50 p-4 text-sm text-slate-200">
+                No bookings exist.
+              </div>
             )}
             
             <div className='flex xl:flex-row flex-col gap-4 mb-6'>

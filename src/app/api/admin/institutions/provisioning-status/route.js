@@ -32,6 +32,8 @@ const PROVIDER_ENABLED_STAGES = new Set([
 
 const BACKEND_REGISTERED_STAGES = new Set(['BACKEND_REGISTERED', 'ACTIVE'])
 
+const RECONCILIATION_STAGES = new Set(['FAILED', 'RECONCILIATION_REQUIRED'])
+
 function toSafeTransactionHashes(value) {
   if (!Array.isArray(value)) return []
   return value
@@ -45,6 +47,17 @@ async function toStatusRecord(record) {
   const expiresAt = Number(record?.expiresAt)
   const isExpired = Number.isSafeInteger(expiresAt) && expiresAt <= Math.floor(Date.now() / 1000)
   const institutionId = typeof record?.institutionId === 'string' ? record.institutionId : null
+
+  const txHashes = toSafeTransactionHashes(record?.txHashes)
+  const hasOnChainEvidence = txHashes.length > 0
+    || (typeof record?.lastConfirmedStage === 'string' && record.lastConfirmedStage !== 'TOKEN_ISSUED')
+  const requiresReconciliation = RECONCILIATION_STAGES.has(stage)
+    && (stage === 'RECONCILIATION_REQUIRED' || hasOnChainEvidence)
+  const displayStatus = requiresReconciliation ? 'RECONCILIATION_REQUIRED' : status
+  const displayStage = requiresReconciliation ? 'RECONCILIATION_REQUIRED' : stage
+  const confirmedStage = typeof record?.lastConfirmedStage === 'string'
+    ? record.lastConfirmedStage
+    : (RECONCILIATION_STAGES.has(stage) ? null : stage)
 
   return {
     id: typeof record?.jti === 'string' ? record.jti : null,
@@ -60,17 +73,21 @@ async function toStatusRecord(record) {
     consumedAt: typeof record?.consumedAt === 'string' ? record.consumedAt : null,
     startedAt: typeof record?.startedAt === 'string' ? record.startedAt : null,
     updatedAt: typeof record?.updatedAt === 'string' ? record.updatedAt : null,
-    status,
-    stage,
+    status: displayStatus,
+    stage: displayStage,
+    rawStatus: status,
+    rawStage: stage,
     lastConfirmedStage: typeof record?.lastConfirmedStage === 'string' ? record.lastConfirmedStage : null,
     errorCode: typeof record?.errorCode === 'string' ? record.errorCode : null,
-    txHashes: toSafeTransactionHashes(record?.txHashes),
+    txHashes,
     tokenConsumed: Boolean(record?.consumedAt) || stage !== 'TOKEN_ISSUED',
     tokenExpired: !record?.consumedAt && isExpired,
-    walletVerified: WALLET_VERIFIED_STAGES.has(stage),
-    providerEnabled: record?.registrationType === 'provider' && PROVIDER_ENABLED_STAGES.has(stage),
-    backendRegistered: BACKEND_REGISTERED_STAGES.has(stage),
-    canRetry: status === 'FAILED' && !isExpired,
+    walletVerified: WALLET_VERIFIED_STAGES.has(confirmedStage),
+    providerEnabled: record?.registrationType === 'provider' && PROVIDER_ENABLED_STAGES.has(confirmedStage),
+    backendRegistered: BACKEND_REGISTERED_STAGES.has(confirmedStage),
+    canRetry: displayStatus === 'FAILED' && !isExpired,
+    requiresReconciliation,
+    definitiveFailure: displayStatus === 'FAILED' && !requiresReconciliation,
     suspended: institutionId ? await isInstitutionalBackendSuspended(institutionId) : false,
   }
 }

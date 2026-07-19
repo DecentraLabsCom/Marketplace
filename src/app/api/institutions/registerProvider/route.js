@@ -19,9 +19,10 @@ import {
 import {
   ProvisioningReplayError,
   PROVISIONING_SAGA_STAGES,
-  advanceProvisioningSaga,
   startOrResumeProvisioningSaga,
 } from '@/utils/auth/provisioningReplayStore';
+import { recordProvisioningResult as persistProvisioningResult } from '@/utils/auth/provisioningSagaBoundary';
+import { ProvisioningReconciliationRequiredError } from '@/utils/auth/provisioningSagaBoundary';
 import {
   IntentSignerBusyError,
   IntentSignerUnavailableError,
@@ -39,11 +40,7 @@ const PROVISIONING_SIGNER_WAIT_MS = Number.parseInt(
 );
 
 async function recordProvisioningResult(jti, result) {
-  try {
-    await advanceProvisioningSaga(jti, result);
-  } catch (error) {
-    devLog.error('[API] registerProvider: Failed to update provisioning audit', sanitizeErrorForLog(error));
-  }
+  return persistProvisioningResult(jti, result, { operation: 'register-provider' });
 }
 
 /**
@@ -212,7 +209,13 @@ export async function POST(request) {
     // Normalize organization domain to lowercase for consistency
     const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(providerOrganization.trim());
     try {
-      await startOrResumeProvisioningSaga(payload);
+      const saga = await startOrResumeProvisioningSaga(payload);
+      if (saga.record?.stage === PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED) {
+        return NextResponse.json({
+          error: 'Provisioning state requires operational reconciliation before retry',
+          code: 'PROVISIONING_RECONCILIATION_REQUIRED',
+        }, { status: 503 });
+      }
     } catch (error) {
       if (error instanceof ProvisioningReplayError) {
         return NextResponse.json(
@@ -335,7 +338,10 @@ export async function POST(request) {
       }, {
         waitMs: PROVISIONING_SIGNER_WAIT_MS,
         onError: async (error, lease) => {
-          if (!(error instanceof IntentSignerUnavailableError)) {
+          if (
+            !(error instanceof IntentSignerUnavailableError)
+            && !(error instanceof ProvisioningReconciliationRequiredError)
+          ) {
             await recordProvisioningResult(payload.jti, {
               stage: PROVISIONING_SAGA_STAGES.FAILED,
               errorCode: 'PROVISIONING_EXECUTION_FAILED',
@@ -361,6 +367,12 @@ export async function POST(request) {
     }
 
   } catch (error) {
+    if (error instanceof ProvisioningReconciliationRequiredError) {
+      return NextResponse.json({
+        error: 'Provisioning state requires operational reconciliation',
+        code: error.code,
+      }, { status: error.status });
+    }
     devLog.error('[API] registerProvider: Error', sanitizeErrorForLog(error));
     
     // Check for specific contract errors

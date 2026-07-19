@@ -17,12 +17,25 @@ const mockMovements = [];
 
 let accountLoading = false;
 let accountData = mockAccount;
+let accountError = null;
+let accountRefetch = jest.fn();
+let lotsError = null;
+let fundingOrdersError = null;
+let movementsError = null;
+let accountUpdatedAt = Date.now();
 
 jest.mock('@/hooks/billing/useBillingAccount', () => ({
-  useCreditAccountSummary: () => ({ data: accountData, isLoading: accountLoading }),
-  useCreditLots: () => ({ data: mockLots }),
-  useFundingOrders: () => ({ data: mockFundingOrders }),
-  useCreditMovements: () => ({ data: mockMovements }),
+  useCreditAccountSummary: () => ({
+    data: accountData,
+    isLoading: accountLoading,
+    isError: Boolean(accountError),
+    error: accountError,
+    refetch: accountRefetch,
+    dataUpdatedAt: accountUpdatedAt,
+  }),
+  useCreditLots: () => ({ data: mockLots, isError: Boolean(lotsError), error: lotsError, refetch: jest.fn() }),
+  useFundingOrders: () => ({ data: mockFundingOrders, isError: Boolean(fundingOrdersError), error: fundingOrdersError, refetch: jest.fn() }),
+  useCreditMovements: () => ({ data: mockMovements, isError: Boolean(movementsError), error: movementsError, refetch: jest.fn() }),
 }));
 
 import CreditAccountPanel from '../CreditAccountPanel';
@@ -31,6 +44,12 @@ describe('CreditAccountPanel', () => {
   beforeEach(() => {
     accountLoading = false;
     accountData = { ...mockAccount };
+    accountError = null;
+    accountRefetch = jest.fn();
+    lotsError = null;
+    fundingOrdersError = null;
+    movementsError = null;
+    accountUpdatedAt = Date.now();
     mockLots.length = 0;
     mockFundingOrders.length = 0;
     mockMovements.length = 0;
@@ -46,11 +65,34 @@ describe('CreditAccountPanel', () => {
   });
 
   // ── Null account → no render ──────────────────────────────────────────
-  test('renders nothing when account is null', () => {
+  test('explains when no credit account exists instead of disappearing', () => {
     accountData = null;
+    accountError = { status: 404, code: 'CREDIT_ACCOUNT_NOT_FOUND' };
 
-    const { container } = render(<CreditAccountPanel />);
-    expect(container.innerHTML).toBe('');
+    render(<CreditAccountPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('No credit account exists');
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  test('shows an account load error, retry control, and last successful update', () => {
+    accountData = { ...mockAccount };
+    accountError = { status: 502, code: 'BILLING_UNAVAILABLE' };
+    accountUpdatedAt = Date.parse('2026-07-19T10:00:00.000Z');
+
+    render(<CreditAccountPanel />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Credit account could not be loaded');
+    expect(screen.getByText(/Last successful update:/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(accountRefetch).toHaveBeenCalled();
+  });
+
+  test('warns when a secondary credit dataset is incomplete', () => {
+    lotsError = { status: 502 };
+
+    render(<CreditAccountPanel />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Credit account details could not be loaded');
   });
 
   // ── Balance grid ──────────────────────────────────────────────────────

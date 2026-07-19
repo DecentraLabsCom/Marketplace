@@ -50,6 +50,7 @@ const mockUser = {
 let mockUserData = mockUser;
 let mockBookingsData = {
     data: { bookings: mockBookings },
+    meta: { hasPartialFailures: false, lastSuccessfulAt: '2026-07-19T10:00:00.000Z' },
     isLoading: false,
     isError: false,
     error: null
@@ -159,6 +160,7 @@ describe('UserDashboard - Unit Tests', () => {
         mockUserData = mockUser;
         mockBookingsData = {
             data: { bookings: mockBookings },
+            meta: { hasPartialFailures: false, lastSuccessfulAt: '2026-07-19T10:00:00.000Z' },
             isLoading: false,
             isError: false,
             error: null
@@ -198,6 +200,43 @@ describe('UserDashboard - Unit Tests', () => {
     });
 
     describe('Dashboard Render', () => {
+        test('shows a partial-data warning, last successful update, and retry action', async () => {
+            const refetchBookings = jest.fn();
+            mockBookingsData = {
+                data: { bookings: mockBookings },
+                meta: {
+                    hasPartialFailures: true,
+                    message: 'Bookings list is incomplete.',
+                    lastSuccessfulAt: '2026-07-19T10:00:00.000Z',
+                },
+                isLoading: false,
+                isError: false,
+                error: null,
+                refetch: refetchBookings,
+            };
+
+            render(<UserDashboard />);
+
+            expect(screen.getByRole('alert')).toHaveTextContent('Bookings list is incomplete');
+            expect(screen.getByText(/Last successful update:/)).toBeInTheDocument();
+            await userEvent.click(screen.getByRole('button', { name: /retry bookings/i }));
+            expect(refetchBookings).toHaveBeenCalled();
+        });
+
+        test('states explicitly when the user has no bookings', () => {
+            mockBookingsData = {
+                data: { bookings: [] },
+                meta: { hasPartialFailures: false },
+                isLoading: false,
+                isError: false,
+                error: null,
+            };
+
+            render(<UserDashboard />);
+
+            expect(screen.getByTestId('bookings-empty-state')).toHaveTextContent('No bookings exist');
+        });
+
         test('keeps booking query disabled and null-addressed for non-SSO users', async () => {
             mockUserData = {
                 ...mockUser,

@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { sanitizeSessionUserForClient } from '@/utils/auth/publicSessionUser'
+import { createLogoutNonce } from '@/utils/auth/logoutProtection'
 
 /**
  * Retrieves current user session from cookies
@@ -22,5 +23,8 @@ export async function GET() {
   }
 
   const user = sanitizeSessionUserForClient(sessionUser);
-  return NextResponse.json({ user });
+  return NextResponse.json({
+    user,
+    logoutNonce: createLogoutNonce(sessionUser.sessionId),
+  });
 }

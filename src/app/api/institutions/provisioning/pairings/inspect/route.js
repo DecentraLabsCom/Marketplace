@@ -4,11 +4,14 @@ import {
   getProvisioningPairingByChallenge,
   isProvisioningPairingExpired,
 } from '@/utils/auth/provisioningPairingStore';
+import { provisioningPairingRateLimitResponse } from '@/utils/auth/provisioningPairingRateLimit';
 
 export const runtime = 'nodejs';
 
 export async function POST(request) {
   try {
+    const rateLimitResponse = await provisioningPairingRateLimitResponse('inspect', request);
+    if (rateLimitResponse) return rateLimitResponse;
     const { challenge } = await request.json().catch(() => ({}));
     const pairing = await getProvisioningPairingByChallenge(challenge);
     if (!pairing || isProvisioningPairingExpired(pairing)) {

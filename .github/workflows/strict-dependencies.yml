@@ -1,0 +1,25 @@
+name: Strict dependency resolution
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  strict-install:
+    name: Strict peer dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Install without legacy peer resolution
+        run: npm install --strict-peer-deps --legacy-peer-deps=false --ignore-scripts=true
