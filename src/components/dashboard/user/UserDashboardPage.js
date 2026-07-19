@@ -339,18 +339,21 @@ export default function UserDashboard() {
 
   // Simulate user data fetching
   useEffect(() => {
-    if (isLoggedIn && userBookings?.length > 0) {
-      const puc = user?.puc || user?.schacPersonalUniqueCode || address;
-      const affiliation = user?.affiliation || 'Unknown';
-      setUserData({
-        puc,
-        affiliation: affiliation,
-        // Remove labs dependency - user data doesn't need full labs list
-      });
+    if (!isLoggedIn || userBookings.length === 0) {
+      setUserData(null);
+      return;
     }
+
+    const puc = user?.puc || user?.schacPersonalUniqueCode || address;
+    const affiliation = user?.affiliation || 'Unknown';
+    setUserData({
+      puc,
+      affiliation: affiliation,
+      // Remove labs dependency - user data doesn't need full labs list
+    });
   }, [
     isLoggedIn,
-    userBookings?.length,
+    userBookings.length,
     address,
     user?.puc,
     user?.schacPersonalUniqueCode,

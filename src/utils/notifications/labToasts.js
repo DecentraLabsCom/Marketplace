@@ -107,6 +107,6 @@ export const notifyLabCreatorMismatch = (addTemporaryNotification) =>
   notify(
     addTemporaryNotification,
     'error',
-    'No eres el creador de este laboratorio y no tienes permisos para gestionarlo.',
+    'You are not the creator of this lab and do not have permission to manage it.',
     labToastIds.creatorMismatch()
   )
