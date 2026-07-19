@@ -32,7 +32,6 @@ jest.mock("next/navigation", () => ({
 // Mock wagmi hooks used by staking / contract read hooks
 jest.mock('wagmi', () => ({
   useReadContract: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  useConnection: jest.fn(() => ({ chain: { id: 1, name: 'Ethereum' } })),
   useAccount: jest.fn(() => ({ address: '0xProviderAddress', isConnected: true })),
 }));
 
@@ -235,7 +234,10 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
   default: ({ selectedDate, onDateChange, bookingInfo }) => (
     <div data-testid="calendar">
       <div data-testid="booking-count">{bookingInfo.length} bookings</div>
-      <button onClick={() => onDateChange(new Date())}>Change Date</button>
+      <div data-testid="selected-date">{selectedDate.toISOString()}</div>
+      <button onClick={() => onDateChange(new Date("2025-01-02T00:00:00.000Z"))}>
+        Change Date
+      </button>
     </div>
   ),
 }));
@@ -1077,10 +1079,16 @@ describe("ProviderDashboard Component", () => {
 
       const calendar = screen.getByTestId("calendar");
       const dateButton = calendar.querySelector("button");
+      const initiallySelectedDate = screen.getByTestId("selected-date").textContent;
 
       fireEvent.click(dateButton);
 
-      expect(calendar).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("selected-date")).toHaveTextContent(
+          "2025-01-02T00:00:00.000Z"
+        );
+      });
+      expect(screen.getByTestId("selected-date").textContent).not.toBe(initiallySelectedDate);
     });
   });
 });
