@@ -131,6 +131,73 @@ function parseResponseJson(responseText) {
   }
 }
 
+const CHECKIN_ERROR_MESSAGES = Object.freeze({
+  CHECKIN_CONTEXT_MISMATCH: 'The institutional check-in context does not match the requested reservation.',
+  CHECKIN_MANUAL_INTERVENTION: 'The institutional check-in requires manual intervention.',
+  CHECKIN_SIGNER_NOT_AUTHORIZED: 'The institutional signer is not authorized.',
+  CHECKIN_QUEUED: 'The institutional check-in is pending confirmation.',
+  CHECKIN_CONTEXT_PENDING: 'The institutional check-in is pending confirmation.',
+  CHECKIN_FAILED: 'Institutional access authorization failed.',
+  CHECKIN_NOT_FOUND: 'The institutional check-in could not be found.',
+  CHECKIN_DELEGATION_FAILED: 'Institutional access authorization failed.',
+  CHECKIN_DELEGATION_LOOP: 'Institutional access authorization failed.',
+})
+
+const TRANSACTION_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/
+
+function resolvePublicCheckInReason(checkInData) {
+  const candidates = [checkInData?.reason, checkInData?.code, checkInData?.error]
+  return candidates.find((candidate) => (
+    typeof candidate === 'string' && Object.hasOwn(CHECKIN_ERROR_MESSAGES, candidate)
+  )) || null
+}
+
+function publicCheckInFields(checkInData, reason) {
+  const fields = {}
+  if (reason) fields.reason = reason
+  if (typeof checkInData?.retryable === 'boolean') fields.retryable = checkInData.retryable
+  if (typeof checkInData?.queued === 'boolean') fields.queued = checkInData.queued
+  if (typeof checkInData?.reservationKey === 'string' && checkInData.reservationKey.length <= 256) {
+    fields.reservationKey = checkInData.reservationKey
+  }
+  if (typeof checkInData?.txHash === 'string' && TRANSACTION_HASH_PATTERN.test(checkInData.txHash)) {
+    fields.txHash = checkInData.txHash
+  }
+  return fields
+}
+
+function publicRetryAfter(response) {
+  const raw = response.headers?.get?.('retry-after')
+  if (typeof raw !== 'string') return null
+  const value = raw.trim()
+  if (!value || value.length > 128) return null
+  if (/^\d{1,6}$/.test(value)) return value
+  return Number.isFinite(Date.parse(value)) ? value : null
+}
+
+function consumerCheckInFailureResponse(response, responseText) {
+  const checkInData = parseResponseJson(responseText)
+  const reason = resolvePublicCheckInReason(checkInData)
+  const retryAfter = publicRetryAfter(response)
+  const message = CHECKIN_ERROR_MESSAGES[reason] || 'Institutional access authorization failed.'
+
+  devLog.error('Institutional access authorization failed:', {
+    status: response.status,
+    reason,
+    bodyBytes: responseText?.length || 0,
+  })
+
+  return publicErrorResponse({
+    status: Number.isInteger(response.status) ? response.status : 502,
+    code: reason || 'INSTITUTIONAL_CHECKIN_FAILED',
+    message,
+    error: new Error(`Institutional check-in failed (${response.status})`),
+    context: 'auth-lab-access-checkin',
+    headers: retryAfter ? { 'Retry-After': retryAfter } : {},
+    fields: publicCheckInFields(checkInData, reason),
+  })
+}
+
 function isRetryableProviderPending(response, responseText) {
   return response.status === 503 && parseResponseJson(responseText).retryable === true
 }
@@ -318,17 +385,7 @@ export async function POST(req) {
 
     const checkInResponseText = await checkInResponse.text()
     if (!checkInResponse.ok) {
-      devLog.error('Institutional access authorization failed:', {
-        status: checkInResponse.status,
-        bodyBytes: checkInResponseText.length,
-      })
-      return publicErrorResponse({
-        status: Number.isInteger(checkInResponse.status) ? checkInResponse.status : 502,
-        code: 'INSTITUTIONAL_CHECKIN_FAILED',
-        message: 'Institutional access authorization failed.',
-        error: new Error(`Institutional check-in failed (${checkInResponse.status})`),
-        context: 'auth-lab-access-checkin',
-      })
+      return consumerCheckInFailureResponse(checkInResponse, checkInResponseText)
     }
     const checkInData = parseResponseJson(checkInResponseText)
     const canonicalReservationKey = checkInData.reservationKey || reservationKey

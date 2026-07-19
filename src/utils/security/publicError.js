@@ -27,6 +27,7 @@ export function publicErrorResponse({
   error = null,
   context = 'api',
   headers = {},
+  fields = {},
 } = {}) {
   const correlationId = createCorrelationId()
 
@@ -39,7 +40,12 @@ export function publicErrorResponse({
   }
 
   const response = NextResponse.json(
-    { error: message, code, correlationId },
+    {
+      ...(fields && typeof fields === 'object' && !Array.isArray(fields) ? fields : {}),
+      error: message,
+      code,
+      correlationId,
+    },
     { status },
   )
   response.headers?.set?.('X-Correlation-ID', correlationId)

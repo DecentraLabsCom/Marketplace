@@ -211,6 +211,91 @@ describe('/api/auth/lab-access route', () => {
     )
   })
 
+  test.each([
+    {
+      category: 'context mismatch',
+      status: 409,
+      body: {
+        reason: 'CHECKIN_CONTEXT_MISMATCH',
+        retryable: false,
+        reservationKey: '0xabc',
+      },
+    },
+    {
+      category: 'manual intervention',
+      status: 503,
+      body: {
+        reason: 'CHECKIN_MANUAL_INTERVENTION',
+        retryable: true,
+        queued: true,
+        reservationKey: '0xabc',
+        txHash: `0x${'b'.repeat(64)}`,
+      },
+      retryAfter: '9',
+    },
+    {
+      category: 'signer unauthorized',
+      status: 403,
+      body: {
+        error: 'CHECKIN_SIGNER_NOT_AUTHORIZED',
+        retryable: false,
+      },
+    },
+    {
+      category: 'temporary saturation',
+      status: 429,
+      body: {
+        reason: 'CHECKIN_FAILED',
+        retryable: true,
+      },
+      retryAfter: '12',
+    },
+  ])('preserves the structured consumer check-in error for $category', async ({ status, body, retryAfter }) => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('consumer-marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status,
+      headers: new Headers(retryAfter ? { 'Retry-After': retryAfter } : {}),
+      text: async () => JSON.stringify(body),
+    })
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labId: '10',
+        reservationKey: '0xabc',
+        authEndpoint: 'https://gateway.example.com/auth',
+      }),
+    }))
+
+    const expectedReason = body.reason || body.error
+    expect(res.status).toBe(status)
+    await expect(res.json()).resolves.toMatchObject({
+      code: expectedReason,
+      reason: expectedReason,
+      retryable: body.retryable,
+      ...(body.queued === undefined ? {} : { queued: body.queued }),
+      ...(body.reservationKey === undefined ? {} : { reservationKey: body.reservationKey }),
+      ...(body.txHash === undefined ? {} : { txHash: body.txHash }),
+    })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(res.headers.get('Retry-After')).toBe(retryAfter || null)
+  })
+
   test('uses authorize-and-issue once when consumer and provider share a backend', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
