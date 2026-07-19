@@ -879,7 +879,7 @@ describe("ProviderDashboard Component", () => {
         await waitFor(() => {
           expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
             "error",
-            expect.stringContaining("No eres el creador de este laboratorio"),
+            expect.stringContaining("You are not the creator of this lab"),
             null,
             expect.any(Object)
           );
