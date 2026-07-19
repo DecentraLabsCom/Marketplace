@@ -163,7 +163,7 @@ describe("SSO Authentication Flow", () => {
         }).as("getSession");
       });
 
-      cy.intercept("GET", "/api/auth/logout*", (req) => {
+      cy.intercept("POST", "/api/auth/logout*", (req) => {
         loggedOut = true;
         req.reply({ statusCode: 200, body: { success: true } });
       }).as("logout");
@@ -175,7 +175,9 @@ describe("SSO Authentication Flow", () => {
       cy.get("button[aria-label='Logout']").click();
 
       // Should redirect to home and show login button
-      cy.wait("@logout");
+      cy.wait("@logout")
+        .its("request.headers.x-csrf-token")
+        .should("not.be.empty");
       cy.contains("button", /login/i).should("be.visible");
     });
   });
