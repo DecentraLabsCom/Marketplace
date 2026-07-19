@@ -936,17 +936,17 @@ describe("ProviderDashboard Component", () => {
           fireEvent.click(unlistButton);
         });
 
-      await waitFor(() => {
-        expect(mockUnlistLabMutate).toHaveBeenCalledWith(
-          expect.objectContaining({ labId: "1" })
-        );
-        expect(mockAddNotification).toHaveBeenCalledWith(
-          "pending",
-          expect.any(String),
-          expect.objectContaining({ autoHide: false, category: "lab-listing" })
-        );
+        await waitFor(() => {
+          expect(mockUnlistLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ labId: "1" })
+          );
+          expect(mockAddNotification).toHaveBeenCalledWith(
+            "pending",
+            expect.any(String),
+            expect.objectContaining({ autoHide: false, category: "lab-listing" })
+          );
+        });
       });
-    });
 
       test("handles list error", async () => {
         mockLabsData.data = {
