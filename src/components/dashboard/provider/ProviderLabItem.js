@@ -62,8 +62,8 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
             <div className="w-2/3">
                 <Carrousel lab={lab} maxHeight={200} />
             </div>
-            <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
-                <button onClick={onEdit}
+            <div className="h-50 ml-6 flex flex-col flex-1 items-stretch text-white">
+                <button onClick={() => onEdit(lab.id)}
                 disabled={isEditing || isDeleting}
                 className={`relative bg-brand h-1/4 overflow-hidden group hover:font-bold ${isEditing || isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >

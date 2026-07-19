@@ -917,7 +917,10 @@ export default function ProviderDashboard() {
             selectedLabId={selectedLabId}
             isLoading={loading}
             onSelectChange={handleSelectChange}
-            onEdit={() => setIsModalOpen(true)}
+            onEdit={(labId) => {
+              setSelectedLabId(String(labId));
+              setIsModalOpen(true);
+            }}
             onDelete={handleDeleteLab}
             onList={handleList}
             onUnlist={handleUnlist}

@@ -152,7 +152,7 @@ describe("ProviderLabItem", () => {
 
       await user.click(screen.getByRole("button", { name: /edit/i }));
 
-      expect(mockHandlers.onEdit).toHaveBeenCalled();
+      expect(mockHandlers.onEdit).toHaveBeenCalledWith(mockLab.id);
       expect(mockHandlers.onEdit).toHaveBeenCalledTimes(1);
     });
 

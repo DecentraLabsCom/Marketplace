@@ -616,6 +616,23 @@ describe("ProviderDashboard Component", () => {
         expect(screen.getByTestId("modal-lab-id")).toHaveTextContent("1");
       });
 
+      test("selects the lab being edited before opening the modal", async () => {
+        mockLabsData.data = {
+          labs: [
+            { id: "1", name: "First Lab" },
+            { id: "2", name: "Second Lab" },
+          ],
+        };
+
+        renderWithClient(<ProviderDashboard />);
+
+        const editButton = await screen.findByTestId("edit-2");
+        fireEvent.click(editButton);
+
+        expect(await screen.findByTestId("lab-modal")).toBeInTheDocument();
+        expect(screen.getByTestId("modal-lab-id")).toHaveTextContent("2");
+      });
+
       test("triggers update mutation when submitting edit", async () => {
         mockUpdateLabMutate.mockResolvedValueOnce({ success: true });
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
