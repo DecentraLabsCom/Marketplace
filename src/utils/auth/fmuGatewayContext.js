@@ -1,14 +1,19 @@
 import { GatewayValidationError, extractBearerHeader } from '@/utils/api/gatewayProxy'
-import { findFmuContext } from '@/utils/auth/fmuSessionStore'
+import { getOptionalSession } from '@/utils/auth/guards'
+import { createFmuUserBinding, findFmuContext } from '@/utils/auth/fmuSessionStore'
 
 /**
  * Resolve the reservation-scoped FMU capability without requiring the
  * Marketplace SSO session to still exist. Explicit provider bearer tooling is
  * passed through and remains authorized by the Gateway itself.
  */
-export function requireFmuResourceContext(request, params) {
+export async function requireFmuResourceContext(request, params) {
   if (extractBearerHeader(request)) return null
-  const context = findFmuContext(request, params)
+  const marketplaceSession = await getOptionalSession()
+  const userBinding = marketplaceSession
+    ? createFmuUserBinding(marketplaceSession)
+    : undefined
+  const context = findFmuContext(request, { ...params, userBinding })
   if (!context) {
     throw new GatewayValidationError('FMU gateway session is missing or expired', 401)
   }

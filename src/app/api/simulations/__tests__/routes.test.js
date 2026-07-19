@@ -13,7 +13,7 @@ jest.mock('@/utils/dev/logger', () => ({
 }))
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
-  return { ...actual, requireAuth: jest.fn() }
+  return { ...actual, requireAuth: jest.fn(), getOptionalSession: jest.fn() }
 })
 jest.mock('@/utils/api/gatewayProxy', () => {
   class MockGatewayValidationError extends Error {
@@ -32,7 +32,11 @@ jest.mock('@/utils/api/gatewayProxy', () => {
   }
 })
 
-import { FMU_CONTEXT_COOKIE, encodeFmuContexts } from '@/utils/auth/fmuSessionStore'
+import {
+  FMU_CONTEXT_COOKIE,
+  createFmuUserBinding,
+  encodeFmuContexts,
+} from '@/utils/auth/fmuSessionStore'
 
 let gatewayProxy
 let authGuards
@@ -40,6 +44,7 @@ let authGuards
 async function setupAuthenticatedUser() {
   authGuards = await import('@/utils/auth/guards')
   authGuards.requireAuth.mockResolvedValue({ id: 'user-1' })
+  authGuards.getOptionalSession.mockResolvedValue(null)
 }
 
 function buildUrl(base, routePath, query = null) {
@@ -192,6 +197,37 @@ describe('POST /api/simulations/run', () => {
     expect(global.fetch.mock.calls[0][1].headers.Cookie).toBe(
       'FMU_SESSION=session_identifier_aaaaaaaa',
     )
+  })
+
+  test('rejects an old capability when another Marketplace user is active', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'completed' }),
+    })
+    authGuards.getOptionalSession.mockResolvedValueOnce({ id: 'user-2' })
+    gatewayProxy.extractBearerHeader.mockReturnValue(null)
+    const { encoded } = encodeFmuContexts([], {
+      labId: '42',
+      reservationKey: '0xabc',
+      gatewayOrigin: 'https://gw.example.com',
+      resourceSessionId: 'session_identifier_aaaaaaaa',
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
+    })
+
+    const request = new Request('http://localhost/api/simulations/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}`,
+      },
+      body: JSON.stringify({ labId: '42', reservationKey: '0xabc' }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(401)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   test('forwards gateway error status', async () => {

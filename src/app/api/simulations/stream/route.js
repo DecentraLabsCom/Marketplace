@@ -28,7 +28,7 @@ export async function POST(request) {
     }
 
     const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
-    const resourceContext = requireFmuResourceContext(request, {
+    const resourceContext = await requireFmuResourceContext(request, {
       labId,
       reservationKey,
       gatewayOrigin: gatewayBaseUrl,

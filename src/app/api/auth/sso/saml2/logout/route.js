@@ -8,6 +8,7 @@ import { cookies } from 'next/headers'
 import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
 import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
+import { consumeSamlLogoutRequestId } from '@/utils/auth/samlLogoutReplayStore'
 import { createIdentityProvider, createServiceProvider } from '@/utils/auth/sso'
 import {
   decodeSamlLogoutRequest,
@@ -91,6 +92,7 @@ export async function POST(request) {
       identityProvider,
       responseOptions,
     )
+    if (!await consumeSamlLogoutRequestId(requestId)) return invalidRequest()
 
     const cookieStore = await cookies()
     await revokeFmuContexts(cookieStore)

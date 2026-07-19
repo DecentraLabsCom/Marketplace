@@ -11,7 +11,6 @@ describe('browserCredentialMarker', () => {
     stableUserId: 'stable-user',
     institutionId: 'example.edu',
   }
-  const storageKey = 'institutional_browser_passkey:example.edu:stable-user'
 
   beforeEach(() => {
     window.localStorage.clear()

@@ -6,6 +6,7 @@ import { requireAuth } from '@/utils/auth/guards'
 import {
   FMU_CONTEXT_COOKIE,
   createFmuUserBinding,
+  encodeFmuContexts,
   readFmuContexts,
 } from '@/utils/auth/fmuSessionStore'
 import {
@@ -113,6 +114,44 @@ describe('POST /api/auth/fmu-session', () => {
 
     expect(response.status).toBe(400)
     expect(gatewayFetch).not.toHaveBeenCalled()
+  })
+
+  test('replaces an inherited capability with the capability of the active user', async () => {
+    const inherited = encodeFmuContexts([], {
+      labId: '42',
+      reservationKey: '0xaaa',
+      gatewayOrigin: 'https://lite.lab.example',
+      resourceSessionId: 'session_identifier_aaaaaaaa',
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
+    })
+    requireAuth.mockResolvedValue({ id: 'user-2' })
+    const { POST } = await import('../route')
+
+    const response = await POST(new Request('https://marketplace.example.com/api/auth/fmu-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: `${FMU_CONTEXT_COOKIE}=${inherited.encoded}`,
+      },
+      body: JSON.stringify({
+        accessCode: 'opaque-code',
+        labId: '43',
+        reservationKey: '0xbbb',
+      }),
+    }))
+
+    expect(response.status).toBe(200)
+    const encoded = response.headers.get('set-cookie').match(/marketplace_fmu_contexts=([^;]+)/)?.[1]
+    const storedRequest = new Request('https://marketplace.example.com/api/simulations/history', {
+      headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
+    })
+    expect(readFmuContexts(storedRequest)).toEqual([
+      expect.objectContaining({
+        reservationKey: '0xbbb',
+        userBinding: createFmuUserBinding({ id: 'user-2' }),
+      }),
+    ])
   })
 
   test('rejects a malformed gateway session identifier', async () => {

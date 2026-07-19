@@ -13,7 +13,17 @@ jest.mock('@/utils/auth/samlTransactionStore', () => ({
   consumeSamlAssertionId: jest.fn(),
 }))
 
+jest.mock('next/headers', () => ({
+  cookies: jest.fn(),
+}))
+
+jest.mock('@/utils/auth/reconcileFmuContexts', () => ({
+  reconcileFmuContextsForSession: jest.fn(),
+}))
+
 import { createIdentityProvider, createServiceProvider, createSession, parseSAMLResponse } from '@/utils/auth/sso'
+import { cookies } from 'next/headers'
+import { reconcileFmuContextsForSession } from '@/utils/auth/reconcileFmuContexts'
 import {
   consumeSamlAssertionId,
   consumeSamlLoginTransaction,
@@ -25,9 +35,13 @@ import { GET } from '../login/route'
 const encodeResponse = (xml) => Buffer.from(xml, 'utf8').toString('base64')
 
 describe('SAML routes', () => {
+  const cookieStore = { get: jest.fn() }
+
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.NEXT_PUBLIC_BASE_URL = 'https://market.example'
+    cookies.mockResolvedValue(cookieStore)
+    reconcileFmuContextsForSession.mockResolvedValue(undefined)
   })
 
   test('stores an AuthnRequest and an unguessable RelayState before redirecting', async () => {
@@ -75,6 +89,14 @@ describe('SAML routes', () => {
     })
     expect(consumeSamlAssertionId).toHaveBeenCalledWith('_assertion-1')
     expect(createSession).toHaveBeenCalledWith(response, { id: 'user-1', email: 'user@example.com' })
+    expect(response.headers.get('location')).toBe(
+      'https://market.example/api/auth/sso/saml2/complete',
+    )
+    expect(reconcileFmuContextsForSession).toHaveBeenCalledWith(
+      response,
+      cookieStore,
+      { id: 'user-1', email: 'user@example.com' },
+    )
   })
 
   test('rejects a replayed or uncorrelated SAML response before parsing identity claims', async () => {

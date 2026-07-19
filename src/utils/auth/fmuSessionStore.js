@@ -103,14 +103,18 @@ export function encodeFmuContexts(existing, context) {
   if (!/^[A-Za-z0-9_-]{16,512}$/.test(contexts[0].resourceSessionId)) {
     throw new Error('A valid FMU resource session is required for storage')
   }
-  contexts = contexts.slice(0, MAX_CONTEXTS)
-  let encoded = encrypt(contexts)
-  while (encoded.length > MAX_COOKIE_LENGTH && contexts.length > 1) {
-    contexts.pop()
-    encoded = encrypt(contexts)
+  return encodeFmuContextList(contexts)
+}
+
+export function encodeFmuContextList(contexts) {
+  let normalizedContexts = activeContexts(contexts).slice(0, MAX_CONTEXTS)
+  let encoded = encrypt(normalizedContexts)
+  while (encoded.length > MAX_COOKIE_LENGTH && normalizedContexts.length > 1) {
+    normalizedContexts = normalizedContexts.slice(0, -1)
+    encoded = encrypt(normalizedContexts)
   }
   if (encoded.length > MAX_COOKIE_LENGTH) throw new Error('FMU session context exceeds cookie limits')
-  return { encoded, contexts }
+  return { encoded, contexts: normalizedContexts }
 }
 
 export function findFmuContext(request, { labId, reservationKey, gatewayOrigin, userBinding }) {

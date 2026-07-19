@@ -3,7 +3,9 @@
  * Processes SAML response and creates user session
  */
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
+import { reconcileFmuContextsForSession } from '@/utils/auth/reconcileFmuContexts'
 import { MAX_SAML_FORM_BYTES, extractSamlResponseIdentifiers } from '@/utils/auth/samlResponseSecurity'
 import { consumeSamlAssertionId, consumeSamlLoginTransaction } from '@/utils/auth/samlTransactionStore'
 
@@ -66,7 +68,9 @@ export async function POST(request) {
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
-      const response = NextResponse.redirect(`${baseUrl}/userdashboard?sso_login=1`, 303)
+      const response = NextResponse.redirect(`${baseUrl}/api/auth/sso/saml2/complete`, 303)
+      const cookieStore = await cookies()
+      await reconcileFmuContextsForSession(response, cookieStore, userData)
       await createSession(response, userData)
       return response
     } catch {

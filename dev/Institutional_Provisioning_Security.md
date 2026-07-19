@@ -16,7 +16,19 @@ This exception applies only to issuing and applying an institutional registratio
 
 The token's `institutionId` is derived only from the verified SAML session. Organization values sent by the browser are ignored.
 
-Before issuing a token, Marketplace shows the verified institution identifier, wallet, exact canonical backend origin and registration type, and requires an explicit acknowledgement. The backend origin is a root of trust: it is registered on-chain, is the token audience, and is the only metadata origin granted automatically for that institutional association. Sibling and child subdomains are not inferred from `institutionId`.
+## Institutional pairing
+
+Registration uses a short-lived challenge:
+
+1. Marketplace creates a Redis-backed pairing record from the verified SAML institution and registration type. It returns only a random challenge and deployment context.
+2. `blockchain-services` receives the challenge and calls Marketplace server-to-server. It obtains its wallet from `InstitutionalWalletService` and its public origin from `public.base-url`; neither value is read from the browser form.
+3. The backend signs an EIP-712 `InstitutionProvisioningPairing` declaration covering the institution, wallet, canonical backend origin, registration type, chain, registry contract, challenge, and timestamps.
+4. Marketplace validates the challenge, deployment values, signature, and recovered signer, then shows the wallet and backend origin read-only to the SSO user.
+5. The SSO user approves the read-only pairing. Marketplace issues the final provisioning token from the approved pairing, and the backend retrieves it using the original challenge and completes registration.
+
+The backend origin is a root of trust: it is registered on-chain, is the token audience, and is the only metadata origin granted automatically for that institutional association. Sibling and child subdomains are not inferred from `institutionId`. Pairing records expire, store only a hash of the raw challenge, and cannot be reused after the backend offer or approval state transition.
+
+Pairing TTL is controlled by `PROVISIONING_PAIRING_TTL_SECONDS`, capped at 15 minutes and defaulting to 10 minutes. Redis is mandatory for creating, transitioning, and retrieving pairing records.
 
 ## Signed contract
 
@@ -37,7 +49,7 @@ expiresAt
 
 The EIP-712 domain is `DecentraLabsInstitutionProvisioning`, version `1`, with the claim's `chainId` and `registryContract`. The canonical backend value is an HTTPS origin without credentials, path, query, or fragment. HTTP is accepted only for loopback development origins.
 
-`Lab Gateway/blockchain-services` validates the token against its configured Marketplace, public origin, chain, and Diamond address. It then signs the claims with its custodied institutional wallet. Marketplace recovers the signer and requires an exact match with `walletAddress`; wallet and backend values in the registration request body are ignored.
+`Lab Gateway/blockchain-services` validates the token against its configured Marketplace, public origin, chain, and Diamond address. It signs the pairing claims and later the final provisioning claims with its custodied institutional wallet. Marketplace recovers the signer and requires an exact match with `walletAddress`; wallet and backend values in registration request bodies are ignored.
 
 ## Durable recovery and signer coordination
 
