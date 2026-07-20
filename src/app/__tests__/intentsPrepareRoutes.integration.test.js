@@ -117,7 +117,6 @@ import {
   signIntentMeta,
   getAdminAddress,
   registerIntentOnChain,
-  cancelIntentOnChain,
 } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'

@@ -539,37 +539,35 @@ export default function ProviderDashboard() {
 
       // Ensure UI shows the provided lab name immediately by updating the cache
       try {
-        if (blockchainLabId) {
-          const immediateUpdate = {
-            id: blockchainLabId,
-            labId: blockchainLabId,
-            name: labData.name || undefined,
-            description: labData.description || undefined,
-            image: (labData.images && labData.images[0]) || labData.image || undefined,
-            images: Array.isArray(labData.images) ? labData.images : undefined,
-            price: originalPrice || undefined,
-            timestamp: new Date().toISOString()
-          };
+        const immediateUpdate = {
+          id: blockchainLabId,
+          labId: blockchainLabId,
+          name: labData.name || undefined,
+          description: labData.description || undefined,
+          image: (labData.images && labData.images[0]) || labData.image || undefined,
+          images: Array.isArray(labData.images) ? labData.images : undefined,
+          price: originalPrice || undefined,
+          timestamp: new Date().toISOString()
+        };
 
-          // Update specific lab query
-          queryClient.setQueryData(labQueryKeys.getLab(blockchainLabId), (old) => ({ ...(old || {}), ...immediateUpdate }));
+        // Update specific lab query
+        queryClient.setQueryData(labQueryKeys.getLab(blockchainLabId), (old) => ({ ...(old || {}), ...immediateUpdate }));
 
-          // Update list of labs if present
-          queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-            if (!Array.isArray(old)) return old;
-            if (isLabIdListCache(old)) {
-              const normalizedId = Number(blockchainLabId);
-              const hasId = old.some((entry) => String(entry) === String(blockchainLabId));
-              if (hasId) return old;
-              return Number.isFinite(normalizedId) ? [normalizedId, ...old] : [blockchainLabId, ...old];
-            }
+        // Update list of labs if present
+        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+          if (!Array.isArray(old)) return old;
+          if (isLabIdListCache(old)) {
+            const normalizedId = Number(blockchainLabId);
+            const hasId = old.some((entry) => String(entry) === String(blockchainLabId));
+            if (hasId) return old;
+            return Number.isFinite(normalizedId) ? [normalizedId, ...old] : [blockchainLabId, ...old];
+          }
 
-            // If lab exists in the list, replace it; otherwise add it to the top
-            const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
-            if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
-            return [{ ...immediateUpdate }, ...old];
-          });
-        }
+          // If lab exists in the list, replace it; otherwise add it to the top
+          const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
+          if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
+          return [{ ...immediateUpdate }, ...old];
+        });
       } catch (err) {
         devLog.warn('Failed to apply immediate lab cache update:', err);
       }
@@ -577,7 +575,7 @@ export default function ProviderDashboard() {
       // Close modal and notify success
       try {
         setIsModalOpen(false);
-        notifyLabCreated(addTemporaryNotification, blockchainLabId || labData?.id);
+        notifyLabCreated(addTemporaryNotification, labData?.id);
       } catch (err) {
         devLog.warn('Failed to close modal or notify success:', err);
       } finally {
