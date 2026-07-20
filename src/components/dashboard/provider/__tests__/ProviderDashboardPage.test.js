@@ -21,7 +21,18 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import ProviderDashboard from "../ProviderDashboardPage";
+import ProviderDashboard, { resolveEffectiveOnchainAccessKey } from "../ProviderDashboardPage";
+
+describe("resolveEffectiveOnchainAccessKey", () => {
+  test("returns an empty string for a missing non-FMU access key", () => {
+    expect(resolveEffectiveOnchainAccessKey({}, 0)).toBe("");
+    expect(resolveEffectiveOnchainAccessKey({ accessKey: null }, 2)).toBe("");
+  });
+
+  test("uses the FMU file name when the FMU access key is missing", () => {
+    expect(resolveEffectiveOnchainAccessKey({ fmuFileName: "model.fmu" }, 1)).toBe("model.fmu");
+  });
+});
 
 // Mock navigation
 const mockPush = jest.fn();

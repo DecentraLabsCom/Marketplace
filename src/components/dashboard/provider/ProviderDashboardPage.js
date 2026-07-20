@@ -59,12 +59,12 @@ import {
   notifyLabUpdateFailed,
 } from '@/utils/notifications/labToasts'
 
-const resolveEffectiveOnchainAccessKey = (lab, resourceTypeCode) => {
+export const resolveEffectiveOnchainAccessKey = (lab, resourceTypeCode) => {
   const accessKey = lab?.accessKey
   if (accessKey !== undefined && accessKey !== null && String(accessKey).trim()) {
     return accessKey
   }
-  return resourceTypeCode === 1 ? (lab?.fmuFileName || '') : accessKey
+  return resourceTypeCode === 1 ? (lab?.fmuFileName || '') : ''
 }
 
 const extractLocalMetadataUri = (uri) => {
