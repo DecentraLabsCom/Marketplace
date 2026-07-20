@@ -403,6 +403,7 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
+    // Regression guard: staking controls were intentionally removed from the provider runtime.
     test("does not render removed staking controls in the provider runtime", () => {
       renderWithClient(<ProviderDashboard />);
 
@@ -410,6 +411,7 @@ describe("ProviderDashboard Component", () => {
       expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
 
+    // Regression guard: removed staking controls must remain absent for SSO users as well.
     test("does not render removed staking controls for SSO users", () => {
       mockUserData.isSSO = true;
       renderWithClient(<ProviderDashboard />);
