@@ -913,7 +913,7 @@ export default function ProviderDashboard() {
       setListingProgressNotification(actionKey, 'Listing lab...');
       setOptimisticListingState(String(labId), true, true);
 
-      // ?Ys? Use React Query mutation for lab listing
+      // Use React Query mutation for lab listing
       await listLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (still keep new state)
@@ -949,7 +949,7 @@ export default function ProviderDashboard() {
       setListingProgressNotification(labId, 'Unlisting lab...');
       setOptimisticListingState(String(labId), false, true);
 
-      // ?Ys? Use React Query mutation for lab unlisting
+      // Use React Query mutation for lab unlisting
       await unlistLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (keep new state)
