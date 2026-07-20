@@ -4,6 +4,7 @@
  * Institutional booking mutations route through backend-managed reservation intents.
  * Customer wallet mutation variants have been removed.
  */
+import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -433,12 +434,20 @@ export const useReservationRequest = (options = {}) => {
 export const useCancelReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
-  const [abortController] = [new AbortController()];
+  const abortControllerRef = useRef(null);
   const { institutionBackendUrl } = useUser();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   return useMutation({
     mutationFn: async (reservationInput) => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
       const normalizedInput = normalizeReservationMutationInput(reservationInput);
       const reservationKey = normalizedInput.reservationKey;
       if (!institutionBackendUrl) {
@@ -488,18 +497,21 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         }
 
         if (intentId) {
+          const abortController = abortControllerRef.current;
           (async () => {
             try {
               const result = await pollIntentStatus(intentId, {
                 backendUrl: data?.backendUrl || institutionBackendUrl,
-                signal: abortController.signal,
+                signal: abortController?.signal,
               });
+              if (abortController?.signal.aborted) return;
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
 
               if (status === 'executed') {
-                await assertInstitutionIntentExecuted(intentId, result, { signal: abortController.signal });
+                await assertInstitutionIntentExecuted(intentId, result, { signal: abortController?.signal });
+                if (abortController?.signal.aborted) return;
                 updateBooking(reservationKey, {
                   reservationKey,
                   isIntentPending: false,
@@ -562,6 +574,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 }
               }
             } catch (err) {
+              if (abortController?.signal.aborted) return;
               devLog.error('Polling cancel intent failed:', err);
               queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
               invalidateAllBookings();

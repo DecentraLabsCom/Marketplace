@@ -90,5 +90,5 @@ export async function cleanupLabStorage({ labId, metadataUri } = {}) {
   const urls = [...new Set([...assetUrls, ...metadataUrls])]
   if (urls.length > 0) await del(urls)
 
-  return { storage: 'blob', removed: urls.map((url) => url) }
+  return { storage: 'blob', removed: urls }
 }

@@ -18,6 +18,7 @@ jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
 
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import pollIntentStatus from '@/utils/intents/pollIntentStatus';
 import {
   useCancelReservationRequest,
   useCancelReservationRequestSSO,
@@ -93,6 +94,47 @@ describe('institutional cancellation mutations', () => {
     expect(updateBooking).toHaveBeenCalled();
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-csso-1', expect.objectContaining({ status: 'cancel-requested' }));
     expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-csso-1');
+  });
+
+  test('aborts intent polling when the hook unmounts', async () => {
+    let resolvePoll;
+    pollIntentStatus.mockImplementationOnce(
+      () => new Promise((resolve) => { resolvePoll = resolve; }),
+    );
+    const updateBooking = jest.fn();
+    const invalidateAllBookings = jest.fn();
+    mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-abort',
+          authorizationSessionId: 'session-abort',
+          backendUrl: 'https://institution.example',
+          intent: { meta: { requestId: 'req-abort' }, payload: {} },
+        }),
+    });
+
+    const { wrapper } = createWrapper();
+    const { result, unmount } = renderHook(() => useCancelReservationRequestSSO(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('rk-abort-1');
+    });
+
+    const [, pollOptions] = pollIntentStatus.mock.calls[0];
+    expect(pollOptions.signal.aborted).toBe(false);
+
+    unmount();
+    expect(pollOptions.signal.aborted).toBe(true);
+
+    resolvePoll({ status: 'executed' });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(invalidateAllBookings).not.toHaveBeenCalled();
   });
 
   test('useCancelReservationRequest delegates to the institutional path', async () => {

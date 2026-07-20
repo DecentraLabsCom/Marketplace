@@ -23,7 +23,7 @@ function toBigInt(value) {
   if (typeof value === 'number') return BigInt(value)
   if (typeof value === 'string') {
     try {
-      return value.startsWith('0x') ? BigInt(value) : BigInt(value)
+      return BigInt(value)
     } catch {
       return 0n
     }
