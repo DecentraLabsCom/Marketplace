@@ -29,4 +29,15 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/npm install --strict-peer-deps/);
     expect(workflow).toMatch(/--legacy-peer-deps=false/);
   });
+
+  test('keeps the BFCache audit non-blocking for dynamically rendered documents', () => {
+    const lighthouseConfig = JSON.parse(
+      readRepositoryFile('.github/lighthouse/lighthouserc.json'),
+    );
+
+    expect(lighthouseConfig.ci.assert.assertions['bf-cache']).toEqual([
+      'warn',
+      { minScore: 0.9 },
+    ]);
+  });
 });
