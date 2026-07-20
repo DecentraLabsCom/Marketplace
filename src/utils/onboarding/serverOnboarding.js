@@ -3,10 +3,8 @@ import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
-import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
-import { getBaseUrl } from '@/utils/env/baseUrl'
 import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 
 export class OnboardingContextError extends Error {
@@ -41,7 +39,6 @@ export async function getOnboardingContext({ includeBackend = true } = {}) {
     throw new OnboardingContextError('Cannot determine stable user ID from session', 400, 'MISSING_USER_ID')
   }
 
-  const unsignedCallbackUrl = `${getBaseUrl()}/api/onboarding/callback`
   const payload = {
     stableUserId,
     stableUserIdMode: getStableUserIdModeFromSession(session),
@@ -52,7 +49,6 @@ export async function getOnboardingContext({ includeBackend = true } = {}) {
       role: session.role,
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
     }),
-    callbackUrl: buildSignedOnboardingCallbackUrl(unsignedCallbackUrl, { stableUserId, institutionId }),
   }
   if (session.samlAssertion) {
     payload.assertionReference = `sha256:${computeAssertionHash(session.samlAssertion)}`

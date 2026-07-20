@@ -158,6 +158,25 @@ export const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 })
 
+export const cancelPreparedIntent = async (prepareData) => {
+  const requestId = resolveIntentRequestId(prepareData)
+  const authorizationSessionId = resolveAuthorizationInfo(prepareData).authorizationSessionId
+  if (!requestId || !authorizationSessionId || typeof window === 'undefined') return null
+
+  try {
+    const response = await fetch(`/api/backend/intents/${encodeURIComponent(requestId)}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ authorizationSessionId }),
+      keepalive: true,
+    })
+    return await response.json().catch(() => ({}))
+  } catch {
+    return null
+  }
+}
+
 const writePendingAuthorizationDocument = (popup) => {
   try {
     if (!popup || popup.closed || !popup.document) return

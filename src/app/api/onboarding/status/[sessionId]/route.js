@@ -1,8 +1,8 @@
 /**
  * API Route: GET /api/onboarding/status/[sessionId]
  * 
- * Checks the local callback cache and, while awaiting a callback, relays the
- * institutional status through the authenticated same-origin boundary.
+ * Relays the institutional status through the authenticated same-origin
+ * boundary. The institutional backend is the source of truth.
  * 
  * @module app/api/onboarding/status/[sessionId]
  */
@@ -10,7 +10,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
-import { getOnboardingResult } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 import { toPublicOnboardingResult } from '@/utils/onboarding/publicResult'
@@ -22,11 +21,11 @@ const checkRate = createRateLimiter({ operation: 'onboarding-status', windowMs: 
 
 /**
  * GET /api/onboarding/status/[sessionId]
- * Checks onboarding session status from local callback cache
+ * Checks onboarding session status from the institutional backend
  * 
  * @param {Request} request - HTTP request
  * @param {Object} context - Route context with params
- * @returns {Response} Session status from callback cache
+ * @returns {Response} Session status from the institutional backend
  */
 export async function GET(request, { params }) {
   try {
@@ -51,15 +50,6 @@ export async function GET(request, { params }) {
 
     const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
     if (rateLimitResponse) return rateLimitResponse
-
-    devLog.log('[Onboarding/Status] Checking local cache for session:', sessionId)
-
-    // Check local callback cache
-    const localResult = getOnboardingResult(`session:${sessionId}`)
-    if (localResult) {
-      devLog.log('[Onboarding/Status] Found result in local cache')
-      return NextResponse.json(toPublicOnboardingResult(localResult, 'callback'))
-    }
 
     const context = await getOnboardingContext()
     const upstream = await institutionalBackendFetch(

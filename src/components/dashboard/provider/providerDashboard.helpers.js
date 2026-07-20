@@ -1,6 +1,31 @@
 import getBaseUrl from '@/utils/env/baseUrl'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 
+export const LAB_CREATION_STAGES = Object.freeze({
+  DRAFT: 'DRAFT',
+  CONTENT_STAGED: 'CONTENT_STAGED',
+  ONCHAIN_PENDING: 'ONCHAIN_PENDING',
+  ACTIVE: 'ACTIVE',
+})
+
+const LAB_CREATION_TRANSITIONS = Object.freeze({
+  [`${LAB_CREATION_STAGES.DRAFT}:contentStaged`]: LAB_CREATION_STAGES.CONTENT_STAGED,
+  [`${LAB_CREATION_STAGES.CONTENT_STAGED}:onchainPending`]: LAB_CREATION_STAGES.ONCHAIN_PENDING,
+  [`${LAB_CREATION_STAGES.ONCHAIN_PENDING}:contentActivated`]: LAB_CREATION_STAGES.ACTIVE,
+})
+
+export function advanceLabCreationStage(stage, event) {
+  const next = LAB_CREATION_TRANSITIONS[`${stage}:${event}`]
+  if (!next) {
+    throw new Error(`Invalid lab creation transition: ${stage} -> ${event}`)
+  }
+  return next
+}
+
+export function shouldCompensateLabCreation(stage) {
+  return stage === LAB_CREATION_STAGES.ONCHAIN_PENDING
+}
+
 export function createEmptyLabDraft() {
   return {
     name: '',

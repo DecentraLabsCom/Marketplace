@@ -80,6 +80,7 @@ const mockUnlistLabMutate = jest.fn();
 const mockSaveLabDataMutate = jest.fn();
 const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
+const mockDeleteFileMutate = jest.fn();
 
 const expectTempNotificationCall = (status, messageMatcher) => {
   expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
@@ -146,7 +147,9 @@ jest.mock("@/hooks/booking/useBookings", () => ({
 jest.mock("@/hooks/provider/useProvider", () => ({
   useSaveLabData: () => ({ mutateAsync: mockSaveLabDataMutate }),
   useDeleteLabData: () => ({ mutateAsync: mockDeleteLabDataMutate }),
+  useCleanupLabData: () => ({ mutateAsync: jest.fn().mockResolvedValue({}) }),
   useMoveFiles: () => ({ mutateAsync: mockMoveFilesMutate }),
+  useDeleteFile: () => ({ mutateAsync: mockDeleteFileMutate }),
 }));
 
 // Component mocks
@@ -813,7 +816,7 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("deletes lab successfully", async () => {
-        mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
+        mockDeleteLabMutate.mockResolvedValueOnce({ success: true, status: "executed" });
 
         renderWithClient(<ProviderDashboard />);
 
@@ -844,7 +847,7 @@ describe("ProviderDashboard Component", () => {
       test("passes backendUrl in SSO delete payload", async () => {
         mockUserData.isSSO = true;
         mockUserData.institutionBackendUrl = "https://institution.example";
-        mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
+        mockDeleteLabMutate.mockResolvedValueOnce({ success: true, status: "executed" });
 
         renderWithClient(<ProviderDashboard />);
 

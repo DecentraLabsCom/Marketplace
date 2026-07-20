@@ -89,7 +89,6 @@ export function useInstitutionalOnboarding({
   
   const pollControllerRef = useRef(null)
   const pollStartTimeRef = useRef(null)
-  const eventSourceRef = useRef(null)
   const awaitCompletionRef = useRef(null)
   const sessionDataRef = useRef(null)
 
@@ -109,7 +108,7 @@ export function useInstitutionalOnboarding({
 
   /**
    * Check if user needs onboarding.
-   * Uses browser-direct call to IB to bypass firewall restrictions.
+   * Uses the authenticated same-origin Marketplace proxy.
    */
   const checkOnboardingStatus = useCallback(async () => {
     if (!isSSO || !user) {
@@ -366,7 +365,7 @@ export function useInstitutionalOnboarding({
 
   /**
    * Poll for onboarding completion
-   * Uses browser-direct calls to IB to bypass firewall restrictions
+   * Uses the authenticated Marketplace status proxy and backend polling contract.
    */
   const pollForCompletion = useCallback(async (session = sessionData) => {
     if (!session?.sessionId || !session?.backendUrl) {
@@ -385,34 +384,8 @@ export function useInstitutionalOnboarding({
         }
 
         try {
-          // First check local callback cache (this is fast and doesn't hit IB)
-          const localUrl = new URL(`/api/onboarding/status/${session.sessionId}`, window.location.origin)
-          localUrl.searchParams.set('checkLocal', 'true')
-
-          const localResponse = await fetch(localUrl.toString(), { credentials: 'include' })
-          const localData = await localResponse.json()
-
-          // If we got a definitive result from callback cache, use it
-          if (localData.source === 'callback') {
-            if (localData.status === 'SUCCESS' || localData.status === 'COMPLETED') {
-              markBrowserCredentialSeen(session)
-              setState(OnboardingState.COMPLETED)
-              setIsOnboarded(true)
-              setSessionData(null)
-              sessionStorage.removeItem('onboarding_session')
-              return { success: true, ...localData }
-            }
-
-            if (localData.status === 'FAILED' || localData.status === 'EXPIRED') {
-              setState(OnboardingState.FAILED)
-              setError(localData.error || 'Onboarding failed')
-              return { success: false, ...localData }
-            }
-          }
-
-          // The same route checks the local callback cache and securely relays
-          // pending status to the authenticated institutional backend.
-          const ibResponse = await fetch(localUrl.toString(), {
+          const statusUrl = new URL(`/api/onboarding/status/${session.sessionId}`, window.location.origin)
+          const ibResponse = await fetch(statusUrl.toString(), {
             credentials: 'include',
             signal: pollControllerRef.current?.signal,
           })
@@ -466,93 +439,7 @@ export function useInstitutionalOnboarding({
       pollControllerRef.current = null
     }
 
-    if (eventSourceRef.current) {
-      try {
-        eventSourceRef.current.close()
-      } catch {
-        // ignore
-      }
-      eventSourceRef.current = null
-    }
   }, [])
-
-  const listenForCompletionViaSSE = useCallback(async (session) => {
-    if (!session?.sessionId) return null
-    if (typeof window === 'undefined') return null
-    if (typeof EventSource === 'undefined') return null
-
-    return new Promise((resolve, reject) => {
-      try {
-        const url = new URL('/api/onboarding/events', window.location.origin)
-        url.searchParams.set('sessionId', session.sessionId)
-        if (session.stableUserId) url.searchParams.set('stableUserId', session.stableUserId)
-        if (session.institutionId) url.searchParams.set('institutionId', session.institutionId)
-
-        const es = new EventSource(url.toString())
-        eventSourceRef.current = es
-
-        const timeoutHandle = setTimeout(() => {
-          try {
-            es.close()
-          } catch {
-            // ignore
-          }
-          eventSourceRef.current = null
-          resolve(null)
-        }, pollTimeout)
-
-        const cleanup = () => {
-          clearTimeout(timeoutHandle)
-        }
-
-        es.addEventListener('onboarding', (evt) => {
-          try {
-            const data = JSON.parse(evt.data || '{}')
-            const status = data?.status
-
-            if (status === 'SUCCESS' || status === 'COMPLETED') {
-              cleanup()
-              try {
-                es.close()
-              } catch {
-                // ignore
-              }
-              eventSourceRef.current = null
-              resolve({ success: true, ...data })
-              return
-            }
-
-            if (status === 'FAILED' || status === 'EXPIRED') {
-              cleanup()
-              try {
-                es.close()
-              } catch {
-                // ignore
-              }
-              eventSourceRef.current = null
-              resolve({ success: false, ...data })
-              return
-            }
-          } catch (err) {
-            devLog.warn('[useInstitutionalOnboarding] SSE parse error:', err)
-          }
-        })
-
-        es.onerror = (err) => {
-          cleanup()
-          try {
-            es.close()
-          } catch {
-            // ignore
-          }
-          eventSourceRef.current = null
-          reject(err)
-        }
-      } catch (err) {
-        reject(err)
-      }
-    })
-  }, [pollTimeout])
 
   const awaitCompletion = useCallback(async (session = sessionData) => {
     if (!session?.sessionId || !session?.backendUrl) {
@@ -560,29 +447,8 @@ export function useInstitutionalOnboarding({
       return null
     }
 
-    setState(OnboardingState.POLLING)
-
-    try {
-      const sseResult = await listenForCompletionViaSSE(session)
-      if (sseResult) {
-        if (sseResult.success) {
-          markBrowserCredentialSeen(session)
-          setState(OnboardingState.COMPLETED)
-          setIsOnboarded(true)
-          setSessionData(null)
-          sessionStorage.removeItem('onboarding_session')
-        } else {
-          setState(OnboardingState.FAILED)
-          setError(sseResult.error || 'Onboarding failed')
-        }
-        return sseResult
-      }
-    } catch (err) {
-      devLog.warn('[useInstitutionalOnboarding] SSE unavailable, falling back to polling:', err)
-    }
-
     return pollForCompletion(session)
-  }, [listenForCompletionViaSSE, pollForCompletion, markBrowserCredentialSeen]) // Removed sessionData to prevent infinite loop
+  }, [pollForCompletion])
 
   awaitCompletionRef.current = awaitCompletion
 

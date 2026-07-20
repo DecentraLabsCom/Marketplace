@@ -1,15 +1,28 @@
 jest.mock('@/utils/env/baseUrl', () => jest.fn(() => 'https://market.example.com/'))
 
 import {
+  LAB_CREATION_STAGES,
+  advanceLabCreationStage,
   buildProviderLabUri,
   createEmptyLabDraft,
   isLabIdListCache,
   remapMovedLabAssetPaths,
   resolveOnchainLabUri,
   sanitizeProviderNameForUri,
+  shouldCompensateLabCreation,
 } from '../providerDashboard.helpers'
 
 describe('providerDashboard.helpers', () => {
+  test('models the create saga and requires compensation after on-chain confirmation', () => {
+    let stage = LAB_CREATION_STAGES.DRAFT
+    stage = advanceLabCreationStage(stage, 'contentStaged')
+    stage = advanceLabCreationStage(stage, 'onchainPending')
+
+    expect(stage).toBe(LAB_CREATION_STAGES.ONCHAIN_PENDING)
+    expect(shouldCompensateLabCreation(stage)).toBe(true)
+    expect(shouldCompensateLabCreation(LAB_CREATION_STAGES.ACTIVE)).toBe(false)
+  })
+
   test('createEmptyLabDraft returns fresh nested structures', () => {
     const first = createEmptyLabDraft()
     const second = createEmptyLabDraft()

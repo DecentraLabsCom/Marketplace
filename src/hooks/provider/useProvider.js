@@ -312,5 +312,34 @@ export const useDeleteLabData = (options = {}) => {
   });
 };
 
+/**
+ * Hook for cleaning Marketplace-owned metadata and assets after a confirmed
+ * on-chain lab deletion.
+ * POST /api/provider/cleanupLabData
+ */
+export const useCleanupLabData = (options = {}) => {
+  return useMutation({
+    mutationFn: async ({ labId, txHash, metadataUri } = {}) => {
+      if (labId === undefined || labId === null || !txHash) {
+        throw new Error('Lab ID and deletion transaction hash are required');
+      }
+
+      const response = await fetch('/api/provider/cleanupLabData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ labId, txHash, metadataUri }),
+      });
+
+      if (!response.ok) {
+        throw await createApiError(response, `Failed to clean lab storage: ${response.status}`);
+      }
+
+      return response.json();
+    },
+    ...options,
+  });
+};
+
 // Module loaded confirmation (only logs once even in StrictMode)
 devLog.moduleLoaded('✅ Provider atomic hooks loaded');

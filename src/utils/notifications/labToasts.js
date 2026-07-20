@@ -9,6 +9,7 @@ export const labToastIds = {
   createCancelled: () => 'lab-create-cancelled',
   createFilesWarning: (labId) => `lab-create-files-warning:${normalizeLabId(labId)}`,
   createMetadataWarning: (labId) => `lab-create-metadata-warning:${normalizeLabId(labId)}`,
+  createReconciliationRequired: (labId) => `lab-create-reconciliation-required:${normalizeLabId(labId)}`,
   invalidPrice: () => 'lab-invalid-price',
   updateStarted: (labId) => `lab-update-started:${normalizeLabId(labId)}`,
   updated: (labId) => `lab-updated:${normalizeLabId(labId)}`,
@@ -18,7 +19,7 @@ export const labToastIds = {
   noChanges: (labId) => `lab-no-changes:${normalizeLabId(labId)}`,
   deleting: (labId) => `lab-delete-started:${normalizeLabId(labId)}`,
   deleted: (labId) => `lab-deleted:${normalizeLabId(labId)}`,
-  deletedCascadeWarning: (labId) => `lab-delete-cascade-warning:${normalizeLabId(labId)}`,
+  storageCleanupWarning: (labId) => `lab-storage-cleanup-warning:${normalizeLabId(labId)}`,
   deleteFailed: (labId) => `lab-delete-failed:${normalizeLabId(labId)}`,
   listingRequested: (labId) => `lab-list-requested:${normalizeLabId(labId)}`,
   listed: (labId) => `lab-listed:${normalizeLabId(labId)}`,
@@ -44,6 +45,14 @@ export const notifyLabCreatedFilesWarning = (addTemporaryNotification, labId, me
 
 export const notifyLabCreatedMetadataWarning = (addTemporaryNotification, labId, message) =>
   notify(addTemporaryNotification, 'warning', `Lab created but metadata failed to save: ${message}`, labToastIds.createMetadataWarning(labId))
+
+export const notifyLabCreationReconciliationRequired = (addTemporaryNotification, labId, message) =>
+  notify(
+    addTemporaryNotification,
+    'error',
+    `Lab creation requires reconciliation for lab ${normalizeLabId(labId)}: ${message}`,
+    labToastIds.createReconciliationRequired(labId)
+  )
 
 export const notifyLabInvalidPrice = (addTemporaryNotification, message = null) =>
   notify(
@@ -75,14 +84,19 @@ export const notifyLabDeleteStarted = (addTemporaryNotification, labId) =>
   notify(addTemporaryNotification, 'pending', 'Deleting lab...', labToastIds.deleting(labId))
 
 export const notifyLabDeleted = (addTemporaryNotification, labId) =>
-  notify(addTemporaryNotification, 'success', 'Lab deleted!', labToastIds.deleted(labId))
+  notify(
+    addTemporaryNotification,
+    'success',
+    'Lab deleted. Existing reservations were not cancelled automatically.',
+    labToastIds.deleted(labId)
+  )
 
-export const notifyLabDeletedCascadeWarning = (addTemporaryNotification, labId) =>
+export const notifyLabStorageCleanupWarning = (addTemporaryNotification, labId) =>
   notify(
     addTemporaryNotification,
     'warning',
-    'Lab deleted successfully. All associated reservations have been automatically cancelled.',
-    labToastIds.deletedCascadeWarning(labId)
+    'The lab was deleted, but some Marketplace assets could not be cleaned yet.',
+    labToastIds.storageCleanupWarning(labId)
   )
 
 export const notifyLabDeleteFailed = (addTemporaryNotification, labId, message) =>

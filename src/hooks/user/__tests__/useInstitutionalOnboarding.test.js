@@ -29,9 +29,6 @@ Object.defineProperty(window, 'sessionStorage', {
   writable: true,
 })
 
-const mockEventSource = jest.fn()
-global.EventSource = mockEventSource
-
 // Mock UserContext
 const mockUserContext = {
   isSSO: true,
@@ -506,17 +503,16 @@ describe('useInstitutionalOnboarding', () => {
   })
 
   describe('pollForCompletion', () => {
-    it('should poll successfully when callback received', async () => {
+    it('should poll successfully when the backend reports success', async () => {
       const mockSession = {
         sessionId: 'session123',
         backendUrl: 'https://backend.example.com'
       }
 
-      // Local cache check returns success (callback received)
       mockFetch.mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({ 
           status: 'SUCCESS', 
-          source: 'callback',
           data: 'success data' 
         })
       })
@@ -532,31 +528,24 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.isOnboarded).toBe(true)
       expect(result.current.sessionData).toBeNull()
       expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('onboarding_session')
-      expect(pollResult).toEqual({ success: true, status: 'SUCCESS', source: 'callback', data: 'success data' })
+      expect(pollResult).toEqual({ success: true, status: 'SUCCESS', data: 'success data' })
     })
 
-    // Note: This test covers browser-direct IB polling logic.
-    // The polling makes two calls per iteration: local cache check + IB direct.
-    // Manual testing recommended for full flow validation.
-    it('should poll IB directly when no callback received', async () => {
+    it('should continue polling while the backend reports pending', async () => {
       const mockSession = {
         sessionId: 'session123',
         backendUrl: 'https://backend.example.com'
       }
 
-      // Mock fetch behavior: local cache returns PENDING a couple times, then returns callback SUCCESS
-      let localCallCount = 0
+      let callCount = 0
       mockFetch.mockImplementation(async (url, opts) => {
         const u = typeof url === 'string' ? url : (url?.toString?.() || '')
         if (u.includes('/api/onboarding/status')) {
-          localCallCount += 1
-          if (localCallCount < 3) {
-            return { ok: true, json: async () => ({ status: 'PENDING', source: 'local' }) }
+          callCount += 1
+          if (callCount < 3) {
+            return { ok: true, json: async () => ({ status: 'PENDING' }) }
           }
-          return { ok: true, json: async () => ({ status: 'SUCCESS', source: 'callback', data: 'from callback' }) }
-        }
-        if (u.includes('/onboarding/webauthn/status')) {
-          return { ok: true, json: async () => ({ status: 'SUCCESS', data: 'from IB' }) }
+          return { ok: true, json: async () => ({ status: 'SUCCESS', data: 'from backend' }) }
         }
         return { ok: false, status: 404, json: async () => ({}) }
       })
@@ -568,24 +557,21 @@ describe('useInstitutionalOnboarding', () => {
         pollResult = await result.current.pollForCompletion(mockSession)
       })
 
-      // Ensure we completed successfully (either via IB direct check or eventual local callback)
       expect(result.current.state).toBe(OnboardingState.COMPLETED)
       expect(result.current.isOnboarded).toBe(true)
       expect(pollResult).toEqual(expect.objectContaining({ success: true }))
     }, 30000)
 
-    it('should handle polling failure from callback', async () => {
+    it('should handle a polling failure reported by the backend', async () => {
       const mockSession = {
         sessionId: 'session123',
         backendUrl: 'https://backend.example.com'
       }
 
-      // Local cache check returns failed (callback received with failure)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ 
           status: 'FAILED', 
-          source: 'callback',
           error: 'Ceremony failed' 
         })
       })
@@ -599,7 +585,7 @@ describe('useInstitutionalOnboarding', () => {
 
       expect(result.current.state).toBe(OnboardingState.FAILED)
       expect(result.current.error).toBe('Ceremony failed')
-      expect(pollResult).toEqual({ success: false, status: 'FAILED', source: 'callback', error: 'Ceremony failed' })
+      expect(pollResult).toEqual({ success: false, status: 'FAILED', error: 'Ceremony failed' })
     })
 
     it('should handle polling timeout', async () => {
@@ -608,10 +594,9 @@ describe('useInstitutionalOnboarding', () => {
         backendUrl: 'https://backend.example.com'
       }
 
-      // Always return pending from local cache
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ status: 'PENDING', source: 'local' })
+        json: () => Promise.resolve({ status: 'PENDING' })
       })
 
       const { result } = renderHook(() =>

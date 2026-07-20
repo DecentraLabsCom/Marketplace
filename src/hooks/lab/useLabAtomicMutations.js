@@ -17,6 +17,7 @@ import {
   assertInstitutionIntentExecuted,
   createIntentMutationError,
   markBrowserCredentialVerifiedFromIntent,
+  cancelPreparedIntent,
 } from '@/utils/intents/clientFlowShared'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 
@@ -39,6 +40,41 @@ const resolveLabId = (data) => {
     return null;
   }
 };
+
+const resolveMetadataAssetUris = (metadata) => {
+  const attributes = Array.isArray(metadata?.attributes) ? metadata.attributes : []
+  const attributeValue = (traitType) => attributes
+    .find((attribute) => attribute?.trait_type === traitType)?.value
+  const imageUris = [metadata?.image, ...(metadata?.images || []), ...(attributeValue('additionalImages') || [])]
+  const documentUris = attributeValue('docs') || []
+  return {
+    images: [...new Set(imageUris.filter((uri) => typeof uri === 'string' && uri.trim()))],
+    documents: [...new Set(documentUris.filter((uri) => typeof uri === 'string' && uri.trim()))],
+  }
+}
+
+const preflightMetadataAssets = async (labId, metadata) => {
+  const { images, documents } = resolveMetadataAssetUris(metadata)
+  const checks = [
+    ...images.map((uri) => ({ type: 'image', uri })),
+    ...documents.map((uri) => ({ type: 'document', uri })),
+  ]
+
+  const failures = await Promise.all(checks.map(async ({ type, uri }) => {
+    const response = await fetch(
+      `/api/metadata/${type}?labId=${encodeURIComponent(String(labId))}&uri=${encodeURIComponent(uri)}`,
+      { method: 'GET', credentials: 'include', cache: 'no-store' },
+    )
+    return response.ok ? null : { type, uri, status: response.status }
+  }))
+  const failure = failures.find(Boolean)
+  if (failure) {
+    const error = new Error(`Lab ${failure.type} asset is not available for listing`)
+    error.code = 'LAB_METADATA_ASSET_PREFLIGHT_FAILED'
+    error.details = failure
+    throw error
+  }
+}
 
 const updateListingCache = (queryClient, labId, isListed) => {
   if (!queryClient) return;
@@ -95,11 +131,17 @@ async function runActionIntent(action, payload) {
     );
   }
 
-  const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-    backendUrl: prepareData?.backendUrl,
-    presenceFn: payload?.presenceFn,
-  });
-  assertIntentAuthorizationConfirmed(authorizationStatus)
+  let authorizationStatus
+  try {
+    authorizationStatus = await awaitBackendAuthorization(prepareData, {
+      backendUrl: prepareData?.backendUrl,
+      presenceFn: payload?.presenceFn,
+    })
+    assertIntentAuthorizationConfirmed(authorizationStatus)
+  } catch (error) {
+    await cancelPreparedIntent(prepareData)
+    throw error
+  }
   const authorizationRequestId =
     authorizationStatus?.requestId || resolveRequestId(prepareData);
   markBrowserCredentialVerifiedFromIntent(prepareData)
@@ -386,61 +428,53 @@ export const useDeleteLabSSO = (options = {}) => {
         presenceFn,
       });
       devLog.log('useDeleteLabSSO intent (webauthn):', data);
-      return data;
+      const requestId = resolveIntentRequestId(data);
+      const resolvedBackendUrl = data?.backendUrl || backendUrl;
+
+      if (!requestId) {
+        throw new Error('Institution intent did not return requestId');
+      }
+
+      const result = await pollIntentStatus(requestId, {
+        backendUrl: resolvedBackendUrl,
+        signal: input?.abortSignal,
+        maxDurationMs: input?.pollMaxDurationMs,
+        initialDelayMs: input?.pollInitialDelayMs,
+        maxDelayMs: input?.pollMaxDelayMs,
+      });
+      await assertInstitutionIntentExecuted(requestId, result, {
+        signal: input?.abortSignal,
+        fallbackMessage: 'Delete intent not executed',
+      });
+
+      return {
+        ...data,
+        requestId,
+        backendUrl: resolvedBackendUrl,
+        status: result?.status,
+        txHash: result?.txHash,
+      };
     },
     onSuccess: (_data, input) => {
       const { labId } = resolveDeletePayload(input);
       try {
         const requestId = resolveIntentRequestId(_data);
-        const backendUrl = _data?.backendUrl || resolveDeletePayload(input).backendUrl;
-        updateLab(labId, {
-          id: labId,
-          labId: labId,
-          isIntentPending: true,
-          intentRequestId: requestId,
-          intentStatus: 'requested',
-          note: 'Requested to institution',
-          status: 'deleting',
-          timestamp: new Date().toISOString(),
-        });
-
-        if (requestId) {
-          (async () => {
-            try {
-              const result = await pollIntentStatus(requestId, { backendUrl });
-              const status = result?.status;
-              const reason = result?.error || result?.reason;
-
-              if (status === 'executed') {
-                await assertInstitutionIntentExecuted(requestId, result);
-                removeLab(labId);
-              } else if (status === 'failed' || status === 'rejected') {
-                updateLab(labId, {
-                  isIntentPending: false,
-                  intentStatus: status,
-                  intentError: reason,
-                  note: reason || 'Rejected by institution',
-                  status: 'delete-failed',
-                  timestamp: new Date().toISOString(),
-                });
-              }
-            } catch (err) {
-              const reason = err?.message || 'Intent status unavailable';
-              devLog.error('Polling delete intent failed:', err);
-              updateLab(labId, {
-                id: labId,
-                labId,
-                isIntentPending: false,
-                intentStatus: 'unknown',
-                intentError: reason,
-                note: reason,
-                status: 'delete-unknown',
-                timestamp: new Date().toISOString(),
-              });
-              invalidateAllLabs();
-            }
-          })();
+        if (_data?.status !== 'executed') {
+          updateLab(labId, {
+            id: labId,
+            labId,
+            isIntentPending: true,
+            intentRequestId: requestId,
+            intentStatus: 'requested',
+            note: 'Requested to institution',
+            status: 'deleting',
+            timestamp: new Date().toISOString(),
+          });
+          return;
         }
+
+        removeLab(labId);
+
       } catch (error) {
         devLog.error('Failed to mark delete intent:', error);
         invalidateAllLabs();
@@ -465,6 +499,19 @@ export const useListLabSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async ({ labId, backendUrl, presenceFn } = {}) => {
+      const metadataResponse = await fetch(
+        `/api/metadata?labId=${encodeURIComponent(String(labId))}`,
+        { method: 'GET', credentials: 'include', cache: 'no-store' },
+      )
+      const metadataPayload = await metadataResponse.json().catch(() => ({}))
+      if (!metadataResponse.ok) {
+        const error = new Error(metadataPayload?.error || 'Lab metadata is not available for listing')
+        error.code = 'LAB_METADATA_PREFLIGHT_FAILED'
+        error.details = metadataPayload
+        throw error
+      }
+      await preflightMetadataAssets(labId, metadataPayload)
+
       const data = await runActionIntent(ACTION_CODES.LAB_LIST, {
         labId,
         backendUrl,

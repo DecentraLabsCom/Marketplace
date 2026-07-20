@@ -58,6 +58,7 @@ jest.mock('@/utils/intents/adminIntentSigner', () => ({
   signIntentMeta: jest.fn(),
   getAdminAddress: jest.fn(),
   registerIntentOnChain: jest.fn(),
+  cancelIntentOnChain: jest.fn(),
 }))
 
 jest.mock('@/app/api/contract/utils/contractInstance', () => ({
@@ -112,7 +113,12 @@ import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveInte
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
-import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import {
+  signIntentMeta,
+  getAdminAddress,
+  registerIntentOnChain,
+  cancelIntentOnChain,
+} from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
 import {

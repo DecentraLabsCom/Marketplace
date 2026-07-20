@@ -91,11 +91,18 @@ const mockDeleteLabDataMutation = {
   isError: false,
 };
 
+const mockCleanupLabDataMutation = {
+  mutateAsync: jest.fn(() => Promise.resolve({ success: true })),
+  isLoading: false,
+  isError: false,
+};
+
 jest.mock("@/hooks/provider/useProvider", () => ({
   useSaveLabData: jest.fn(() => mockSaveLabDataMutation),
   useUploadFile: jest.fn(() => mockUploadFileMutation),
   useMoveFiles: jest.fn(() => mockMoveFilesMutation),
   useDeleteLabData: jest.fn(() => mockDeleteLabDataMutation),
+  useCleanupLabData: jest.fn(() => mockCleanupLabDataMutation),
   useDeleteFile: jest.fn(() => ({
     mutateAsync: jest.fn(() => Promise.resolve({ success: true })),
     isLoading: false,

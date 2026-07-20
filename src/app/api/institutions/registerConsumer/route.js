@@ -211,21 +211,19 @@ export async function POST(request) {
         }
 
         const writeContract = await getContractInstance('diamond', false);
-        let grantRoleTxHash = null;
+        let provisioningTxHash = null;
         let backendTxHash = null;
         if (needsRoleGrant) {
           await lease.assertActive();
-          const transaction = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
+          const transaction = await writeContract.provisionInstitution(
+            walletAddress, normalizedOrganization, normalizedBackendUrl || '',
+          );
           const receipt = await transaction.wait();
-          grantRoleTxHash = receipt?.hash ?? transaction?.hash;
-          await recordProvisioningResult(payload.jti, {
-            stage: PROVISIONING_SAGA_STAGES.INSTITUTION_ROLE_GRANTED,
-            txHashes: [grantRoleTxHash].filter(Boolean),
-            fencingToken: lease.fencingToken,
-          });
-        }
-
-        if (shouldUpdateBackend) {
+          provisioningTxHash = receipt?.hash ?? transaction?.hash;
+          if (normalizedBackendUrl) {
+            await invalidateInstitutionalBackend(normalizedOrganization);
+          }
+        } else if (shouldUpdateBackend) {
           await lease.assertActive();
           const transaction = await writeContract.adminSetSchacHomeOrganizationBackend(
             walletAddress, normalizedOrganization, normalizedBackendUrl,
@@ -233,14 +231,9 @@ export async function POST(request) {
           const receipt = await transaction.wait();
           backendTxHash = receipt?.hash ?? transaction?.hash;
           await invalidateInstitutionalBackend(normalizedOrganization);
-          await recordProvisioningResult(payload.jti, {
-            stage: PROVISIONING_SAGA_STAGES.BACKEND_REGISTERED,
-            txHashes: [grantRoleTxHash, backendTxHash].filter(Boolean),
-            fencingToken: lease.fencingToken,
-          });
         }
 
-        const txHashes = [grantRoleTxHash, backendTxHash].filter(Boolean);
+        const txHashes = [provisioningTxHash, backendTxHash].filter(Boolean);
         await recordProvisioningResult(payload.jti, {
           stage: PROVISIONING_SAGA_STAGES.ACTIVE,
           txHashes,
@@ -249,9 +242,9 @@ export async function POST(request) {
         return NextResponse.json({
           success: true,
           walletAddress,
-          grantRoleTxHash,
           organization: normalizedOrganization,
           backendUrl: normalizedBackendUrl || null,
+          provisioningTxHash,
           backendTxHash,
           txHashes,
         }, { status: 201 });

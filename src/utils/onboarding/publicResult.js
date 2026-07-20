@@ -1,7 +1,7 @@
 const FAILED_STATUSES = new Set(['FAILED', 'EXPIRED'])
 
 /**
- * Keep callback-only WebAuthn material and upstream error text server-side.
+ * Keep WebAuthn material and upstream error text server-side.
  * The browser only needs the state needed to advance the onboarding flow.
  */
 export function toPublicOnboardingResult(result, source = null) {

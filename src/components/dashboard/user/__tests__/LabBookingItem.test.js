@@ -135,7 +135,22 @@ describe('LabBookingItem', () => {
   test('requires confirmation before cancelling a confirmed booking', async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
-    const booking = createBooking({ status: '1', price: '100000' });
+    const booking = createBooking({
+      status: '1',
+      price: '100000',
+      start: 1893456000,
+      cancellationPreview: {
+        status: '1',
+        cancellable: true,
+        price: '100000',
+        totalFee: '10000',
+        providerFee: '6000',
+        refundAmount: '90000',
+        cancellationCutoff: '1893456000',
+        policyVersion: '1',
+        allocations: [{ fundingOrderId: '0xabc', amount: '100000' }],
+      },
+    });
 
     render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
 
@@ -146,6 +161,10 @@ describe('LabBookingItem', () => {
     expect(screen.getByRole('dialog', { name: /cancel reservation/i })).toBeInTheDocument();
     expect(screen.getByText(/Reservation ID:/i)).toBeInTheDocument();
     expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0.9 credits');
+    expect(screen.getByText(/Cancellation fee:/i).parentElement).toHaveTextContent('0.1 credits');
+    expect(screen.getByText(/Cancellation cutoff:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Policy version:/i).parentElement).toHaveTextContent('v1');
+    expect(screen.getByText(/Source credit lots:/i).parentElement).toHaveTextContent('1 lot');
     expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/institutional credit account/i);
     expect(screen.getByText(/Access will no longer be available/i)).toBeInTheDocument();
 

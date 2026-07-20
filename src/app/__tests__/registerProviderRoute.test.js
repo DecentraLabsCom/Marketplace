@@ -285,7 +285,7 @@ describe('/api/institutions/registerProvider route', () => {
     });
   });
 
-  test('executes addProvider and grantInstitutionRole with server signer', async () => {
+  test('executes atomic provider provisioning with server signer', async () => {
     const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
@@ -307,19 +307,9 @@ describe('/api/institutions/registerProvider route', () => {
       providerCountry: 'ES',
     });
 
-    const addProviderTx = {
-      hash: '0xaddproviderhash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xaddproviderhash' }),
-    };
-
-    const grantRoleTx = {
-      hash: '0xgrantrolehash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
-    };
-
-    const backendTx = {
-      hash: '0xbackendhash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+    const provisioningTx = {
+      hash: '0xprovisionproviderhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xprovisionproviderhash' }),
     };
 
     const readContract = {
@@ -329,9 +319,11 @@ describe('/api/institutions/registerProvider route', () => {
     };
 
     const writeContract = {
-      addProvider: jest.fn().mockResolvedValue(addProviderTx),
-      grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
-      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(backendTx),
+      provisionProvider: jest.fn().mockResolvedValue(provisioningTx),
+      provisionInstitution: jest.fn(),
+      addProvider: jest.fn(),
+      grantInstitutionRole: jest.fn(),
+      adminSetSchacHomeOrganizationBackend: jest.fn(),
     };
 
     getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
@@ -354,22 +346,21 @@ describe('/api/institutions/registerProvider route', () => {
       walletAddress,
       organization: 'example.edu',
       backendUrl: 'https://auth.example.com',
-      txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
+      txHashes: ['0xprovisionproviderhash'],
     });
 
-    expect(writeContract.addProvider).toHaveBeenCalledWith(
+    expect(writeContract.provisionProvider).toHaveBeenCalledWith(
       'Test Provider',
       walletAddress,
       'test@example.com',
       'ES',
-      'https://auth.example.com/auth'
-    );
-    expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
-    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalledWith(
-      walletAddress,
+      'https://auth.example.com/auth',
       'example.edu',
       'https://auth.example.com',
     );
+    expect(writeContract.addProvider).not.toHaveBeenCalled();
+    expect(writeContract.grantInstitutionRole).not.toHaveBeenCalled();
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).not.toHaveBeenCalled();
     expect(validateProvisioningClaims).toHaveBeenCalledWith(
       expect.any(Object),
       {
@@ -388,16 +379,11 @@ describe('/api/institutions/registerProvider route', () => {
       expect.objectContaining({ waitMs: expect.any(Number) }),
     );
     expect(withIntentSignerLock.mock.invocationCallOrder[0]).toBeLessThan(
-      writeContract.addProvider.mock.invocationCallOrder[0]
+      writeContract.provisionProvider.mock.invocationCallOrder[0]
     );
-    expect(advanceProvisioningSaga).toHaveBeenCalledWith('provider-jti', expect.objectContaining({
-      stage: 'PROVIDER_ADDED',
-      txHashes: ['0xaddproviderhash'],
-      fencingToken: 7,
-    }));
     expect(advanceProvisioningSaga).toHaveBeenLastCalledWith('provider-jti', expect.objectContaining({
       stage: 'ACTIVE',
-      txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
+      txHashes: ['0xprovisionproviderhash'],
     }));
   });
 
@@ -409,18 +395,15 @@ describe('/api/institutions/registerProvider route', () => {
       record: { jti: 'provider-jti', stage: 'PROVIDER_ADDED' },
     });
 
-    const grantRoleTx = {
-      hash: '0xgrantrolehash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
-    };
-    const backendTx = {
-      hash: '0xbackendhash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+    const provisioningTx = {
+      hash: '0xprovisioninstitutionhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xprovisioninstitutionhash' }),
     };
     const writeContract = {
       addProvider: jest.fn(),
-      grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
-      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(backendTx),
+      provisionInstitution: jest.fn().mockResolvedValue(provisioningTx),
+      grantInstitutionRole: jest.fn(),
+      adminSetSchacHomeOrganizationBackend: jest.fn(),
     };
     const readContract = {
       isLabProvider: jest.fn().mockResolvedValue(true),
@@ -441,11 +424,16 @@ describe('/api/institutions/registerProvider route', () => {
 
     expect(res.status).toBe(201);
     expect(writeContract.addProvider).not.toHaveBeenCalled();
-    expect(writeContract.grantInstitutionRole).toHaveBeenCalled();
-    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalled();
+    expect(writeContract.provisionInstitution).toHaveBeenCalledWith(
+      expect.any(String),
+      'example.edu',
+      'https://auth.example.com',
+    );
+    expect(writeContract.grantInstitutionRole).not.toHaveBeenCalled();
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).not.toHaveBeenCalled();
     expect(advanceProvisioningSaga).toHaveBeenCalledWith('provider-jti', expect.objectContaining({
-      stage: 'INSTITUTION_ROLE_GRANTED',
-      txHashes: ['0xgrantrolehash'],
+      stage: 'ACTIVE',
+      txHashes: ['0xprovisioninstitutionhash'],
     }));
   });
 });

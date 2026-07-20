@@ -14,7 +14,7 @@ import {
   useLabsForProvider
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
-import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
+import { useSaveLabData, useDeleteLabData, useCleanupLabData, useMoveFiles, useDeleteFile } from '@/hooks/provider/useProvider'
 import { useLabCredit } from '@/context/LabCreditContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
@@ -25,10 +25,13 @@ import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import {
   buildProviderLabUri,
   createEmptyLabDraft,
+  advanceLabCreationStage,
   formatErrorMessage,
   isLabIdListCache,
+  LAB_CREATION_STAGES,
   remapMovedLabAssetPaths,
   resolveOnchainLabUri,
+  shouldCompensateLabCreation,
   updateListingCache,
 } from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
@@ -40,11 +43,11 @@ import {
   notifyLabCreateCancelled,
   notifyLabCreatorMismatch,
   notifyLabCreated,
-  notifyLabCreatedFilesWarning,
-  notifyLabCreatedMetadataWarning,
+  notifyLabCreationReconciliationRequired,
   notifyLabCreateFailed,
   notifyLabDeleted,
   notifyLabDeleteFailed,
+  notifyLabStorageCleanupWarning,
   notifyLabListed,
   notifyLabListFailed,
   notifyLabMetadataSaveFailed,
@@ -155,7 +158,9 @@ export default function ProviderDashboard() {
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
   const deleteLabDataMutation = useDeleteLabData();
+  const cleanupLabDataMutation = useCleanupLabData();
   const moveFilesMutation = useMoveFiles();
+  const deleteFileMutation = useDeleteFile();
   
   // State declarations
   const [selectedLabId, setSelectedLabId] = useState("");
@@ -378,11 +383,82 @@ export default function ProviderDashboard() {
     // Extract temp files if they exist
     const tempFiles = labData._tempFiles || [];
     delete labData._tempFiles; // Remove from labData to avoid sending to blockchain
+    let blockchainLabId = null;
+    let creationStage = LAB_CREATION_STAGES.DRAFT;
+    let movedLabFiles = [];
+    let metadataSaved = false;
+
+    const cleanupCreationArtifacts = async () => {
+      let complete = true;
+      const movedOriginals = new Set(movedLabFiles.map((file) => file?.original).filter(Boolean));
+
+      for (const movedFile of movedLabFiles) {
+        try {
+          await deleteFileMutation.mutateAsync({ filePath: movedFile.new, deletingLab: true });
+        } catch (cleanupError) {
+          complete = false;
+          devLog.warn('Failed to remove moved lab asset during compensation:', cleanupError);
+        }
+      }
+
+      for (const filePath of tempFiles.filter((filePath) => !movedOriginals.has(filePath))) {
+        try {
+          await deleteFileMutation.mutateAsync({ filePath, deletingLab: false });
+        } catch (cleanupError) {
+          complete = false;
+          devLog.warn('Failed to remove temporary lab asset during compensation:', cleanupError);
+        }
+      }
+
+      return complete;
+    };
+
+    const compensateCreation = async (reason) => {
+      const contentClean = await cleanupCreationArtifacts();
+      let metadataClean = true;
+      let chainClean = true;
+
+      if (metadataSaved && labData.uri.startsWith('Lab-')) {
+        try {
+          await deleteLabDataMutation.mutateAsync(labData.uri);
+        } catch (cleanupError) {
+          metadataClean = false;
+          devLog.warn('Failed to remove lab metadata during compensation:', cleanupError);
+        }
+      }
+
+      if (blockchainLabId) {
+        try {
+          const deleteResult = await deleteLabMutation.mutateAsync({
+            labId: blockchainLabId,
+            backendUrl: institutionBackendUrl,
+          });
+          chainClean = deleteResult?.status === 'executed';
+        } catch (cleanupError) {
+          chainClean = false;
+          devLog.warn('Failed to compensate on-chain lab creation:', cleanupError);
+        }
+      } else if (shouldCompensateLabCreation(creationStage)) {
+        chainClean = false;
+      }
+
+      if (!contentClean || !metadataClean || !chainClean) {
+        notifyLabCreationReconciliationRequired(
+          addTemporaryNotification,
+          blockchainLabId || 'unknown',
+          `${reason}; compensation was not fully confirmed`
+        );
+        return false;
+      }
+      return true;
+    };
 
     try {
+      creationStage = advanceLabCreationStage(creationStage, 'contentStaged');
       setIsCreatingLab(true);
       createLabAbortControllerRef.current = new AbortController();
       setCreateLabProgress('Sending lab to institution for execution...');
+      creationStage = advanceLabCreationStage(creationStage, 'onchainPending');
       
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
@@ -402,7 +478,7 @@ export default function ProviderDashboard() {
         postExecutePollMaxDelayMs: 5_000,
       });
       // Close modal and notify success after all post-processing
-      const blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
+      blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
       
       if (!blockchainLabId) {
         throw new Error('Lab ID not returned from blockchain');
@@ -422,22 +498,17 @@ export default function ProviderDashboard() {
           
           devLog.log('✅ Files moved successfully:', moveResult);
 
-          if (Array.isArray(moveResult?.errors) && moveResult.errors.length > 0) {
-            notifyLabCreatedFilesWarning(
-              addTemporaryNotification,
-              blockchainLabId,
-              `${moveResult.errors.length} file(s) could not be moved to the lab folder`
-            );
-          }
-          
           // Update labData with new file paths
-          if (moveResult.movedFiles) {
+          if (Array.isArray(moveResult?.movedFiles)) {
+            movedLabFiles = moveResult.movedFiles;
             labData = remapMovedLabAssetPaths(labData, moveResult.movedFiles);
+          }
+          if (Array.isArray(moveResult?.errors) && moveResult.errors.length > 0) {
+            throw new Error(`${moveResult.errors.length} uploaded file(s) could not be moved to the lab folder`);
           }
         } catch (moveError) {
           devLog.error('❌ Failed to move temp files:', moveError);
-          notifyLabCreatedFilesWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(moveError));
-          // Continue - lab was created, file move is not critical
+          throw new Error(`Uploaded file finalization failed: ${formatErrorMessage(moveError)}`);
         }
       }
       
@@ -455,13 +526,15 @@ export default function ProviderDashboard() {
           
           // Add a small delay to ensure cache propagation in production
           await new Promise(resolve => setTimeout(resolve, 150));
-          
+          metadataSaved = true;
+          creationStage = advanceLabCreationStage(creationStage, 'contentActivated');
           devLog.log('✅ Lab metadata JSON saved successfully');
         } catch (error) {
           devLog.error('❌ Failed to save lab metadata JSON:', error);
-          notifyLabCreatedMetadataWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(error));
-          // Don't return - lab was created successfully, just metadata save failed
+          throw new Error(`Lab metadata finalization failed: ${formatErrorMessage(error)}`);
         }
+      } else {
+        creationStage = advanceLabCreationStage(creationStage, 'contentActivated');
       }
 
       // Ensure UI shows the provided lab name immediately by updating the cache
@@ -513,7 +586,16 @@ export default function ProviderDashboard() {
     } catch (error) {
       devLog.error('Error adding lab:', error);
       handleMissingWebauthnCredential(error);
-      notifyLabCreateFailed(addTemporaryNotification, error?.message || 'Unknown error');
+      const reason = error?.message || 'Unknown error';
+      if (shouldCompensateLabCreation(creationStage) || tempFiles.length > 0) {
+        const compensated = await compensateCreation(reason);
+        notifyLabCreateFailed(
+          addTemporaryNotification,
+          compensated ? `${reason} (on-chain creation rolled back)` : reason
+        );
+      } else {
+        notifyLabCreateFailed(addTemporaryNotification, reason);
+      }
       clearCreateLabProgress();
     } finally {
       setIsCreatingLab(false);
@@ -523,6 +605,9 @@ export default function ProviderDashboard() {
     addLabMutation,
     addTemporaryNotification,
     clearCreateLabProgress,
+    deleteFileMutation,
+    deleteLabDataMutation,
+    deleteLabMutation,
     handleMissingWebauthnCredential,
     institutionBackendUrl,
     isSSO,
@@ -761,8 +846,26 @@ export default function ProviderDashboard() {
       setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
-      await deleteLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
-      
+      const labToDelete = ownedLabs.find((entry) => String(entry?.id ?? entry?.labId) === String(labId));
+      const deleteResult = await deleteLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
+      if (deleteResult?.status !== 'executed') {
+        clearActionProgressNotification(actionKey);
+        clearOptimisticLabState(String(labId));
+        return;
+      }
+      try {
+        await cleanupLabDataMutation.mutateAsync({
+          labId,
+          txHash: deleteResult.txHash,
+          metadataUri: extractLocalMetadataUri(labToDelete?.uri),
+        });
+      } catch (cleanupError) {
+        // Chain deletion is final; leave the lab removed from the UI while
+        // surfacing that storage cleanup should be retried operationally.
+        devLog.error('Marketplace lab storage cleanup failed after on-chain deletion:', cleanupError);
+        notifyLabStorageCleanupWarning(addTemporaryNotification, labId);
+      }
+
       // Remove from cached list immediately when possible
       try {
         queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (

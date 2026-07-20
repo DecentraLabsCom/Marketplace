@@ -251,7 +251,7 @@ describe('/api/institutions/registerConsumer route', () => {
     });
   });
 
-  test('executes grantInstitutionRole with server signer', async () => {
+  test('executes atomic institution provisioning with server signer', async () => {
     const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
@@ -271,9 +271,9 @@ describe('/api/institutions/registerConsumer route', () => {
       expiresAt: 1700000300,
     });
 
-    const grantRoleTx = {
-      hash: '0xgrantrolehash',
-      wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
+    const provisioningTx = {
+      hash: '0xprovisioninstitutionhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xprovisioninstitutionhash' }),
     };
 
     const readContract = {
@@ -282,11 +282,9 @@ describe('/api/institutions/registerConsumer route', () => {
     };
 
     const writeContract = {
-      grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
-      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue({
-        hash: '0xbackendhash',
-        wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
-      }),
+      provisionInstitution: jest.fn().mockResolvedValue(provisioningTx),
+      grantInstitutionRole: jest.fn(),
+      adminSetSchacHomeOrganizationBackend: jest.fn(),
     };
 
     getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
@@ -309,16 +307,18 @@ describe('/api/institutions/registerConsumer route', () => {
       success: true,
       walletAddress,
       organization: 'example.edu',
-      grantRoleTxHash: '0xgrantrolehash',
       backendUrl: 'https://auth.example.com',
+      provisioningTxHash: '0xprovisioninstitutionhash',
+      txHashes: ['0xprovisioninstitutionhash'],
     });
 
-    expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
-    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalledWith(
+    expect(writeContract.provisionInstitution).toHaveBeenCalledWith(
       walletAddress,
       'example.edu',
       'https://auth.example.com',
     );
+    expect(writeContract.grantInstitutionRole).not.toHaveBeenCalled();
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).not.toHaveBeenCalled();
     expect(startOrResumeProvisioningSaga).toHaveBeenCalledWith(
       expect.objectContaining({ jti: 'consumer-jti', walletAddress })
     );
@@ -329,16 +329,11 @@ describe('/api/institutions/registerConsumer route', () => {
       expect.objectContaining({ waitMs: expect.any(Number) }),
     );
     expect(advanceProvisioningSaga).toHaveBeenCalledWith('consumer-jti', expect.objectContaining({
-      stage: 'INSTITUTION_ROLE_GRANTED',
-      txHashes: ['0xgrantrolehash'],
-      fencingToken: 7,
-    }));
-    expect(advanceProvisioningSaga).toHaveBeenLastCalledWith('consumer-jti', expect.objectContaining({
       stage: 'ACTIVE',
-      txHashes: ['0xgrantrolehash', '0xbackendhash'],
+      txHashes: ['0xprovisioninstitutionhash'],
     }));
     expect(withIntentSignerLock.mock.invocationCallOrder[0]).toBeLessThan(
-      writeContract.grantInstitutionRole.mock.invocationCallOrder[0]
+      writeContract.provisionInstitution.mock.invocationCallOrder[0]
     );
   });
 });

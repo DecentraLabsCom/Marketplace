@@ -78,9 +78,8 @@ next-env.d.ts
 # contracts
 /contracts
 
-# development documentation
-dev/*
-!dev/Institutional_Provisioning_Security.md
+# Private agent and developer documentation
+dev/
 TODO.md
 
 # labs data

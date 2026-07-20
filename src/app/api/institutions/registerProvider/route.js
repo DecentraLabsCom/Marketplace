@@ -284,43 +284,38 @@ export async function POST(request) {
 
         if (needsRegistration) {
           await lease.assertActive();
-          const transaction = await writeContract.addProvider(
-            providerName.trim(), walletAddress, providerEmail.trim(), providerCountry.trim(), authValidation.normalized,
+          const transaction = await writeContract.provisionProvider(
+            providerName.trim(),
+            walletAddress,
+            providerEmail.trim(),
+            providerCountry.trim(),
+            authValidation.normalized,
+            normalizedOrganization,
+            normalizedBackendUrl || '',
           );
           const receipt = await transaction.wait();
           txHashes.push(receipt?.hash ?? transaction?.hash);
-          await invalidateInstitutionalBackend(normalizedOrganization);
-          await recordProvisioningResult(payload.jti, {
-            stage: PROVISIONING_SAGA_STAGES.PROVIDER_ADDED,
-            txHashes: [...txHashes],
-            fencingToken: lease.fencingToken,
-          });
-        }
-
-        if (needsRoleGrant) {
+          if (normalizedBackendUrl) {
+            await invalidateInstitutionalBackend(normalizedOrganization);
+          }
+        } else if (needsRoleGrant) {
           await lease.assertActive();
-          const transaction = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
+          const transaction = await writeContract.provisionInstitution(
+            walletAddress, normalizedOrganization, normalizedBackendUrl || '',
+          );
           const receipt = await transaction.wait();
           txHashes.push(receipt?.hash ?? transaction?.hash);
-          await recordProvisioningResult(payload.jti, {
-            stage: PROVISIONING_SAGA_STAGES.INSTITUTION_ROLE_GRANTED,
-            txHashes: [...txHashes],
-            fencingToken: lease.fencingToken,
-          });
-        }
-
-        if (shouldUpdateBackend) {
+          if (normalizedBackendUrl) {
+            await invalidateInstitutionalBackend(normalizedOrganization);
+          }
+        } else if (shouldUpdateBackend) {
           await lease.assertActive();
           const transaction = await writeContract.adminSetSchacHomeOrganizationBackend(
             walletAddress, normalizedOrganization, normalizedBackendUrl,
           );
           const receipt = await transaction.wait();
           txHashes.push(receipt?.hash ?? transaction?.hash);
-          await recordProvisioningResult(payload.jti, {
-            stage: PROVISIONING_SAGA_STAGES.BACKEND_REGISTERED,
-            txHashes: [...txHashes],
-            fencingToken: lease.fencingToken,
-          });
+          await invalidateInstitutionalBackend(normalizedOrganization);
         }
 
         await recordProvisioningResult(payload.jti, {
@@ -333,6 +328,7 @@ export async function POST(request) {
           walletAddress,
           organization: normalizedOrganization,
           backendUrl: normalizedBackendUrl || null,
+          provisioningTxHash: txHashes[0] || null,
           txHashes,
         }, { status: 201 });
       }, {

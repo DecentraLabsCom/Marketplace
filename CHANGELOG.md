@@ -10,11 +10,14 @@ browser behavior.
 
 ### Documentation
 
-- Added a canonical documentation index and audience map.
-- Marked the historical wallet/`$LAB` PDF material as non-normative.
-- Clarified `institutionId`, institutional SSO, managed wallets, exact metadata
-  origins and non-cash service credits.
-- Documented the release, deployment and legal-review responsibilities.
+- Reorganized Marketplace documentation by audience and operational concern.
+- Added current architecture, operations, institutional-intent, provisioning,
+  credits, metadata, security, testing and CI references.
+- Added Mermaid diagrams for the runtime, intent, access, provisioning and
+  metadata flows.
+- Corrected the active intent contract to the single prepare route and the
+  backend-owned WebAuthn ceremony; removed obsolete finalize-route guidance.
+- Updated provider, access, cancellation and credential-handling guidance.
 
 ### Verification
 
@@ -25,4 +28,4 @@ browser behavior.
 
 Initial tracked Marketplace package version. The current deployed behavior is
 defined by the implementation and the canonical guides linked from
-[`docs/README.md`](docs/README.md), not by older exported PDFs.
+the current [public documentation guide](docs/README.md), not by older exported PDFs.

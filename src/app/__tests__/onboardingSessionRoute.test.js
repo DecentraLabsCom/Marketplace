@@ -22,10 +22,6 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
   computeAssertionHash: jest.fn(() => 'assertion-hash'),
 }))
 
-jest.mock('@/utils/onboarding/callbackAuth', () => ({
-  buildSignedOnboardingCallbackUrl: jest.fn(() => 'https://market.example/api/onboarding/callback?token=signed'),
-}))
-
 jest.mock('@/utils/auth/institutionDomain', () => ({
   resolveInstitutionDomainFromSession: jest.fn(() => 'uned.es'),
 }))

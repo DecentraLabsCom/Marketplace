@@ -11,6 +11,36 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
+const readPreviewField = (preview, name, index) => preview?.[name] ?? preview?.[index]
+
+const serializeCancellationPreview = (preview) => {
+  if (!preview) return null
+
+  const allocations = readPreviewField(preview, 'allocations', 11) || []
+  return {
+    status: Number(readPreviewField(preview, 'reservationStatus', 0)),
+    cancellable: Boolean(readPreviewField(preview, 'cancellable', 1)),
+    refundDestination: readPreviewField(preview, 'refundDestination', 2) || null,
+    price: readPreviewField(preview, 'price', 3)?.toString?.() || null,
+    totalFee: readPreviewField(preview, 'totalFee', 4)?.toString?.() || null,
+    providerFee: readPreviewField(preview, 'providerFee', 5)?.toString?.() || null,
+    refundAmount: readPreviewField(preview, 'refundAmount', 6)?.toString?.() || null,
+    cancellationCutoff: readPreviewField(preview, 'cancellationCutoff', 7)?.toString?.() || null,
+    spendingPeriodStart: readPreviewField(preview, 'spendingPeriodStart', 8)?.toString?.() || null,
+    spendingPeriodEnd: readPreviewField(preview, 'spendingPeriodEnd', 9)?.toString?.() || null,
+    sourceCreditExpiry: readPreviewField(preview, 'sourceCreditExpiry', 10)?.toString?.() || null,
+    allocations: Array.from(allocations, (allocation) => ({
+      fundingOrderId: allocation?.fundingOrderId ?? allocation?.[0] ?? null,
+      amount: (allocation?.amount ?? allocation?.[1])?.toString?.() || null,
+      refundedAmount: (allocation?.refundedAmount ?? allocation?.[2])?.toString?.() || null,
+      eurGrossAmount: (allocation?.eurGrossAmount ?? allocation?.[3])?.toString?.() || null,
+      refundedEurGrossAmount: (allocation?.refundedEurGrossAmount ?? allocation?.[4])?.toString?.() || null,
+      expiresAt: (allocation?.expiresAt ?? allocation?.[5])?.toString?.() || null,
+    })),
+    policyVersion: Number(readPreviewField(preview, 'policyVersion', 12)),
+  }
+}
+
 /**
  * Retrieves a specific reservation by its key
  * @param {Request} request - HTTP request with query parameters
@@ -105,6 +135,17 @@ export async function GET(request) {
       }
     }
 
+    let cancellationPreview = null;
+    if (typeof contract.previewInstitutionalBookingCancellation === 'function') {
+      try {
+        const preview = await contract.previewInstitutionalBookingCancellation(reservationKey);
+        cancellationPreview = serializeCancellationPreview(preview);
+      } catch (previewError) {
+        // Keep reads compatible with a diamond that has not yet received the new selector.
+        devLog.warn('Cancellation preview unavailable for reservation:', previewError?.shortMessage || previewError?.message);
+      }
+    }
+
     devLog.log('✅ Successfully fetched reservation', {
       reservationState,
       labId: reservationData.labId?.toString?.() || 'n/a',
@@ -125,6 +166,7 @@ export async function GET(request) {
         payerInstitution: payerInstitutionAddress,
         collectorInstitution: collectorInstitutionAddress,
         providerShare: reservationData.providerShare?.toString() || null,
+        cancellationPreview,
         reservationState: reservationState,
         isPending: status === 0,
         isBooked: status === 1,

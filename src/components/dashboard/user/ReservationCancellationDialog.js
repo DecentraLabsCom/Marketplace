@@ -1,6 +1,10 @@
 import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
-import { getCancellationCreditReturnLabel } from '@/utils/booking/cancellationSummary'
+import {
+  getCancellationCreditReturnLabel,
+  getCancellationPreview,
+} from '@/utils/booking/cancellationSummary'
+import { formatRawCredits } from '@/utils/blockchain/creditUnits'
 
 const formatReservationWindow = (booking) => {
   const start = Number(booking?.start)
@@ -21,6 +25,12 @@ const formatReservationWindow = (booking) => {
   return `${date}, ${startTime}–${endTime}`
 }
 
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return 'Unavailable'
+  const date = new Date(Number(timestamp) * 1000)
+  return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleString()
+}
+
 export default function ReservationCancellationDialog({
   isOpen,
   lab,
@@ -30,6 +40,13 @@ export default function ReservationCancellationDialog({
   onConfirm,
 }) {
   const creditReturn = getCancellationCreditReturnLabel(booking)
+  const preview = getCancellationPreview(booking)
+  const hasChargedReservation = Number(preview?.status) === 1
+  const sourceLotLabel = preview?.allocations?.length
+    ? `${preview.allocations.length} lot${preview.allocations.length === 1 ? '' : 's'} recorded`
+    : hasChargedReservation
+      ? 'Unavailable for legacy reservation'
+      : 'No charged lots'
 
   return (
     <Modal
@@ -57,6 +74,45 @@ export default function ReservationCancellationDialog({
             <dt className="font-semibold">Credits to return:</dt>
             <dd>{creditReturn}</dd>
           </div>
+          {preview && (
+            <>
+              <div>
+                <dt className="font-semibold">Cancellation fee:</dt>
+                <dd>
+                  {formatRawCredits(preview.totalFeeRaw)} credits
+                  {preview.minimumFeeApplied ? ' (minimum applies)' : ''}
+                </dd>
+              </div>
+              {hasChargedReservation && (
+                <div>
+                  <dt className="font-semibold">Provider fee:</dt>
+                  <dd>{formatRawCredits(preview.providerFeeRaw)} credits</dd>
+                </div>
+              )}
+              {preview.cancellationCutoff && (
+                <div>
+                  <dt className="font-semibold">Cancellation cutoff:</dt>
+                  <dd>{formatTimestamp(preview.cancellationCutoff)}</dd>
+                </div>
+              )}
+              {preview.spendingPeriodStart && preview.spendingPeriodEnd && (
+                <div>
+                  <dt className="font-semibold">Spending period:</dt>
+                  <dd>
+                    {formatTimestamp(preview.spendingPeriodStart)} – {formatTimestamp(preview.spendingPeriodEnd)}
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt className="font-semibold">Source credit lots:</dt>
+                <dd>{sourceLotLabel}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Policy version:</dt>
+                <dd>v{preview.policyVersion} ({preview.source === 'on-chain' ? 'on-chain contract' : 'local fallback'})</dd>
+              </div>
+            </>
+          )}
           <div>
             <dt className="font-semibold">Destination:</dt>
             <dd>Institutional credit account</dd>
@@ -64,7 +120,9 @@ export default function ReservationCancellationDialog({
         </dl>
         <p className="text-sm">Access will no longer be available for this time window.</p>
         <p className="text-xs text-gray-500">
-          The amount follows the current cancellation policy and is verified again by the institutional backend.
+          {preview?.source === 'on-chain'
+            ? 'Values are read from the current contract policy and verified again by the institutional backend.'
+            : 'Legacy reservation data uses the current policy fallback; the institutional backend verifies the final amount.'}
         </p>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button

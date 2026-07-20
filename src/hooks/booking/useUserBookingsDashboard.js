@@ -226,6 +226,7 @@ export const useUserBookingsDashboard = ({
       price,
       payerInstitution,
       collectorInstitution,
+      cancellationPreview: r.cancellationPreview || null,
       statusCategory,
       start: startTime,
       end: endTime,

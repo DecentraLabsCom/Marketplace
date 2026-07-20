@@ -233,6 +233,68 @@ function getIntentContract(wallet) {
   return new ethers.Contract(address, contractABI, wallet)
 }
 
+const INTENT_STATE_NAMES = ['pending', 'executed', 'cancelled', 'expired']
+
+const resolveIntentState = (intent) => {
+  const state = Number(intent?.state ?? 0)
+  return {
+    state,
+    stateName: INTENT_STATE_NAMES[state] || 'unknown',
+  }
+}
+
+export async function getIntentOnChain(requestId) {
+  const wallet = await getAdminWallet()
+  const contract = getIntentContract(wallet)
+  const intent = await contract.getIntent(requestId)
+  return { intent, ...resolveIntentState(intent) }
+}
+
+async function settleIntentLifecycleTransaction(contract, method, requestId, waitForReceipt) {
+  const tx = await contract[method](requestId)
+  if (!waitForReceipt) {
+    return { status: method === 'cancelIntent' ? 'cancelled' : 'expired', txHash: tx.hash, blockNumber: null }
+  }
+  const receipt = await tx.wait?.()
+  return {
+    status: method === 'cancelIntent' ? 'cancelled' : 'expired',
+    txHash: tx.hash,
+    blockNumber: receipt?.blockNumber || null,
+  }
+}
+
+export async function cancelIntentOnChain(requestId, options = {}) {
+  const waitForReceipt = options?.waitForReceipt !== false
+  const wallet = await getAdminWallet()
+  const contract = getIntentContract(wallet)
+  const intent = await contract.getIntent(requestId)
+  const lifecycle = resolveIntentState(intent)
+  if (lifecycle.state !== 0) return lifecycle
+
+  const signer = intent?.signer
+  if (!signer || signer.toLowerCase() !== wallet.address.toLowerCase()) {
+    throw new Error('Only the registered intent signer can cancel this intent')
+  }
+  return settleIntentLifecycleTransaction(contract, 'cancelIntent', requestId, waitForReceipt)
+}
+
+export async function expireIntentOnChain(requestId, options = {}) {
+  const waitForReceipt = options?.waitForReceipt !== false
+  const wallet = await getAdminWallet()
+  const contract = getIntentContract(wallet)
+  const lifecycle = resolveIntentState(await contract.getIntent(requestId))
+  if (lifecycle.state !== 0 && lifecycle.state !== 3) return lifecycle
+  try {
+    return await settleIntentLifecycleTransaction(contract, 'expireIntent', requestId, waitForReceipt)
+  } catch (error) {
+    // getIntent derives EXPIRED from the timestamp even before the state is
+    // materialized. If another reconciler already materialized it, cleanup is
+    // still idempotent and no second transaction is required.
+    if (lifecycle.state === 3) return lifecycle
+    throw error
+  }
+}
+
 export async function registerIntentOnChain(kind, meta, payload, signature, options = {}) {
   const waitForReceipt = options?.waitForReceipt !== false
   const wallet = await getAdminWallet()
@@ -318,4 +380,7 @@ export default {
   getAdminAddress,
   signIntentMeta,
   registerIntentOnChain,
+  getIntentOnChain,
+  cancelIntentOnChain,
+  expireIntentOnChain,
 }

@@ -5,11 +5,12 @@ import {
   notifyLabCreated,
   notifyLabCreatedFilesWarning,
   notifyLabCreatedMetadataWarning,
+  notifyLabCreationReconciliationRequired,
   notifyLabCreateFailed,
   notifyLabDeleted,
-  notifyLabDeletedCascadeWarning,
   notifyLabDeleteFailed,
   notifyLabDeleteStarted,
+  notifyLabStorageCleanupWarning,
   notifyLabInvalidPrice,
   notifyLabListed,
   notifyLabListingRequested,
@@ -69,8 +70,8 @@ describe('labToasts', () => {
   test('emits deletion/listing toasts via unified notification signature', () => {
     notifyLabDeleteStarted(addTemporaryNotification, 1)
     notifyLabDeleted(addTemporaryNotification, 1)
-    notifyLabDeletedCascadeWarning(addTemporaryNotification, 1)
     notifyLabDeleteFailed(addTemporaryNotification, 1, 'cannot delete')
+    notifyLabStorageCleanupWarning(addTemporaryNotification, 1)
     notifyLabListingRequested(addTemporaryNotification, 1)
     notifyLabListed(addTemporaryNotification, 1)
     notifyLabListFailed(addTemporaryNotification, 1, 'cannot list')
@@ -82,8 +83,9 @@ describe('labToasts', () => {
     expect(calls).toHaveLength(10)
     expect(calls[0][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-started:1' }))
     expect(calls[1][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-deleted:1' }))
-    expect(calls[2][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-cascade-warning:1' }))
-    expect(calls[3][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-failed:1' }))
+    expect(calls[1][1]).toContain('Existing reservations were not cancelled automatically')
+    expect(calls[2][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-failed:1' }))
+    expect(calls[3][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-storage-cleanup-warning:1' }))
     expect(calls[4][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-list-requested:1' }))
     expect(calls[5][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-listed:1' }))
     expect(calls[6][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-list-failed:1' }))
@@ -94,5 +96,16 @@ describe('labToasts', () => {
 
   test('no-ops when callback is not provided', () => {
     expect(() => notifyLabCreated(undefined, 1)).not.toThrow()
+  })
+
+  test('makes failed compensation explicit instead of reporting a successful create', () => {
+    notifyLabCreationReconciliationRequired(addTemporaryNotification, 7, 'delete was rejected')
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      'error',
+      expect.stringContaining('requires reconciliation'),
+      null,
+      expect.objectContaining({ dedupeKey: 'lab-create-reconciliation-required:7' })
+    )
   })
 })

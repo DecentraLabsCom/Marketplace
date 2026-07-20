@@ -211,6 +211,10 @@ describe('institutional lab mutations', () => {
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ name: 'Listed lab', description: 'Ready for reservations' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           authorizationUrl: 'https://backend.example/auth/list',
           authorizationSessionId: 'auth-list',
@@ -249,7 +253,12 @@ describe('institutional lab mutations', () => {
     pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-list-fail' })
     pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'backend timeout after execution window' })
 
-    global.fetch.mockResolvedValueOnce({
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ name: 'Listed lab', description: 'Ready for reservations' }),
+      })
+      .mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         authorizationUrl: 'https://backend.example/auth/list',
@@ -284,6 +293,61 @@ describe('institutional lab mutations', () => {
       queryKey: ['labs', 'getAllLabs'],
       exact: true,
     })
+  })
+
+  test('does not register a listing intent when metadata preflight fails', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: async () => ({ error: 'Metadata document was not found', code: 'EXTERNAL_NOT_FOUND' }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(() => useListLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ labId: '4', backendUrl: 'https://backend.example' })
+      ).rejects.toMatchObject({ code: 'LAB_METADATA_PREFLIGHT_FAILED' })
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(pollAuth).not.toHaveBeenCalled()
+  })
+
+  test('does not register a listing intent when a declared metadata asset is unavailable', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          name: 'Listed lab',
+          description: 'Ready for reservations',
+          image: 'https://lab.example.edu/images/cover.png',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(() => useListLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ labId: '4', backendUrl: 'https://backend.example' })
+      ).rejects.toMatchObject({ code: 'LAB_METADATA_ASSET_PREFLIGHT_FAILED' })
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(pollAuth).not.toHaveBeenCalled()
   })
 
   test('update and delete mutations prepare institutional intents', async () => {
@@ -333,5 +397,31 @@ describe('institutional lab mutations', () => {
     })
 
     expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('delete mutation does not resolve before the institutional execution succeeds', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-delete-failed' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Cannot delete lab with uncollected reservations' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth/delete',
+        authorizationSessionId: 'auth-delete',
+        intent: { meta: { requestId: 'req-delete-failed' }, payload: {} },
+        backendAuthToken: 'auth-delete',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(() => useDeleteLabSSO(), { wrapper: createWrapper(queryClient) })
+
+    await expect(
+      act(async () => result.current.mutateAsync({ labId: '9', backendUrl: 'https://backend.example' }))
+    ).rejects.toThrow('Cannot delete lab with uncollected reservations')
   })
 })

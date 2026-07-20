@@ -19,7 +19,11 @@ import {
 } from '@/utils/intents/prepareValidation'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { getStableUserIdModeFromSession, normalizePuc } from '@/utils/auth/puc'
-import { signIntentMeta, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import {
+  signIntentMeta,
+  registerIntentOnChain,
+  cancelIntentOnChain,
+} from '@/utils/intents/adminIntentSigner'
 import {
   IntentSignerBusyError,
   IntentSignerUnavailableError,
@@ -47,6 +51,8 @@ import devLog from '@/utils/dev/logger'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { cancellationStateError, hasCancellationOwnership } from '@/utils/intents/cancellationOwnership'
+import { recordRegisteredIntent } from '@/utils/intents/intentLifecycleStore'
+import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconciler'
 
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
 
@@ -206,11 +212,34 @@ function authorizationErrorResponse(authResponse, authorization, context) {
   })
 }
 
+async function cancelRegisteredIntent(requestId, context) {
+  if (!requestId) return null
+  try {
+    return await withIntentSignerLock(
+      getServerSignerAddress(),
+      () => cancelIntentOnChain(requestId),
+    )
+  } catch (error) {
+    devLog.error('[API] Registered intent cleanup failed', {
+      requestId,
+      context,
+      error: error?.message || String(error),
+    })
+    return null
+  }
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth()
     const rateLimitResponse = createRateLimitResponse(await checkRate(request, session))
     if (rateLimitResponse) return rateLimitResponse
+
+    try {
+      await withIntentSignerLock(getServerSignerAddress(), () => reconcileTrackedIntents({ limit: 20 }))
+    } catch (error) {
+      devLog.warn('[API] Intent lifecycle reconciliation skipped', error?.message || String(error))
+    }
 
     const body = await request.json().catch(() => ({}))
     const payloadInput = body?.payload || {}
@@ -465,6 +494,7 @@ export async function POST(request) {
       const authResponse = await authorizationPromise
       authorization = authResponse.data
       if (!authResponse.ok) {
+        await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-response`)
         return authorizationErrorResponse(
           authResponse,
           authorization,
@@ -475,6 +505,7 @@ export async function POST(request) {
       const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
       if (!hasUsableAuthorizationSession(normalizedAuthorization)) {
         devLog.error('[API] Authorization response missing session/url', { authorization })
+        await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-invalid`)
         return NextResponse.json(
           {
             error: 'Invalid authorization response from institutional backend',
@@ -484,7 +515,25 @@ export async function POST(request) {
         )
       }
       authorization = normalizedAuthorization
+      try {
+        await recordRegisteredIntent({
+          requestId: intentPackage.meta.requestId,
+          authorizationSessionId: authorization.sessionId,
+          institutionDomain: schacHomeOrganization,
+          expiresAt: intentPackage.meta.expiresAt.toString(),
+        })
+      } catch (error) {
+        await cancelRegisteredIntent(intentPackage.meta.requestId, `${kind}-lifecycle-record`)
+        return publicErrorResponse({
+          status: 503,
+          code: 'INTENT_LIFECYCLE_UNAVAILABLE',
+          message: 'The intent could not be registered for lifecycle reconciliation.',
+          error,
+          context: `${kind}-intent-lifecycle`,
+        })
+      }
     } catch (err) {
+      await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-error`)
       return publicErrorResponse({
         status: 502,
         code: 'INTENT_AUTHORIZATION_FAILED',

@@ -77,7 +77,7 @@ The marketplace shows:
 * estimated credit usage;
 * reservation constraints or conflicts.
 
-Submit the reservation request to continue. Any eligible cancellation before the access period returns the applicable internal credits to the institutional account; this is not a cash refund.
+Submit the reservation request to continue. The marketplace requests institutional authorization and records the reservation only after the backend and contract checks succeed.
 
 ---
 
@@ -86,14 +86,27 @@ Submit the reservation request to continue. Any eligible cancellation before the
 Once the reservation request is submitted:
 
 1. the marketplace records and validates the request against the configured backend and reservation model;
-2. the provider side completes confirmation and scheduling;
-3. the booking appears in your **User Dashboard**.
+2. the institutional backend completes the authorization and on-chain execution;
+3. the booking appears in your **User Dashboard** with its current status.
 
 When confirmation succeeds, the reservation status changes to **Confirmed**.
 
 ---
 
-### 5. Access the Laboratory
+### 5. Cancel a Pending or Confirmed Reservation
+
+Open the reservation from your **User Dashboard** and choose **Cancel** when it is available.
+
+* a pending request and a confirmed reservation follow different cancellation paths;
+* the marketplace checks that the reservation belongs to your institution and that its on-chain state can be cancelled;
+* the confirmation screen shows the current credit-return and fee preview when the contract provides one;
+* the institutional backend and smart contract verify the final cancellation and amount again.
+
+Cancellation is not a cash refund. A completed, expired, already cancelled or otherwise ineligible reservation cannot be cancelled from Marketplace.
+
+---
+
+### 6. Access the Laboratory
 
 At the scheduled time:
 
@@ -105,12 +118,12 @@ The marketplace then:
 
 * validates the active reservation;
 * performs institutional check-in when required;
-* requests a short-lived lab access token from the configured lab gateway;
+* requests a short-lived access credential from the configured lab gateway;
 * redirects you to the remote lab interface.
 
 ---
 
-### 6. During the Session
+### 7. During the Session
 
 During the reserved window:
 
@@ -148,7 +161,7 @@ The customer laboratory-access flow is:
 
 1. sign in with your institution;
 2. choose and reserve a lab;
-3. wait for confirmation;
+3. wait for confirmation or cancel an eligible reservation;
 4. access the lab during the active reservation window;
 5. use the session until the reservation ends.
 

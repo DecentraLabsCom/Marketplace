@@ -1,7 +1,7 @@
 import { toPublicOnboardingResult } from '../publicResult'
 
 describe('toPublicOnboardingResult', () => {
-  test('keeps callback credentials and upstream errors out of browser payloads', () => {
+  test('keeps WebAuthn credentials and upstream errors out of browser payloads', () => {
     const result = toPublicOnboardingResult({
       status: 'FAILED',
       success: false,
@@ -11,10 +11,10 @@ describe('toPublicOnboardingResult', () => {
       publicKey: 'cose-key',
       error: 'backend stack trace',
       timestamp: '2026-07-15T00:00:00.000Z',
-    }, 'callback')
+    }, 'backend')
 
     expect(result).toEqual({
-      source: 'callback',
+      source: 'backend',
       status: 'FAILED',
       success: false,
       sessionId: 'session-1',

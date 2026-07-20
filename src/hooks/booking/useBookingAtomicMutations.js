@@ -27,6 +27,7 @@ import {
   markBrowserCredentialVerifiedFromIntent,
   openPendingAuthorizationPopup,
   closeAuthorizationPopup,
+  cancelPreparedIntent,
 } from '@/utils/intents/clientFlowShared'
 import {
   notifyReservationDenied,
@@ -127,10 +128,16 @@ async function runActionIntent(action, payload) {
     );
   }
 
-  const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-    backendUrl: prepareData?.backendUrl,
-  });
-  assertIntentAuthorizationConfirmed(authorizationStatus)
+  let authorizationStatus
+  try {
+    authorizationStatus = await awaitBackendAuthorization(prepareData, {
+      backendUrl: prepareData?.backendUrl,
+    })
+    assertIntentAuthorizationConfirmed(authorizationStatus)
+  } catch (error) {
+    await cancelPreparedIntent(prepareData)
+    throw error
+  }
   const authorizationRequestId =
     authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
   markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true });
@@ -199,11 +206,17 @@ export const useReservationRequestSSO = (options = {}) => {
       });
 
       emitReservationProgress(requestData, 'awaiting_authorization');
-      const authorizationStatus = await awaitBackendAuthorization(prepareData, {
-        backendUrl: prepareData?.backendUrl,
-        popup: authorizationPopup,
-      })
-      assertIntentAuthorizationConfirmed(authorizationStatus)
+      let authorizationStatus
+      try {
+        authorizationStatus = await awaitBackendAuthorization(prepareData, {
+          backendUrl: prepareData?.backendUrl,
+          popup: authorizationPopup,
+        })
+        assertIntentAuthorizationConfirmed(authorizationStatus)
+      } catch (error) {
+        await cancelPreparedIntent(prepareData)
+        throw error
+      }
       const authorizationRequestId =
         authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
       markBrowserCredentialVerifiedFromIntent(prepareData, { includeReservationPayload: true })
