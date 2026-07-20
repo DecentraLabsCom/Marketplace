@@ -93,11 +93,11 @@ const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
 const mockDeleteFileMutate = jest.fn();
 
-const expectTempNotificationCall = (status, messageMatcher) => {
+const expectTempNotificationCall = (status, messageMatcher, thirdArg = null) => {
   expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
     status,
     messageMatcher,
-    null,
+    thirdArg,
     expect.objectContaining({
       dedupeKey: expect.any(String),
       dedupeWindowMs: expect.any(Number),
@@ -297,8 +297,11 @@ const createTestQueryClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 
 let queryClient;
-const renderWithClient = (ui, options) =>
-  render(ui, { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, ...options });
+const renderWithClient = (ui, options = {}) =>
+  render(ui, {
+    ...options,
+    wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+  });
 
 describe("ProviderDashboard Component", () => {
   beforeEach(() => {
@@ -355,7 +358,7 @@ describe("ProviderDashboard Component", () => {
     test("does not redirect while loading", async () => {
       mockUserData.isLoading = true;
 
-      renderWithClient(<ProviderDashboard />);
+      const { rerender } = renderWithClient(<ProviderDashboard />);
 
       await waitFor(
         () => {
@@ -363,6 +366,13 @@ describe("ProviderDashboard Component", () => {
         },
         { timeout: 500 }
       );
+
+      mockUserData.isLoading = false;
+      rerender(<ProviderDashboard />);
+
+      await waitFor(() => {
+        expect(mockPush).not.toHaveBeenCalled();
+      });
     });
 
     test("does not redirect while provider status loading", async () => {
@@ -604,7 +614,15 @@ describe("ProviderDashboard Component", () => {
     });
 
     describe("Edit Lab", () => {
+      const originalBlobBaseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+
       beforeEach(() => {
+        if (originalBlobBaseUrl === undefined) {
+          delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+        } else {
+          process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = originalBlobBaseUrl;
+        }
+
         mockLabsData.data = {
           labs: [
             {
@@ -618,6 +636,14 @@ describe("ProviderDashboard Component", () => {
             },
           ],
         };
+      });
+
+      afterEach(() => {
+        if (originalBlobBaseUrl === undefined) {
+          delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+        } else {
+          process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = originalBlobBaseUrl;
+        }
       });
 
       test("opens modal with selected lab data", async () => {
@@ -674,7 +700,6 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("updates FMU metadata off-chain when only metadata categories change", async () => {
-        const previousBlobBaseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
         process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = "https://blob.example.com";
         mockLabsData.data = {
           labs: [
@@ -712,35 +737,27 @@ describe("ProviderDashboard Component", () => {
         };
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-        try {
-          renderWithClient(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
-          await waitFor(() => {
-            fireEvent.click(screen.getByTestId("edit-2"));
-          });
+        await waitFor(() => {
+          fireEvent.click(screen.getByTestId("edit-2"));
+        });
 
-          await act(async () => {
-            fireEvent.click(await screen.findByTestId("modal-submit"));
-          });
+        await act(async () => {
+          fireEvent.click(await screen.findByTestId("modal-submit"));
+        });
 
-          await waitFor(() => {
-            expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
-              expect.objectContaining({
-                id: "2",
-                resourceType: "fmu",
-                accessKey: "spring-damper.fmu",
-                category: ["1.2", "2.2"],
-              })
-            );
-          });
-          expect(mockUpdateLabMutate).not.toHaveBeenCalled();
-        } finally {
-          if (previousBlobBaseUrl === undefined) {
-            delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
-          } else {
-            process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = previousBlobBaseUrl;
-          }
-        }
+        await waitFor(() => {
+          expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              id: "2",
+              resourceType: "fmu",
+              accessKey: "spring-damper.fmu",
+              category: ["1.2", "2.2"],
+            })
+          );
+        });
+        expect(mockUpdateLabMutate).not.toHaveBeenCalled();
       });
 
       test("preserves unchanged rounded raw price during metadata-only edits", async () => {
