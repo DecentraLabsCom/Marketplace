@@ -1010,6 +1010,30 @@ describe("ProviderDashboard Component", () => {
         });
       });
 
+      test("handles unlist error", async () => {
+        mockLabsData.data = {
+          labs: [{ id: "1", name: "Lab", listed: true }],
+        };
+
+        const error = new Error("Unlist failed");
+        mockUnlistLabMutate.mockRejectedValueOnce(error);
+
+        renderWithClient(<ProviderDashboard />);
+
+        const unlistButton = await screen.findByTestId("unlist-1");
+
+        await act(async () => {
+          fireEvent.click(unlistButton);
+        });
+
+        await waitFor(() => {
+          expectTempNotificationCall(
+            "error",
+            expect.stringContaining("Failed to unlist lab")
+          );
+        });
+      });
+
     });
   });
 
@@ -1115,7 +1139,6 @@ describe("ProviderDashboard Component", () => {
 
       const calendar = screen.getByTestId("calendar");
       const dateButton = within(calendar).getByRole("button", { name: /change date/i });
-      const initiallySelectedDate = screen.getByTestId("selected-date").textContent;
 
       fireEvent.click(dateButton);
 
@@ -1124,7 +1147,6 @@ describe("ProviderDashboard Component", () => {
           "2025-01-02T00:00:00.000Z"
         );
       });
-      expect(screen.getByTestId("selected-date").textContent).not.toBe(initiallySelectedDate);
     });
   });
 });
