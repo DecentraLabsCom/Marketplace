@@ -44,6 +44,8 @@ const isSessionWarmupError = (status, message) => {
   )
 }
 
+const isStatusCheckUnavailable = (status) => status >= 500 && status <= 599
+
 const ONBOARDING_POPUP_MESSAGE_TYPE = 'institutional-onboarding'
 
 const resolvePopupCeremonyUrl = (ceremonyUrl) => {
@@ -147,6 +149,22 @@ export function useInstitutionalOnboarding({
             needed: true,
             backendUrl: institutionBackendUrl,
             reason: 'Session still initializing',
+            transient: true,
+          }
+        }
+
+        // key-status is an optimization. If the institutional status check is
+        // temporarily unavailable, keep the registration path open and let
+        // the preparation request retry the backend operation.
+        if (isStatusCheckUnavailable(statusResponse.status)) {
+          devLog.warn('[useInstitutionalOnboarding] Status check unavailable, keeping onboarding required')
+          setState(OnboardingState.REQUIRED)
+          setIsOnboarded(false)
+          setError(null)
+          return {
+            needed: true,
+            backendUrl: institutionBackendUrl,
+            reason: 'Status temporarily unavailable',
             transient: true,
           }
         }

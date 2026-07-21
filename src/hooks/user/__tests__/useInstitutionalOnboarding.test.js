@@ -126,6 +126,34 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
+    it('should keep onboarding available when the status proxy returns 502', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: () => Promise.resolve({
+          error: 'The onboarding status could not be checked.',
+          code: 'ONBOARDING_STATUS_UNAVAILABLE',
+        }),
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      let statusResult
+      await act(async () => {
+        statusResult = await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.state).toBe(OnboardingState.REQUIRED)
+      expect(result.current.isOnboarded).toBe(false)
+      expect(result.current.error).toBeNull()
+      expect(statusResult).toEqual({
+        needed: true,
+        backendUrl: 'https://backend.example.com',
+        reason: 'Status temporarily unavailable',
+        transient: true,
+      })
+    })
+
     it('uses the same-origin key-status proxy without a browser bearer token', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -740,6 +768,39 @@ describe('useInstitutionalOnboarding', () => {
       expect(flowResult.ceremonyUrl).toBe('https://ceremony.example.com')
       const storedSession = JSON.parse(mockSessionStorage.setItem.mock.calls[0][1])
       expect(storedSession).not.toHaveProperty('backendAuthToken')
+    })
+
+    it('should continue to ceremony preparation after a transient status failure', async () => {
+      window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }))
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: () => Promise.resolve({ error: 'The onboarding status could not be checked.' }),
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          sessionId: 'session123',
+          ceremonyUrl: 'https://ceremony.example.com',
+          stableUserId: 'user123',
+          institutionId: 'university.edu',
+        }),
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
+
+      let flowResult
+      await act(async () => {
+        flowResult = await result.current.startOnboarding()
+      })
+
+      expect(flowResult.redirecting).toBe(true)
+      expect(flowResult.ceremonyUrl).toBe('https://ceremony.example.com')
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/onboarding/webauthn/options', {
+        method: 'POST',
+        credentials: 'include',
+      })
     })
   })
 

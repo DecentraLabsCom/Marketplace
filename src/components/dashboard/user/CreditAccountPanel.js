@@ -162,7 +162,7 @@ export default function CreditAccountPanel() {
           type="button"
           onClick={retryAll}
           className="text-xs px-3 py-1.5 rounded border border-slate-500 hover:border-slate-300"
-          style={{ color: 'var(--color-text-primary)' }}
+          style={{ color: 'var(--color-slate-500)' }}
         >
           Retry
         </button>
