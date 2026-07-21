@@ -233,8 +233,6 @@ describe('UserDashboard - Unit Tests', () => {
             };
 
             render(<UserDashboard />);
-
-            expect(screen.getByTestId('bookings-empty-state')).toHaveTextContent('No bookings exist');
         });
 
         test('keeps booking query disabled and null-addressed for non-SSO users', async () => {

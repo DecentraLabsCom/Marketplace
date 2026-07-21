@@ -75,12 +75,6 @@ export default function UserDashboard() {
   const hasPartialBookingFailures = Boolean(
     bookingErrorInfo.hasPartialErrors || bookingErrorInfo.hasPartialFailures
   );
-  const hasNoBookings = Boolean(
-    !bookingsError
-    && userBookingsData
-    && !hasPartialBookingFailures
-    && userBookings.length === 0
-  );
 
   const formatLastSuccessfulUpdate = (value) => {
     if (!value) return null;
@@ -460,12 +454,6 @@ export default function UserDashboard() {
                 >
                   Retry bookings
                 </button>
-              </div>
-            )}
-
-            {hasNoBookings && (
-              <div data-testid="bookings-empty-state" className="mb-4 rounded-lg border border-slate-500/50 p-4 text-sm text-slate-200">
-                No bookings exist.
               </div>
             )}
             

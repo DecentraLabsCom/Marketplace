@@ -154,7 +154,7 @@ export default function CreditAccountPanel() {
           <p className="mt-1 opacity-80">
             {isMissingAccount
               ? 'Your institution does not have a service-credit account yet.'
-              : 'The credit service is temporarily unavailable. Your data has not been removed.'}
+              : 'The credit service is temporarily unavailable.'}
           </p>
         </div>
         {lastUpdatedLabel && <p className="text-xs opacity-60" style={{ color: 'var(--color-text-primary)' }}>{lastUpdatedLabel}</p>}
@@ -284,7 +284,7 @@ export default function CreditAccountPanel() {
                     {MOVEMENT_LABELS[mov.movementType] || mov.movementType}
                   </span>
                   {mov.reference && (
-                    <span className="opacity-40 truncate max-w-[120px]">{mov.reference}</span>
+                    <span className="opacity-40 truncate max-w-30">{mov.reference}</span>
                   )}
                 </span>
                 <span className="flex items-center gap-2">
