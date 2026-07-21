@@ -204,8 +204,7 @@ export default function InstitutionInviteCard({
         Institutional Backend Pairing
       </h1>
       <p className="text-sm text-gray-600 mb-4">
-        Generate a short-lived challenge and enter it in your institutional backend. The backend
-        supplies its configured wallet and public origin; this page never accepts either value.
+        Generate a short-lived challenge and enter it in your institutional backend.
       </p>
 
       {pairing && (
