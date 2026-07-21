@@ -157,7 +157,7 @@ export default function CreditAccountPanel() {
               : 'The credit service is temporarily unavailable.'}
           </p>
         </div>
-        {lastUpdatedLabel && <p className="text-xs opacity-60" style={{ color: 'var(--color-text-primary)' }}>{lastUpdatedLabel}</p>}
+        {lastUpdatedLabel && <p className="text-xs opacity-60" style={{ color: 'var(--color-text-secondary)' }}>{lastUpdatedLabel}</p>}
         <button
           type="button"
           onClick={retryAll}
