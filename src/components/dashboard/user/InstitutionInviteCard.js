@@ -45,6 +45,23 @@ export default function InstitutionInviteCard({
   const pollingTimeoutRef = useRef(null);
 
   const canRegisterInstitution = isSSO && user && hasInstitutionRegistrationPrivilege(user);
+  const operationInProgress = loading || approving || cancelling;
+  const pairingBlocksGeneration = pairing && pairing.status !== 'EXPIRED';
+  const progressMessage = loading
+    ? 'Creating pairing challenge...'
+    : approving
+      ? 'Approving pairing and preparing backend completion...'
+      : cancelling
+        ? 'Cancelling pairing and removing the challenge...'
+        : pairing?.status === 'AWAITING_BACKEND'
+          ? 'Waiting for the backend offer. Paste this challenge into backend pairing setup.'
+          : pairing?.status === 'AWAITING_APPROVAL'
+            ? 'Backend offer received. Review the wallet and origin, then approve pairing.'
+            : pairing?.status === 'APPROVED'
+              ? 'Pairing approved. Complete pairing in the institutional backend.'
+              : pairing?.status === 'EXPIRED'
+                ? 'Pairing challenge expired. Generate a new challenge to try again.'
+              : null;
 
   useEffect(() => {
     setTokenType(defaultTokenType);
@@ -58,7 +75,10 @@ export default function InstitutionInviteCard({
       });
       if (!response.ok) return;
       const data = await response.json();
-      setPairing((current) => ({ ...current, ...data }));
+      setPairing((current) => {
+        if (!current || current.pairingId !== pairingId) return current;
+        return { ...current, ...data };
+      });
       return data;
     } catch (error) {
       devLog.error('InstitutionInviteCard: pairing status failed', error);
@@ -157,7 +177,7 @@ export default function InstitutionInviteCard({
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || 'Failed to cancel pairing');
-      setPairing((current) => ({ ...current, status: 'CANCELLED' }));
+      setPairing(null);
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to cancel pairing', error);
       notifyInstitutionProvisioningGenerationFailed(
@@ -202,7 +222,6 @@ export default function InstitutionInviteCard({
             <div className="text-xs text-gray-500 mt-1 space-y-1">
               <p>Status: {statusLabel(pairing.status)}.</p>
               <p>Pairing expires: {formatPairingExpiry(pairing.pairingExpiresAt || pairing.expiresAt)}</p>
-              <p>Token expires: {formatPairingExpiry(pairing.tokenExpiresAt)}</p>
             </div>
           </div>
 
@@ -224,9 +243,10 @@ export default function InstitutionInviteCard({
               type="button"
               onClick={approvePairing}
               disabled={approving}
+              aria-busy={approving}
               className="w-full rounded bg-brand px-4 py-2 font-semibold text-white disabled:opacity-60"
             >
-              {approving ? 'Approving pairing...' : 'Approve pairing and issue token'}
+              {approving ? 'Approving pairing...' : 'Approve pairing'}
             </button>
           )}
 
@@ -235,6 +255,7 @@ export default function InstitutionInviteCard({
               type="button"
               onClick={cancelPairing}
               disabled={cancelling || approving}
+              aria-busy={cancelling}
               className="w-full rounded border border-gray-300 px-4 py-2 font-semibold text-gray-700 disabled:opacity-60"
             >
               {cancelling ? 'Cancelling pairing...' : 'Cancel pairing'}
@@ -243,9 +264,22 @@ export default function InstitutionInviteCard({
 
           {pairing.status === 'APPROVED' && (
             <p className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-              Pairing approved. Return to the institutional backend and finalize registration.
+              Pairing approved. Return to the institutional backend and complete pairing.
             </p>
           )}
+        </div>
+      )}
+
+      {progressMessage && (
+        <div
+          className="mb-4 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900"
+          data-testid="pairing-progress"
+          role="status"
+          aria-live="polite"
+          aria-busy={operationInProgress}
+        >
+          <span aria-hidden="true" className={operationInProgress ? 'inline-block animate-spin' : ''}>⟳</span>
+          <span>{progressMessage}</span>
         </div>
       )}
 
@@ -260,6 +294,7 @@ export default function InstitutionInviteCard({
                 value="provider"
                 checked={tokenType === 'provider'}
                 onChange={(event) => setTokenType(event.target.value)}
+                disabled={operationInProgress || Boolean(pairingBlocksGeneration)}
                 className="mr-2"
               />
               <span className="text-sm">Provider</span>
@@ -271,6 +306,7 @@ export default function InstitutionInviteCard({
                 value="consumer"
                 checked={tokenType === 'consumer'}
                 onChange={(event) => setTokenType(event.target.value)}
+                disabled={operationInProgress || Boolean(pairingBlocksGeneration)}
                 className="mr-2"
               />
               <span className="text-sm">Consumer</span>
@@ -282,7 +318,8 @@ export default function InstitutionInviteCard({
       <button
         type="button"
         onClick={createPairing}
-        disabled={loading}
+        disabled={operationInProgress || Boolean(pairingBlocksGeneration)}
+        aria-busy={loading}
         className="w-full rounded bg-brand px-4 py-2 font-semibold text-white disabled:opacity-60"
       >
         {loading ? 'Generating challenge...' : 'Generate pairing challenge'}

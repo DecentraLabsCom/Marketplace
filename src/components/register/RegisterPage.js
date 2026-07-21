@@ -132,8 +132,8 @@ export default function RegisterPage() {
         <div className="max-w-5xl mx-auto mt-8">
           <div className="text-center mb-8">
             <p className="text-neutral-200 max-w-2xl mx-auto">
-              Choose how your institution wants to participate in the DecentraLabs marketplace and generate a short-lived
-              provisioning token to auto-configure institutional provisioning for your organization.
+              Choose how your institution wants to participate in the DecentraLabs marketplace and start pairing your
+              institutional backend with a short-lived pairing challenge.
             </p>
           </div>
 

@@ -19,7 +19,7 @@ export const notifyInstitutionProvisioningAccessDenied = (addTemporaryNotificati
   notify(
     addTemporaryNotification,
     'error',
-    `${tokenType === 'consumer' ? 'Consumer' : 'Provisioning'} token is only available for authorized institutional staff (SSO).`,
+    `${tokenType === 'consumer' ? 'Consumer' : 'Institution'} pairing challenges are only available for authorized institutional staff (SSO).`,
     institutionToastIds.provisioningAccessDenied(tokenType)
   )
 
@@ -35,7 +35,7 @@ export const notifyInstitutionProvisioningGenerated = (addTemporaryNotification,
   notify(
     addTemporaryNotification,
     'success',
-    `${tokenType === 'consumer' ? 'Consumer provisioning' : 'Provisioning'} token generated successfully.`,
+    'Pairing challenge created. Paste it into the institutional backend pairing setup.',
     institutionToastIds.provisioningGenerated(tokenType)
   )
 
@@ -47,7 +47,7 @@ export const notifyInstitutionProvisioningGenerationFailed = (
   notify(
     addTemporaryNotification,
     'error',
-    message || `Failed to generate ${tokenType === 'consumer' ? 'consumer provisioning' : 'provisioning'} token.`,
+    message || 'Failed to create pairing challenge.',
     institutionToastIds.provisioningGenerateFailed(tokenType)
   )
 

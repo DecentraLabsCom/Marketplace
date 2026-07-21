@@ -111,6 +111,8 @@ describe("RegisterPage", () => {
     expect(
       screen.getByText(/Choose how your institution wants to participate/i)
     ).toBeInTheDocument();
+    expect(screen.getByText(/short-lived pairing challenge/i)).toBeInTheDocument();
+    expect(screen.queryByText(/provisioning token/i)).not.toBeInTheDocument();
   });
 
   test("denies SSO users without an institutional registration privilege", () => {
