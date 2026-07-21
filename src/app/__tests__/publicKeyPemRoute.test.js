@@ -3,6 +3,7 @@
  */
 
 import fs from 'fs'
+import { generateKeyPairSync } from 'node:crypto'
 
 jest.mock('fs', () => ({
   __esModule: true,
@@ -89,6 +90,19 @@ describe('/.well-known/public-key.pem route', () => {
     const res = await GET()
     expect(res.status).toBe(200)
     await expect(res.text()).resolves.toContain('ABC')
+    expect(fs.readFileSync).not.toHaveBeenCalled()
+  })
+
+  test('derives the published key from the signing key when both runtime keys are present', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    process.env.JWT_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' })
+    process.env.JWT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nSTALE\n-----END PUBLIC KEY-----'
+
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
+    const res = await GET()
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe(publicKey.export({ type: 'spki', format: 'pem' }))
     expect(fs.readFileSync).not.toHaveBeenCalled()
   })
 })

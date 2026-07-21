@@ -32,11 +32,21 @@ export function publicErrorResponse({
   const correlationId = createCorrelationId()
 
   if (error) {
-    devLog.error('[API error]', {
+    const logData = {
       correlationId,
       context,
       error: sanitizeErrorForLog(error),
-    })
+    }
+
+    // Development logging is intentionally quiet in production, but API
+    // failures need a bounded, redacted record in hosted runtime logs. This
+    // is especially important for proxy routes where the browser only sees a
+    // generic public error.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[API error]', logData)
+    } else {
+      devLog.error('[API error]', logData)
+    }
   }
 
   const response = NextResponse.json(

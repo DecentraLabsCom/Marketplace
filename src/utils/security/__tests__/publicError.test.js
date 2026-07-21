@@ -34,4 +34,31 @@ describe('publicError', () => {
     expect(safe).not.toContain('abc123')
     expect(safe.length).toBeLessThanOrEqual(500)
   })
+
+  test('writes sanitized API errors to production logs', () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    process.env.NODE_ENV = 'production'
+
+    try {
+      publicErrorResponse({
+        status: 502,
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: 'The requested service is temporarily unavailable.',
+        error: new Error('Bearer secret-token gateway response for email@example.edu'),
+        context: 'test-route',
+      })
+
+      expect(consoleError).toHaveBeenCalledWith(
+        '[API error]',
+        expect.objectContaining({
+          context: 'test-route',
+          error: expect.not.stringContaining('secret-token'),
+        }),
+      )
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+      consoleError.mockRestore()
+    }
+  })
 })

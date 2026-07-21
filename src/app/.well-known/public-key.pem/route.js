@@ -10,6 +10,7 @@
  */
 
 import fs from 'fs';
+import { createPublicKey } from 'node:crypto';
 import path from 'path';
 
 export async function GET() {
@@ -17,10 +18,27 @@ export async function GET() {
     let publicKey;
     const publicKeyPath = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
 
-    // Prefer the runtime env var so deployed key rotations keep signing and
-    // published verification keys in sync. Fall back to the committed file for
-    // local/static deployments.
-    if (process.env.JWT_PUBLIC_KEY) {
+    // Derive the published key from the runtime signing key whenever it is
+    // available. This makes the verification endpoint authoritative for the
+    // key that Marketplace actually uses to sign tokens, even if a separate
+    // JWT_PUBLIC_KEY variable was left stale during rotation.
+    if (process.env.JWT_PRIVATE_KEY) {
+      try {
+        publicKey = createPublicKey(process.env.JWT_PRIVATE_KEY).export({
+          type: 'spki',
+          format: 'pem',
+        });
+      } catch (error) {
+        console.error('Invalid JWT_PRIVATE_KEY configuration:', error.message);
+        return new Response('Invalid private key format', {
+          status: 500,
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+        });
+      }
+    } else if (process.env.JWT_PUBLIC_KEY) {
+      // Local/static deployments may only provide the public key.
       publicKey = process.env.JWT_PUBLIC_KEY;
     } else {
       try {

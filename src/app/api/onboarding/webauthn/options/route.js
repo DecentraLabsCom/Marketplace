@@ -18,7 +18,13 @@ export async function POST() {
       cache: 'no-store',
     })
     if (!upstream.ok) {
-      return publicErrorResponse({ status: 502, code: 'ONBOARDING_OPTIONS_UNAVAILABLE', message: 'The onboarding ceremony could not be prepared.', context: 'onboarding-options' })
+      return publicErrorResponse({
+        status: 502,
+        code: 'ONBOARDING_OPTIONS_UNAVAILABLE',
+        message: 'The onboarding ceremony could not be prepared.',
+        error: new Error(`Institutional onboarding backend responded with status ${upstream.status}`),
+        context: 'onboarding-options',
+      })
     }
     const data = await upstream.json()
     if (!data?.sessionId) {

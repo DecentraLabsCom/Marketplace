@@ -17,7 +17,13 @@ export async function GET() {
     )
     if (upstream.status === 404) return NextResponse.json({ ...publicOnboardingMeta(context), hasCredential: false }, { status: 404 })
     if (!upstream.ok) {
-      return publicErrorResponse({ status: 502, code: 'ONBOARDING_STATUS_UNAVAILABLE', message: 'The onboarding status could not be checked.', context: 'onboarding-key-status' })
+      return publicErrorResponse({
+        status: 502,
+        code: 'ONBOARDING_STATUS_UNAVAILABLE',
+        message: 'The onboarding status could not be checked.',
+        error: new Error(`Institutional onboarding backend responded with status ${upstream.status}`),
+        context: 'onboarding-key-status',
+      })
     }
     const data = await upstream.json()
     return NextResponse.json({
