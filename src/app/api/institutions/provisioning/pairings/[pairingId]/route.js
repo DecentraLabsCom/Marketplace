@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
 
 export async function GET(_request, { params }) {
   try {
+    const { pairingId } = await params;
     const sessionContext = await requireProvisioningPairingSession();
     const rateLimitResponse = await provisioningPairingRateLimitResponse(
       'status',
@@ -21,7 +22,7 @@ export async function GET(_request, { params }) {
       { ...sessionContext.session, institutionId: sessionContext.institutionId },
     );
     if (rateLimitResponse) return rateLimitResponse;
-    const pairing = await assertPairingBelongsToSession(params.pairingId, sessionContext);
+    const pairing = await assertPairingBelongsToSession(pairingId, sessionContext);
     return NextResponse.json(publicProvisioningPairing(pairing));
   } catch (error) {
     return pairingErrorResponse(error);
@@ -30,6 +31,7 @@ export async function GET(_request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const { pairingId } = await params;
     const sessionContext = await requireProvisioningPairingSession();
     const rateLimitResponse = await provisioningPairingRateLimitResponse(
       'cancel',
@@ -37,8 +39,8 @@ export async function DELETE(request, { params }) {
       { ...sessionContext.session, institutionId: sessionContext.institutionId },
     );
     if (rateLimitResponse) return rateLimitResponse;
-    await assertPairingBelongsToSession(params.pairingId, sessionContext);
-    await cancelProvisioningPairing(params.pairingId);
+    await assertPairingBelongsToSession(pairingId, sessionContext);
+    await cancelProvisioningPairing(pairingId);
     return new Response(null, { status: 204 });
   } catch (error) {
     return pairingErrorResponse(error);

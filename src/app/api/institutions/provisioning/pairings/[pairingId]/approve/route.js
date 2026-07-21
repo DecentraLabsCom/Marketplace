@@ -15,6 +15,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request, { params }) {
   try {
+    const { pairingId } = await params;
     const sessionContext = await requireProvisioningPairingSession();
     const rateLimitResponse = await provisioningPairingRateLimitResponse(
       'approve',
@@ -22,7 +23,7 @@ export async function POST(request, { params }) {
       { ...sessionContext.session, institutionId: sessionContext.institutionId },
     );
     if (rateLimitResponse) return rateLimitResponse;
-    const pairing = await assertPairingBelongsToSession(params.pairingId, sessionContext);
+    const pairing = await assertPairingBelongsToSession(pairingId, sessionContext);
     if (pairing.status !== 'AWAITING_APPROVAL') {
       return NextResponse.json({ error: 'Pairing is not awaiting approval' }, { status: 409 });
     }
