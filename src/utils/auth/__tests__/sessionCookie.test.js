@@ -31,8 +31,8 @@ describe('sessionCookie', () => {
     jest.clearAllMocks();
   });
 
-  it('uses a 30-minute default session lifetime', () => {
-    expect(sessionCookie.getSessionCookieOptions().maxAge).toBe(30 * 60);
+  it('uses a 60-minute default session lifetime', () => {
+    expect(sessionCookie.getSessionCookieOptions().maxAge).toBe(60 * 60);
   });
 
   it('stores identity server-side and puts only an opaque identifier in the cookie', async () => {

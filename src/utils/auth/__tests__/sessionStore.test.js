@@ -41,7 +41,7 @@ describe('server-side session store', () => {
 
     expect(sessionId).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(command.slice(0, 2)).toEqual(['SET', expect.stringContaining(sessionId)])
-    expect(command.slice(3)).toEqual(['EX', String(30 * 60)])
+    expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
     expect(Object.keys(storedRecord)).toEqual(['encryptedSession'])
     expect(storedRecord.encryptedSession).toMatch(/^enc:v1:/)
     expect(storedRecord.encryptedSession).not.toContain(assertion)
@@ -58,7 +58,7 @@ describe('server-side session store', () => {
     })
 
     const command = JSON.parse(global.fetch.mock.calls[0][1].body)
-    expect(command.slice(3)).toEqual(['EX', String(30 * 60)])
+    expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
   })
 
   test('does not use SESSION_SECRET as the encryption key in production', async () => {
@@ -85,5 +85,14 @@ describe('server-side session store', () => {
 
     await expect(createServerSession({ id: 'user-4' })).rejects.toThrow('temporarily unavailable')
     expect(global.fetch).toHaveBeenCalledTimes(6)
+  })
+
+  test('does not turn a session-store read failure into a missing session', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network unavailable'))
+    const { clearMemorySessionsForTests, getServerSession } = await import('../sessionStore')
+    clearMemorySessionsForTests()
+
+    await expect(getServerSession('a'.repeat(43)))
+      .rejects.toMatchObject({ code: 'SESSION_STORE_UNAVAILABLE' })
   })
 })

@@ -10,6 +10,14 @@ const developmentEncryptionKey = randomBytes(32)
 let remoteFailureCount = 0
 let remoteCircuitOpenUntil = 0
 
+export class SessionStoreUnavailableError extends Error {
+  constructor() {
+    super('Session store is temporarily unavailable')
+    this.name = 'SessionStoreUnavailableError'
+    this.code = 'SESSION_STORE_UNAVAILABLE'
+  }
+}
+
 const parseBoundedInteger = (value, fallback, minimum, maximum) => {
   const parsed = Number.parseInt(value || '', 10)
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback
@@ -244,7 +252,7 @@ export async function getServerSession(sessionId) {
     config = requireSessionStoreConfig()
   } catch (error) {
     devLog.warn('Session store configuration is invalid; rejecting session', error?.message || error)
-    return null
+    throw new SessionStoreUnavailableError()
   }
   let rawRecord
 
@@ -254,7 +262,7 @@ export async function getServerSession(sessionId) {
       : memorySessions.get(sessionId)?.record
   } catch (error) {
     devLog.warn('Session store read failed; rejecting session', error?.message || error)
-    return null
+    throw new SessionStoreUnavailableError()
   }
 
   if (!rawRecord) return null
@@ -269,7 +277,7 @@ export async function getServerSession(sessionId) {
   } catch (error) {
     if (!config) memorySessions.delete(sessionId)
     devLog.warn('Session record is invalid; rejecting session', error?.message || error)
-    return null
+    throw new SessionStoreUnavailableError()
   }
 }
 

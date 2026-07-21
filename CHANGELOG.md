@@ -8,6 +8,10 @@ browser behavior.
 
 ## Unreleased
 
+### Authentication
+
+- Extended the default Marketplace SSO session lifetime from 30 to 60 minutes.
+
 ### Documentation
 
 - Reorganized Marketplace documentation by audience and operational concern.
