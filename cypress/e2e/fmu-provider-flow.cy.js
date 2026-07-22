@@ -230,8 +230,9 @@ describe("FMU Provider - Create FMU resource", () => {
     // Access URI is read-only and comes from the mocked provider registry.
     cy.get('input[placeholder="Access URI"]')
       .scrollIntoView()
-      .should("have.attr", "readonly")
-      .and("have.value", "https://gateway.example.test/fmu");
+      .should("have.attr", "readonly");
+    cy.get('input[placeholder="Access URI"]')
+      .should("have.value", "https://gateway.example.test/fmu");
     cy.get('input[placeholder="spring-damper.fmu"]').scrollIntoView().clear().type("test-model.fmu");
 
     // Click auto-detect
