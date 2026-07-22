@@ -33,6 +33,7 @@
 !scripts/coverage-report.js
 !scripts/pre-commit-check.js
 !scripts/audit-institution-provisioning.js
+!scripts/reconcile-institution-provisioning.js
 
 # next.js
 /.next/

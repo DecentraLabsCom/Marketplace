@@ -40,4 +40,13 @@ describe('CI and dependency reproducibility configuration', () => {
       { minScore: 0.9 },
     ]);
   });
+
+  test('ships the institutional provisioning reconciliation entrypoint', () => {
+    const packageJson = JSON.parse(readRepositoryFile('package.json'));
+
+    expect(packageJson.scripts['reconcile:institution-provisioning']).toBe(
+      'node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reconcile-institution-provisioning.js',
+    );
+    expect(fs.existsSync(path.join(repositoryRoot, 'scripts/reconcile-institution-provisioning.js'))).toBe(true);
+  });
 });
