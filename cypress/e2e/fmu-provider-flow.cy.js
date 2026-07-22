@@ -20,6 +20,7 @@ const FMU_LAB = {
   providerName: "Simulation Provider",
   providerEmail: "sim@test.edu",
   providerCountry: "DE",
+  providerAuthURI: "https://gateway.example.test/auth",
   uri: "fmu-spring-10.json",
   price: "500000000000000000",
   isListed: true,
@@ -226,8 +227,11 @@ describe("FMU Provider - Create FMU resource", () => {
     openAddNewLabModal();
     cy.contains("button", /(fmu simulation|simulation)/i).click();
 
-    // Auto-detect requires both gateway URL (Access URI) and FMU file name.
-    cy.get('input[placeholder="Access URI"]').scrollIntoView().clear().type("https://gateway.example.test");
+    // Access URI is read-only and comes from the mocked provider registry.
+    cy.get('input[placeholder="Access URI"]')
+      .scrollIntoView()
+      .should("have.attr", "readonly")
+      .and("have.value", "https://gateway.example.test/fmu");
     cy.get('input[placeholder="spring-damper.fmu"]').scrollIntoView().clear().type("test-model.fmu");
 
     // Click auto-detect
