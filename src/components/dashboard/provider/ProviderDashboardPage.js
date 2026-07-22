@@ -108,6 +108,7 @@ export default function ProviderDashboard() {
     isLoading,
     institutionBackendUrl,
     institutionRegistrationWallet,
+    providerAuthURI,
     institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
@@ -1048,7 +1049,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
-          lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />
+          lab={labForModal} providerAuthURI={providerAuthURI} maxId={maxId} key={labForModal?.id || 'new'} />
       </Container>
     </AccessControl>
   );

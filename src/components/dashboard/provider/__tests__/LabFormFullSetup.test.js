@@ -209,6 +209,15 @@ describe("LabFormFullSetup", () => {
       expect(screen.getByDisplayValue("bio, lab")).toBeInTheDocument();
     });
 
+    test("renders access URI as a read-only provider value", () => {
+      renderForm();
+
+      const accessInput = screen.getByPlaceholderText("Access URI");
+      expect(accessInput).toHaveAttribute("readonly");
+      expect(accessInput).toHaveAttribute("aria-readonly", "true");
+      expect(accessInput).toHaveValue(mockLab.accessURI);
+    });
+
     test("displays correct button text based on lab id", () => {
       const { unmount } = renderForm({
         localLab: { ...mockLab, id: undefined },

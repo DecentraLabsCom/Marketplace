@@ -62,6 +62,23 @@ export function createEmptyLabDraft() {
   }
 }
 
+/**
+ * Resolve the browser access endpoint advertised by a provider.
+ * Provider registration stores the canonical auth endpoint (…/auth) on-chain;
+ * lab access uses the corresponding gateway route for the selected resource.
+ */
+export function buildProviderAccessURI(authURI, resourceType) {
+  const normalizedAuthURI = String(authURI || '').trim().replace(/\/+$/, '')
+  if (!normalizedAuthURI) return ''
+
+  const gatewayBase = normalizedAuthURI.replace(/\/auth$/i, '')
+  const route = resourceType === 1 || resourceType === '1' || resourceType === 'fmu'
+    ? 'fmu'
+    : 'guacamole'
+
+  return `${gatewayBase}/${route}`
+}
+
 export function sanitizeProviderNameForUri(name) {
   const base = (name || 'Provider').toString().trim()
   const sanitized = base

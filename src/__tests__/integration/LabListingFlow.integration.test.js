@@ -166,6 +166,8 @@ jest.mock("@/context/NotificationContext", () => ({
 }));
 
 describe("LabModal Component - Lab Listing Flow", () => {
+  const providerAuthURI = "https://lab.example.com/auth";
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -193,6 +195,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         lab={null}
+        providerAuthURI={providerAuthURI}
         maxId={0}
       />
     );
@@ -231,7 +234,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
     expect(submittedData.price).toBe(labData.price);
 
     // Access Configuration - all fields verified
-    expect(submittedData.accessURI).toBe(labData.accessURI);
+    expect(submittedData.accessURI).toBe("https://lab.example.com/guacamole");
     expect(submittedData.accessKey).toBe(labData.accessKey);
 
     // Scheduling - verify timeSlots are correctly formatted
@@ -258,6 +261,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         lab={null}
+        providerAuthURI={providerAuthURI}
         maxId={0}
       />
     );
@@ -284,7 +288,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           price: labData.price,
-          accessURI: labData.accessURI,
+          accessURI: "https://lab.example.com/guacamole",
           accessKey: labData.accessKey,
           uri: labData.uri,
         })

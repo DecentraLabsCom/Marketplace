@@ -451,8 +451,10 @@ export default function LabFormFullSetup({
             type="text"
             placeholder="Access URI"
             value={localLab?.accessURI || ''}
-            onChange={(e) => handleBasicChange('accessURI', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            readOnly
+            aria-readonly="true"
+            title="Automatically set from the provider gateway"
+            className="w-full p-2 border rounded bg-gray-200 text-gray-400 cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
             disabled={disabled}
             ref={accessURIRef}
           />

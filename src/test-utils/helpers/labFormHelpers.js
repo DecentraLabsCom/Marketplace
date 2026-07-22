@@ -48,10 +48,8 @@ export const fillFullSetupForm = async (labData) => {
   fireEvent.change(priceInput, { target: { value: labData.price } });
 
   // Access Configuration
-  const accessURIInput = screen.getByPlaceholderText(/access uri/i);
   const accessKeyInput = screen.getByPlaceholderText(/access key/i);
 
-  fireEvent.change(accessURIInput, { target: { value: labData.accessURI } });
   fireEvent.change(accessKeyInput, { target: { value: labData.accessKey } });
 
   // Dates - Using mock DatePicker (type="date")
@@ -126,12 +124,10 @@ export const fillFullSetupForm = async (labData) => {
  */
 export const fillQuickSetupForm = async (labData) => {
   const priceInput = screen.getByPlaceholderText(/price/i);
-  const accessURIInput = screen.getByPlaceholderText(/access uri/i);
   const accessKeyInput = screen.getByPlaceholderText(/access key/i);
   const uriInput = screen.getByPlaceholderText(/lab data url/i);
 
   fireEvent.change(priceInput, { target: { value: labData.price } });
-  fireEvent.change(accessURIInput, { target: { value: labData.accessURI } });
   fireEvent.change(accessKeyInput, { target: { value: labData.accessKey } });
   fireEvent.change(uriInput, { target: { value: labData.uri } });
 };

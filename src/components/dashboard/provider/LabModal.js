@@ -15,6 +15,7 @@ import {
   getFordCodesFromClassification,
   getIscedCodesFromClassification,
 } from '@/constants/labClassifications'
+import { buildProviderAccessURI } from './providerDashboard.helpers'
 import {
   initialState,
   extractInternalLabUri,
@@ -35,10 +36,11 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * @param {Function} props.onClose - Callback to close the modal
  * @param {Function} props.onSubmit - Callback to submit lab data
  * @param {Object} props.lab - Lab object for editing (null for creating new lab)
+ * @param {string} props.providerAuthURI - Provider auth endpoint from the on-chain registry
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  * @returns {JSX.Element} Lab creation/editing modal component
  */
-export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab = null, providerAuthURI = '', maxId = 0, onFilesUploaded = null }) {
   const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
   const { addWarningNotification, addErrorNotification } = useNotifications();
@@ -165,8 +167,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       return;
     }
     
-    // Only run if we have a valid lab object
-    if (!lab || typeof lab !== 'object') {
+    // A null lab is the normal value for a new lab. Reject only malformed
+    // non-object values while keeping the empty draft initializable.
+    if (lab !== null && typeof lab !== 'object') {
       devLog.warn('LabModal: Invalid lab object received:', lab);
       return;
     }
@@ -183,7 +186,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const updates = [];
     
     // Create a stable lab object to merge with local state
-    let labToMerge = { ...lab };
+    let labToMerge = { ...(lab || {}) };
     labToMerge.resourceType = getResourceType(lab)
     labToMerge.maxConcurrentUsers = normalizeMaxConcurrentUsersForResource(labToMerge)
     const fordCodes = getFordCodesFromClassification(lab?.classification)
@@ -203,6 +206,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     );
     labToMerge.priceUnit = priceUnit;
     labToMerge.bookingMode = priceUnit === 'hour' ? 'slot' : 'calendar-period';
+
+    // New labs do not have a lab-level accessURI yet. Resolve it from the
+    // provider's on-chain authURI, just like the Lab Gateway publisher. An
+    // existing lab keeps its on-chain value and only uses this as a fallback.
+    if (providerAuthURI && !String(labToMerge.accessURI || '').trim()) {
+      labToMerge.accessURI = buildProviderAccessURI(providerAuthURI, labToMerge.resourceType);
+    }
 
     // Convert price from per-second (cache format) to the selected UI unit.
     if (labToMerge.price && decimals) {
@@ -257,7 +267,19 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
 
     // Execute all updates in a single batch to prevent multiple re-renders
     dispatch({ type: 'BATCH_UPDATE', updates });
-  }, [isOpen, lab?.id, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
+  }, [isOpen, lab?.id, providerAuthURI, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
+
+  // Provider details can arrive after the modal has opened. Fill a new draft
+  // or an incomplete existing lab when that happens without overwriting an
+  // existing lab's on-chain value.
+  useEffect(() => {
+    if (!isOpen || !providerAuthURI || localLab?.accessURI) return
+
+    dispatch({
+      type: 'MERGE_LOCAL_LAB',
+      value: { accessURI: buildProviderAccessURI(providerAuthURI, localLab?.resourceType) },
+    });
+  }, [isOpen, lab?.id, localLab?.accessURI, localLab?.resourceType, providerAuthURI]);
 
   const handleImageChange = useCallback((e) => {
     if (!e.target.files) return;
@@ -668,6 +690,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         type: 'MERGE_LOCAL_LAB',
         value: {
           resourceType,
+          ...(providerAuthURI && { accessURI: buildProviderAccessURI(providerAuthURI, resourceType) }),
           maxConcurrentUsers: Number.isFinite(currentMax) && currentMax >= 2 ? currentMax : 2,
         },
       })
@@ -678,6 +701,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       type: 'MERGE_LOCAL_LAB',
       value: {
         resourceType,
+        ...(providerAuthURI && { accessURI: buildProviderAccessURI(providerAuthURI, resourceType) }),
         maxConcurrentUsers: 1,
         fmuFileName: '',
         fmiVersion: '',
@@ -791,6 +815,7 @@ LabModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
+  providerAuthURI: PropTypes.string,
   onFilesUploaded: PropTypes.func,
   lab: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

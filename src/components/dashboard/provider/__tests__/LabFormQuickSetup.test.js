@@ -158,18 +158,14 @@ describe("LabFormQuickSetup", () => {
       expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
     });
 
-    test("updates access URI field with correct value", () => {
+    test("renders access URI as a read-only provider value", () => {
       renderForm();
 
       const accessInput = screen.getByPlaceholderText("Access URI");
-      fireEvent.change(accessInput, {
-        target: { value: "https://newaccess.com" },
-      });
-
-      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
-        ...mockLab,
-        accessURI: "https://newaccess.com",
-      });
+      expect(accessInput).toHaveAttribute("readonly");
+      expect(accessInput).toHaveAttribute("aria-readonly", "true");
+      expect(accessInput).toHaveValue(mockLab.accessURI);
+      expect(mockHandlers.setLocalLab).not.toHaveBeenCalled();
     });
 
     test("updates access key field with correct value", () => {

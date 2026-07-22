@@ -3,6 +3,7 @@ jest.mock('@/utils/env/baseUrl', () => jest.fn(() => 'https://market.example.com
 import {
   LAB_CREATION_STAGES,
   advanceLabCreationStage,
+  buildProviderAccessURI,
   buildProviderLabUri,
   createEmptyLabDraft,
   isLabIdListCache,
@@ -13,6 +14,18 @@ import {
 } from '../providerDashboard.helpers'
 
 describe('providerDashboard.helpers', () => {
+  test('buildProviderAccessURI derives the resource endpoint from provider authURI', () => {
+    expect(buildProviderAccessURI('https://gateway.example/auth', 'lab')).toBe(
+      'https://gateway.example/guacamole'
+    )
+    expect(buildProviderAccessURI('https://gateway.example/auth', 'fmu')).toBe(
+      'https://gateway.example/fmu'
+    )
+    expect(buildProviderAccessURI('https://gateway.example/auth/', 1)).toBe(
+      'https://gateway.example/fmu'
+    )
+  })
+
   test('models the create saga and requires compensation after on-chain confirmation', () => {
     let stage = LAB_CREATION_STAGES.DRAFT
     stage = advanceLabCreationStage(stage, 'contentStaged')

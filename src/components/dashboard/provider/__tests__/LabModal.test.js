@@ -73,6 +73,7 @@ jest.mock("@/components/dashboard/provider/LabFormFullSetup", () => ({
   default: ({ localLab, onSubmit, onCancel }) => (
     <div data-testid="full-setup-form">
       <span data-testid="resource-type">{localLab?.resourceType}</span>
+      <span data-testid="access-uri">{localLab?.accessURI}</span>
       {localLab?.resourceType === "fmu" && (
         <span data-testid="max-concurrent-users">{localLab?.maxConcurrentUsers}</span>
       )}
@@ -105,7 +106,7 @@ describe("LabModal - Unit Tests", () => {
   });
 
   describe("Modal Visibility", () => {
-    test("renders modal when isOpen is true", () => {
+  test("renders modal when isOpen is true", () => {
       render(
         <LabModal
           isOpen={true}
@@ -147,6 +148,25 @@ describe("LabModal - Unit Tests", () => {
       );
 
       expect(screen.getByText("Edit Lab")).toBeInTheDocument();
+    });
+  });
+
+  test("autofills a new lab access URI from the provider auth URI", async () => {
+    render(
+      <LabModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+        lab={null}
+        providerAuthURI="https://gateway.example/auth"
+        maxId={0}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("access-uri")).toHaveTextContent(
+        "https://gateway.example/guacamole"
+      );
     });
   });
 

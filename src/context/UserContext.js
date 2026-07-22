@@ -585,6 +585,10 @@ function UserDataCore({ children }) {
         setShowOnboardingModal(false);
     }, [dismissBrowserAdvisory, institutionalOnboardingStatus, markBrowserPasskeyVerified]);
 
+    const providerAuthURI = providersData?.providers?.find((provider) => (
+        provider.account?.toLowerCase() === address?.toLowerCase()
+    ))?.authURI || '';
+
     const value = {
         // User state
         user,
@@ -606,6 +610,7 @@ function UserDataCore({ children }) {
         institutionRegistrationWallet,
         institutionBackendUrl,
         institutionDomain,
+        providerAuthURI,
         isInstitutionRegistered: institutionRegistrationStatus === 'registered',
         isInstitutionRegistrationLoading: institutionRegistrationStatus === 'checking',
         
@@ -665,6 +670,7 @@ export function UserData({ children }) {
  * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding
  * @returns {string|null} returns.institutionRegistrationStatus - Status: null, 'checking', 'registered', 'unregistered', 'error'
  * @returns {string|null} returns.institutionRegistrationWallet - Wallet address if institution is registered
+ * @returns {string} returns.providerAuthURI - Provider auth endpoint from the on-chain registry
  * @returns {boolean} returns.isInstitutionRegistered - Whether institution is registered
  * @returns {boolean} returns.isInstitutionRegistrationLoading - Whether institution registration check is in progress
  * @returns {Function} returns.refreshProviderStatus - Function to refresh provider status
