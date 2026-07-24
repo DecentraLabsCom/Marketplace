@@ -91,6 +91,7 @@ describe('InviteTokenPage', () => {
     const provisionRequest = global.fetch.mock.calls.find(([url]) => url === '/api/admin/institutions/provisionProvider');
     const body = JSON.parse(provisionRequest[1].body);
     expect(body).toMatchObject({
+      registrationType: 'provider',
       providerName: 'Partner Lab',
       providerEmail: 'admin@partner.org',
       providerCountry: 'PT',
@@ -99,6 +100,61 @@ describe('InviteTokenPage', () => {
       walletAddress: '0x1234567890123456789012345678901234567890',
       agreementId: 'AGR-2026-001',
     });
+  });
+
+  test('generates consumer invite token when the administrator selects consumer', async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isPlatformAdmin: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          token: 'mock-consumer-token',
+          expiresAt: '2026-06-13T10:00:00.000Z',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [] }),
+      });
+
+    render(<InviteTokenPage />);
+
+    await screen.findByRole('button', { name: /generate/i });
+    await user.selectOptions(screen.getByLabelText(/registration type/i), 'consumer');
+    await user.type(screen.getByLabelText(/consumer name/i), 'Consumer University');
+    await user.type(screen.getByLabelText(/consumer organization/i), 'consumer.edu');
+    await user.type(screen.getByLabelText(/public base url/i), 'https://gateway.consumer.edu');
+    await user.type(screen.getByLabelText(/institutional wallet address/i), '0x1234567890123456789012345678901234567890');
+    await user.click(screen.getByRole('button', { name: /generate/i }));
+
+    const trustReview = screen.getByRole('dialog', { name: /review institutional trust/i });
+    await user.click(within(trustReview).getByRole('checkbox', { name: /I have verified/i }));
+    await user.click(within(trustReview).getByRole('button', { name: /generate provisioning token/i }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('mock-consumer-token')).toBeInTheDocument();
+    });
+
+    const provisionRequest = global.fetch.mock.calls.find(([url]) => url === '/api/admin/institutions/provisionProvider');
+    expect(JSON.parse(provisionRequest[1].body)).toMatchObject({
+      registrationType: 'consumer',
+      consumerName: 'Consumer University',
+      providerOrganization: 'consumer.edu',
+      publicBaseUrl: 'https://gateway.consumer.edu',
+      walletAddress: '0x1234567890123456789012345678901234567890',
+    });
+    expect(JSON.parse(provisionRequest[1].body)).not.toHaveProperty('providerEmail');
+    expect(JSON.parse(provisionRequest[1].body)).not.toHaveProperty('providerCountry');
   });
 
   test('shows durable provisioning status to platform admins without exposing a token', async () => {

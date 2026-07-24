@@ -7,6 +7,7 @@ import ProvisioningTrustReviewModal from '@/components/institutions/Provisioning
 import MetadataOriginExceptionsPanel from '@/components/admin/MetadataOriginExceptionsPanel';
 
 const INITIAL_FORM = {
+  registrationType: 'provider',
   providerName: '',
   providerEmail: '',
   providerCountry: 'ES',
@@ -243,9 +244,14 @@ export default function InviteTokenPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          providerName: form.providerName.trim(),
-          providerEmail: form.providerEmail.trim(),
-          providerCountry: form.providerCountry.trim(),
+          registrationType: form.registrationType,
+          ...(form.registrationType === 'consumer'
+            ? { consumerName: form.providerName.trim() }
+            : {
+              providerName: form.providerName.trim(),
+              providerEmail: form.providerEmail.trim(),
+              providerCountry: form.providerCountry.trim(),
+            }),
           providerOrganization: form.providerOrganization.trim(),
           publicBaseUrl: form.publicBaseUrl.trim(),
           walletAddress: form.walletAddress.trim(),
@@ -343,8 +349,20 @@ export default function InviteTokenPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="block text-sm font-semibold text-gray-700 md:col-span-2">
+            Registration type
+            <select
+              className="mt-1 w-full border rounded p-2 text-sm"
+              value={form.registrationType}
+              onChange={updateField('registrationType')}
+            >
+              <option value="provider">Provider</option>
+              <option value="consumer">Consumer</option>
+            </select>
+          </label>
+
           <label className="block text-sm font-semibold text-gray-700">
-            Provider name
+            {form.registrationType === 'consumer' ? 'Consumer name' : 'Provider name'}
             <input
               className="mt-1 w-full border rounded p-2 text-sm"
               value={form.providerName}
@@ -353,19 +371,21 @@ export default function InviteTokenPage() {
             />
           </label>
 
-          <label className="block text-sm font-semibold text-gray-700">
-            Provider email
-            <input
-              className="mt-1 w-full border rounded p-2 text-sm"
-              type="email"
-              value={form.providerEmail}
-              onChange={updateField('providerEmail')}
-              required
-            />
-          </label>
+          {form.registrationType === 'provider' && (
+            <label className="block text-sm font-semibold text-gray-700">
+              Provider email
+              <input
+                className="mt-1 w-full border rounded p-2 text-sm"
+                type="email"
+                value={form.providerEmail}
+                onChange={updateField('providerEmail')}
+                required
+              />
+            </label>
+          )}
 
           <label className="block text-sm font-semibold text-gray-700">
-            Provider organization
+            {form.registrationType === 'consumer' ? 'Consumer organization' : 'Provider organization'}
             <input
               className="mt-1 w-full border rounded p-2 text-sm"
               value={form.providerOrganization}
@@ -375,16 +395,18 @@ export default function InviteTokenPage() {
             />
           </label>
 
-          <label className="block text-sm font-semibold text-gray-700">
-            Provider country
-            <input
-              className="mt-1 w-full border rounded p-2 text-sm uppercase"
-              value={form.providerCountry}
-              onChange={updateField('providerCountry')}
-              maxLength={2}
-              required
-            />
-          </label>
+          {form.registrationType === 'provider' && (
+            <label className="block text-sm font-semibold text-gray-700">
+              Provider country
+              <input
+                className="mt-1 w-full border rounded p-2 text-sm uppercase"
+                value={form.providerCountry}
+                onChange={updateField('providerCountry')}
+                maxLength={2}
+                required
+              />
+            </label>
+          )}
 
           <label className="block text-sm font-semibold text-gray-700 md:col-span-2">
             Institutional backend origin (public base URL)
@@ -522,7 +544,7 @@ export default function InviteTokenPage() {
         institutionId={form.providerOrganization.trim()}
         walletAddress={form.walletAddress.trim()}
         backendOrigin={trustReview?.backendOrigin || ''}
-        registrationType="provider"
+        registrationType={form.registrationType}
         onConfirm={confirmTrustReview}
         onClose={() => !isGenerating && setTrustReview(null)}
         isSubmitting={isGenerating}

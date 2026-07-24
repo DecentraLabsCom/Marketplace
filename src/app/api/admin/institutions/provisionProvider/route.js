@@ -20,7 +20,7 @@ import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publi
 
 export const runtime = 'nodejs';
 
-const LOCKED_FIELDS = [
+const COMMON_LOCKED_FIELDS = [
   'institutionId',
   'walletAddress',
   'canonicalBackendOrigin',
@@ -31,9 +31,6 @@ const LOCKED_FIELDS = [
   'nonce',
   'issuedAt',
   'expiresAt',
-  'providerName',
-  'providerEmail',
-  'providerCountry',
 ];
 
 function optionalString(value) {
@@ -58,30 +55,40 @@ export async function POST(request) {
       'Marketplace base URL'
     );
 
-    const providerOrganization = marketplaceJwtService.normalizeOrganizationDomain(
-      requireString(body.providerOrganization, 'Provider organization')
+    const registrationType = body.registrationType || PROVISIONING_REGISTRATION_TYPES.PROVIDER;
+    if (!Object.values(PROVISIONING_REGISTRATION_TYPES).includes(registrationType)) {
+      throw new Error('registrationType must be provider or consumer');
+    }
+    const isConsumer = registrationType === PROVISIONING_REGISTRATION_TYPES.CONSUMER;
+    const institutionOrganization = marketplaceJwtService.normalizeOrganizationDomain(
+      requireString(body.providerOrganization, isConsumer ? 'Consumer organization' : 'Provider organization')
     );
 
-    const providerEmail = requireEmail(body.providerEmail, 'Provider email');
     const { chainId, registryContract } = getProvisioningRegistryConfig()
     const payload = {
       marketplaceBaseUrl,
-      institutionId: providerOrganization,
+      institutionId: institutionOrganization,
       walletAddress,
       canonicalBackendOrigin,
-      registrationType: PROVISIONING_REGISTRATION_TYPES.PROVIDER,
+      registrationType,
       chainId,
       registryContract,
-      providerName: requireString(body.providerName, 'Provider name'),
-      providerEmail,
-      responsiblePerson: optionalString(body.responsiblePerson) || providerEmail,
-      providerCountry: requireString(body.providerCountry, 'Provider country'),
-      providerOrganization,
       verificationMethod: 'manual_review',
       assuranceLevel: 'partner_verified',
-      issuedReason: 'approved_partner_provider',
+      issuedReason: isConsumer ? 'approved_partner_consumer' : 'approved_partner_provider',
       issuedBy,
     };
+
+    if (isConsumer) {
+      payload.consumerName = requireString(body.consumerName, 'Consumer name');
+    } else {
+      const providerEmail = requireEmail(body.providerEmail, 'Provider email');
+      payload.providerName = requireString(body.providerName, 'Provider name');
+      payload.providerEmail = providerEmail;
+      payload.responsiblePerson = optionalString(body.responsiblePerson) || providerEmail;
+      payload.providerCountry = requireString(body.providerCountry, 'Provider country');
+      payload.providerOrganization = institutionOrganization;
+    }
 
     const agreementId = optionalString(body.agreementId);
     if (agreementId) {
@@ -100,8 +107,9 @@ export async function POST(request) {
 
     devLog.log('[API] admin/provisionProvider: token issued', {
       issuedBy,
-      providerOrganization,
-      providerEmail: payload.providerEmail,
+      registrationType,
+      institutionOrganization,
+      providerEmail: payload.providerEmail || null,
       canonicalBackendOrigin,
       agreementId: agreementId || null,
       expiresAt,
@@ -111,7 +119,10 @@ export async function POST(request) {
       success: true,
       token,
       expiresAt,
-      lockedFields: LOCKED_FIELDS,
+      lockedFields: [
+        ...COMMON_LOCKED_FIELDS,
+        ...(isConsumer ? ['consumerName'] : ['providerName', 'providerEmail', 'providerCountry']),
+      ],
       payload: signedPayload,
     });
   } catch (error) {

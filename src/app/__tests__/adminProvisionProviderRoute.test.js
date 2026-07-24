@@ -63,7 +63,7 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 }));
 
 jest.mock('@/utils/auth/provisioningTypedData', () => ({
-  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider' },
+  PROVISIONING_REGISTRATION_TYPES: { PROVIDER: 'provider', CONSUMER: 'consumer' },
   getProvisioningRegistryConfig: jest.fn(() => ({
     chainId: 11155111,
     registryContract: '0xe49a2f59631717691642f929E0FeF1f705866600',
@@ -246,5 +246,63 @@ describe('/api/admin/institutions/provisionProvider route', () => {
     expect(recordProvisioningTokenIssued).toHaveBeenCalledWith(
       expect.objectContaining({ jti: 'provisioning-jti' })
     )
+  });
+
+  test('successfully generates a consumer token without provider-only claims', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      email: 'LDelatorre@dia.uned.es',
+    });
+
+    signProvisioningToken.mockResolvedValue({
+      token: 'mock-consumer-token',
+      expiresAt: '2026-06-13T10:00:00.000Z',
+      payload: {
+        institutionId: 'consumer.edu',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        canonicalBackendOrigin: 'https://gateway.consumer.edu',
+        registrationType: 'consumer',
+        consumerName: 'Consumer University',
+        jti: 'consumer-provisioning-jti',
+      },
+    });
+
+    const { POST } = await import('../api/admin/institutions/provisionProvider/route.js');
+    const req = new Request('http://localhost/api/admin/institutions/provisionProvider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationType: 'consumer',
+        consumerName: 'Consumer University',
+        providerOrganization: 'Consumer.EDU',
+        publicBaseUrl: 'https://gateway.consumer.edu/',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      success: true,
+      token: 'mock-consumer-token',
+      payload: {
+        institutionId: 'consumer.edu',
+        registrationType: 'consumer',
+        consumerName: 'Consumer University',
+      },
+    });
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        institutionId: 'consumer.edu',
+        registrationType: 'consumer',
+        consumerName: 'Consumer University',
+      }),
+      expect.objectContaining({
+        audience: 'https://gateway.consumer.edu',
+        issuer: 'https://marketplace.example.com',
+      })
+    );
+    expect(signProvisioningToken.mock.calls[0][0]).not.toHaveProperty('providerEmail');
+    expect(signProvisioningToken.mock.calls[0][0]).not.toHaveProperty('providerCountry');
   });
 });
