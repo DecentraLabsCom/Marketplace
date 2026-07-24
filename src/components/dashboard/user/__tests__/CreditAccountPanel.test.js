@@ -74,7 +74,7 @@ describe('CreditAccountPanel', () => {
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
-  test('shows an account load error, retry control, and last successful update', () => {
+  test('shows an account load error and retry control without a technical timestamp', () => {
     accountData = { ...mockAccount };
     accountError = { status: 502, code: 'BILLING_UNAVAILABLE' };
     accountUpdatedAt = Date.parse('2026-07-19T10:00:00.000Z');
@@ -82,7 +82,7 @@ describe('CreditAccountPanel', () => {
     render(<CreditAccountPanel />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('Credit account could not be loaded');
-    expect(screen.getByText(/Last successful update:/)).toBeInTheDocument();
+    expect(screen.queryByText(/Last successful update:/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(accountRefetch).toHaveBeenCalled();
   });
@@ -104,6 +104,35 @@ describe('CreditAccountPanel', () => {
     expect(screen.getByText('150 credits')).toBeInTheDocument();
     expect(screen.getByText('20 credits')).toBeInTheDocument();
     expect(screen.getByText('30 credits')).toBeInTheDocument();
+    expect(screen.getByText('Available')).toHaveStyle({ color: 'var(--color-ui-label-light)' });
+  });
+
+  test('does not show the top-up notice when available credits are not low', () => {
+    render(<CreditAccountPanel />);
+
+    expect(screen.queryByText(/No pending top-up orders/)).not.toBeInTheDocument();
+  });
+
+  test('shows the top-up notice below the low-credit threshold', () => {
+    accountData = { ...mockAccount, available: '49.99999' };
+
+    render(<CreditAccountPanel />);
+
+    expect(screen.getByText(/No pending top-up orders/)).toBeInTheDocument();
+  });
+
+  test('does not show the top-up notice at the low-credit threshold', () => {
+    accountData = { ...mockAccount, available: '50' };
+
+    render(<CreditAccountPanel />);
+
+    expect(screen.queryByText(/No pending top-up orders/)).not.toBeInTheDocument();
+  });
+
+  test('does not show the technical update timestamp during a healthy refresh', () => {
+    render(<CreditAccountPanel />);
+
+    expect(screen.queryByText(/Last successful update:/)).not.toBeInTheDocument();
   });
 
   test('shows adjusted and expired rows only when > 0', () => {
@@ -161,6 +190,7 @@ describe('CreditAccountPanel', () => {
   });
 
   test('filters out CANCELLED and CREDITED orders', () => {
+    accountData = { ...mockAccount, available: '25' };
     mockFundingOrders.push(
       { id: 1, eurGrossAmount: '100.00', status: 'CANCELLED' },
       { id: 2, eurGrossAmount: '200.00', status: 'CREDITED' },
@@ -216,8 +246,11 @@ describe('CreditAccountPanel', () => {
   });
 
   // ── No-orders message ─────────────────────────────────────────────────
-  test('shows contact admin message when no active orders', () => {
+  test('shows contact admin message when no active orders and credits are low', () => {
+    accountData = { ...mockAccount, available: '25' };
+
     render(<CreditAccountPanel />);
+
     expect(screen.getByText(/Contact your administrator/)).toBeInTheDocument();
   });
 });

@@ -13,6 +13,9 @@ import {
 } from '@/hooks/billing/useBillingAccount';
 import { trimTrailingZeros } from '@/utils/blockchain/creditUnits';
 
+const LOW_AVAILABLE_CREDIT_THRESHOLD = 50;
+const CREDIT_PANEL_TEXT_COLOR = 'var(--color-ui-label-light)';
+
 const STATUS_LABELS = {
   DRAFT: 'Awaiting invoice',
   INVOICED: 'Invoice issued — payment pending',
@@ -77,6 +80,11 @@ const formatDateTime = (isoString) => {
   }
 };
 
+const hasLowAvailableCredits = (value) => {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed < LOW_AVAILABLE_CREDIT_THRESHOLD;
+};
+
 export default function CreditAccountPanel() {
   const accountQuery = useCreditAccountSummary();
   const lotsQuery = useCreditLots();
@@ -91,21 +99,11 @@ export default function CreditAccountPanel() {
   const detailQueries = [lotsQuery, fundingOrdersQuery, movementsQuery];
   const hasDetailError = detailQueries.some((query) => query.isError);
   const isMissingAccount = accountError?.status === 404 || accountError?.code === 'CREDIT_ACCOUNT_NOT_FOUND';
-  const lastSuccessfulUpdate = [
-    accountQuery.dataUpdatedAt,
-    lotsQuery.dataUpdatedAt,
-    fundingOrdersQuery.dataUpdatedAt,
-    movementsQuery.dataUpdatedAt,
-  ].reduce((latest, value) => Math.max(latest, Number(value) || 0), 0);
 
   const retryAll = () => {
     detailQueries.forEach((query) => query.refetch?.());
     accountQuery.refetch?.();
   };
-
-  const lastUpdatedLabel = lastSuccessfulUpdate > 0
-    ? `Last successful update: ${formatDateTime(new Date(lastSuccessfulUpdate).toISOString())}`
-    : null;
 
   const expiringLots = useMemo(() => {
     if (!Array.isArray(lots)) return [];
@@ -128,6 +126,8 @@ export default function CreditAccountPanel() {
     if (!Array.isArray(movements)) return [];
     return showAllMovements ? movements : movements.slice(0, 5);
   }, [movements, showAllMovements]);
+
+  const shouldShowTopUpNotice = activeFundingOrders.length === 0 && hasLowAvailableCredits(account?.available);
 
   if (accountLoading) {
     return (
@@ -157,7 +157,6 @@ export default function CreditAccountPanel() {
               : 'The credit service is temporarily unavailable.'}
           </p>
         </div>
-        {lastUpdatedLabel && <p className="text-xs opacity-60" style={{ color: 'var(--color-text-secondary)' }}>{lastUpdatedLabel}</p>}
         <button
           type="button"
           onClick={retryAll}
@@ -196,7 +195,6 @@ export default function CreditAccountPanel() {
       {accountErrorState && (
         <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
           <p>Credit account could not be loaded. Showing the last successful data.</p>
-          {lastUpdatedLabel && <p className="mt-1 opacity-80">{lastUpdatedLabel}</p>}
           <button type="button" onClick={retryAll} className="mt-2 underline">Retry</button>
         </div>
       )}
@@ -204,28 +202,27 @@ export default function CreditAccountPanel() {
       {hasDetailError && !accountErrorState && (
         <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
           <p>Credit account details could not be loaded. Some sections may be incomplete.</p>
-          {lastUpdatedLabel && <p className="mt-1 opacity-80">{lastUpdatedLabel}</p>}
           <button type="button" onClick={retryAll} className="mt-2 underline">Retry</button>
         </div>
       )}
 
       {/* Balance grid */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs" style={{ color: 'var(--color-text-primary)' }}>
-        <span className="opacity-60">Available</span>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+        <span>Available</span>
         <span className="font-medium text-right">{formatCredits(account.available)} credits</span>
-        <span className="opacity-60">Locked</span>
+        <span>Locked</span>
         <span className="font-medium text-right">{formatCredits(account.locked)} credits</span>
-        <span className="opacity-60">Consumed</span>
+        <span>Consumed</span>
         <span className="font-medium text-right">{formatCredits(account.consumed)} credits</span>
         {account.adjusted > 0 && (
           <>
-            <span className="opacity-60">Adjusted</span>
+            <span>Adjusted</span>
             <span className="font-medium text-right">{formatCredits(account.adjusted)} credits</span>
           </>
         )}
         {account.expired > 0 && (
           <>
-            <span className="opacity-60">Expired</span>
+            <span>Expired</span>
             <span className="font-medium text-right">{formatCredits(account.expired)} credits</span>
           </>
         )}
@@ -239,9 +236,9 @@ export default function CreditAccountPanel() {
           </p>
           <ul className="space-y-1">
             {expiringLots.map((lot) => (
-              <li key={lot.id} className="flex justify-between text-xs" style={{ color: 'var(--color-text-primary)' }}>
+              <li key={lot.id} className="flex justify-between text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                 <span>{formatCredits(lot.remaining ?? lot.amount)} credits</span>
-                <span className="opacity-60">expires {formatDate(lot.expiresAt)}</span>
+                <span>expires {formatDate(lot.expiresAt)}</span>
               </li>
             ))}
           </ul>
@@ -257,7 +254,7 @@ export default function CreditAccountPanel() {
           <ul className="space-y-1">
             {activeFundingOrders.map((order) => (
               <li key={order.id} className="flex justify-between text-xs">
-                <span style={{ color: 'var(--color-text-primary)' }}>
+                <span style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                   {formatEur(order.eurGrossAmount)}
                   {order.reference ? ` · ${order.reference}` : ''}
                 </span>
@@ -278,18 +275,18 @@ export default function CreditAccountPanel() {
           </p>
           <ul data-testid="credit-movements-list" className="space-y-1">
             {recentMovements.map((mov) => (
-              <li key={mov.id} className="flex justify-between text-xs" style={{ color: 'var(--color-text-primary)' }}>
+              <li key={mov.id} className="flex justify-between text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                 <span className="flex items-center gap-1.5">
                   <span className={MOVEMENT_COLORS[mov.movementType] || 'text-slate-400'}>
                     {MOVEMENT_LABELS[mov.movementType] || mov.movementType}
                   </span>
                   {mov.reference && (
-                    <span className="opacity-40 truncate max-w-30">{mov.reference}</span>
+                    <span className="truncate max-w-30">{mov.reference}</span>
                   )}
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="font-medium">{formatCredits(mov.amount)}</span>
-                  <span className="opacity-40">{formatDateTime(mov.createdAt)}</span>
+                  <span>{formatDateTime(mov.createdAt)}</span>
                 </span>
               </li>
             ))}
@@ -297,8 +294,8 @@ export default function CreditAccountPanel() {
           {Array.isArray(movements) && movements.length > 5 && !showAllMovements && (
             <button
               onClick={() => setShowAllMovements(true)}
-              className="text-xs mt-1 opacity-60 hover:opacity-100 transition-opacity"
-              style={{ color: 'var(--color-text-primary)' }}
+              className="text-xs mt-1 hover:underline"
+              style={{ color: CREDIT_PANEL_TEXT_COLOR }}
             >
               Show all {movements.length} movements
             </button>
@@ -307,14 +304,10 @@ export default function CreditAccountPanel() {
       )}
 
       {/* No orders message */}
-      {activeFundingOrders.length === 0 && (
-        <p className="text-xs opacity-50" style={{ color: 'var(--color-text-primary)' }}>
+      {shouldShowTopUpNotice && (
+        <p className="text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
           No pending top-up orders. Contact your administrator to request service-credit top-up.
         </p>
-      )}
-
-      {!accountErrorState && !hasDetailError && lastUpdatedLabel && (
-        <p className="text-xs opacity-50" style={{ color: 'var(--color-text-primary)' }}>{lastUpdatedLabel}</p>
       )}
     </div>
   );
