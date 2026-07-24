@@ -117,6 +117,7 @@ import {
   signIntentMeta,
   getAdminAddress,
   registerIntentOnChain,
+  cancelIntentOnChain,
 } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -407,6 +408,28 @@ describe('Unified intent prepare route', () => {
       txHash: '0xparallel',
       blockNumber: 777,
     }))
+  })
+
+  test('reports confirmed cleanup when authorization creation fails after registration', async () => {
+    requestIntentAuthorizationSession.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      data: { message: 'invalid_intents_token' },
+    })
+    cancelIntentOnChain.mockResolvedValueOnce({ status: 'cancelled', txHash: '0xcancel' })
+
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_ADD,
+      payload: validLabPayload,
+    }))
+    const payload = await res.json()
+
+    expect(res.status).toBe(401)
+    expect(payload).toMatchObject({
+      code: 'INTENT_AUTHORIZATION_FAILED',
+      intentCleanupStatus: 'confirmed',
+    })
+    expect(cancelIntentOnChain).toHaveBeenCalledWith('req-action-1')
   })
 
   test('does not allow a client-selected backend origin', async () => {

@@ -33,6 +33,16 @@ describe('clientFlowShared', () => {
     expect(error.code).toBe('ERR_CODE')
   })
 
+  test('createIntentMutationError preserves confirmed on-chain cleanup', () => {
+    const error = createIntentMutationError({
+      error: 'authorization failed',
+      code: 'INTENT_AUTHORIZATION_FAILED',
+      intentCleanupStatus: 'confirmed',
+    }, 'fallback')
+
+    expect(error.intentCleanupStatus).toBe('confirmed')
+  })
+
   test('createAuthorization errors set stable codes', () => {
     expect(createAuthorizationCancelledError().code).toBe('INTENT_AUTH_CANCELLED')
     expect(createAuthorizationNotConfirmedError().code).toBe('INTENT_AUTH_NOT_CONFIRMED')

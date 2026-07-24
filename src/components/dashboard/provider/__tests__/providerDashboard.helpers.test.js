@@ -11,6 +11,7 @@ import {
   resolveOnchainLabUri,
   sanitizeProviderNameForUri,
   shouldCompensateLabCreation,
+  shouldCompensateLabCreationAfterError,
 } from '../providerDashboard.helpers'
 
 describe('providerDashboard.helpers', () => {
@@ -34,6 +35,23 @@ describe('providerDashboard.helpers', () => {
     expect(stage).toBe(LAB_CREATION_STAGES.ONCHAIN_PENDING)
     expect(shouldCompensateLabCreation(stage)).toBe(true)
     expect(shouldCompensateLabCreation(LAB_CREATION_STAGES.ACTIVE)).toBe(false)
+  })
+
+  test('does not require reconciliation when intent cleanup was confirmed', () => {
+    expect(
+      shouldCompensateLabCreationAfterError(
+        LAB_CREATION_STAGES.ONCHAIN_PENDING,
+        [],
+        { intentCleanupStatus: 'confirmed' },
+      ),
+    ).toBe(false)
+    expect(
+      shouldCompensateLabCreationAfterError(
+        LAB_CREATION_STAGES.ONCHAIN_PENDING,
+        [],
+        { intentCleanupStatus: 'pending' },
+      ),
+    ).toBe(true)
   })
 
   test('createEmptyLabDraft returns fresh nested structures', () => {

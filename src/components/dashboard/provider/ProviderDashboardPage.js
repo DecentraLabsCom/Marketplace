@@ -32,6 +32,7 @@ import {
   remapMovedLabAssetPaths,
   resolveOnchainLabUri,
   shouldCompensateLabCreation,
+  shouldCompensateLabCreationAfterError,
   updateListingCache,
 } from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
@@ -414,7 +415,7 @@ export default function ProviderDashboard() {
       return complete;
     };
 
-    const compensateCreation = async (reason) => {
+    const compensateCreation = async (reason, { intentCleanupConfirmed = false } = {}) => {
       const contentClean = await cleanupCreationArtifacts();
       let metadataClean = true;
       let chainClean = true;
@@ -439,7 +440,7 @@ export default function ProviderDashboard() {
           chainClean = false;
           devLog.warn('Failed to compensate on-chain lab creation:', cleanupError);
         }
-      } else if (shouldCompensateLabCreation(creationStage)) {
+      } else if (shouldCompensateLabCreation(creationStage) && !intentCleanupConfirmed) {
         chainClean = false;
       }
 
@@ -586,11 +587,12 @@ export default function ProviderDashboard() {
       devLog.error('Error adding lab:', error);
       handleMissingWebauthnCredential(error);
       const reason = error?.message || 'Unknown error';
-      if (shouldCompensateLabCreation(creationStage) || tempFiles.length > 0) {
-        const compensated = await compensateCreation(reason);
+      const intentCleanupConfirmed = error?.intentCleanupStatus === 'confirmed';
+      if (shouldCompensateLabCreationAfterError(creationStage, tempFiles, error)) {
+        const compensated = await compensateCreation(reason, { intentCleanupConfirmed });
         notifyLabCreateFailed(
           addTemporaryNotification,
-          compensated ? `${reason} (on-chain creation rolled back)` : reason
+          compensated && !intentCleanupConfirmed ? `${reason} (on-chain creation rolled back)` : reason
         );
       } else {
         notifyLabCreateFailed(addTemporaryNotification, reason);

@@ -200,7 +200,7 @@ async function prepareReservationData({ action, payloadInput, session, contract,
   }
 }
 
-function authorizationErrorResponse(authResponse, authorization, context) {
+function authorizationErrorResponse(authResponse, authorization, context, fields = {}) {
   const authError = authorization?.error || authorization?.message || 'Failed to create authorization session'
   const { code, message } = resolveAuthorizationMessage(authError)
   return publicErrorResponse({
@@ -209,7 +209,13 @@ function authorizationErrorResponse(authResponse, authorization, context) {
     message,
     error: new Error(String(authError)),
     context,
+    fields,
   })
+}
+
+function resolveIntentCleanupStatus(cleanupResult) {
+  const status = String(cleanupResult?.status || cleanupResult?.stateName || '').toLowerCase()
+  return status === 'cancelled' ? 'confirmed' : 'pending'
 }
 
 async function cancelRegisteredIntent(requestId, context) {
@@ -494,11 +500,15 @@ export async function POST(request) {
       const authResponse = await authorizationPromise
       authorization = authResponse.data
       if (!authResponse.ok) {
-        await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-response`)
+        const cleanupResult = await cancelRegisteredIntent(
+          intentPackage?.meta?.requestId,
+          `${kind}-authorization-response`,
+        )
         return authorizationErrorResponse(
           authResponse,
           authorization,
           `${kind}-intent-authorization`,
+          { intentCleanupStatus: resolveIntentCleanupStatus(cleanupResult) },
         )
       }
 
@@ -533,13 +543,17 @@ export async function POST(request) {
         })
       }
     } catch (err) {
-      await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-error`)
+      const cleanupResult = await cancelRegisteredIntent(
+        intentPackage?.meta?.requestId,
+        `${kind}-authorization-error`,
+      )
       return publicErrorResponse({
         status: 502,
         code: 'INTENT_AUTHORIZATION_FAILED',
         message: 'The institutional authorization request could not be created.',
         error: err,
         context: `${kind}-intent-authorization`,
+        fields: { intentCleanupStatus: resolveIntentCleanupStatus(cleanupResult) },
       })
     }
 

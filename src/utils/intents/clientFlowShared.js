@@ -13,6 +13,9 @@ export const createIntentMutationError = (payload, fallbackMessage) => {
   if (payload?.code) {
     err.code = payload.code
   }
+  if (payload?.intentCleanupStatus) {
+    err.intentCleanupStatus = payload.intentCleanupStatus
+  }
   // Attach concise user-facing message based on backend error codes
   const code = (payload?.code || '').toLowerCase()
   if (code === 'slot_unavailable' || code === 'timeslot_conflict') {

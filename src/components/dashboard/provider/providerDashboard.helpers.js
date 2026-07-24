@@ -26,6 +26,11 @@ export function shouldCompensateLabCreation(stage) {
   return stage === LAB_CREATION_STAGES.ONCHAIN_PENDING
 }
 
+export function shouldCompensateLabCreationAfterError(stage, tempFiles = [], error = null) {
+  const intentCleanupConfirmed = error?.intentCleanupStatus === 'confirmed'
+  return (shouldCompensateLabCreation(stage) && !intentCleanupConfirmed) || tempFiles.length > 0
+}
+
 export function createEmptyLabDraft() {
   return {
     name: '',
