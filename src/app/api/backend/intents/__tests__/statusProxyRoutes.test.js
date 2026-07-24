@@ -45,7 +45,7 @@ describe('institutional intent status proxies', () => {
     const request = new Request(
       'https://marketplace.example/api/backend/intents/req-1?backendUrl=https%3A%2F%2Fevil.example',
     )
-    const response = await getIntentStatus(request, { params: { requestId: 'req-1' } })
+    const response = await getIntentStatus(request, { params: Promise.resolve({ requestId: 'req-1' }) })
 
     expect(response.status).toBe(200)
     expect(institutionalBackendFetch).toHaveBeenCalledWith(
@@ -58,7 +58,7 @@ describe('institutional intent status proxies', () => {
     const request = new Request(
       'https://marketplace.example/api/backend/intents/authorize/status/session-1?backendUrl=https%3A%2F%2Fevil.example',
     )
-    const response = await getAuthorizationStatus(request, { params: { sessionId: 'session-1' } })
+    const response = await getAuthorizationStatus(request, { params: Promise.resolve({ sessionId: 'session-1' }) })
 
     expect(response.status).toBe(200)
     expect(institutionalBackendFetch).toHaveBeenCalledWith(
@@ -75,7 +75,7 @@ describe('institutional intent status proxies', () => {
     })
     const request = new Request('https://marketplace.example/api/backend/intents/req-1')
 
-    const response = await getIntentStatus(request, { params: { requestId: 'req-1' } })
+    const response = await getIntentStatus(request, { params: Promise.resolve({ requestId: 'req-1' }) })
 
     expect(response.status).toBe(400)
     expect(institutionalBackendFetch).not.toHaveBeenCalled()

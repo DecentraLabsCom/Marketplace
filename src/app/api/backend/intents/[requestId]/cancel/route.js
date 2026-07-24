@@ -15,7 +15,8 @@ const sameInstitution = (left, right) => normalize(left).toLowerCase() === norma
 export async function POST(request, { params }) {
   try {
     await requireAuth()
-    const requestId = normalize(params?.requestId || request.nextUrl.searchParams.get('requestId'))
+    const resolvedParams = await params
+    const requestId = normalize(resolvedParams?.requestId || request.nextUrl.searchParams.get('requestId'))
     if (!requestId || requestId === 'null' || requestId === 'undefined') {
       return NextResponse.json({ error: 'Missing requestId' }, { status: 400 })
     }

@@ -68,7 +68,7 @@ describe('POST /api/backend/intents/:requestId/cancel', () => {
         body: JSON.stringify({ authorizationSessionId: 'session-1' }),
         headers: { 'Content-Type': 'application/json' },
       }),
-      { params: { requestId: 'req-1' } },
+      { params: Promise.resolve({ requestId: 'req-1' }) },
     )
 
     expect(response.status).toBe(200)
@@ -83,7 +83,7 @@ describe('POST /api/backend/intents/:requestId/cancel', () => {
         body: JSON.stringify({ authorizationSessionId: 'other-session' }),
         headers: { 'Content-Type': 'application/json' },
       }),
-      { params: { requestId: 'req-1' } },
+      { params: Promise.resolve({ requestId: 'req-1' }) },
     )
 
     expect(response.status).toBe(403)

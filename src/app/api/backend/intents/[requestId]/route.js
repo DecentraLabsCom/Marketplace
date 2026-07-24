@@ -7,13 +7,14 @@ import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publi
 
 export async function GET(request, { params }) {
   try {
+    const resolvedParams = await params
     const { backendUrl, institutionDomain } = await resolveBackendUrlForSession()
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
     const requestId =
-      params?.requestId ||
+      resolvedParams?.requestId ||
       request.nextUrl.searchParams.get('requestId') ||
       null
     
