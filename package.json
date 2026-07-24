@@ -65,7 +65,7 @@
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.24.0",
-    "next": "^16.2.10",
+    "next": "^16.2.11",
     "porto": "^0.2.37",
     "prop-types": "^15.8.1",
     "react": "^19.2.7",
@@ -125,7 +125,7 @@
       "brace-expansion": "1.1.16"
     },
     "next": {
-      "postcss": "8.5.10",
+      "postcss": "8.5.22",
       "sharp": "$sharp"
     },
     "xmlbuilder2": "4.0.3",

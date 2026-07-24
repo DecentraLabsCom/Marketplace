@@ -92,6 +92,32 @@ async function toStatusRecord(record) {
   }
 }
 
+function provisioningIdentity(record) {
+  if (typeof record?.institutionId !== 'string' || !record.institutionId.trim()) return null
+  const registrationType = record.registrationType === 'consumer' ? 'consumer' : 'provider'
+  return `${record.institutionId.trim().toLowerCase()}\u0000${registrationType}`
+}
+
+function hideSupersededExpiredRecords(records) {
+  const completedRegistrations = new Set(
+    records
+      .filter((record) => (
+        record.status === 'ACTIVE'
+        && record.stage === 'ACTIVE'
+        && record.tokenConsumed
+        && record.backendRegistered
+      ))
+      .map(provisioningIdentity)
+      .filter(Boolean),
+  )
+
+  return records.filter((record) => {
+    if (!record.tokenExpired) return true
+    const identity = provisioningIdentity(record)
+    return !identity || !completedRegistrations.has(identity)
+  })
+}
+
 export async function GET(request) {
   try {
     const session = await requireAuth()
@@ -101,8 +127,9 @@ export async function GET(request) {
     if (rateResponse) return rateResponse
 
     const records = await listProvisioningAudits()
+    const statusRecords = await Promise.all(records.map(toStatusRecord))
     return NextResponse.json({
-      records: await Promise.all(records.map(toStatusRecord)),
+      records: hideSupersededExpiredRecords(statusRecords),
     })
   } catch (error) {
     return publicErrorResponse({
