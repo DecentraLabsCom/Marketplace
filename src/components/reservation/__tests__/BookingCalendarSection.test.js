@@ -363,12 +363,14 @@ describe("BookingCalendarSection", () => {
       const timeZoneSummary = screen.getByLabelText("Time zone conversion");
 
       expect(controlsRow).toHaveClass("lg:grid-cols-3");
+      expect(controlsRow).toHaveClass("items-stretch");
       expect(controlsRow.children[0]).toContainElement(startingTime);
       expect(controlsRow.children[1]).toContainElement(duration);
       expect(controlsRow.children[2]).toContainElement(priceSummary);
       expect(startingTime).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(duration).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
+      expect(priceSummary).toHaveClass("h-full");
       expect(timeZoneSummary).toHaveClass("text-left");
       expect(timeZoneSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
       expect(timeZoneSummary).toHaveTextContent("Your time:");

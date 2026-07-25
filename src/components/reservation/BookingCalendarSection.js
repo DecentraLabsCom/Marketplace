@@ -150,11 +150,11 @@ export default function BookingCalendarSection({
   })
   const priceSummary = (
     <div
-      className="flex min-h-[3.5rem] flex-col justify-end text-left text-sm"
+      className={`flex h-full flex-col text-left text-sm ${isCalendarPeriod ? 'items-center text-center' : ''}`}
       aria-label="Booking price summary"
     >
       <span className="block text-lg font-semibold mb-2">Total cost:</span>
-      <span className="block py-3 text-white font-semibold">{totalCostLabel}</span>
+      <span className="flex min-h-[3.25rem] items-center py-3 text-white font-semibold">{totalCostLabel}</span>
     </div>
   )
 
@@ -182,7 +182,7 @@ export default function BookingCalendarSection({
       <div className="w-full min-w-0 flex-1">
         <div
           data-testid="booking-controls-row"
-          className="grid grid-cols-1 gap-6 items-end sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-6 items-stretch sm:grid-cols-2 lg:grid-cols-3"
         >
           {/* Starting Time */}
           {!isCalendarPeriod && <div>
