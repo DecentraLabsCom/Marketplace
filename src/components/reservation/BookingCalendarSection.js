@@ -182,7 +182,7 @@ export default function BookingCalendarSection({
       <div className="w-full min-w-0 flex-1">
         <div
           data-testid="booking-controls-row"
-          className="grid grid-cols-1 gap-6 items-stretch sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-6 items-stretch sm:grid-cols-2 lg:grid-cols-[1.1fr_1.1fr_0.8fr]"
         >
           {/* Starting Time */}
           {!isCalendarPeriod && <div>
@@ -192,7 +192,7 @@ export default function BookingCalendarSection({
             <select
               id="time-select"
               key={`time-dropdown-${lab?.id}-${bookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
-              className={`w-full p-3 pr-10 border-2 ${
+              className={`w-full p-3 border-2 ${
                 availableTimes.some(t => !t.disabled)
                   ? 'bg-gray-800 text-white'
                   : 'bg-gray-600 text-gray-400'
@@ -223,7 +223,7 @@ export default function BookingCalendarSection({
             </label>
             <select
               id="duration-select"
-              className="w-full p-3 pr-10 border-2 bg-gray-800 text-white rounded"
+              className="w-full p-3 border-2 bg-gray-800 text-white rounded"
               value={duration}
               onChange={(e) => onDurationChange(Number(e.target.value))}
             >
