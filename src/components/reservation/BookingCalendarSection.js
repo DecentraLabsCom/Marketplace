@@ -150,11 +150,11 @@ export default function BookingCalendarSection({
   })
   const priceSummary = (
     <div
-      className="rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-center"
+      className="flex min-h-[3.5rem] flex-col justify-end text-left text-sm"
       aria-label="Booking price summary"
     >
-      <span className="block text-gray-300">Total cost:</span>
-      <span className="mt-1 block text-white font-semibold">{totalCostLabel}</span>
+      <span className="block text-lg font-semibold mb-2">Total cost:</span>
+      <span className="block py-3 text-white font-semibold">{totalCostLabel}</span>
     </div>
   )
 
@@ -178,106 +178,110 @@ export default function BookingCalendarSection({
         </div>
       </div>
 
-      {/* Duration and Time Selection */}
-      <div className="w-full lg:w-72 flex flex-col gap-6">
-        {/* Duration */}
-        <div>
-          <label htmlFor="duration-select" className="block text-lg font-semibold mb-2">
-            {isCalendarPeriod ? 'Period:' : 'Duration:'}
-          </label>
-          <select
-            id="duration-select"
-            className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-            value={duration}
-            onChange={(e) => onDurationChange(Number(e.target.value))}
-          >
-            {isCalendarPeriod
-              ? periodOptions.map((option) => (
-                <option key={`${option.days}-${option.label}`} value={option.days}>
-                  {option.label}
-                </option>
-              ))
-              : (lab?.timeSlots || [15, 30, 60]).map((slot) => (
-                <option key={slot} value={slot}>
-                  {slot} minutes
+      {/* Booking controls */}
+      <div className="w-full min-w-0 flex-1">
+        <div
+          data-testid="booking-controls-row"
+          className="grid grid-cols-1 gap-6 items-end sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {/* Starting Time */}
+          {!isCalendarPeriod && <div>
+            <label htmlFor="time-select" className="block text-lg font-semibold mb-2">
+              Starting time:
+            </label>
+            <select
+              id="time-select"
+              key={`time-dropdown-${lab?.id}-${bookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
+              className={`w-full p-3 border-2 ${
+                availableTimes.some(t => !t.disabled)
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-600 text-gray-400'
+              } rounded`}
+              value={selectedTime ?? ''}
+              onChange={(e) => onTimeChange(e.target.value)}
+              disabled={!availableTimes.some(t => !t.disabled)}
+            >
+              {availableTimes.map((timeOption, i) => (
+                <option
+                  key={`${timeOption.value}-${i}`}
+                  value={timeOption.value}
+                  disabled={timeOption.disabled}
+                  style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
+                >
+                  {timeOption.maxConcurrent
+                    ? `${timeOption.label} (${timeOption.occupancy}/${timeOption.maxConcurrent})`
+                    : timeOption.label}
                 </option>
               ))}
-          </select>
+            </select>
+          </div>}
+
+          {/* Duration */}
+          <div>
+            <label htmlFor="duration-select" className="block text-lg font-semibold mb-2">
+              {isCalendarPeriod ? 'Period:' : 'Duration:'}
+            </label>
+            <select
+              id="duration-select"
+              className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+              value={duration}
+              onChange={(e) => onDurationChange(Number(e.target.value))}
+            >
+              {isCalendarPeriod
+                ? periodOptions.map((option) => (
+                  <option key={`${option.days}-${option.label}`} value={option.days}>
+                    {option.label}
+                  </option>
+                ))
+                : (lab?.timeSlots || [15, 30, 60]).map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot} minutes
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {isCalendarPeriod && allowCustomDateRange && (
+            <div>
+              <label htmlFor="period-end-date" className="block text-lg font-semibold mb-2">
+                End date:
+              </label>
+              <input
+                id="period-end-date"
+                type="date"
+                className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                min={toDateInputValue(periodEndMinDate || date)}
+                max={toDateInputValue(periodEndMaxDate || maxDate)}
+                value={toDateInputValue(periodEndDate)}
+                onChange={(event) => onPeriodEndDateChange?.(fromDateInputValue(event.target.value))}
+              />
+            </div>
+          )}
+
+          {priceSummary}
         </div>
 
-        {isCalendarPeriod && allowCustomDateRange && (
-          <div>
-            <label htmlFor="period-end-date" className="block text-lg font-semibold mb-2">
-              End date:
-            </label>
-            <input
-              id="period-end-date"
-              type="date"
-              className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-              min={toDateInputValue(periodEndMinDate || date)}
-              max={toDateInputValue(periodEndMaxDate || maxDate)}
-              value={toDateInputValue(periodEndDate)}
-              onChange={(event) => onPeriodEndDateChange?.(fromDateInputValue(event.target.value))}
-            />
-          </div>
-        )}
-
-        {/* Starting Time */}
-        {!isCalendarPeriod && <div>
-          <label htmlFor="time-select" className="block text-lg font-semibold mb-2">
-            Starting time:
-          </label>
-          <select
-            id="time-select"
-            key={`time-dropdown-${lab?.id}-${bookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
-            className={`w-full p-3 border-2 ${
-              availableTimes.some(t => !t.disabled)
-                ? 'bg-gray-800 text-white'
-                : 'bg-gray-600 text-gray-400'
-            } rounded`}
-            value={selectedTime ?? ''}
-            onChange={(e) => onTimeChange(e.target.value)}
-            disabled={!availableTimes.some(t => !t.disabled)}
-          >
-            {availableTimes.map((timeOption, i) => (
-              <option
-                key={`${timeOption.value}-${i}`}
-                value={timeOption.value}
-                disabled={timeOption.disabled}
-                style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
-              >
-                {timeOption.maxConcurrent
-                  ? `${timeOption.label} (${timeOption.occupancy}/${timeOption.maxConcurrent})`
-                  : timeOption.label}
-              </option>
-            ))}
-          </select>
-        </div>}
-
-        {priceSummary}
-      </div>
-
-      <div className="w-full lg:w-96 flex flex-col">
         {selectedSlotTimeZones && (
           <div
-            className="mt-3 lg:mt-9 rounded-lg border border-gray-600 bg-gray-800 p-3 text-sm text-gray-100"
+            className="mt-4 text-left text-sm text-gray-100"
             aria-label="Time zone conversion"
           >
             <dl className="space-y-1">
-              <div className="flex flex-nowrap justify-between gap-3">
+              <div className="flex flex-wrap justify-start gap-x-3">
                 <dt className="font-semibold whitespace-nowrap">Your time:</dt>
-                <dd className="text-right whitespace-nowrap">{selectedSlotTimeZones.localTime} ({selectedSlotTimeZones.localTimeZone})</dd>
+                <dd className="text-left whitespace-nowrap">{selectedSlotTimeZones.localTime} ({selectedSlotTimeZones.localTimeZone})</dd>
               </div>
-              <div className="flex flex-nowrap justify-between gap-3">
+              <div className="flex flex-wrap justify-start gap-x-3">
                 <dt className="font-semibold whitespace-nowrap">Lab time:</dt>
-                <dd className="text-right whitespace-nowrap">{selectedSlotTimeZones.labTime} ({selectedSlotTimeZones.labTimeZone})</dd>
+                <dd className="text-left whitespace-nowrap">{selectedSlotTimeZones.labTime} ({selectedSlotTimeZones.labTimeZone})</dd>
               </div>
             </dl>
           </div>
         )}
+
         {/* Payment balance information is only relevant to the non-SSO fallback path. */}
         {!isSSO && (
-          <div className="mt-4">
+          <div className="mt-4 lg:max-w-96">
             <label className="block text-lg font-semibold mb-2">Payment info:</label>
             <LabCreditInfo
               className="h-fit"

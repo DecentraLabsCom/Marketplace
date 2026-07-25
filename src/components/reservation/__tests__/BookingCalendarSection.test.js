@@ -347,7 +347,7 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByTestId("token-duration")).toHaveTextContent("45");
     });
 
-    test("aligns the booking price summary with the top of the duration selector", () => {
+    test("renders time, duration, and total cost in one control row", () => {
       render(
         <BookingCalendarSection
           {...defaultProps}
@@ -356,18 +356,21 @@ describe("BookingCalendarSection", () => {
         />
       );
 
-      const durationField = screen.getByLabelText("Duration:").parentElement;
-      const durationColumn = durationField.parentElement;
+      const controlsRow = screen.getByTestId("booking-controls-row");
+      const startingTime = screen.getByLabelText("Starting time:");
+      const duration = screen.getByLabelText("Duration:");
       const priceSummary = screen.getByLabelText("Booking price summary");
       const timeZoneSummary = screen.getByLabelText("Time zone conversion");
-      const timeZoneColumn = timeZoneSummary.parentElement;
 
-      expect(priceSummary).toHaveClass("rounded-lg");
-      expect(priceSummary).toHaveClass("text-center");
-      expect(priceSummary.parentElement).toBe(durationColumn);
-      expect(durationColumn.firstElementChild).toBe(durationField);
-      expect(timeZoneColumn).toHaveClass("lg:w-96");
-      expect(timeZoneSummary).toHaveClass("lg:mt-9");
+      expect(controlsRow).toHaveClass("lg:grid-cols-3");
+      expect(controlsRow.children[0]).toContainElement(startingTime);
+      expect(controlsRow.children[1]).toContainElement(duration);
+      expect(controlsRow.children[2]).toContainElement(priceSummary);
+      expect(startingTime).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
+      expect(duration).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
+      expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
+      expect(timeZoneSummary).toHaveClass("text-left");
+      expect(timeZoneSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
       expect(timeZoneSummary).toHaveTextContent("Your time:");
       expect(timeZoneSummary).toHaveTextContent("Lab time:");
     });
@@ -453,6 +456,7 @@ describe("BookingCalendarSection", () => {
       const longLab = {
         ...mockLab,
         bookingMode: "calendar-period",
+        timezone: "Europe/Madrid",
         pricing: { displayUnit: "day" },
         allowedDurations: [
           { unit: "day", value: 1 },
@@ -485,7 +489,20 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByLabelText("End date:")).toHaveAttribute("min", "2025-11-02");
       expect(screen.getByLabelText("End date:")).toHaveAttribute("max", "2025-11-30");
       expect(screen.queryByLabelText("Starting time:")).not.toBeInTheDocument();
-      expect(screen.getByLabelText("Booking price summary")).toHaveTextContent("1.50 credits");
+
+      const controlsRow = screen.getByTestId("booking-controls-row");
+      const period = screen.getByLabelText("Period:");
+      const endDate = screen.getByLabelText("End date:");
+      const priceSummary = screen.getByLabelText("Booking price summary");
+      const timeZoneSummary = screen.getByLabelText("Time zone conversion");
+
+      expect(controlsRow.children[0]).toContainElement(period);
+      expect(controlsRow.children[1]).toContainElement(endDate);
+      expect(controlsRow.children[2]).toContainElement(priceSummary);
+      expect(priceSummary).toHaveTextContent("Total cost:1.50 credits");
+      expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
+      expect(timeZoneSummary).toHaveClass("text-left");
+      expect(timeZoneSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
 
       fireEvent.change(screen.getByLabelText("End date:"), {
         target: { value: "2025-11-15" },
