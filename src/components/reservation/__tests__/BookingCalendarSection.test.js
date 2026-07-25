@@ -361,9 +361,12 @@ describe("BookingCalendarSection", () => {
       const duration = screen.getByLabelText("Duration:");
       const priceSummary = screen.getByLabelText("Booking price summary");
       const timeZoneSummary = screen.getByLabelText("Time zone conversion");
+      const reservationControls = controlsRow.parentElement;
+      const calendarAndControls = reservationControls.parentElement;
 
       expect(controlsRow).toHaveClass("lg:grid-cols-[1.1fr_1.1fr_0.8fr]");
       expect(controlsRow).toHaveClass("items-stretch");
+      expect(calendarAndControls).toHaveClass("gap-6");
       expect(controlsRow.children[0]).toContainElement(startingTime);
       expect(controlsRow.children[1]).toContainElement(duration);
       expect(controlsRow.children[2]).toContainElement(priceSummary);

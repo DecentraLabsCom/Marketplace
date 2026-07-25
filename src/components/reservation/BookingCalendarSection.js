@@ -159,7 +159,7 @@ export default function BookingCalendarSection({
   )
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* Calendar */}
       <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
         <label className="block text-lg font-semibold mb-2">Select the date:</label>
