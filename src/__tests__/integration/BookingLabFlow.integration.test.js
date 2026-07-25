@@ -37,6 +37,11 @@ jest.mock("@/hooks/lab/useLabs", () => ({
     isLoading: false,
     isError: false,
   })),
+  useLabOwner: jest.fn(() => ({
+    data: { owner: null },
+    isLoading: false,
+    isError: false,
+  })),
 }));
 
 jest.mock("@/hooks/booking/useBookings", () => ({

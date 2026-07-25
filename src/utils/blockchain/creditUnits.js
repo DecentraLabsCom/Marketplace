@@ -5,7 +5,10 @@ export const RAW_PER_CREDIT = 10n ** BigInt(CREDIT_DECIMALS)
 export const CREDITS_PER_EUR = 10
 export const RAW_PER_EUR = RAW_PER_CREDIT * BigInt(CREDITS_PER_EUR)
 export const SECONDS_PER_HOUR = 3600n
-export const DISPLAY_PRICE_DECIMALS = 1
+// On-chain prices are stored as integer raw credits per second. Three visible
+// decimals keep the hourly presentation aligned with the exact reservation
+// total without hiding the per-second quantization.
+export const DISPLAY_PRICE_DECIMALS = 3
 
 export function trimTrailingZeros(value) {
   if (value === null || value === undefined) return '0'

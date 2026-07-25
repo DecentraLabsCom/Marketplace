@@ -351,7 +351,7 @@ describe('Unified intent prepare route', () => {
     }))
 
     expect(res.status).toBe(200)
-    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({ action: 11 }))
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({ action: 11, price: 0n }))
   })
 
   test('prepares cancellation of a reservation request with the reservation payload', async () => {

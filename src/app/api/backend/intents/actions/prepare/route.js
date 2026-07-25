@@ -183,7 +183,9 @@ async function prepareReservationData({ action, payloadInput, session, contract,
   const bookingAction = ownsLab ? DIRECT_BOOKING_ACTION : ACTION_CODES.REQUEST_BOOKING
   const rawPrice = labData?.base?.price ?? labData?.price ?? 0n
   const pricePerSecond = parseUint(rawPrice, 'lab price', { max: INTENT_UINT_LIMITS.UINT96_MAX })
-  const price = calculateReservationTotal(pricePerSecond, window.start, window.end)
+  const price = ownsLab
+    ? 0n
+    : calculateReservationTotal(pricePerSecond, window.start, window.end)
   if (price > INTENT_UINT_LIMITS.UINT96_MAX) {
     return { error: NextResponse.json({ error: 'Reservation price exceeds contract limits' }, { status: 400 }) }
   }

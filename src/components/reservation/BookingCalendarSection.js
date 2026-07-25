@@ -154,7 +154,7 @@ export default function BookingCalendarSection({
       aria-label="Booking price summary"
     >
       <span className="block text-lg font-semibold mb-2">Total cost:</span>
-      <span className="flex min-h-[3.25rem] items-center py-3 text-white font-semibold">{totalCostLabel}</span>
+      <span className="flex min-h-13 items-center py-3 text-white font-semibold">{totalCostLabel}</span>
     </div>
   )
 

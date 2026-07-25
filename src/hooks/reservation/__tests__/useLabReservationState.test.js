@@ -370,6 +370,20 @@ describe("useLabReservationState", () => {
       expect(result.current.totalCost).toBe(0n);
     });
 
+    test("returns 0 cost when an SSO institution reserves its own lab", () => {
+      const { result } = renderHookWithClient(() =>
+        useLabReservationState({
+          selectedLab: mockLab,
+          labBookings: [],
+          isSSO: true,
+          isOwnInstitutionLab: true,
+        })
+      );
+
+      expect(result.current.totalCost).toBe(0n);
+      expect(mockLabToken.calculateReservationCost).not.toHaveBeenCalled();
+    });
+
     test("recalculates cost when duration changes", () => {
       const { result } = renderHookWithClient(() =>
         useLabReservationState({

@@ -8,7 +8,7 @@ import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useLabsForReservation } from '@/hooks/lab/useLabs'
+import { useLabOwner, useLabsForReservation } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
 import AccessControl from '@/components/auth/AccessControl'
@@ -52,6 +52,17 @@ export default function LabReservation({ id }) {
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
   const [reservationReview, setReservationReview] = useState(null)
+
+  const { data: selectedLabOwnerData } = useLabOwner(selectedLab?.id, {
+    enabled: Boolean(selectedLab?.id && isSSO),
+  })
+  const selectedLabOwner = selectedLabOwnerData?.owner || selectedLabOwnerData || null
+  const isOwnInstitutionLab = Boolean(
+    isSSO
+    && userAddress
+    && selectedLabOwner
+    && String(userAddress).toLowerCase() === String(selectedLabOwner).toLowerCase()
+  )
   
   // Auto-select lab when labId is provided from URL
   useEffect(() => {
@@ -129,6 +140,7 @@ export default function LabReservation({ id }) {
     labBookings,
     userBookingsForLab,
     isSSO,
+    isOwnInstitutionLab,
   })
   const resolvedSsoStage = ssoBookingStage || 'idle'
   

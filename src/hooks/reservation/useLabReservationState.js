@@ -218,6 +218,7 @@ export function useLabReservationState({
   labBookings,
   userBookingsForLab = [],
   isSSO,
+  isOwnInstitutionLab = false,
 } = {}) {
   const {
     addTemporaryNotification,
@@ -406,6 +407,7 @@ export function useLabReservationState({
   const totalCost = useMemo(
     () => {
       if (!selectedLab) return 0n
+      if (isSSO && isOwnInstitutionLab) return 0n
       if (isCalendarPeriod) {
         const startDate = new Date(date)
         startDate.setHours(0, 0, 0, 0)
@@ -419,7 +421,7 @@ export function useLabReservationState({
       }
       return calculateReservationCost(selectedLab.price, duration)
     },
-    [selectedLab, isCalendarPeriod, allowCustomDateRange, periodEndDate, date, duration, calculateReservationCost]
+    [selectedLab, isSSO, isOwnInstitutionLab, isCalendarPeriod, allowCustomDateRange, periodEndDate, date, duration, calculateReservationCost]
   )
 
   const effectiveBookingStage = isTrackedSsoBookingFinal

@@ -17,6 +17,7 @@ jest.mock("@/context/NotificationContext", () => ({
 
 jest.mock("@/hooks/lab/useLabs", () => ({
   useLabsForReservation: jest.fn(),
+  useLabOwner: jest.fn(),
 }))
 
 jest.mock("@/hooks/booking/useBookings", () => ({
@@ -103,6 +104,10 @@ describe("LabReservation Component", () => {
         labs: [{ id: "1", name: "Biology Lab", pricePerHour: "100" }],
       },
       isError: false,
+    })
+
+    labHooks.useLabOwner.mockReturnValue({
+      data: { owner: "0x3333333333333333333333333333333333333333" },
     })
 
     bookingHooks.useLabBookingsDashboard.mockReturnValue({
