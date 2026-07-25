@@ -40,7 +40,11 @@ export function displayPriceToRawPerSecond(amount, unit = 'hour', decimals = CRE
   const rawDisplayAmount = parseDisplayCredits(amount, decimals)
   const seconds = PRICING_UNITS[normalizePricingUnit(unit)]
   if (rawDisplayAmount === 0n) return 0n
-  return (rawDisplayAmount + seconds - 1n) / seconds
+  // The contract stores integer raw credits per second. Choose the nearest
+  // representable rate so the stored price minimizes the conversion error.
+  const base = rawDisplayAmount / seconds
+  const remainder = rawDisplayAmount % seconds
+  return remainder * 2n >= seconds ? base + 1n : base
 }
 
 export function rawPerSecondToDisplayPrice(rawPerSecond, unit = 'hour', {

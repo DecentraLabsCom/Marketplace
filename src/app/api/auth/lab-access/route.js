@@ -141,6 +141,8 @@ const CHECKIN_ERROR_MESSAGES = Object.freeze({
   CHECKIN_NOT_FOUND: 'The institutional check-in could not be found.',
   CHECKIN_DELEGATION_FAILED: 'Institutional access authorization failed.',
   CHECKIN_DELEGATION_LOOP: 'Institutional access authorization failed.',
+  ACCESS_AUTHORIZATION_PENDING: 'Access authorization is still pending. Please try again in a moment.',
+  ACCESS_AUTHORIZATION_REJECTED: 'The reservation was not authorized for laboratory access.',
 })
 
 const TRANSACTION_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/
@@ -231,18 +233,25 @@ async function issueProviderCredential(authBase, providerPayload) {
 }
 
 function providerFailureResponse(response, responseText, message) {
+  const upstreamData = parseResponseJson(responseText)
+  const reason = resolvePublicCheckInReason(upstreamData)
+  const fields = publicCheckInFields(upstreamData, reason)
+  if (typeof upstreamData?.retryable === 'boolean') fields.retryable = upstreamData.retryable
+
   devLog.error(`${message}:`, {
     status: response.status,
+    reason,
     bodyBytes: responseText?.length || 0,
   })
   const retryAfter = response.headers?.get?.('retry-after')
   return publicErrorResponse({
     status: Number.isInteger(response.status) ? response.status : 502,
-    code: 'INSTITUTIONAL_ACCESS_FAILED',
-    message,
+    code: reason || 'INSTITUTIONAL_ACCESS_FAILED',
+    message: CHECKIN_ERROR_MESSAGES[reason] || message,
     error: new Error(`${message} (${response.status})`),
     context: 'auth-lab-access-upstream',
     headers: retryAfter ? { 'Retry-After': retryAfter } : {},
+    fields,
   })
 }
 

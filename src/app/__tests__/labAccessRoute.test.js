@@ -332,6 +332,47 @@ describe('/api/auth/lab-access route', () => {
     })
   })
 
+  test('preserves safe structured errors returned by the combined backend flow', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      headers: new Headers({ 'Retry-After': '1' }),
+      text: async () => JSON.stringify({
+        error: 'CHECKIN_SIGNER_NOT_AUTHORIZED',
+        retryable: false,
+        reservationKey: '0xabc',
+      }),
+    })
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10', reservationKey: '0xabc' }),
+    }))
+
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'CHECKIN_SIGNER_NOT_AUTHORIZED',
+      reason: 'CHECKIN_SIGNER_NOT_AUTHORIZED',
+      retryable: false,
+      reservationKey: '0xabc',
+    })
+    expect(res.headers.get('Retry-After')).toBe('1')
+  })
+
   test('keeps FMU credentials as JWTs and does not invoke the Guacamole handoff', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',

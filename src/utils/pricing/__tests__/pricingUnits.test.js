@@ -7,9 +7,12 @@ import {
 } from '../pricingUnits'
 
 describe('pricingUnits', () => {
-  test('converts daily display price to raw per second with ceil rounding', () => {
+  test('converts display prices to the nearest representable raw per-second rate', () => {
     expect(displayPriceToRawPerSecond('25', 'day')).toBe(29n)
     expect(rawPerSecondToDisplayPrice(29n, 'day', { maxFractionDigits: 5 })).toBe('25.056')
+    expect(displayPriceToRawPerSecond('0.8', 'hour')).toBe(22n)
+    expect(rawPerSecondToDisplayPrice(22n, 'hour', { maxFractionDigits: 5 })).toBe('0.792')
+    expect(displayPriceToRawPerSecond('0.82', 'hour')).toBe(23n)
   })
 
   test('converts weekly and 30-day month prices using canonical seconds', () => {

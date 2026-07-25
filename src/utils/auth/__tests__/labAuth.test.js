@@ -75,11 +75,20 @@ describe("Lab Authentication Utilities", () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
+        text: async () => JSON.stringify({
+          error: 'Institutional identity mismatch',
+          code: 'IDENTITY_MISMATCH',
+          correlationId: 'corr-1',
+        }),
       });
 
       await expect(
         authenticateLabAccessSSO({ labId, reservationKey: "rk-1" })
-      ).rejects.toThrow("SSO authentication failed. Status: 401");
+      ).rejects.toMatchObject({
+        message: 'Institutional identity mismatch',
+        code: 'IDENTITY_MISMATCH',
+        correlationId: 'corr-1',
+      });
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(global.fetch.mock.calls[0][0]).toBe("/api/auth/lab-access");
@@ -87,6 +96,29 @@ describe("Lab Authentication Utilities", () => {
   });
 
   describe("getAuthErrorMessage", () => {
+    test.each([
+      [
+        'CHECKIN_SIGNER_NOT_AUTHORIZED',
+        'The institution is not authorized to check in this reservation. Please contact your institution administrator.',
+      ],
+      [
+        'CHECKIN_MANUAL_INTERVENTION',
+        'This reservation requires institutional intervention before access can be granted.',
+      ],
+      [
+        'ACCESS_AUTHORIZATION_PENDING',
+        'Access authorization is still pending. Please try again in a moment.',
+      ],
+      [
+        'ACCESS_AUTHORIZATION_REJECTED',
+        'The reservation was not authorized for laboratory access.',
+      ],
+    ])('maps structured code %s correctly', (code, expected) => {
+      const error = new Error('safe backend message')
+      error.code = code
+      expect(getAuthErrorMessage(error)).toBe(expected)
+    })
+
     test.each([
       [
         "Missing labId",
