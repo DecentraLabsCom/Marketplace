@@ -15,12 +15,17 @@ jest.mock('@/utils/redis/restClient', () => ({
   redisCommand: jest.fn(),
 }))
 
+jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
+  resolveProviderMetadataOrigins: jest.fn(),
+}))
+
 describe('metadata egress policy', () => {
   let policy
   let originalFetch
   let dnsLookup
   let hasRedisConfig
   let redisCommand
+  let resolveProviderMetadataOrigins
 
   beforeEach(async () => {
     jest.resetModules()
@@ -35,6 +40,9 @@ describe('metadata egress policy', () => {
     redisCommand = redisClient.redisCommand
     hasRedisConfig.mockReturnValue(false)
     redisCommand.mockReset()
+    resolveProviderMetadataOrigins = jest.requireMock('@/utils/metadata/providerMetadataOrigins').resolveProviderMetadataOrigins
+    resolveProviderMetadataOrigins.mockReset()
+    resolveProviderMetadataOrigins.mockResolvedValue([])
     originalFetch = global.fetch
     policy = await import('../metadataPolicy')
   })
@@ -223,6 +231,7 @@ describe('metadata egress policy', () => {
       getRegisteredSchacHomeOrganizations: jest.fn().mockResolvedValue(['provider.example']),
       getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue('https://gateway.example'),
     })
+    resolveProviderMetadataOrigins.mockResolvedValue(['https://gateway.example'])
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -236,6 +245,27 @@ describe('metadata egress policy', () => {
     })
   })
 
+  test('does not resolve provider origins for a tokenURI at the configured Blob origin', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.example'
+    const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
+    getContractInstance.mockResolvedValue({
+      tokenURI: jest.fn().mockResolvedValue('https://blob.example/data/Lab-Provider-7.json'),
+    })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ name: 'Blob lab' })).body,
+    })
+
+    await expect(policy.loadOnChainLabMetadata(7)).resolves.toMatchObject({
+      metadataUri: 'https://blob.example/data/Lab-Provider-7.json',
+      metadata: { name: 'Blob lab' },
+    })
+    expect(resolveProviderMetadataOrigins).not.toHaveBeenCalled()
+  })
+
   test('rejects an undeclared image path even when it shares the trusted metadata origin', async () => {
     delete process.env.ALLOWED_METADATA_ORIGINS
     const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
@@ -246,6 +276,7 @@ describe('metadata egress policy', () => {
       getRegisteredSchacHomeOrganizations: jest.fn().mockResolvedValue(['provider.example']),
       getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue('https://gateway.example'),
     })
+    resolveProviderMetadataOrigins.mockResolvedValue(['https://gateway.example'])
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,

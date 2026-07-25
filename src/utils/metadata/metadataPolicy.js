@@ -246,6 +246,17 @@ const normalizeLabId = (labId) => {
   }
 }
 
+const isConfiguredBlobMetadataUri = (metadataUri) => {
+  const blobOrigin = configuredBlobOrigin()
+  if (!blobOrigin) return false
+
+  try {
+    return new URL(metadataUri).origin === blobOrigin
+  } catch {
+    return false
+  }
+}
+
 export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {}) {
   const normalizedLabId = normalizeLabId(labId)
   let metadataUri
@@ -260,7 +271,7 @@ export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {})
     throw new MetadataFetchError('The laboratory has no metadata reference', 404, 'TOKEN_URI_NOT_FOUND')
   }
   const normalizedUri = metadataUri.trim()
-  const providerOrigins = isLocalMetadataUri(normalizedUri)
+  const providerOrigins = isLocalMetadataUri(normalizedUri) || isConfiguredBlobMetadataUri(normalizedUri)
     ? []
     : await resolveProviderMetadataOrigins({ labId: normalizedLabId }).catch(() => [])
   return {
