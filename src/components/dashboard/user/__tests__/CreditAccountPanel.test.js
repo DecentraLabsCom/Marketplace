@@ -107,6 +107,14 @@ describe('CreditAccountPanel', () => {
     expect(screen.getByText('Available')).toHaveStyle({ color: 'var(--color-ui-label-light)' });
   });
 
+  test('uses readable dashboard-sized typography for account details', () => {
+    render(<CreditAccountPanel />);
+
+    expect(screen.getByText('Service Credit Account')).toHaveClass('text-lg');
+    expect(screen.getByText('Available').parentElement).toHaveClass('text-sm');
+    expect(screen.getByText('150 credits')).toHaveClass('text-base');
+  });
+
   test('does not show the top-up notice when available credits are not low', () => {
     render(<CreditAccountPanel />);
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { Container, Stack } from '@/components/ui'
+import Modal from '@/components/ui/Modal'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
@@ -159,6 +160,7 @@ export default function UserDashboard() {
   
   // Additional state variables
   const [userData, setUserData] = useState(null);
+  const [isCreditAccountModalOpen, setIsCreditAccountModalOpen] = useState(false);
   const now = useCurrentTime({ intervalMs: 40000 });
   const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking, lastBookingForDashboard } = useMemo(() => {
     if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
@@ -498,12 +500,6 @@ export default function UserDashboard() {
                   />
                 </div>
 
-                {/* Credit account panel - SSO institutional users only */}
-                {isSSO && (
-                  <div className="w-full">
-                    <CreditAccountPanel />
-                  </div>
-                )}
               </div>
             </div>
             {/* Bottom panel: bookings lists */}
@@ -541,6 +537,29 @@ export default function UserDashboard() {
                 type="past"
               />
             </div>
+
+            {/* Credit account details - available on demand for SSO institutional users */}
+            {isSSO && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setIsCreditAccountModalOpen(true)}
+                  className="rounded-lg border border-slate-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-slate-300 hover:bg-slate-800"
+                >
+                  💳 View service credit account
+                </button>
+              </div>
+            )}
+
+            <Modal
+              isOpen={isCreditAccountModalOpen}
+              onClose={() => setIsCreditAccountModalOpen(false)}
+              title="Service Credit Account"
+              size="xl"
+              theme="dark"
+            >
+              <CreditAccountPanel />
+            </Modal>
           </div>
         </div>
       </Container>

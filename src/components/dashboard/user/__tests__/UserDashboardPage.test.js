@@ -286,6 +286,26 @@ describe('UserDashboard - Unit Tests', () => {
             expect(screen.getByTestId('bookings-list-past')).toBeInTheDocument();
         });
 
+        test('opens the service credit account from the button below the booking lists', async () => {
+            render(<UserDashboard />);
+
+            const upcomingList = screen.getByTestId('bookings-list-upcoming');
+            const pastList = screen.getByTestId('bookings-list-past');
+            const accountButton = screen.getByRole('button', { name: /view service credit account/i });
+
+            expect(upcomingList.compareDocumentPosition(accountButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            expect(pastList.compareDocumentPosition(accountButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            expect(screen.queryByRole('dialog', { name: 'Service Credit Account' })).not.toBeInTheDocument();
+
+            await userEvent.click(accountButton);
+
+            expect(screen.getByRole('dialog', { name: 'Service Credit Account' })).toBeInTheDocument();
+            expect(screen.getByTestId('credit-account-panel')).toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: 'Close modal' }));
+            expect(screen.queryByRole('dialog', { name: 'Service Credit Account' })).not.toBeInTheDocument();
+        });
+
         test('displays booking data', async () => {
             render(<UserDashboard />);
 

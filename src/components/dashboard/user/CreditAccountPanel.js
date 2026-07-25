@@ -185,7 +185,7 @@ export default function CreditAccountPanel() {
     >
       {/* Header */}
       <h3
-        className="text-sm font-semibold flex items-center gap-2"
+        className="flex items-center gap-2 text-lg font-semibold"
         style={{ color: 'var(--color-text-inverse)' }}
       >
         <span className="text-base">💳</span>
@@ -207,23 +207,23 @@ export default function CreditAccountPanel() {
       )}
 
       {/* Balance grid */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
         <span>Available</span>
-        <span className="font-medium text-right">{formatCredits(account.available)} credits</span>
+        <span className="text-right text-base font-semibold">{formatCredits(account.available)} credits</span>
         <span>Locked</span>
-        <span className="font-medium text-right">{formatCredits(account.locked)} credits</span>
+        <span className="text-right text-base font-semibold">{formatCredits(account.locked)} credits</span>
         <span>Consumed</span>
-        <span className="font-medium text-right">{formatCredits(account.consumed)} credits</span>
+        <span className="text-right text-base font-semibold">{formatCredits(account.consumed)} credits</span>
         {account.adjusted > 0 && (
           <>
             <span>Adjusted</span>
-            <span className="font-medium text-right">{formatCredits(account.adjusted)} credits</span>
+            <span className="text-right text-base font-semibold">{formatCredits(account.adjusted)} credits</span>
           </>
         )}
         {account.expired > 0 && (
           <>
             <span>Expired</span>
-            <span className="font-medium text-right">{formatCredits(account.expired)} credits</span>
+            <span className="text-right text-base font-semibold">{formatCredits(account.expired)} credits</span>
           </>
         )}
       </div>
@@ -231,12 +231,12 @@ export default function CreditAccountPanel() {
       {/* Expiring lots */}
       {expiringLots.length > 0 && (
         <div>
-          <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-inverse)' }}>
+          <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             ⚠️ Expiring credit lots (next 30 days)
           </p>
           <ul className="space-y-1">
             {expiringLots.map((lot) => (
-              <li key={lot.id} className="flex justify-between text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+              <li key={lot.id} className="flex justify-between text-sm" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                 <span>{formatCredits(lot.remaining ?? lot.amount)} credits</span>
                 <span>expires {formatDate(lot.expiresAt)}</span>
               </li>
@@ -248,12 +248,12 @@ export default function CreditAccountPanel() {
       {/* Active funding orders */}
       {activeFundingOrders.length > 0 && (
         <div>
-          <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-inverse)' }}>
+          <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             📄 Pending top-up orders
           </p>
           <ul className="space-y-1">
             {activeFundingOrders.map((order) => (
-              <li key={order.id} className="flex justify-between text-xs">
+              <li key={order.id} className="flex justify-between text-sm">
                 <span style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                   {formatEur(order.eurGrossAmount)}
                   {order.reference ? ` · ${order.reference}` : ''}
@@ -270,12 +270,12 @@ export default function CreditAccountPanel() {
       {/* Recent activity */}
       {recentMovements.length > 0 && (
         <div>
-          <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-inverse)' }}>
+          <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             📋 Recent activity
           </p>
           <ul data-testid="credit-movements-list" className="space-y-1">
             {recentMovements.map((mov) => (
-              <li key={mov.id} className="flex justify-between text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+              <li key={mov.id} className="flex justify-between text-sm" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
                 <span className="flex items-center gap-1.5">
                   <span className={MOVEMENT_COLORS[mov.movementType] || 'text-slate-400'}>
                     {MOVEMENT_LABELS[mov.movementType] || mov.movementType}
