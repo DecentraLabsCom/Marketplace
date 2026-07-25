@@ -22,7 +22,7 @@ const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
 
 let mockLabTokenData = {
-  decimals: 5,
+  decimals: 7,
   formatPrice: mockFormatPrice,
 };
 
@@ -77,7 +77,11 @@ jest.mock("@/components/dashboard/provider/LabFormFullSetup", () => ({
       {localLab?.resourceType === "fmu" && (
         <span data-testid="max-concurrent-users">{localLab?.maxConcurrentUsers}</span>
       )}
-      <button onClick={onSubmit}>Submit Full</button>
+      <button
+        onClick={(event) => onSubmit(event, { ...localLab, price: "0.8" })}
+      >
+        Submit Full
+      </button>
       <button onClick={onCancel}>Cancel</button>
     </div>
   ),
@@ -100,7 +104,7 @@ describe("LabModal - Unit Tests", () => {
     jest.clearAllMocks();
 
     mockLabTokenData = {
-      decimals: 5,
+      decimals: 7,
       formatPrice: mockFormatPrice,
     };
   });
@@ -387,6 +391,29 @@ describe("LabModal - Unit Tests", () => {
   });
 
   describe("Form Submission", () => {
+    test("submits the latest Full Setup draft instead of the modal's stale state", async () => {
+      const user = userEvent.setup();
+      mockOnSubmit.mockResolvedValue();
+
+      render(
+        <LabModal
+          isOpen={true}
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          lab={null}
+          maxId={0}
+        />
+      );
+
+      await user.click(screen.getByText("Submit Full"));
+
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({ price: "0.8" })
+        );
+      });
+    });
+
     test("calls onSubmit when Full Setup form submitted", async () => {
       const user = userEvent.setup();
       mockOnSubmit.mockResolvedValue();

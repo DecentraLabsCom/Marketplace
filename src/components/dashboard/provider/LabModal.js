@@ -218,8 +218,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     if (labToMerge.price && decimals) {
       try {
         const originalRawPrice = labToMerge.price;
-        const metadataDisplayAmount = labToMerge?.pricing?.displayAmount;
-        const displayPrice = metadataDisplayAmount || formatPrice(labToMerge.price, priceUnit);
+        // The on-chain raw price is authoritative. Metadata displayAmount may have
+        // been produced with an older credit scale or a different rounding rule.
+        const displayPrice = formatPrice(labToMerge.price, priceUnit);
         labToMerge.price = displayPrice;
         labToMerge._originalRawPrice = String(originalRawPrice);
         labToMerge._originalDisplayPrice = String(displayPrice);
@@ -532,19 +533,19 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     dispatch({ type: 'SET_FIELD', field: 'errors', value: {} });
   }, [activeTab]);
 
-  const validateForm = () => {
+  const validateForm = (labToValidate = localLab) => {
     let newErrors = {};
     if (activeTab === 'full') {
       if (!isExternalURI) {
-        newErrors = validateLabFull(localLab, { imageInputType, docInputType });
+        newErrors = validateLabFull(labToValidate, { imageInputType, docInputType });
         // Additional FMU-specific validation
-        if (localLab.resourceType === RESOURCE_TYPES.FMU) {
-          const fmuErrors = validateFmuFields(localLab);
+        if (labToValidate.resourceType === RESOURCE_TYPES.FMU) {
+          const fmuErrors = validateFmuFields(labToValidate);
           newErrors = { ...newErrors, ...fmuErrors };
         }
       }
     } else if (activeTab === 'quick') {
-      newErrors = validateLabQuick(localLab);
+      newErrors = validateLabQuick(labToValidate);
     }
     dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     return newErrors;
@@ -592,17 +593,17 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     }
   };
 
-  const handleSubmitFull = async (e) => {
+  const handleSubmitFull = async (e, submittedLab = localLab) => {
     e.preventDefault();
-    const currentErrors = validateForm();
+    const currentErrors = validateForm(submittedLab);
     try {
       if (Object.keys(currentErrors).length === 0) {
-        const isFmuResource = localLab.resourceType === RESOURCE_TYPES.FMU
+        const isFmuResource = submittedLab.resourceType === RESOURCE_TYPES.FMU
         const fmuAccessKey = isFmuResource
-          ? (localLab.fmuFileName || '').trim()
-          : localLab.accessKey
+          ? (submittedLab.fmuFileName || '').trim()
+          : submittedLab.accessKey
         let labForSubmit = {
-          ...localLab,
+          ...submittedLab,
           accessKey: fmuAccessKey,
         }
 
@@ -658,17 +659,17 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     }
   };
 
-  const handleSubmitQuick = async (e) => {
+  const handleSubmitQuick = async (e, submittedLab = localLab) => {
     e.preventDefault();
-    const currentErrors = validateForm();
+    const currentErrors = validateForm(submittedLab);
     try {
       if (Object.keys(currentErrors).length === 0) {
         const fmuAccessKey =
-          localLab.resourceType === RESOURCE_TYPES.FMU
-            ? (localLab.fmuFileName || '').trim()
-            : localLab.accessKey
+          submittedLab.resourceType === RESOURCE_TYPES.FMU
+            ? (submittedLab.fmuFileName || '').trim()
+            : submittedLab.accessKey
         const labForSubmit = {
-          ...localLab,
+          ...submittedLab,
           accessKey: fmuAccessKey,
         }
         // Normalize dates to MM/DD/YYYY format before submitting

@@ -364,13 +364,21 @@ describe("LabFormFullSetup", () => {
       fireEvent.submit(form);
 
       // Keywords should be processed during submit
-      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
-        ...mockLab,
-        keywords: ["ai", "machine learning", "data science"],
-      });
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith(
+        expect.objectContaining({
+          keywords: ["ai", "machine learning", "data science"],
+          timeSlots: [],
+        })
+      );
 
       // onSubmit should be called
-      expect(mockHandlers.onSubmit).toHaveBeenCalled();
+      expect(mockHandlers.onSubmit).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          price: mockLab.price,
+          keywords: ["ai", "machine learning", "data science"],
+        })
+      );
     });
 
     test("splits comma-separated time slots into arrays on blur", () => {
@@ -424,13 +432,21 @@ describe("LabFormFullSetup", () => {
       fireEvent.submit(form);
 
       // Time slots should be processed during submit
-      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
-        ...mockLab,
-        timeSlots: ["10", "20", "30"],
-      });
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith(
+        expect.objectContaining({
+          keywords: mockLab.keywords,
+          timeSlots: ["10", "20", "30"],
+        })
+      );
 
       // onSubmit should be called
-      expect(mockHandlers.onSubmit).toHaveBeenCalled();
+      expect(mockHandlers.onSubmit).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          price: mockLab.price,
+          timeSlots: ["10", "20", "30"],
+        })
+      );
     });
   });
 

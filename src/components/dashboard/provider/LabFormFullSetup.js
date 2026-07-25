@@ -44,6 +44,24 @@ import {
 } from './labBookingPeriodOptions'
 import { normalizePricingUnit } from '@/utils/pricing/pricingUnits'
 
+const parseCommaSeparatedValues = (value) => (
+  String(value ?? '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+)
+
+export const buildFullSetupSubmitDraft = ({
+  localLab = {},
+  keywordsInput = '',
+  timeSlotsInput = '',
+  isCalendarPeriod = false,
+} = {}) => ({
+  ...localLab,
+  keywords: parseCommaSeparatedValues(keywordsInput),
+  ...(isCalendarPeriod ? {} : { timeSlots: parseCommaSeparatedValues(timeSlotsInput) }),
+})
+
 export default function LabFormFullSetup({
   localLab = {},
   setLocalLab,
@@ -137,6 +155,14 @@ export default function LabFormFullSetup({
     setLocalLab({ ...latestLabRef.current, [field]: value })
   }
 
+  const getPricingForDisplayEdit = () => {
+    const pricing = { ...(latestLabRef.current?.pricing || {}) }
+    // The old raw rate belongs to the previous display amount/unit. Let the
+    // metadata API derive a new one from the edited human-readable value.
+    delete pricing.rawPricePerSecond
+    return pricing
+  }
+
   const applyFmuMetadata = useCallback((metadata) => {
     setLocalLabRef.current({ ...latestLabRef.current, ...metadata })
   }, [])
@@ -174,7 +200,7 @@ export default function LabFormFullSetup({
 
   const handleKeywordsBlur = () => {
     // Parse the input into array only when user finishes editing (blur event)
-    handleBasicChange('keywords', keywordsInput.split(',').map(keyword => keyword.trim()).filter(Boolean))
+    handleBasicChange('keywords', parseCommaSeparatedValues(keywordsInput))
   }
 
   const handleTimeSlotsChange = (value) => {
@@ -184,17 +210,22 @@ export default function LabFormFullSetup({
 
   const handleTimeSlotsBlur = () => {
     // Parse the input into array only when user finishes editing (blur event)
-    handleBasicChange('timeSlots', timeSlotsInput.split(',').map(slot => slot.trim()).filter(Boolean))
+    handleBasicChange('timeSlots', parseCommaSeparatedValues(timeSlotsInput))
   }
 
   const handleFormSubmit = (e) => {
-    // Process keywords and timeSlots before submitting
-    handleKeywordsBlur()
-    if (!isCalendarPeriod) {
-      handleTimeSlotsBlur()
-    }
-    // Call parent's onSubmit handler
-    onSubmit(e)
+    // Build a complete snapshot before dispatching the submit callback. React
+    // state updates are asynchronous, so dispatching keywords/timeSlots and
+    // immediately reading the parent state could submit an older price too.
+    const submittedLab = buildFullSetupSubmitDraft({
+      localLab,
+      keywordsInput,
+      timeSlotsInput,
+      isCalendarPeriod,
+    })
+
+    setLocalLab(submittedLab)
+    onSubmit(e, submittedLab)
   }
 
   const handleArrayField = (field, value) => {
@@ -227,7 +258,7 @@ export default function LabFormFullSetup({
       ...latestLabRef.current,
       priceUnit: nextUnit,
       pricing: {
-        ...(latestLabRef.current?.pricing || {}),
+        ...getPricingForDisplayEdit(),
         displayAmount: latestLabRef.current?.price || '',
         displayUnit: nextUnit,
       },
@@ -393,7 +424,7 @@ export default function LabFormFullSetup({
                 ...latestLabRef.current,
                 price: e.target.value,
                 pricing: {
-                  ...(latestLabRef.current?.pricing || {}),
+                  ...getPricingForDisplayEdit(),
                   displayAmount: e.target.value,
                   displayUnit: priceUnit,
                 },
