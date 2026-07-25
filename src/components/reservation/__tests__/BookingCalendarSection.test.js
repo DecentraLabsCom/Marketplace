@@ -367,8 +367,8 @@ describe("BookingCalendarSection", () => {
       expect(controlsRow.children[0]).toContainElement(startingTime);
       expect(controlsRow.children[1]).toContainElement(duration);
       expect(controlsRow.children[2]).toContainElement(priceSummary);
-      expect(startingTime).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
-      expect(duration).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
+      expect(startingTime).toHaveClass("w-full", "p-3", "pr-10", "border-2", "bg-gray-800", "rounded");
+      expect(duration).toHaveClass("w-full", "p-3", "pr-10", "border-2", "bg-gray-800", "rounded");
       expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
       expect(priceSummary).toHaveClass("h-full");
       expect(timeZoneSummary).toHaveClass("text-left");
