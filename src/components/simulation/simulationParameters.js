@@ -9,6 +9,8 @@ const NUMERIC_TYPES = new Set([
   'UInt16',
   'Int32',
   'UInt32',
+  'Int64',
+  'UInt64',
 ])
 const INTEGER_TYPES = new Set([
   'Integer',
@@ -91,6 +93,7 @@ export function getVariableInputDetails(variable, modelVariables = []) {
 
   return {
     valueCount,
+    inputType: valueCount > 1 || !NUMERIC_TYPES.has(variable?.type) ? 'text' : 'number',
     summary: `${type} · ${shape}`,
     format: `Format: ${format}`,
     initial: variable?.start != null ? `Initial: ${formatParameterValue(variable.start)}` : null,

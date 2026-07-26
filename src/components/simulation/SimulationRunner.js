@@ -430,7 +430,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
       )}
 
       {inputVars.length > 0 && (
-        <ParameterForm variables={inputVars} values={parameters} onChange={handleParamChange} disabled={simState === SIM_STATE.RUNNING} />
+        <ParameterForm
+          variables={inputVars}
+          modelVariables={modelVariables}
+          values={parameters}
+          onChange={handleParamChange}
+          disabled={simState === SIM_STATE.RUNNING}
+        />
       )}
 
       <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />

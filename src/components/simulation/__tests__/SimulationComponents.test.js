@@ -103,6 +103,19 @@ describe("ParameterForm", () => {
     expect(screen.getByText("Initial: 1 2 3")).toBeInTheDocument();
     expect(screen.getByLabelText("Parameter u")).toHaveAttribute("type", "text");
   });
+
+  test("uses a text input when a variable expects a boolean", () => {
+    render(
+      <ParameterForm
+        variables={[{ name: "enabled", causality: "input", type: "Boolean", start: "false" }]}
+        values={{ enabled: "false" }}
+        onChange={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText("Format: true or false")).toBeInTheDocument();
+    expect(screen.getByLabelText("Parameter enabled")).toHaveAttribute("type", "text");
+  });
 });
 
 // â”€â”€â”€ SimulationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
