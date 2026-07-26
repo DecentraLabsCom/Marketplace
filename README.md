@@ -44,7 +44,7 @@ npm run dev
 | Use the Marketplace | [Access laboratories](docs/access-laboratories.md) |
 | Fund laboratory access as an institution | [Become a consumer](docs/become-a-consumer.md) |
 | Publish a laboratory | [Become a provider](docs/become-a-provider.md) |
-| Browse the public documentation | [Documentation guide](docs/README.md) |
+| Browse the public documentation | [Documentation index](SUMMARY.md) |
 
 The public FAQ and legal pages are rendered from `src/app/(marketing)/`. They are operational content, not a replacement for an approved legal notice. Private implementation and legal-review notes remain under `dev/` for local agent and maintainer use.
 

@@ -56,7 +56,7 @@ export default function ReservationCancellationDialog({
       size="md"
     >
       <div className="space-y-4 text-gray-700">
-        <p>This action cannot be undone from the Marketplace.</p>
+        <p>This action cannot be undone.</p>
         <dl className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm">
           <div>
             <dt className="font-semibold">Reservation:</dt>
@@ -119,11 +119,6 @@ export default function ReservationCancellationDialog({
           </div>
         </dl>
         <p className="text-sm">Access will no longer be available for this time window.</p>
-        <p className="text-xs text-gray-500">
-          {preview?.source === 'on-chain'
-            ? 'Values are read from the current contract policy and verified again by the institutional backend.'
-            : 'Legacy reservation data uses the current policy fallback; the institutional backend verifies the final amount.'}
-        </p>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"

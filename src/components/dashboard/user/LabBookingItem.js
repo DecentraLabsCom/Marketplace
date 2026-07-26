@@ -131,7 +131,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                         </button>
                         {isConfirmedBooking(booking) && (
                             <span className="max-w-56 text-right text-[11px] text-gray-500">
-                                Eligible service credits return to the institutional account; they are not cash.
+                                Eligible service credits return to the institutional account.
                             </span>
                         )}
                     </div>
