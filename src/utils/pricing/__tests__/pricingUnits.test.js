@@ -8,16 +8,16 @@ import {
 
 describe('pricingUnits', () => {
   test('converts display prices to the nearest representable raw per-second rate', () => {
-    expect(displayPriceToRawPerSecond('25', 'day')).toBe(29n)
-    expect(rawPerSecondToDisplayPrice(29n, 'day', { maxFractionDigits: 5 })).toBe('25.056')
-    expect(displayPriceToRawPerSecond('0.8', 'hour')).toBe(22n)
-    expect(rawPerSecondToDisplayPrice(22n, 'hour', { maxFractionDigits: 5 })).toBe('0.792')
-    expect(displayPriceToRawPerSecond('0.82', 'hour')).toBe(23n)
+    expect(displayPriceToRawPerSecond('25', 'day')).toBe(2894n)
+    expect(rawPerSecondToDisplayPrice(2894n, 'day', { maxFractionDigits: 5 })).toBe('25.00416')
+    expect(displayPriceToRawPerSecond('0.8', 'hour')).toBe(2222n)
+    expect(rawPerSecondToDisplayPrice(2222n, 'hour', { maxFractionDigits: 5 })).toBe('0.79992')
+    expect(displayPriceToRawPerSecond('0.82', 'hour')).toBe(2278n)
   })
 
   test('converts weekly and 30-day month prices using canonical seconds', () => {
-    expect(displayPriceToRawPerSecond('100', 'week')).toBe(17n)
-    expect(displayPriceToRawPerSecond('300', 'month')).toBe(12n)
+    expect(displayPriceToRawPerSecond('100', 'week')).toBe(1653n)
+    expect(displayPriceToRawPerSecond('300', 'month')).toBe(1157n)
   })
 
   test('calculates reservation total from explicit start and end', () => {

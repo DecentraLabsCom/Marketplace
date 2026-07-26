@@ -246,7 +246,7 @@ const normalizePricing = ({ price, pricing, priceUnit }) => {
     displayAmount,
     displayUnit,
     rawPricePerSecond,
-    roundingMode: 'ceil-per-second',
+    roundingMode: 'nearest-per-second',
     billingMode: 'linear-duration',
   }
 }

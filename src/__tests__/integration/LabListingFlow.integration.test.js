@@ -128,9 +128,9 @@ jest.mock("@/context/LabCreditContext", () => ({
   useLabCredit: () => ({
     formatPrice: (price) => price,
     formatTokenAmount: (amount) => amount,
-    decimals: 5,
+    decimals: 7,
     balance: BigInt("1550000"),
-    allowance: BigInt("1000000"),
+    allowance: BigInt("100000000"),
     isLoading: false,
     checkBalanceAndAllowance: () => ({
       hasSufficientBalance: true,

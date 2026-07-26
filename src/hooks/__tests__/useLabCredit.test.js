@@ -31,7 +31,7 @@ describe('useLabCreditHook', () => {
       if (String(url).includes('/api/contract/institution/getInstitutionCreditBalance')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ balance: '1000' }),
+          json: async () => ({ balance: '100000000000' }),
         })
       }
 
@@ -53,9 +53,9 @@ describe('useLabCreditHook', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    expect(result.current.balance).toBe(1000n)
-    expect(result.current.allowance).toBe(1000n)
-    expect(result.current.decimals).toBe(5)
+    expect(result.current.balance).toBe(100000000000n)
+    expect(result.current.allowance).toBe(100000000000n)
+    expect(result.current.decimals).toBe(7)
     expect(result.current.labCreditAddress).toBe('0xlabcredit')
   })
 
@@ -89,7 +89,7 @@ describe('useLabCreditHook', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    expect(result.current.formatPrice('29', 'day')).toBe('25.1')
+    expect(result.current.formatPrice('29', 'day')).toBe('0.251')
   })
 
   test('refreshTokenData refetches ledger data', async () => {

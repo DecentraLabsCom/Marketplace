@@ -137,18 +137,18 @@ describe('LabBookingItem', () => {
     const onCancel = jest.fn();
     const booking = createBooking({
       status: '1',
-      price: '100000',
+      price: '10000000',
       start: 1893456000,
       cancellationPreview: {
         status: '1',
         cancellable: true,
-        price: '100000',
-        totalFee: '10000',
-        providerFee: '6000',
-        refundAmount: '90000',
+        price: '10000000',
+        totalFee: '1000000',
+        providerFee: '600000',
+        refundAmount: '9000000',
         cancellationCutoff: '1893456000',
         policyVersion: '1',
-        allocations: [{ fundingOrderId: '0xabc', amount: '100000' }],
+        allocations: [{ fundingOrderId: '0xabc', amount: '10000000' }],
       },
     });
 

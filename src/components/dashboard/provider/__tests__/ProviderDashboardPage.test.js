@@ -122,7 +122,7 @@ jest.mock("@/context/NotificationContext", () => ({
 }));
 
 jest.mock("@/context/LabCreditContext", () => ({
-  useLabCredit: () => ({ decimals: 5 }),
+  useLabCredit: () => ({ decimals: 7 }),
 }));
 
 // Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
@@ -707,7 +707,7 @@ describe("ProviderDashboard Component", () => {
               id: "2",
               name: "Original FMU",
               uri: "http://localhost/api/metadata?uri=Lab-Provider-2.json",
-              price: "2750",
+              price: "275000",
               priceUnit: "hour",
               accessURI: "https://lab.com",
               resourceType: "fmu",

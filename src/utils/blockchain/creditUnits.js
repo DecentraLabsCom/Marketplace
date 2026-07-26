@@ -1,6 +1,7 @@
 import { formatUnits, parseUnits } from 'viem'
 
-export const CREDIT_DECIMALS = 5
+// Canonical on-chain service-credit scale: 10,000,000 raw units per credit.
+export const CREDIT_DECIMALS = 7
 export const RAW_PER_CREDIT = 10n ** BigInt(CREDIT_DECIMALS)
 export const CREDITS_PER_EUR = 10
 export const RAW_PER_EUR = RAW_PER_CREDIT * BigInt(CREDITS_PER_EUR)

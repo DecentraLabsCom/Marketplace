@@ -256,9 +256,9 @@ jest.mock("@/context/OptimisticUIContext", () => ({
 jest.mock("@/context/LabCreditContext", () => ({
   LabCreditProvider: ({ children }) => children,
   useLabCredit: () => ({
-    balance: BigInt("1550000"),
-    allowance: BigInt("1000000"),
-    decimals: 5,
+    balance: BigInt("155000000"),
+    allowance: BigInt("100000000"),
+    decimals: 7,
     isLoading: false,
     labCreditAddress: "0xMockLabCreditAddress",
     formatTokenAmount: jest.fn((amount) => "5.00"),

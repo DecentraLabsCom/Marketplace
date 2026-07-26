@@ -1,9 +1,9 @@
-import { formatRawCredits } from '@/utils/blockchain/creditUnits'
+import { formatRawCredits, RAW_PER_CREDIT } from '@/utils/blockchain/creditUnits'
 
 const CANCELLATION_FEE_PERCENT = 5n
 const CANCELLATION_FEE_DENOMINATOR = 100n
 const PROVIDER_FEE_PERCENT_OF_TOTAL = 3n
-const MIN_CANCELLATION_FEE = 10_000n
+const MIN_CANCELLATION_FEE = RAW_PER_CREDIT / 10n
 
 const parseRawCreditAmount = (value) => {
   if (typeof value === 'bigint') return value >= 0n ? value : null

@@ -18,9 +18,9 @@ import { LabCreditProvider, useLabCredit } from '@/context/LabCreditContext';
 
 // Mock the underlying useLabCredit hook
 const mockLabTokenData = {
-  balance: BigInt('1500000'), // 15 LAB credits
-  allowance: BigInt('1000000'), // 10 LAB credits
-  decimals: 5,
+  balance: BigInt('150000000'), // 15 service credits
+  allowance: BigInt('100000000'), // 10 service credits
+  decimals: 7,
   isLoading: false,
   labCreditAddress: '0xMockLabCreditAddress',
   calculateReservationCost: jest.fn(),
@@ -55,9 +55,9 @@ describe('LabCreditContext', () => {
         wrapper: LabCreditProvider,
       });
 
-      expect(result.current.balance).toEqual(BigInt('1500000'));
-      expect(result.current.allowance).toEqual(BigInt('1000000'));
-      expect(result.current.decimals).toBe(5);
+      expect(result.current.balance).toEqual(BigInt('150000000'));
+      expect(result.current.allowance).toEqual(BigInt('100000000'));
+      expect(result.current.decimals).toBe(7);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.labCreditAddress).toBe('0xMockLabCreditAddress');
     });
@@ -99,11 +99,11 @@ describe('LabCreditContext', () => {
       });
 
       const formattedAmount = result.current.formatTokenAmount(
-        BigInt('1500000')
+        BigInt('150000000')
       );
 
       expect(result.current.formatTokenAmount).toHaveBeenCalledWith(
-        BigInt('1500000')
+        BigInt('150000000')
       );
       expect(formattedAmount).toBe('15.00');
     });
@@ -135,7 +135,7 @@ describe('LabCreditContext', () => {
 
   describe('Price Conversion', () => {
     test('formatPrice converts per-second price to per-hour price', () => {
-      // Mock: 0.54 credits per hour = 15 raw units per second with 5 credit decimals.
+      // Mock: 0.54 credits per hour = 1,500 raw units per second with 7 credit decimals.
       mockLabTokenData.formatPrice.mockReturnValue('0.5');
 
       const { result } = renderHook(() => useLabCredit(), {
@@ -231,13 +231,13 @@ describe('LabCreditContext', () => {
 
   describe('Balance Checking', () => {
     test('checkBalanceAndAllowance returns correct status', () => {
-      const requiredAmount = BigInt('500000'); // 5 LAB
+      const requiredAmount = BigInt('50000000'); // 5 service credits
 
       mockLabTokenData.checkBalanceAndAllowance.mockReturnValue({
         hasSufficientBalance: true,
         hasSufficientAllowance: true,
-        balance: BigInt('1500000'),
-        allowance: BigInt('1000000'),
+        balance: BigInt('150000000'),
+        allowance: BigInt('100000000'),
         requiredAmount,
       });
 
@@ -249,8 +249,8 @@ describe('LabCreditContext', () => {
 
       expect(status.hasSufficientBalance).toBe(true);
       expect(status.hasSufficientAllowance).toBe(true);
-      expect(status.balance).toEqual(BigInt('1500000'));
-      expect(status.allowance).toEqual(BigInt('1000000'));
+      expect(status.balance).toEqual(BigInt('150000000'));
+      expect(status.allowance).toEqual(BigInt('100000000'));
     });
 
     test('checkBalanceAndAllowance detects insufficient balance', () => {
@@ -259,8 +259,8 @@ describe('LabCreditContext', () => {
       mockLabTokenData.checkBalanceAndAllowance.mockReturnValue({
         hasSufficientBalance: false,
         hasSufficientAllowance: false,
-        balance: BigInt('1500000'),
-        allowance: BigInt('1000000'),
+        balance: BigInt('150000000'),
+        allowance: BigInt('100000000'),
         requiredAmount,
       });
 
@@ -275,13 +275,13 @@ describe('LabCreditContext', () => {
     });
 
     test('checkSufficientBalance returns correct result', () => {
-      const labPrice = '15'; // per second
+      const labPrice = '1500'; // per second at 7 credit decimals
       const durationMinutes = 60; // 1 hour
 
       mockLabTokenData.checkSufficientBalance.mockReturnValue({
         hasSufficient: true,
-        cost: BigInt('54000'),
-        balance: BigInt('1500000'),
+        cost: BigInt('5400000'),
+        balance: BigInt('150000000'),
         shortfall: BigInt('0'),
       });
 
@@ -295,19 +295,19 @@ describe('LabCreditContext', () => {
       );
 
       expect(status.hasSufficient).toBe(true);
-      expect(status.cost).toEqual(BigInt('54000'));
+      expect(status.cost).toEqual(BigInt('5400000'));
       expect(status.shortfall).toEqual(BigInt('0'));
     });
 
     test('checkSufficientBalance calculates shortfall correctly', () => {
-      const labPrice = '278'; // 10.008 LAB per hour
+      const labPrice = '27800'; // 10.008 service credits per hour
       const durationMinutes = 1200; // 20 hours
 
       mockLabTokenData.checkSufficientBalance.mockReturnValue({
         hasSufficient: false,
-        cost: BigInt('20016000'),
-        balance: BigInt('1500000'),
-        shortfall: BigInt('18516000'),
+        cost: BigInt('2001600000'),
+        balance: BigInt('150000000'),
+        shortfall: BigInt('1851600000'),
       });
 
       const { result } = renderHook(() => useLabCredit(), {
@@ -320,7 +320,7 @@ describe('LabCreditContext', () => {
       );
 
       expect(status.hasSufficient).toBe(false);
-      expect(status.shortfall).toEqual(BigInt('18516000'));
+      expect(status.shortfall).toEqual(BigInt('1851600000'));
     });
   });
 
@@ -435,7 +435,7 @@ describe('LabCreditContext', () => {
       // Update balance
       useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
-        balance: BigInt('2000000'), // 20 LAB (changed from 15)
+        balance: BigInt('200000000'), // 20 credits (changed from 15)
       });
 
       // Rerender to trigger update
@@ -443,7 +443,7 @@ describe('LabCreditContext', () => {
 
       // Balance should update
       expect(result.current.balance).not.toEqual(initialBalance);
-      expect(result.current.balance).toEqual(BigInt('2000000'));
+      expect(result.current.balance).toEqual(BigInt('200000000'));
     });
 
     test('context value updates when decimals change', () => {
@@ -459,7 +459,7 @@ describe('LabCreditContext', () => {
       // Update decimals (e.g., switching to a different token)
       useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
-        decimals: 6, // Changed from 5
+        decimals: 6, // Deliberately exercise a non-canonical token scale
       });
 
       // Rerender to trigger update

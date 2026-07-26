@@ -12,7 +12,7 @@
 /**
  * Formats a raw credit amount (smallest units) to a human-readable string
  * @param {string} rawAmount - Amount in smallest credit units (e.g. "8000")
- * @param {number} decimals - Credit decimals (default 5)
+ * @param {number} decimals - Credit decimals (default 7)
  * @returns {string} Formatted amount trimmed to the canonical scale
  */
 export function formatRawAmount(rawAmount, decimals = CREDIT_DECIMALS) {

@@ -1,4 +1,4 @@
-import { formatRawPricePerHour, roundDecimalString } from '@/utils/blockchain/creditUnits'
+import { formatRawCredits, formatRawPricePerHour, roundDecimalString } from '@/utils/blockchain/creditUnits'
 
 describe('creditUnits visible price formatting', () => {
   test('roundDecimalString rounds to at most three decimals by default', () => {
@@ -11,9 +11,11 @@ describe('creditUnits visible price formatting', () => {
   })
 
   test('formatRawPricePerHour converts per-second raw price and rounds for display', () => {
-    expect(formatRawPricePerHour(15n)).toBe('0.54')
+    expect(formatRawCredits(10_000_000n)).toBe('1')
+    expect(formatRawPricePerHour(1_500n)).toBe('0.54')
     expect(formatRawPricePerHour(0n)).toBe('0')
-    expect(formatRawPricePerHour(23n)).toBe('0.828')
-    expect(formatRawPricePerHour(278n)).toBe('10.008')
+    expect(formatRawPricePerHour(2_300n)).toBe('0.828')
+    expect(formatRawPricePerHour(27_800n)).toBe('10.008')
+    expect(formatRawPricePerHour(2_222n, 7)).toBe('0.8')
   })
 })

@@ -49,7 +49,7 @@ export function displayPriceToRawPerSecond(amount, unit = 'hour', decimals = CRE
 
 export function rawPerSecondToDisplayPrice(rawPerSecond, unit = 'hour', {
   decimals = CREDIT_DECIMALS,
-  maxFractionDigits = 1,
+  maxFractionDigits = 3,
 } = {}) {
   try {
     const normalizedRaw = typeof rawPerSecond === 'bigint'

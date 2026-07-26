@@ -10,12 +10,12 @@ describe('cancellationSummary', () => {
   })
 
   test('mirrors the contractual five-percent fee for confirmed bookings', () => {
-    expect(calculateCancellationCreditReturn({ status: 1, price: '1000000' })).toBe(950000n)
-    expect(getCancellationCreditReturnLabel({ status: 1, price: '1000000' })).toBe('9.5 credits')
+    expect(calculateCancellationCreditReturn({ status: 1, price: '100000000' })).toBe(95000000n)
+    expect(getCancellationCreditReturnLabel({ status: 1, price: '100000000' })).toBe('9.5 credits')
   })
 
   test('applies the contractual minimum cancellation fee', () => {
-    expect(calculateCancellationCreditReturn({ status: 1, price: '100000' })).toBe(90000n)
+    expect(calculateCancellationCreditReturn({ status: 1, price: '10000000' })).toBe(9000000n)
   })
 
   test('does not invent a return amount when the reservation price is unavailable', () => {
@@ -26,27 +26,27 @@ describe('cancellationSummary', () => {
   test('prefers the on-chain cancellation preview and preserves lot provenance', () => {
     const preview = getCancellationPreview({
       status: 1,
-      price: '1000000',
+      price: '100000000',
       cancellationPreview: {
         status: '1',
         cancellable: true,
-        price: '1000000',
-        totalFee: '50000',
-        providerFee: '30000',
-        refundAmount: '950000',
+        price: '100000000',
+        totalFee: '5000000',
+        providerFee: '3000000',
+        refundAmount: '95000000',
         cancellationCutoff: '1893456000',
         spendingPeriodStart: '1890000000',
         spendingPeriodEnd: '1900000000',
         sourceCreditExpiry: '1905000000',
         policyVersion: '1',
-        allocations: [{ fundingOrderId: '0xabc', amount: '1000000' }],
+        allocations: [{ fundingOrderId: '0xabc', amount: '100000000' }],
       },
     })
 
     expect(preview.source).toBe('on-chain')
-    expect(preview.totalFeeRaw).toBe(50000n)
-    expect(preview.providerFeeRaw).toBe(30000n)
-    expect(preview.refundRaw).toBe(950000n)
+    expect(preview.totalFeeRaw).toBe(5000000n)
+    expect(preview.providerFeeRaw).toBe(3000000n)
+    expect(preview.refundRaw).toBe(95000000n)
     expect(preview.minimumFeeApplied).toBe(false)
     expect(preview.allocations).toHaveLength(1)
     expect(preview.policyVersion).toBe(1)
@@ -55,14 +55,14 @@ describe('cancellationSummary', () => {
   test('provides the exact local policy fallback when legacy data lacks a preview', () => {
     const preview = getCancellationPreview({
       status: 1,
-      price: '100000',
+      price: '10000000',
       start: 1893456000,
     })
 
     expect(preview.source).toBe('local-fallback')
-    expect(preview.totalFeeRaw).toBe(10000n)
-    expect(preview.providerFeeRaw).toBe(6000n)
-    expect(preview.refundRaw).toBe(90000n)
+    expect(preview.totalFeeRaw).toBe(1000000n)
+    expect(preview.providerFeeRaw).toBe(600000n)
+    expect(preview.refundRaw).toBe(9000000n)
     expect(preview.minimumFeeApplied).toBe(true)
     expect(preview.cancellationCutoff).toBe(1893456000)
   })
