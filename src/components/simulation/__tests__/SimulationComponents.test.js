@@ -265,6 +265,53 @@ describe("ResultsChart", () => {
     expect(screen.getByText("y")).toBeInTheDocument();
     expect(screen.queryByText("status")).not.toBeInTheDocument();
   });
+
+  test("allows selecting arbitrary variables for a 2D plot", () => {
+    render(
+      <ResultsChart
+        outputs={{ position: [0, 1, 2], velocity: [3, 2, 1] }}
+        time={[0, 1, 2]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Chart type"), { target: { value: "2d" } });
+    fireEvent.change(screen.getByLabelText("X axis"), { target: { value: "velocity" } });
+    fireEvent.change(screen.getByLabelText("Y axis"), { target: { value: "position" } });
+
+    expect(screen.getByTestId("cartesian-plot")).toBeInTheDocument();
+    expect(screen.getByLabelText("X axis")).toHaveValue("velocity");
+    expect(screen.getByLabelText("Y axis")).toHaveValue("position");
+  });
+
+  test("renders a 3D trajectory with selectable vector components", () => {
+    render(
+      <ResultsChart
+        outputs={{ y: [[1, 2, 3], [2, 4, 6], [3, 6, 9]] }}
+        time={[0, 1, 2]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Chart type"), { target: { value: "3d" } });
+
+    expect(screen.getByTestId("three-dimensional-plot")).toBeInTheDocument();
+    expect(screen.getByLabelText("Z axis")).toHaveValue("y[2]");
+    expect(screen.getByTestId("three-dimensional-plot").querySelectorAll("line").length).toBeGreaterThan(0);
+  });
+
+  test("offers a state-space projection mode", () => {
+    render(
+      <ResultsChart
+        outputs={{ x: [0, 1, 0], "der(x)": [1, 0, -1] }}
+        time={[0, 1, 2]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Chart type"), { target: { value: "state-space" } });
+
+    expect(screen.getByText(/State-space projection/)).toBeInTheDocument();
+    expect(screen.getByLabelText("X axis")).toHaveValue("x");
+    expect(screen.getByLabelText("Y axis")).toHaveValue("der(x)");
+  });
 });
 
 // â”€â”€â”€ DownloadButtons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
