@@ -307,4 +307,47 @@ describe('metadata egress policy', () => {
       attributes: [{ trait_type: 'docs', value: ['https://metadata.example/guide.pdf'] }],
     })
   })
+
+  test('preserves the bounded FMU variable shape metadata used by simulation inputs', () => {
+    const metadata = policy.validateMetadataDocument({
+      attributes: [{
+        trait_type: 'modelVariables',
+        value: [
+          {
+            name: 'm',
+            causality: 'structuralParameter',
+            type: 'UInt64',
+            start: '3',
+            valueReference: 1,
+          },
+          {
+            name: 'u',
+            causality: 'input',
+            type: 'Float64',
+            start: '1 2 3',
+            valueReference: 9,
+            dimensions: [{ valueReference: 1, variableName: 'm' }],
+          },
+        ],
+      }],
+    })
+
+    expect(metadata.attributes[0].value).toEqual([
+      {
+        name: 'm',
+        causality: 'structuralParameter',
+        type: 'UInt64',
+        start: '3',
+        valueReference: 1,
+      },
+      {
+        name: 'u',
+        causality: 'input',
+        type: 'Float64',
+        start: '1 2 3',
+        valueReference: 9,
+        dimensions: [{ valueReference: 1, variableName: 'm' }],
+      },
+    ])
+  })
 })

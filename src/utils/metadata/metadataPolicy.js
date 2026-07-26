@@ -21,6 +21,29 @@ const classificationEntrySchema = z.object({
   code: z.string().max(32),
   label: z.string().max(256),
 }).strip()
+const modelVariableDimensionSchema = z.object({
+  start: z.number().int().positive().optional(),
+  valueReference: z.number().int().nonnegative().optional(),
+  variableName: z.string().max(256).optional(),
+}).strip()
+const modelVariableValueSchema = z.union([
+  z.string().max(4_096),
+  z.number().finite(),
+  z.boolean(),
+  z.array(z.union([z.string().max(4_096), z.number().finite(), z.boolean()])).max(4_096),
+])
+const modelVariableSchema = z.object({
+  name: z.string().max(256),
+  description: z.string().max(1_024).optional(),
+  type: z.string().max(64).optional(),
+  causality: z.string().max(32).optional(),
+  variability: z.string().max(32).optional(),
+  initial: z.string().max(32).optional(),
+  unit: z.string().max(64).optional(),
+  start: modelVariableValueSchema.optional(),
+  valueReference: z.number().int().nonnegative().optional(),
+  dimensions: z.array(modelVariableDimensionSchema).max(16).optional(),
+}).strip()
 const attributeValueSchemas = {
   classification: z.array(classificationEntrySchema).max(64),
   classificationPrimaryScheme: z.string().max(32),
@@ -44,7 +67,7 @@ const attributeValueSchemas = {
   termsOfUse: z.object({ url: boundedString.optional(), version: z.string().max(128).optional(), effectiveDate: z.string().max(64).optional(), sha256: z.string().max(128).optional() }).strip(),
   timezone: z.string().max(128), resourceType: z.enum(['lab', 'fmu']), fmuFileName: z.string().max(512),
   fmiVersion: z.string().max(64), simulationType: z.string().max(64),
-  modelVariables: z.array(z.object({ name: z.string().max(256), description: z.string().max(1_024).optional(), type: z.string().max(64).optional(), unit: z.string().max(64).optional() }).strip()).max(512),
+  modelVariables: z.array(modelVariableSchema).max(512),
   defaultStartTime: z.number(), defaultStopTime: z.number(), defaultStepSize: z.number(),
 }
 

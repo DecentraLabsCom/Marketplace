@@ -14,6 +14,7 @@ import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
+import { normalizeSimulationParameters } from './simulationParameters'
 
 const SIM_STATE = {
   IDLE: 'idle',
@@ -50,7 +51,8 @@ function resolveGatewayOrigin(accessUri) {
 
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
-  const inputVars = (fmuMeta?.modelVariables || []).filter(v => v.causality === 'input')
+  const modelVariables = fmuMeta?.modelVariables || []
+  const inputVars = modelVariables.filter(v => v.causality === 'input')
   const isSSO = useGetIsSSO()
 
   const [parameters, setParameters] = useState(() => {
@@ -172,10 +174,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
         reqOptions.solver = solver
       }
 
+      const normalizedParameters = normalizeSimulationParameters(parameters, modelVariables)
+
       const body = {
         labId: lab.id ?? lab.tokenId,
         reservationKey,
-        parameters,
+        parameters: normalizedParameters,
         options: reqOptions,
       }
 
@@ -240,7 +244,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setErrorMsg(err.message)
       setSimState(SIM_STATE.ERROR)
     }
-  }, [fetchGateway, isModelExchange, lab, options, parameters, reservationKey, solver])
+  }, [fetchGateway, isModelExchange, lab, modelVariables, options, parameters, reservationKey, solver])
 
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''

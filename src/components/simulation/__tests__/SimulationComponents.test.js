@@ -83,6 +83,26 @@ describe("ParameterForm", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  test("shows the type, shape and expected format for each variable", () => {
+    const vectorVariables = [{
+      name: "u",
+      causality: "input",
+      type: "Float64",
+      start: "1 2 3",
+      unit: "m/s",
+      description: "Input vector",
+      dimensions: [{ start: 3 }],
+    }];
+
+    render(<ParameterForm variables={vectorVariables} values={{ u: "1 2 3" }} onChange={jest.fn()} />);
+
+    expect(screen.getByText("Float64 · vector[3]")).toBeInTheDocument();
+    expect(screen.getByText("Input vector")).toBeInTheDocument();
+    expect(screen.getByText("Format: 3 numbers separated by spaces (e.g. 1 2 3)")).toBeInTheDocument();
+    expect(screen.getByText("Initial: 1 2 3")).toBeInTheDocument();
+    expect(screen.getByLabelText("Parameter u")).toHaveAttribute("type", "text");
+  });
 });
 
 // â”€â”€â”€ SimulationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -378,7 +398,7 @@ describe("SimulationRunner", () => {
     expect(establishFmuGatewaySession).not.toHaveBeenCalled();
   });
 
-  test("expands a scalar value for a dimensioned input variable", async () => {
+  test("rejects a scalar value for a dimensioned input variable", async () => {
     global.fetch.mockResolvedValueOnce(
       mockNdjsonResponse([
         { type: "started", simId: "abc123" },
@@ -407,13 +427,8 @@ describe("SimulationRunner", () => {
     fireEvent.change(screen.getByLabelText("Parameter u"), { target: { value: "4" } });
     fireEvent.click(screen.getByText("Run Simulation"));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
-      "/api/simulations/stream",
-      expect.objectContaining({ method: "POST" })
-    ));
-
-    const request = global.fetch.mock.calls.find(([url]) => url === "/api/simulations/stream");
-    expect(JSON.parse(request[1].body).parameters).toEqual({ u: [4, 4, 4] });
+    await waitFor(() => expect(screen.getByText("Input u requires 3 values separated by spaces.")).toBeInTheDocument());
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test("reauthenticates once with the canonical lab auth context after a 401", async () => {

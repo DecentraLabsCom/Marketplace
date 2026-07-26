@@ -1,6 +1,7 @@
 "use client";
 import React from 'react'
 import PropTypes from 'prop-types'
+import { formatParameterValue, getVariableValueCount } from './simulationParameters'
 
 /**
  * ParameterForm — editable table of FMU input variables.
@@ -32,11 +33,12 @@ export default function ParameterForm({ variables, values, onChange, disabled = 
                 <td className="px-3 py-2 text-neutral-200 font-mono text-xs">{v.name}</td>
                 <td className="px-3 py-2">
                   <input
-                    type="number"
-                    step="any"
-                    value={values[v.name] ?? ''}
+                    type={getVariableValueCount(v, variables) > 1 ? 'text' : 'number'}
+                    step={getVariableValueCount(v, variables) > 1 ? undefined : 'any'}
+                    value={formatParameterValue(values[v.name])}
                     onChange={(e) => onChange(v.name, e.target.value)}
                     disabled={disabled}
+                    placeholder={getVariableValueCount(v, variables) > 1 ? 'One value or values separated by spaces' : undefined}
                     className="w-full bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-xs
                       focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label={`Parameter ${v.name}`}
