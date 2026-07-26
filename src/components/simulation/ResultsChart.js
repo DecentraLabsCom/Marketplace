@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
+import { isChartableOutputSeries, normalizeSimulationOutputs } from './simulationOutputs'
 
 /**
  * Minimal inline SVG line chart for simulation results.
@@ -9,15 +10,21 @@ import PropTypes from 'prop-types'
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16']
 
-export default function ResultsChart({ outputs, time }) {
+export default function ResultsChart({ outputs, time, variableMetadata }) {
+  const normalizedOutputs = useMemo(
+    () => normalizeSimulationOutputs(outputs, variableMetadata),
+    [outputs, variableMetadata],
+  )
+
   const series = useMemo(() => {
-    if (!outputs || typeof outputs !== 'object') return []
-    return Object.entries(outputs).map(([name, values], idx) => ({
+    return Object.entries(normalizedOutputs)
+      .filter(([name, values]) => isChartableOutputSeries(name, values, variableMetadata))
+      .map(([name, values], idx) => ({
       name,
       values: Array.isArray(values) ? values : [],
       color: COLORS[idx % COLORS.length],
-    }))
-  }, [outputs])
+      }))
+  }, [normalizedOutputs, variableMetadata])
 
   const timeArr = useMemo(() => (Array.isArray(time) ? time : []), [time])
 
@@ -106,4 +113,5 @@ export default function ResultsChart({ outputs, time }) {
 ResultsChart.propTypes = {
   outputs: PropTypes.object.isRequired,
   time: PropTypes.array,
+  variableMetadata: PropTypes.array,
 }

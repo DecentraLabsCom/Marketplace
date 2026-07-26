@@ -188,6 +188,20 @@ describe("ResultsTable", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  test("renders dimensioned outputs as separate table columns", () => {
+    render(
+      <ResultsTable
+        outputs={{ y: [[1, 2, 3], [4, 5, 6]] }}
+        time={[0, 1]}
+      />
+    );
+
+    expect(screen.getByText("y[0]")).toBeInTheDocument();
+    expect(screen.getByText("y[1]")).toBeInTheDocument();
+    expect(screen.getByText("y[2]")).toBeInTheDocument();
+    expect(screen.queryByText("456")).not.toBeInTheDocument();
+  });
 });
 
 // â”€â”€â”€ ResultsChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -220,6 +234,36 @@ describe("ResultsChart", () => {
   test("shows message when no output data", () => {
     render(<ResultsChart outputs={{}} time={[]} />);
     expect(screen.getByText(/No output data/)).toBeInTheDocument();
+  });
+
+  test("plots each component of a dimensioned output as a numeric series", () => {
+    const { container } = render(
+      <ResultsChart
+        outputs={{ y: [[1, 2, 3], [4, 5, 6]] }}
+        time={[0, 1]}
+      />
+    );
+
+    const polylines = [...container.querySelectorAll("polyline")];
+    expect(polylines).toHaveLength(3);
+    expect(polylines.every((line) => !line.getAttribute("points").includes("NaN"))).toBe(true);
+  });
+
+  test("keeps non-numeric outputs out of the chart using variable metadata", () => {
+    render(
+      <ResultsChart
+        outputs={{ y: [1, 2], status: ["ready", "done"] }}
+        time={[0, 1]}
+        variableMetadata={[
+          { name: "y", type: "Float64", causality: "output" },
+          { name: "status", type: "String", causality: "output" },
+        ]}
+      />
+    );
+
+    expect(document.querySelectorAll("polyline")).toHaveLength(1);
+    expect(screen.getByText("y")).toBeInTheDocument();
+    expect(screen.queryByText("status")).not.toBeInTheDocument();
   });
 });
 

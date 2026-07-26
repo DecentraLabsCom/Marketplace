@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
+import { normalizeSimulationOutputs } from './simulationOutputs'
 
 /**
  * ResultsTable — scrollable data table showing time + output columns.
@@ -9,17 +10,18 @@ import PropTypes from 'prop-types'
  * @param {Object} props.outputs - { varName: number[] }
  * @param {number[]} [props.time] - Time array
  */
-export default function ResultsTable({ outputs, time }) {
-  const columns = useMemo(() => {
-    if (!outputs || typeof outputs !== 'object') return []
-    return Object.keys(outputs)
-  }, [outputs])
+export default function ResultsTable({ outputs, time, variableMetadata }) {
+  const normalizedOutputs = useMemo(
+    () => normalizeSimulationOutputs(outputs, variableMetadata),
+    [outputs, variableMetadata],
+  )
+  const columns = useMemo(() => Object.keys(normalizedOutputs), [normalizedOutputs])
 
   const timeArr = useMemo(() => (Array.isArray(time) ? time : []), [time])
   const rowCount = useMemo(() => {
-    const lens = columns.map(c => (outputs[c]?.length ?? 0))
+    const lens = columns.map(c => (normalizedOutputs[c]?.length ?? 0))
     return Math.max(timeArr.length, ...lens, 0)
-  }, [columns, outputs, timeArr])
+  }, [columns, normalizedOutputs, timeArr])
 
   if (!columns.length) return null
 
@@ -49,7 +51,7 @@ export default function ResultsTable({ outputs, time }) {
                   <td className="px-2 py-1 text-neutral-400 font-mono">{timeArr[i] ?? ''}</td>
                 )}
                 {columns.map(c => (
-                  <td key={c} className="px-2 py-1 text-neutral-200 font-mono">{outputs[c]?.[i] ?? ''}</td>
+                  <td key={c} className="px-2 py-1 text-neutral-200 font-mono">{normalizedOutputs[c]?.[i] ?? ''}</td>
                 ))}
               </tr>
             ))}
@@ -63,4 +65,5 @@ export default function ResultsTable({ outputs, time }) {
 ResultsTable.propTypes = {
   outputs: PropTypes.object.isRequired,
   time: PropTypes.array,
+  variableMetadata: PropTypes.array,
 }

@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback } from 'react'
 import PropTypes from 'prop-types'
+import { normalizeSimulationOutputs } from './simulationOutputs'
 
 /**
  * DownloadButtons — export simulation results as CSV or JSON.
@@ -9,7 +10,7 @@ import PropTypes from 'prop-types'
  * @param {Object} props.results - { time: number[], outputs: { [name]: number[] } }
  * @param {string} [props.labName]
  */
-export default function DownloadButtons({ results, labName }) {
+export default function DownloadButtons({ results, labName, variableMetadata }) {
   const safeName = (labName || 'simulation').replace(/[^a-zA-Z0-9_-]/g, '_')
 
   const downloadJSON = useCallback(() => {
@@ -19,7 +20,7 @@ export default function DownloadButtons({ results, labName }) {
 
   const downloadCSV = useCallback(() => {
     const timeArr = Array.isArray(results?.time) ? results.time : []
-    const outputs = results?.outputs || {}
+    const outputs = normalizeSimulationOutputs(results?.outputs, variableMetadata)
     const columns = Object.keys(outputs)
 
     const header = ['time', ...columns].join(',')
@@ -31,7 +32,7 @@ export default function DownloadButtons({ results, labName }) {
     const csv = [header, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     triggerDownload(blob, `${safeName}_results.csv`)
-  }, [results, safeName])
+  }, [results, safeName, variableMetadata])
 
   if (!results) return null
 
@@ -70,4 +71,5 @@ DownloadButtons.propTypes = {
     outputs: PropTypes.object,
   }),
   labName: PropTypes.string,
+  variableMetadata: PropTypes.array,
 }
