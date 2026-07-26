@@ -411,6 +411,28 @@ describe("SimulationRunner", () => {
     expect(establishFmuGatewaySession).not.toHaveBeenCalled();
   });
 
+  test("serializes numeric lab ids for the Gateway stream contract", async () => {
+    global.fetch.mockResolvedValueOnce(
+      mockNdjsonResponse([
+        { type: "started", simId: "abc123" },
+        { type: "completed", simulationTime: 0.1, outputVariables: ["position"], fmiType: "CoSimulation" },
+      ])
+    );
+
+    render(<SimulationRunner lab={{ ...fmuLab, id: 1 }} />);
+    fireEvent.click(screen.getByText("Run Simulation"));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/simulations/stream",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    const [, requestInit] = global.fetch.mock.calls[0];
+    expect(JSON.parse(requestInit.body).labId).toBe("1");
+  });
+
   test("rejects a scalar value for a dimensioned input variable", async () => {
     global.fetch.mockResolvedValueOnce(
       mockNdjsonResponse([

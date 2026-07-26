@@ -177,7 +177,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const normalizedParameters = normalizeSimulationParameters(parameters, modelVariables)
 
       const body = {
-        labId: lab.id ?? lab.tokenId,
+        labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey,
         parameters: normalizedParameters,
         options: reqOptions,
