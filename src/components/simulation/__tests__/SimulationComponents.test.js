@@ -280,9 +280,9 @@ describe("SimulationRunner", () => {
     expect(screen.getByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
   });
 
-  test("shows compatibility label from FMU metadata", () => {
+  test("does not show the redundant compatibility label", () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByText("Compatible with FMI 2.0 Co-Simulation")).toBeInTheDocument();
+    expect(screen.queryByText("Compatible with FMI 2.0 Co-Simulation")).not.toBeInTheDocument();
   });
 
   test("shows proxy download action only when reservation key is provided", () => {
@@ -376,6 +376,44 @@ describe("SimulationRunner", () => {
     });
     expect(authenticateLabAccessSSO).not.toHaveBeenCalled();
     expect(establishFmuGatewaySession).not.toHaveBeenCalled();
+  });
+
+  test("expands a scalar value for a dimensioned input variable", async () => {
+    global.fetch.mockResolvedValueOnce(
+      mockNdjsonResponse([
+        { type: "started", simId: "abc123" },
+        { type: "completed", simulationTime: 0.1, outputVariables: ["y"], fmiType: "CoSimulation" },
+      ])
+    );
+
+    const stateSpaceLab = {
+      ...fmuLab,
+      fmuFileName: "StateSpace.fmu",
+      fmiVersion: "3.0",
+      modelVariables: [
+        { name: "m", causality: "structuralParameter", type: "UInt64", start: "3", valueReference: 1 },
+        {
+          name: "u",
+          causality: "input",
+          type: "Float64",
+          dimensions: [{ valueReference: 1, variableName: "m" }],
+          start: "1 2 3",
+        },
+        { name: "y", causality: "output", type: "Float64", dimensions: [{ start: 3 }] },
+      ],
+    };
+
+    render(<SimulationRunner lab={stateSpaceLab} />);
+    fireEvent.change(screen.getByLabelText("Parameter u"), { target: { value: "4" } });
+    fireEvent.click(screen.getByText("Run Simulation"));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      "/api/simulations/stream",
+      expect.objectContaining({ method: "POST" })
+    ));
+
+    const request = global.fetch.mock.calls.find(([url]) => url === "/api/simulations/stream");
+    expect(JSON.parse(request[1].body).parameters).toEqual({ u: [4, 4, 4] });
   });
 
   test("reauthenticates once with the canonical lab auth context after a 401", async () => {
