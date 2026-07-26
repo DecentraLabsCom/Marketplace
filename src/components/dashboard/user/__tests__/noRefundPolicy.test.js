@@ -25,6 +25,6 @@ describe('service-credit policy', () => {
 
     expect(screen.queryByRole('button', { name: /refund/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel booking/i })).toBeInTheDocument()
-    expect(screen.getByText(/not cash/i)).toBeInTheDocument()
+    expect(screen.getByText('Eligible service credits return to the institutional account.')).toBeInTheDocument()
   })
 })

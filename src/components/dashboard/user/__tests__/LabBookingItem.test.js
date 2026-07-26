@@ -268,7 +268,7 @@ describe('LabBookingItem', () => {
     render(<LabBookingItem lab={mockLab} booking={createBooking()} onCancel={jest.fn()} onRefund={jest.fn()} />);
 
     expect(screen.queryByRole('button', { name: /refund/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/not cash/i)).toBeInTheDocument();
+    expect(screen.getByText('Eligible service credits return to the institutional account.')).toBeInTheDocument();
   });
 
   // --------------------------------------------------------------------------
