@@ -1,6 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import devLog from '@/utils/dev/logger'
-import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
+import {
+  MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS,
+  MARKETPLACE_SESSION_TTL_SECONDS,
+} from './sessionConfig'
 
 const SESSION_KEY_PREFIX = 'marketplace:session:'
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/
@@ -243,6 +246,44 @@ export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_S
   }
 
   return { sessionId, record }
+}
+
+/**
+ * Extends a valid session only when it is inside the renewal window.
+ *
+ * The caller supplies the already-read session so a renewal does not require
+ * a second store read. Concurrent requests may perform the same SET during a
+ * renewal boundary; all of them preserve the same session identity and TTL.
+ */
+export async function renewServerSession(sessionId, session, now = Date.now()) {
+  if (!isValidSessionId(sessionId) || !session || session.sessionId !== sessionId) return null
+
+  const expiresAt = Number(session.expiresAt)
+  const currentTime = Number(now)
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || expiresAt <= currentTime) return null
+
+  const remainingMs = expiresAt - currentTime
+  if (remainingMs > MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS * 1000) return null
+
+  const renewedExpiresAt = currentTime + MARKETPLACE_SESSION_TTL_SECONDS * 1000
+  const renewedSession = {
+    ...session,
+    expiresAt: renewedExpiresAt,
+  }
+  const record = protectSessionData(renewedSession)
+  const config = requireSessionStoreConfig()
+
+  if (config) {
+    await remoteCommand(
+      ['SET', sessionKey(sessionId), JSON.stringify(record), 'EX', String(MARKETPLACE_SESSION_TTL_SECONDS)],
+      config,
+    )
+  } else {
+    sweepMemorySessions(currentTime)
+    memorySessions.set(sessionId, { record, expiresAt: renewedExpiresAt })
+  }
+
+  return renewedSession
 }
 
 export async function getServerSession(sessionId) {

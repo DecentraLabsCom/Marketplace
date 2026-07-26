@@ -95,4 +95,43 @@ describe('server-side session store', () => {
     await expect(getServerSession('a'.repeat(43)))
       .rejects.toMatchObject({ code: 'SESSION_STORE_UNAVAILABLE' })
   })
+
+  test('renews a near-expiry session and resets the remote TTL', async () => {
+    const { renewServerSession } = await import('../sessionStore')
+    const now = Date.now()
+    const session = {
+      id: 'user-1',
+      email: 'user@example.com',
+      sessionId: 'a'.repeat(43),
+      createdAt: now - (59 * 60 * 1000),
+      expiresAt: now + (14 * 60 * 1000),
+    }
+
+    const renewed = await renewServerSession(session.sessionId, session, now)
+
+    expect(renewed).toEqual(expect.objectContaining({
+      id: session.id,
+      email: session.email,
+      sessionId: session.sessionId,
+      createdAt: session.createdAt,
+      expiresAt: now + (60 * 60 * 1000),
+    }))
+    const command = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(command.slice(0, 2)).toEqual(['SET', expect.stringContaining(session.sessionId)])
+    expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
+  })
+
+  test('does not renew a session while more than 15 minutes remain', async () => {
+    const { renewServerSession } = await import('../sessionStore')
+    const now = Date.now()
+    const session = {
+      id: 'user-1',
+      sessionId: 'a'.repeat(43),
+      createdAt: now,
+      expiresAt: now + (16 * 60 * 1000),
+    }
+
+    await expect(renewServerSession(session.sessionId, session, now)).resolves.toBeNull()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
 })

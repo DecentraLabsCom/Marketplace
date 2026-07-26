@@ -41,6 +41,8 @@ Navigate to the [DecentraLabs Marketplace](https://marketplace-decentralabs.verc
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
+The Marketplace session uses a sliding 60-minute inactivity window. Authenticated Marketplace requests refresh that window when it is close to expiring; a periodic status check by itself does not keep an otherwise idle session alive.
+
 ---
 
 ### 2. Browse and Select a Laboratory

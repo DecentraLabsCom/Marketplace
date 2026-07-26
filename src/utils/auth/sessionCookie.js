@@ -9,6 +9,7 @@ import {
   deleteServerSession,
   getServerSession,
   isServerSessionId,
+  renewServerSession,
 } from './sessionStore'
 import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
 
@@ -48,10 +49,25 @@ function getCookieValues(cookieStore) {
   return value ? [value] : []
 }
 
-export async function getSessionFromCookies(cookieStore) {
+export async function getSessionFromCookies(cookieStore, { renew = true } = {}) {
   const values = getCookieValues(cookieStore)
   if (values === null || values.length !== 1 || !isServerSessionId(values[0])) return null
-  return getServerSession(values[0])
+  const session = await getServerSession(values[0])
+  if (!session || !renew || typeof cookieStore?.set !== 'function') return session
+
+  let renewedSession
+  try {
+    renewedSession = await renewServerSession(values[0], session)
+  } catch {
+    // A renewal failure must not turn an otherwise valid session into a logout.
+    return session
+  }
+
+  if (!renewedSession) return session
+
+  const { name, ...cookieOptions } = getSessionCookieOptions()
+  cookieStore.set(name, renewedSession.sessionId, cookieOptions)
+  return renewedSession
 }
 
 export function createDestroySessionCookie(name = COOKIE_NAME) {

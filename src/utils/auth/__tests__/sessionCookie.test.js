@@ -68,6 +68,58 @@ describe('sessionCookie', () => {
     }));
   });
 
+  it('refreshes the browser cookie when the server session reaches the renewal threshold', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
+    const sessionData = { id: 'user123', email: 'test@example.com' };
+    const createdCookies = await sessionCookie.createSessionCookie(sessionData);
+    const cookieStore = {
+      get: () => ({ value: createdCookies[0].value }),
+      set: jest.fn(),
+    };
+
+    jest.advanceTimersByTime(46 * 60 * 1000);
+    const session = await sessionCookie.getSessionFromCookies(cookieStore);
+
+    expect(session.expiresAt).toBe(Date.now() + (60 * 60 * 1000));
+    expect(cookieStore.set).toHaveBeenCalledWith(
+      '__Host-user_session',
+      createdCookies[0].value,
+      expect.objectContaining({ maxAge: 60 * 60 }),
+    );
+    jest.useRealTimers();
+  });
+
+  it('does not refresh the browser cookie while more than 15 minutes remain', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
+    const createdCookies = await sessionCookie.createSessionCookie({ id: 'user123' });
+    const cookieStore = {
+      get: () => ({ value: createdCookies[0].value }),
+      set: jest.fn(),
+    };
+
+    jest.advanceTimersByTime(44 * 60 * 1000);
+    await sessionCookie.getSessionFromCookies(cookieStore);
+
+    expect(cookieStore.set).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('can validate a session without renewing it for status-only reads', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
+    const createdCookies = await sessionCookie.createSessionCookie({ id: 'user123' });
+    const cookieStore = {
+      get: () => ({ value: createdCookies[0].value }),
+      set: jest.fn(),
+    };
+
+    jest.advanceTimersByTime(46 * 60 * 1000);
+    const session = await sessionCookie.getSessionFromCookies(cookieStore, { renew: false });
+
+    expect(session.expiresAt).toBe(new Date('2026-07-26T11:00:00.000Z').getTime());
+    expect(cookieStore.set).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
   it('rejects JWT or JSON cookie values instead of treating them as sessions', async () => {
     const cookieStore = {
       get: () => ({ value: 'eyJhbGciOiJIUzI1NiJ9.eyJzYW1sQXNzZXJ0aW9uIjoic2VjcmV0In0.signature' }),

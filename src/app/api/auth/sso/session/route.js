@@ -17,7 +17,9 @@ import { createLogoutNonce } from '@/utils/auth/logoutProtection'
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const sessionUser = await getSessionFromCookies(cookieStore);
+    // This endpoint is a status check and runs periodically in the browser;
+    // it must not act as an artificial session keepalive.
+    const sessionUser = await getSessionFromCookies(cookieStore, { renew: false });
 
     if (!sessionUser) {
       return NextResponse.json({ user: null });
