@@ -7,6 +7,9 @@ import PropTypes from 'prop-types'
 import LabCard from '@/components/home/LabCard'
 import { LabCardGridSkeleton } from '@/components/skeletons'
 
+const STALE_NOTICE_AFTER_MS = 15 * 60 * 1_000
+const STALE_NOTICE_STORAGE_PREFIX = 'decentralabs:catalogue-stale-notice:'
+
 /**
  * Grid component for displaying lab cards
  * @param {Object} props
@@ -33,10 +36,34 @@ export default function LabGrid({
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
+  const [showStaleNotice, setShowStaleNotice] = useState(false)
   
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  useEffect(() => {
+    setShowStaleNotice(false)
+    if (!isHydrated || catalogueStatus !== 'stale') return undefined
+
+    const snapshotTimestamp = Date.parse(snapshotAt)
+    if (!Number.isFinite(snapshotTimestamp)) return undefined
+
+    const showNoticeOnce = () => {
+      const storageKey = `${STALE_NOTICE_STORAGE_PREFIX}${snapshotAt}`
+      try {
+        if (window.sessionStorage.getItem(storageKey)) return
+        window.sessionStorage.setItem(storageKey, 'shown')
+      } catch {
+        // A storage-restricted browser should still receive the warning.
+      }
+      setShowStaleNotice(true)
+    }
+
+    const delay = Math.max(0, STALE_NOTICE_AFTER_MS - (Date.now() - snapshotTimestamp))
+    const timer = window.setTimeout(showNoticeOnce, delay)
+    return () => window.clearTimeout(timer)
+  }, [catalogueStatus, isHydrated, snapshotAt])
   
   const shouldDeferUntilHydrated = !isHydrated && labs.length === 0
 
@@ -74,16 +101,16 @@ export default function LabGrid({
   // Lab grid
   return (
     <section>
-      {catalogueStatus === 'stale' && (
+      {showStaleNotice && (
         <div
           className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
           role="status"
           aria-live="polite"
         >
-          Catalogue temporarily unavailable. Showing data last updated at{' '}
+          Catalogue data may be outdated. Last update:{' '}
           <time dateTime={snapshotAt || undefined}>
             {formatSnapshotTimestamp(snapshotAt)}
-          </time>.
+          </time>
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

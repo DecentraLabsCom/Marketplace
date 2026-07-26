@@ -47,6 +47,10 @@ jest.mock("@/components/skeletons", () => ({
 }));
 
 describe("LabGrid", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   const mockLabs = [
     {
       id: "1",
@@ -135,6 +139,7 @@ describe("LabGrid", () => {
     });
 
     test("identifies the timestamp of a stale catalogue without hiding its labs", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-07-15T11:00:00.000Z"));
       render(
         <LabGrid
           labs={mockLabs}
@@ -143,9 +148,43 @@ describe("LabGrid", () => {
         />
       );
 
-      expect(await screen.findByText(/Catalogue temporarily unavailable/)).toBeInTheDocument();
-      expect(screen.getByText(/Showing data last updated at/)).toBeInTheDocument();
+      expect(await screen.findByText(/Catalogue data may be outdated/)).toBeInTheDocument();
+      expect(screen.getByText(/Last update:/)).toBeInTheDocument();
       expect(screen.getByTestId("lab-card-1")).toBeInTheDocument();
+      nowSpy.mockRestore();
+    });
+
+    test("does not show a notice for a recently stale catalogue", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-07-15T10:47:00.000Z"));
+      render(
+        <LabGrid
+          labs={mockLabs}
+          catalogueStatus="stale"
+          snapshotAt="2026-07-15T10:44:00.000Z"
+        />
+      );
+
+      await waitFor(() => expect(screen.getByTestId("lab-card-1")).toBeInTheDocument());
+      expect(screen.queryByText(/Catalogue data may be outdated/)).not.toBeInTheDocument();
+      nowSpy.mockRestore();
+    });
+
+    test("shows a stale notice only once for the same snapshot in a browser session", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-07-15T11:00:00.000Z"));
+      const staleProps = {
+        labs: mockLabs,
+        catalogueStatus: "stale",
+        snapshotAt: "2026-07-15T10:00:00.000Z",
+      };
+      const firstRender = render(<LabGrid {...staleProps} />);
+
+      expect(await screen.findByText(/Catalogue data may be outdated/)).toBeInTheDocument();
+      firstRender.unmount();
+      render(<LabGrid {...staleProps} />);
+
+      await waitFor(() => expect(screen.getByTestId("lab-card-1")).toBeInTheDocument());
+      expect(screen.queryByText(/Catalogue data may be outdated/)).not.toBeInTheDocument();
+      nowSpy.mockRestore();
     });
   });
 

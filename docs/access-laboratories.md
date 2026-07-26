@@ -63,6 +63,11 @@ Open the laboratory details page to review:
 
 The normal catalogue contains listed laboratories. An unlisted lab may appear only when the explicit discovery filter is enabled; it is not eligible for public booking.
 
+The catalogue refreshes periodically in the background. A brief refresh delay
+does not prevent browsing or booking. Marketplace only shows a warning when the
+last valid catalogue snapshot is significantly old; repeated warnings for the
+same snapshot are suppressed during the browser session.
+
 ---
 
 ### 3. Reserve a Time Slot

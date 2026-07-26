@@ -171,6 +171,24 @@ const createUnavailableSnapshot = ({ cursor, limit } = {}) => ({
   errorCode: 'MARKET_CATALOGUE_UNAVAILABLE',
 });
 
+const serializeRevalidationError = (error) => ({
+  name: String(error?.name || 'Error').slice(0, 80),
+  code: error?.code ? String(error.code).slice(0, 80) : null,
+  message: String(error?.shortMessage || error?.message || error || 'Unknown error').slice(0, 300),
+  cause: error?.cause ? serializeRevalidationError(error.cause) : undefined,
+});
+
+const logRevalidationFailure = (error, page) => {
+  if (error?.code === 'MARKET_SNAPSHOT_REVALIDATING') return;
+
+  console.error('[market-catalogue] Snapshot revalidation failed', {
+    includeUnlisted: Boolean(page?.includeUnlisted),
+    cursor: page?.cursor ?? 0,
+    limit: page?.limit ?? DEFAULT_MARKET_PAGE_SIZE,
+    error: serializeRevalidationError(error),
+  });
+};
+
 const getMarketLabsSnapshotUncached = async ({
   includeUnlisted = false,
   cursor = 0,
@@ -194,7 +212,9 @@ const getMarketLabsSnapshotUncached = async ({
 
   if (paginatedLabsResult.status !== 'fulfilled') {
     metrics.durationMs = Date.now() - startedAt;
-    const error = new Error('Market catalogue pagination is unavailable');
+    const error = new Error('Market catalogue pagination is unavailable', {
+      cause: paginatedLabsResult.reason,
+    });
     error.metrics = metrics;
     throw error;
   }
@@ -363,13 +383,16 @@ export async function getMarketLabsSnapshot({ includeUnlisted = false, cursor, l
   if (staleSnapshot) {
     // A stale catalogue is still a truthful response. Refresh it in the
     // background so a visitor never pays the complete per-lab RPC fan-out.
-    void refreshSnapshot().catch(() => {});
+    void refreshSnapshot().catch((error) => {
+      logRevalidationFailure(error, snapshotPage);
+    });
     return staleSnapshot;
   }
 
   try {
     return await refreshSnapshot();
-  } catch {
+  } catch (error) {
+    logRevalidationFailure(error, snapshotPage);
     return createUnavailableSnapshot(page);
   }
 }

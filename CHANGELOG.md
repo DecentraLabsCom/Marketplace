@@ -8,6 +8,13 @@ browser behavior.
 
 ## Unreleased
 
+### Catalogue
+
+- Suppressed routine refresh notices and limited stale-data warnings to
+  prolonged catalogue degradation; repeated warnings are hidden for the same
+  snapshot during a browser session.
+- Added server-side diagnostics for catalogue snapshot revalidation failures.
+
 ### Simulation
 
 - Added configurable simulation result visualizations: time series, arbitrary

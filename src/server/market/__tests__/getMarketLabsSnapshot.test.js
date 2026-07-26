@@ -149,6 +149,7 @@ describe('getMarketLabsSnapshot', () => {
   })
 
   test('keeps the last valid snapshot and marks it stale when revalidation fails', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
     jest.useFakeTimers()
     jest.setSystemTime(new Date('2026-07-15T10:42:00.000Z'))
     const freshSnapshot = await getMarketLabsSnapshot()
@@ -164,6 +165,20 @@ describe('getMarketLabsSnapshot', () => {
       snapshotAt: freshSnapshot.snapshotAt,
     })
     expect(contract.getLabsPaginated).toHaveBeenCalledTimes(2)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[market-catalogue] Snapshot revalidation failed',
+      expect.objectContaining({
+        cursor: 0,
+        limit: 24,
+        error: expect.objectContaining({
+          message: 'Market catalogue pagination is unavailable',
+          cause: expect.objectContaining({
+            message: 'RPC unavailable',
+          }),
+        }),
+      }),
+    )
+    consoleErrorSpy.mockRestore()
     jest.useRealTimers()
   })
 
