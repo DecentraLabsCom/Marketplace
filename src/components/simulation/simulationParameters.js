@@ -69,9 +69,8 @@ export function getVariableInputDetails(variable, modelVariables = []) {
   let format = 'a value'
 
   if (valueCount > 1) {
-    const example = formatParameterValue(variable?.start) || Array(valueCount).fill('0').join(' ')
     const valueLabel = INTEGER_TYPES.has(variable?.type) ? 'whole numbers' : 'numbers'
-    format = `${valueCount} ${valueLabel} separated by spaces (e.g. ${example})`
+    format = `${valueCount} ${valueLabel} separated by spaces`
   } else if (normalizedType === 'boolean') {
     format = 'true or false'
   } else if (INTEGER_TYPES.has(variable?.type)) {
@@ -96,7 +95,6 @@ export function getVariableInputDetails(variable, modelVariables = []) {
     inputType: valueCount > 1 || !NUMERIC_TYPES.has(variable?.type) ? 'text' : 'number',
     summary: `${type} · ${shape}`,
     format: `Format: ${format}`,
-    initial: variable?.start != null ? `Initial: ${formatParameterValue(variable.start)}` : null,
     range,
   }
 }

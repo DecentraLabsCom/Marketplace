@@ -99,8 +99,8 @@ describe("ParameterForm", () => {
 
     expect(screen.getByText("Float64 · vector[3]")).toBeInTheDocument();
     expect(screen.getByText("Input vector")).toBeInTheDocument();
-    expect(screen.getByText("Format: 3 numbers separated by spaces (e.g. 1 2 3)")).toBeInTheDocument();
-    expect(screen.getByText("Initial: 1 2 3")).toBeInTheDocument();
+    expect(screen.getByText("Format: 3 numbers separated by spaces")).toBeInTheDocument();
+    expect(screen.queryByText("Initial: 1 2 3")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Parameter u")).toHaveAttribute("type", "text");
   });
 

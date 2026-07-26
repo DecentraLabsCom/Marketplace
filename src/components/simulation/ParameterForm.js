@@ -64,7 +64,6 @@ export default function ParameterForm({
                     />
                     <div id={hintId} className="text-text-secondary text-xs mt-1 space-y-0.5">
                       <p>{details.format}</p>
-                      {details.initial && <p>{details.initial}</p>}
                       {details.range && <p>{details.range}</p>}
                     </div>
                   </td>
