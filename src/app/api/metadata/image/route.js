@@ -134,7 +134,7 @@ export async function GET(request) {
       })
         .rotate()
         .webp({ quality: 82, effort: 4 })
-        .toBuffer({ resolveWithObject: true })
+      .toBuffer()
     } catch (error) {
       const message = String(error?.message || '').toLowerCase()
       const exceedsPixelLimit = message.includes('pixel limit') || message.includes('too many pixels')
@@ -149,7 +149,7 @@ export async function GET(request) {
       })
     }
 
-    if (transformed.data.byteLength > MAX_IMAGE_BYTES) {
+    if (transformed.byteLength > MAX_IMAGE_BYTES) {
       return publicErrorResponse({
         status: 413,
         code: 'IMAGE_TOO_LARGE',
@@ -157,7 +157,7 @@ export async function GET(request) {
       })
     }
 
-    return new Response(transformed.data, {
+    return new Response(transformed, {
       status: 200,
       headers: responseHeaders('image/webp'),
     })

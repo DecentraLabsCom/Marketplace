@@ -231,6 +231,26 @@ describe('MediaDisplayWithFallback', () => {
    * from internal paths and bypass blob/local fallback logic.
    */
   describe('External URLs', () => {
+    test('allows uploaded PDFs from the configured Vercel Blob origin', async () => {
+      process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
+      const uploadedPdf = 'https://blob.vercel.com/data/temp/session/docs/Rotary%20Inverted%20Pendulum%20Data%20Sheet.pdf';
+
+      render(
+        <MediaDisplayWithFallback
+          mediaPath={uploadedPdf}
+          mediaType="link"
+          title="Rotary Inverted Pendulum Data Sheet.pdf"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Rotary Inverted Pendulum Data Sheet.pdf')).toHaveAttribute(
+          'href',
+          uploadedPdf,
+        );
+      });
+    });
+
     test('handles external image URLs without modification', () => {
       // External URLs should be used as-is without blob/local transformation
       render(

@@ -418,6 +418,65 @@ describe("LabModal Component - Lab Listing Flow", () => {
     expect(imageInput.getAttribute("multiple")).toBe("");
   });
 
+  test("passes newly uploaded temporary assets to the creation flow", async () => {
+    const mockOnSubmit = jest.fn().mockResolvedValue({});
+    const mockOnClose = jest.fn();
+
+    renderWithAllProviders(
+      <LabModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+        lab={null}
+        providerAuthURI={providerAuthURI}
+        maxId={0}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
+    });
+
+    const uploadButtons = screen.getAllByRole("button", { name: /upload/i });
+    fireEvent.click(uploadButtons[0]);
+    fireEvent.change(
+      Array.from(document.querySelectorAll('input[type="file"]')).find(
+        (input) => input.accept === "image/*"
+      ),
+      {
+        target: {
+          files: [new File(["image"], "cover.jpg", { type: "image/jpeg" })],
+        },
+      }
+    );
+
+    fireEvent.click(uploadButtons[1]);
+    fireEvent.change(
+      Array.from(document.querySelectorAll('input[type="file"]')).find(
+        (input) => input.accept === "application/pdf"
+      ),
+      {
+        target: {
+          files: [new File(["%PDF-1.7"], "Rotary Inverted Pendulum Data Sheet.pdf", { type: "application/pdf" })],
+        },
+      }
+    );
+
+    await waitFor(() => {
+      expect(mockUploadMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add lab/i }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _tempFiles: ["/mock/uploaded/file.jpg", "/mock/uploaded/file.jpg"],
+        })
+      );
+    });
+  });
+
   /**
    * Test Case: Edit existing lab
    * Tests editing mode with pre-filled data

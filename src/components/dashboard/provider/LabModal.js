@@ -40,7 +40,7 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  * @returns {JSX.Element} Lab creation/editing modal component
  */
-export default function LabModal({ isOpen, onClose, onSubmit, lab = null, providerAuthURI = '', maxId = 0, onFilesUploaded = null }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab = null, providerAuthURI = '', maxId = 0 }) {
   const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
   const { addWarningNotification, addErrorNotification } = useNotifications();
@@ -101,6 +101,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     // Keep track of uploaded temporal files
     uploadedTempFiles.current.push(filePath);
     return filePath;
+  };
+
+  const includePendingTempFiles = (labData) => {
+    if (lab?.id || uploadedTempFiles.current.length === 0) return labData;
+
+    const tempFiles = [...uploadedTempFiles.current];
+    devLog.log('Passing temp files to parent:', tempFiles);
+    return { ...labData, _tempFiles: tempFiles };
   };
 
   const handleClose = useCallback(() => {
@@ -637,14 +645,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
             return
           }
         }
-        // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(labForSubmit);
-        
-        // Pass uploaded temp files to parent for moving after mint
-        if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
-          normalizedLabData._tempFiles = [...uploadedTempFiles.current];
-          devLog.log('ðŸ“Ž Passing temp files to parent:', uploadedTempFiles.current);
-        }
+        // Normalize dates and pass new-lab temporary files to the parent so
+        // they can be moved after the blockchain assigns the final lab ID.
+        const normalizedLabData = includePendingTempFiles(normalizeLabDates(labForSubmit));
         
         await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
         // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing
@@ -672,8 +675,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
           ...submittedLab,
           accessKey: fmuAccessKey,
         }
-        // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(labForSubmit);
+        // Normalize dates and preserve temporary uploads for a new lab.
+        const normalizedLabData = includePendingTempFiles(normalizeLabDates(labForSubmit));
         await onSubmit(normalizedLabData);
         devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
       } else {
@@ -817,7 +820,6 @@ LabModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
   providerAuthURI: PropTypes.string,
-  onFilesUploaded: PropTypes.func,
   lab: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     name: PropTypes.string,

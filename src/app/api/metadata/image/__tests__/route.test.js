@@ -5,7 +5,7 @@ import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
 import { assertDeclaredLabResource, MetadataFetchError } from '@/utils/metadata/metadataPolicy'
 
 const transformedImage = Buffer.from('safe-webp-bytes')
-const toBuffer = jest.fn().mockResolvedValue({ data: transformedImage, info: { width: 1, height: 1 } })
+const toBuffer = jest.fn().mockResolvedValue(transformedImage)
 const webp = jest.fn(() => ({ toBuffer }))
 const rotate = jest.fn(() => ({ webp }))
 

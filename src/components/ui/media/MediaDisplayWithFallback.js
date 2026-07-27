@@ -13,12 +13,20 @@ const isExternalUrl = (path) => (
 const isAllowedExternalDocumentUrl = (path) => {
   if (typeof path !== 'string' || !path.startsWith('https://')) return false
   try {
-    const origin = new URL(path).origin
+    const parsedUrl = new URL(path)
     const configuredOrigins = String(process.env.NEXT_PUBLIC_ALLOWED_DOCUMENT_ORIGINS || '')
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean)
-    return configuredOrigins.includes(origin)
+    if (configuredOrigins.includes(parsedUrl.origin)) return true
+
+    // Provider uploads are returned as public Vercel Blob URLs. They are
+    // trusted only when they match the configured Blob origin and managed
+    // storage path; arbitrary external documents remain blocked.
+    const configuredBlobBase = String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || '').trim()
+    if (!configuredBlobBase || !parsedUrl.pathname.startsWith('/data/')) return false
+
+    return new URL(configuredBlobBase).origin === parsedUrl.origin
   } catch {
     return false
   }
