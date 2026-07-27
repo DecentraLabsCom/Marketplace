@@ -80,6 +80,10 @@ export default function MediaDisplayWithFallback({
   const [hasVercelBlobFailed, setHasVercelBlobFailed] = useState(false);
   // State to control if local fallback for IMAGES has also failed
   const [hasLocalFallbackFailed, setHasLocalFallbackFailed] = useState(false);
+  // External metadata images are tried through the same-origin proxy first,
+  // then directly, and finally through the shared placeholder.
+  const [hasMetadataProxyFailed, setHasMetadataProxyFailed] = useState(false);
+  const [hasExternalImageFailed, setHasExternalImageFailed] = useState(false);
   
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
 
@@ -122,6 +126,8 @@ export default function MediaDisplayWithFallback({
     // Reset states for Image fallback logic
     setHasVercelBlobFailed(false); 
     setHasLocalFallbackFailed(false); 
+    setHasMetadataProxyFailed(false);
+    setHasExternalImageFailed(false);
 
     // Reset states for Document fallback logic
     setCurrentDocSrc('');
@@ -240,7 +246,14 @@ export default function MediaDisplayWithFallback({
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
       if (isExternalUrl(mediaPath)) {
-        return resolveLabImageUrl(mediaPath, labId);
+        const proxiedUrl = resolveLabImageUrl(mediaPath, labId);
+        if (isMetadataImageProxyPath(proxiedUrl) && !hasMetadataProxyFailed) {
+          return proxiedUrl;
+        }
+        if (!hasExternalImageFailed) {
+          return mediaPath;
+        }
+        return '/labs/lab_placeholder.png';
       }
 
       const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
@@ -256,6 +269,24 @@ export default function MediaDisplayWithFallback({
         return localUrl;
       }
     }
+
+    const handleImageError = () => {
+      if (isExternalUrl(mediaPath)) {
+        const proxiedUrl = resolveLabImageUrl(mediaPath, labId);
+        if (isMetadataImageProxyPath(proxiedUrl) && !hasMetadataProxyFailed) {
+          setHasMetadataProxyFailed(true);
+        } else {
+          setHasExternalImageFailed(true);
+        }
+        return;
+      }
+
+      if (isVercel && !hasVercelBlobFailed) {
+        setHasVercelBlobFailed(true);
+      } else if (!isVercel && !hasLocalFallbackFailed) {
+        setHasLocalFallbackFailed(true);
+      }
+    };
 
     const currentSrc = getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath });
     const nativeImageStyle = fill
@@ -274,13 +305,7 @@ export default function MediaDisplayWithFallback({
       style: nativeImageStyle,
       loading: priority ? 'eager' : 'lazy',
       fetchPriority: priority ? 'high' : undefined,
-      onError: () => {
-        if (isVercel && !hasVercelBlobFailed) {
-          setHasVercelBlobFailed(true);
-        } else if (!isVercel && !hasLocalFallbackFailed) {
-          setHasLocalFallbackFailed(true);
-        }
-      }
+      onError: handleImageError
     };
 
     if (!fill && width) nativeImageProps.width = width;
@@ -299,13 +324,7 @@ export default function MediaDisplayWithFallback({
         style={style} 
         sizes={sizes}
         priority={priority} // Add priority support for eager loading
-        onError={() => {
-          if (isVercel && !hasVercelBlobFailed) {
-            setHasVercelBlobFailed(true); // Try local fallback
-          } else if (!isVercel && !hasLocalFallbackFailed) {
-            setHasLocalFallbackFailed(true); // Try blob fallback
-          }
-        }}
+        onError={handleImageError}
       />
     );
   } 

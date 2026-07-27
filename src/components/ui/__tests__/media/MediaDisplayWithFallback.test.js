@@ -282,6 +282,32 @@ describe('MediaDisplayWithFallback', () => {
       expect(image.getAttribute('src')).toContain('uri=https%3A%2F%2Fprovider.example%2Fimage.jpg');
     });
 
+    test('falls back to the original external image and then the placeholder when the proxy fails', async () => {
+      const externalImage = 'https://blob.vercel.com/data/2/images/cover.jpg';
+
+      render(
+        <MediaDisplayWithFallback
+          mediaPath={externalImage}
+          mediaType="image"
+          alt="Recoverable image"
+          labId={2}
+        />
+      );
+
+      const image = screen.getByTestId('native-media-image');
+      fireEvent.error(image);
+
+      await waitFor(() => {
+        expect(screen.getByAltText('Recoverable image')).toHaveAttribute('src', externalImage);
+      });
+
+      fireEvent.error(screen.getByAltText('Recoverable image'));
+
+      await waitFor(() => {
+        expect(screen.getByAltText('Recoverable image')).toHaveAttribute('src', '/labs/lab_placeholder.png');
+      });
+    });
+
     test('renders gateway lab-content images natively in Vercel without blob rewrite', () => {
       process.env.NEXT_PUBLIC_VERCEL = 'true';
       process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';

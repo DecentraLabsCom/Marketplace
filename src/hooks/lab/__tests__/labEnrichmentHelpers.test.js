@@ -59,4 +59,17 @@ describe('labEnrichmentHelpers', () => {
     })
     expect(buildEnrichedLab({ lab, metadata }).category).toBeUndefined()
   })
+
+  test('normalizes documents stored in metadata attributes', () => {
+    const lab = { labId: 9, base: { uri: 'Lab-provider-9.json' } }
+    const metadata = {
+      attributes: [
+        { trait_type: 'docs', value: 'https://docs.example.edu/manual.pdf' },
+      ],
+    }
+
+    expect(buildEnrichedLab({ lab, metadata }).docs).toEqual([
+      'https://docs.example.edu/manual.pdf',
+    ])
+  })
 })

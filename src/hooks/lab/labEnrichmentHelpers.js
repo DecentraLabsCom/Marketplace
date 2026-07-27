@@ -1,4 +1,5 @@
 import { getClassificationLabels } from '@/constants/labClassifications'
+import { processMetadataDocs } from '@/hooks/utils/metadataHelpers'
 
 const EMPTY_ARRAY = [];
 
@@ -190,6 +191,13 @@ export const buildEnrichedLab = ({
     enrichedLab.demoEnabled = metadata.demoEnabled === true;
 
     applyMetadataAttributes(enrichedLab, metadata);
+
+    const metadataDocs = processMetadataDocs(metadata);
+    const declaresDocuments = metadata.docs !== undefined
+      || metadata.attributes?.some((attribute) => attribute?.trait_type === 'docs');
+    if (declaresDocuments) {
+      enrichedLab.docs = metadataDocs;
+    }
   }
 
   const hasImagesInput = images !== undefined || metadata;

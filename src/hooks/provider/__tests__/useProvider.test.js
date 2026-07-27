@@ -176,6 +176,39 @@ describe("Provider Mutation Hooks", () => {
       expect(invalidateQueriesSpy).not.toHaveBeenCalled();
     });
 
+    test("uses the new lab id when refreshing metadata after creation", async () => {
+      const mockLabData = { uri: "Lab-UNED-2.json", id: 2, name: "Another Lab" };
+      const freshMetadata = { name: "Another Lab", docs: ["/data/2/docs/manual.pdf"] };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, cacheBreaker: 9999 }),
+      });
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => freshMetadata,
+      });
+
+      const queryClient = createTestQueryClient();
+      const setQueryDataSpy = jest.spyOn(queryClient, "setQueryData");
+      const { result } = renderHook(() => useSaveLabData(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      result.current.mutate(mockLabData);
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/metadata?uri=Lab-UNED-2.json&t=9999&labId=2",
+        { headers: { "Cache-Control": "no-cache" } },
+      );
+      expect(setQueryDataSpy).toHaveBeenCalledWith(
+        metadataQueryKeys.byUri("Lab-UNED-2.json", 2),
+        freshMetadata,
+      );
+    });
+
     test("calls custom onSuccess callback when provided", async () => {
       const mockLabData = { uri: "lab-789", name: "Custom Lab" };
       const customOnSuccess = jest.fn();

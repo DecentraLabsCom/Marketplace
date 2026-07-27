@@ -856,6 +856,60 @@ describe("useLabSpecializedQueries", () => {
       expect(mockUseMetadata.queryFn).toBeDefined();
     });
 
+    test("does not block the provider list on image prefetching", async () => {
+      let imageQuerySeen = false;
+
+      mockUseQueries.mockImplementation((config) => {
+        const results = (config.queries || []).map((query) => {
+          const [scope, operation] = query.queryKey || [];
+          const baseResult = {
+            data: null,
+            isLoading: false,
+            isSuccess: true,
+            isError: false,
+            error: null,
+            refetch: jest.fn(),
+          };
+
+          if (scope === "labs" && operation === "ownerOf") {
+            return { ...baseResult, data: { owner: mockOwnerAddress } };
+          }
+          if (scope === "labs" && operation === "getLab") {
+            return {
+              ...baseResult,
+              data: { ...mockLabData, base: { ...mockLabBase }, labId: "1" },
+            };
+          }
+          if (scope === "labs" && operation === "isTokenListed") {
+            return { ...baseResult, data: { isListed: true } };
+          }
+          if (scope === "metadata") {
+            return { ...baseResult, data: mockMetadata };
+          }
+          if (scope === "labImage") {
+            imageQuerySeen = true;
+            return { ...baseResult, isLoading: true };
+          }
+          return baseResult;
+        });
+
+        return config.combine ? config.combine(results) : results;
+      });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(
+        () => useLabsForProvider(mockOwnerAddress),
+        { wrapper }
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data.labs).toHaveLength(3);
+      expect(imageQuerySeen).toBe(false);
+    });
+
     test("respects enabled option", () => {
       const wrapper = createWrapper();
       renderHook(

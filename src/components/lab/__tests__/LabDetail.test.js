@@ -39,8 +39,8 @@ jest.mock("@/components/ui/Carrousel", () => {
   };
 });
 jest.mock("@/components/ui/DocsCarrousel", () => {
-  return function MockDocsCarrousel({ docs }) {
-    return <div data-testid="docs-carousel">{docs?.length} documents</div>;
+  return function MockDocsCarrousel({ docs, labId }) {
+    return <div data-testid="docs-carousel" data-lab-id={labId}>{docs?.length} documents</div>;
   };
 });
 jest.mock("@/components/skeletons", () => ({
@@ -290,6 +290,17 @@ describe("LabDetail", () => {
 
       expect(screen.getByText("No documents available")).toBeInTheDocument();
       expect(screen.queryByTestId("docs-carousel")).not.toBeInTheDocument();
+    });
+
+    test("passes the available lab identifier to the document proxy", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...mockLabData, id: undefined, labId: 42 },
+      });
+
+      render(<LabDetail id="42" />);
+
+      expect(screen.getByTestId("docs-carousel")).toHaveAttribute("data-lab-id", "42");
     });
   });
 

@@ -79,13 +79,14 @@ export const useSaveLabData = (options = {}) => {
         // Use the on-chain URI as the cache key when available — components subscribe to
         // the on-chain URI (full blob URL), not the local 'Lab-*.json' form stored in variables.uri.
         const cacheKeyUri = variables.onchainUri || variables.uri;
+        const labId = variables.labId ?? variables.id;
 
         // If the route returned the saved metadata directly, use it to populate the cache
         // immediately without a CDN round-trip. This avoids the CDN propagation race where
         // the blob was just written but the CDN edge hasn't picked it up yet.
         if (data?.metadata) {
           queryClient.setQueryData(
-            metadataQueryKeys.byUri(cacheKeyUri, variables.labId),
+            metadataQueryKeys.byUri(cacheKeyUri, labId),
             data.metadata,
           );
           devLog.log('✅ [useSaveLabData] Cache populated from response payload for key:', cacheKeyUri);
@@ -103,8 +104,8 @@ export const useSaveLabData = (options = {}) => {
           uri: variables.uri,
           t: String(cacheBuster),
         });
-        if (variables.labId !== undefined && variables.labId !== null && variables.labId !== '') {
-          metadataParams.set('labId', String(variables.labId));
+        if (labId !== undefined && labId !== null && labId !== '') {
+          metadataParams.set('labId', String(labId));
         }
         try {
           const freshResponse = await fetch(
@@ -115,7 +116,7 @@ export const useSaveLabData = (options = {}) => {
             const freshData = await freshResponse.json();
             // Populate under the correct cache key so subscribed components re-render.
             queryClient.setQueryData(
-              metadataQueryKeys.byUri(cacheKeyUri, variables.labId),
+              metadataQueryKeys.byUri(cacheKeyUri, labId),
               freshData,
             );
             devLog.log('✅ [useSaveLabData] Cache updated with fresh server data for key:', cacheKeyUri);
@@ -127,7 +128,7 @@ export const useSaveLabData = (options = {}) => {
 
         // Fallback: mark as stale so the next render triggers a regular refetch.
         await queryClient.invalidateQueries({ 
-          queryKey: metadataQueryKeys.byUri(cacheKeyUri, variables.labId),
+          queryKey: metadataQueryKeys.byUri(cacheKeyUri, labId),
           exact: true,
           refetchType: 'all'
         });

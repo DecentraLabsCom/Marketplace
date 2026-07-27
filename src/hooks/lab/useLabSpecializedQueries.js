@@ -387,6 +387,7 @@ export const useLabsForMarket = (options = {}) => {
  */
 export const useLabById = (labId, options = {}) => {
   const normalizedLabId = labId ? String(labId) : null;
+  const prefetchImages = options.prefetchImages === true;
   const { getEffectiveListingState } = useOptimisticUI();
 
   // Get lab details
@@ -436,7 +437,7 @@ export const useLabById = (labId, options = {}) => {
 
   // Cache images
   const imageResults = useQueries({
-    queries: imageUrlsToCache.length > 0
+    queries: prefetchImages && imageUrlsToCache.length > 0
       ? imageUrlsToCache.map(imageUrl => ({
           queryKey: labImageQueryKeys.byUrl(imageUrl, normalizedLabId),
           queryFn: () => useLabImageQuery.queryFn(imageUrl, normalizedLabId),
@@ -450,7 +451,7 @@ export const useLabById = (labId, options = {}) => {
     combine: (results) => results
   });
 
-  const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
+  const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading;
   
   // Only critical errors (lab, owner) should fail the entire query.
   // Listing errors are treated as recoverable to avoid false "Not Available" states.
@@ -524,6 +525,8 @@ export const useLabById = (labId, options = {}) => {
  * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
+  const prefetchImages = options.prefetchImages === true;
+
   // Get all lab IDs first - Use SSO variant directly per architecture
   const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
@@ -661,7 +664,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   // Create image cache queries
   const imageResults = useQueries({
-    queries: uniqueImageUrls.length > 0
+    queries: prefetchImages && uniqueImageUrls.length > 0
       ? uniqueImageUrls.map(imageUrl => ({
           queryKey: labImageQueryKeys.byUrl(imageUrl, imageLabIdMap.get(imageUrl)),
           queryFn: () => useLabImageQuery.queryFn(imageUrl, imageLabIdMap.get(imageUrl)),
@@ -680,8 +683,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
                    creatorHashResults.some(r => r.isLoading) ||
                    labDetailResults.some(r => r.isLoading) ||
                    listingResults.some(r => r.isLoading) ||
-                   metadataResults.some(r => r.isLoading) ||
-                   imageResults.some(r => r.isLoading);
+                   metadataResults.some(r => r.isLoading);
 
   const hasCriticalError = Boolean(labIdsResult.error);
   const hasRecoverableErrors =

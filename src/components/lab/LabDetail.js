@@ -194,6 +194,7 @@ export default function LabDetail({ id }) {
     return <div className="text-center text-neutral-200">Lab not found.</div>
   }
 
+  const labIdentifier = lab.id ?? lab.labId ?? lab.tokenId ?? id
   const ratingValue = getLabRatingValue(lab.reputation);
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const totalEvents = lab.reputation?.totalEvents ? Number(lab.reputation.totalEvents) : 0;
@@ -252,7 +253,7 @@ export default function LabDetail({ id }) {
         {/* Carousel Section */}
         <article className="w-full md:w-1/2 flex flex-col p-4 md:pt-0">
           <div className="size-full flex flex-col justify-center">
-            <Carrousel lab={lab} labId={lab.id} />
+            <Carrousel lab={lab} labId={labIdentifier} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
               <span className="text-text-secondary">{pricePresentation.text}</span>
@@ -494,7 +495,7 @@ export default function LabDetail({ id }) {
               </h3>
               <div className="transition-opacity duration-300 opacity-100 mt-2">
                 {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
-                  <DocsCarrousel docs={lab.docs} labId={lab.id} />
+                  <DocsCarrousel docs={lab.docs} labId={labIdentifier} />
                 ) : (
                   <span className="text-center text-neutral-300 p-2">No documents available</span>
                 )}
