@@ -37,6 +37,21 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings", "lab", "42"]);
     });
 
+    test("normalizes numeric lab IDs consistently", () => {
+      expect(bookingQueryKeys.byLab(42)).toEqual(["bookings", "lab", "42"]);
+      expect(bookingQueryKeys.getReservationsOfToken(42)).toEqual([
+        "bookings",
+        "reservationsOfToken",
+        "42",
+      ]);
+      expect(bookingQueryKeys.ssoActiveReservationKeySession(42)).toEqual([
+        "bookings",
+        "sso",
+        "activeReservationKey",
+        "42",
+      ]);
+    });
+
     test("byReservationKey() includes reservation key", () => {
       const key = "reservation-123";
       const result = bookingQueryKeys.byReservationKey(key);
@@ -118,10 +133,28 @@ describe("queryKeys", () => {
       ]);
     });
 
+    test("exposes a lab-scoped availability prefix", () => {
+      expect(bookingQueryKeys.checkAvailablePrefix(8)).toEqual([
+        "bookings",
+        "checkAvailable",
+        "8",
+      ]);
+    });
+
     test("ssoHasActiveBookingSession() returns SSO active booking key", () => {
       const result = bookingQueryKeys.ssoHasActiveBookingSession();
 
       expect(result).toEqual(["bookings", "sso", "hasActiveBooking", "session"]);
+    });
+
+    test("ssoHasActiveBookingSessionByLab() includes a normalized lab ID", () => {
+      expect(bookingQueryKeys.ssoHasActiveBookingSessionByLab(8)).toEqual([
+        "bookings",
+        "sso",
+        "hasActiveBooking",
+        "session",
+        "8",
+      ]);
     });
 
     test("labCreditAddress() returns static key", () => {

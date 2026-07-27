@@ -462,7 +462,7 @@ const getSSOHasActiveBookingQueryFn = createSSRSafeQuery(async (labId) => {
  */
 export const useHasActiveBookingForSessionUserSSO = (labId, options = {}) => {
   return useQuery({
-    queryKey: [...bookingQueryKeys.ssoHasActiveBookingSession(), labId],
+    queryKey: bookingQueryKeys.ssoHasActiveBookingSessionByLab(labId),
     queryFn: () => getSSOHasActiveBookingQueryFn(labId),
     enabled: !!labId && (options.enabled ?? true),
     ...BOOKING_QUERY_CONFIG,

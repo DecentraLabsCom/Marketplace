@@ -29,6 +29,7 @@ import {
   reservationToastIds,
 } from '@/utils/notifications/reservationToasts'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { invalidateInstitutionalReservationQueries } from '@/hooks/booking/bookingCacheInvalidation'
 import {
   CALENDAR_PERIOD_BOOKING_MODE,
   normalizeAllowedDurations,
@@ -570,17 +571,10 @@ export function useLabReservationState({
         return
       }
       devLog.log('[LabReservationState] Polling for SSO confirmation, elapsed:', Math.round(elapsed / 1000), 's')
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() })
-      if (reservationKey) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) })
-      }
-      if (labId) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) })
-        queryClient.invalidateQueries({
-          queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId),
-          exact: false,
-        })
-      }
+      invalidateInstitutionalReservationQueries(queryClient, {
+        labId,
+        reservationKey,
+      })
     }, 10_000)
 
     return () => {
@@ -608,33 +602,21 @@ export function useLabReservationState({
       const activeLabId = activeSsoRequest?.labId !== undefined && activeSsoRequest?.labId !== null
         ? String(activeSsoRequest.labId)
         : null
+      const pendingLabId = pendingData?.labId !== undefined && pendingData?.labId !== null
+        ? String(pendingData.labId)
+        : null
 
       const matchesKey =
         !eventReservationKey ||
         eventReservationKey === activeReservationKey ||
         eventReservationKey === pendingReservationKey
-      const matchesLab = !eventLabId || eventLabId === activeLabId
+      const matchesLab = !eventLabId || eventLabId === activeLabId || eventLabId === pendingLabId
       if (!matchesKey && !matchesLab) return
 
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() })
-      queryClient.invalidateQueries({
-        queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(),
-        exact: false,
+      invalidateInstitutionalReservationQueries(queryClient, {
+        labId: eventLabId || activeLabId || pendingLabId,
+        reservationKey: eventReservationKey || activeReservationKey || pendingReservationKey,
       })
-      if (eventReservationKey) {
-        queryClient.invalidateQueries({
-          queryKey: bookingQueryKeys.byReservationKey(eventReservationKey),
-        })
-      }
-      if (activeLabId) {
-        queryClient.invalidateQueries({
-          queryKey: bookingQueryKeys.getReservationsOfToken(activeLabId),
-        })
-        queryClient.invalidateQueries({
-          queryKey: bookingQueryKeys.reservationOfTokenPrefix(activeLabId),
-          exact: false,
-        })
-      }
     }
 
     const handleOnChainRegistered = (event) => {

@@ -16,9 +16,10 @@ jest.mock('@/utils/intents/verifyOnchainIntentStatus', () => ({
   verifyInstitutionReportedExecution: jest.fn(() => Promise.resolve({ state: 2, stateName: 'EXECUTED' })),
 }));
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import pollIntentStatus from '@/utils/intents/pollIntentStatus';
+import { bookingQueryKeys } from '@/utils/hooks/queryKeys';
 import {
   useCancelReservationRequest,
   useCancelReservationRequestSSO,
@@ -185,5 +186,65 @@ describe('institutional cancellation mutations', () => {
 
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/prepare', expect.any(Object));
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-booking-3', expect.objectContaining({ status: 'cancel-requested' }));
+  });
+
+  test('uses the input labId when the reservation detail is not cached', async () => {
+    const updateBooking = jest.fn();
+    const invalidateAllBookings = jest.fn();
+    mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        authorizationUrl: 'https://institution.example/intents/authorize/session-fallback',
+        authorizationSessionId: 'session-fallback',
+        backendUrl: 'https://institution.example',
+        intent: { meta: { requestId: 'req-fallback' }, payload: {} },
+      }),
+    });
+
+    const { qc, wrapper } = createWrapper();
+    const availabilityKey = bookingQueryKeys.checkAvailable('11', 100, 60);
+    const labReservationsKey = bookingQueryKeys.getReservationsOfToken('11');
+    qc.setQueryData(availabilityKey, { isAvailable: true });
+    qc.setQueryData(labReservationsKey, { count: 1 });
+
+    const { result } = renderHook(() => useCancelReservationRequest(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ reservationKey: 'rk-fallback', labId: 11 });
+    });
+
+    await waitFor(() => {
+      expect(qc.getQueryState(availabilityKey)?.isInvalidated).toBe(true);
+      expect(qc.getQueryState(labReservationsKey)?.isInvalidated).toBe(true);
+    });
+  });
+
+  test('invalidates the full booking scope when confirmed cancellation polling fails', async () => {
+    const invalidateAllBookings = jest.fn();
+    mockBookingCacheFactory.mockImplementation(() => ({ invalidateAllBookings }));
+    pollIntentStatus.mockRejectedValueOnce(new Error('temporary polling failure'));
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        authorizationUrl: 'https://institution.example/intents/authorize/session-error',
+        authorizationSessionId: 'session-error',
+        backendUrl: 'https://institution.example',
+        intent: { meta: { requestId: 'req-error' }, payload: {} },
+      }),
+    });
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCancelBooking(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ reservationKey: 'rk-error', labId: 12 });
+    });
+
+    await waitFor(() => {
+      expect(invalidateAllBookings).toHaveBeenCalledTimes(1);
+    });
   });
 });

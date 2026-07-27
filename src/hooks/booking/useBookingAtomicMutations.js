@@ -21,6 +21,10 @@ import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
 import {
+  getInstitutionalReservationQueryFilters,
+  invalidateInstitutionalReservationQueries,
+} from './bookingCacheInvalidation'
+import {
   resolveIntentRequestId,
   assertIntentAuthorizationConfirmed,
   assertInstitutionIntentExecuted,
@@ -57,28 +61,6 @@ const normalizeReservationMutationInput = (input) => {
     };
   }
   return { reservationKey: null };
-};
-
-const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
-  if (!queryClient) return;
-
-  queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
-  queryClient.invalidateQueries({
-    queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(),
-    exact: false,
-  });
-
-  if (labId !== undefined && labId !== null) {
-    queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
-    queryClient.invalidateQueries({
-      queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId),
-      exact: false,
-    });
-  }
-
-  if (reservationKey) {
-    queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-  }
 };
 
 const emitReservationProgress = (requestData, stage, details = {}) => {
@@ -465,8 +447,9 @@ export const useCancelReservationRequestSSO = (options = {}) => {
       return { ...data, reservationKey };
     },
     onSuccess: (data, reservationInput) => {
+      const normalizedInput = normalizeReservationMutationInput(reservationInput);
       const reservationKey =
-        data?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+        data?.reservationKey || normalizedInput.reservationKey;
       if (!reservationKey) {
         devLog.error('Missing reservationKey on cancel reservation request success callback');
         return;
@@ -484,12 +467,12 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         });
 
         try {
-          const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+          const { labId: cachedLabId, userAddress } = resolveBookingContext(queryClient, reservationKey);
           setOptimisticBookingState(reservationKey, {
             status: 'cancel-requested',
             isPending: true,
             isInstitutional: true,
-            labId,
+            labId: cachedLabId ?? normalizedInput.labId,
             userAddress,
           });
         } catch (err) {
@@ -529,7 +512,8 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 }
 
                 // Invalidate institutional caches after cancellation is executed
-                const { labId } = resolveBookingContext(queryClient, reservationKey);
+                const { labId: cachedLabId } = resolveBookingContext(queryClient, reservationKey);
+                const labId = cachedLabId ?? normalizedInput.labId;
                 invalidateInstitutionalReservationQueries(queryClient, {
                   labId,
                   reservationKey,
@@ -538,18 +522,13 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 devLog.log('✅ Invalidated booking queries after reservation request cancellation executed');
 
                 // Enqueue for reconciliation - will auto-invalidate until blockchain event confirms
-                const cancelReconciliationKeys = [
-                  bookingQueryKeys.ssoReservationsOf(),
-                  bookingQueryKeys.byReservationKey(reservationKey),
-                ];
-                if (labId) {
-                  cancelReconciliationKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
-                }
-                
                 enqueueReconciliationEntry({
                   id: `booking:cancel-request:${reservationKey}`,
                   category: 'booking-cancel-request',
-                  queryKeys: cancelReconciliationKeys,
+                  queryKeys: getInstitutionalReservationQueryFilters({
+                    labId,
+                    reservationKey,
+                  }),
                 });
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(reservationKey, {
@@ -561,7 +540,8 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   timestamp: new Date().toISOString(),
                 });
 
-                const { labId } = resolveBookingContext(queryClient, reservationKey);
+                const { labId: cachedLabId } = resolveBookingContext(queryClient, reservationKey);
+                const labId = cachedLabId ?? normalizedInput.labId;
                 invalidateInstitutionalReservationQueries(queryClient, {
                   labId,
                   reservationKey,
@@ -576,14 +556,20 @@ export const useCancelReservationRequestSSO = (options = {}) => {
             } catch (err) {
               if (abortController?.signal.aborted) return;
               devLog.error('Polling cancel intent failed:', err);
-              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              invalidateInstitutionalReservationQueries(queryClient, {
+                labId: normalizedInput.labId,
+                reservationKey,
+              });
               invalidateAllBookings();
             }
           })();
         }
       } catch (error) {
         devLog.error('Failed to mark cancel intent in cache, invalidating:', error);
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+        invalidateInstitutionalReservationQueries(queryClient, {
+          labId: normalizedInput.labId,
+          reservationKey,
+        });
         invalidateAllBookings();
       }
     },
@@ -621,6 +607,7 @@ export const useCancelReservationRequest = (options = {}) => {
  */
 export const useCancelBookingSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { invalidateAllBookings } = useBookingCacheUpdates();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
   const { institutionBackendUrl } = useUser();
 
@@ -643,20 +630,21 @@ export const useCancelBookingSSO = (options = {}) => {
       return { ...data, reservationKey };
     },
     onSuccess: (data, reservationInput) => {
+      const normalizedInput = normalizeReservationMutationInput(reservationInput);
       const reservationKey =
-        data?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+        data?.reservationKey || normalizedInput.reservationKey;
       if (!reservationKey) {
         devLog.error('Missing reservationKey on cancel booking success callback');
         return;
       }
       try {
         try {
-          const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+          const { labId: cachedLabId, userAddress } = resolveBookingContext(queryClient, reservationKey);
           setOptimisticBookingState(reservationKey, {
             status: 'cancel-requested',
             isPending: true,
             isInstitutional: true,
-            labId,
+            labId: cachedLabId ?? normalizedInput.labId,
             userAddress,
           });
         } catch (err) {
@@ -696,7 +684,8 @@ export const useCancelBookingSSO = (options = {}) => {
                 }
 
                 // Invalidate institutional caches after booking cancellation is executed
-                const { labId } = resolveBookingContext(queryClient, reservationKey);
+                const { labId: cachedLabId } = resolveBookingContext(queryClient, reservationKey);
+                const labId = cachedLabId ?? normalizedInput.labId;
                 invalidateInstitutionalReservationQueries(queryClient, {
                   labId,
                   reservationKey,
@@ -705,18 +694,13 @@ export const useCancelBookingSSO = (options = {}) => {
                 devLog.log('✅ Invalidated booking queries after booking cancellation executed');
 
                 // Enqueue for reconciliation - will auto-invalidate until BookingCanceled event confirms
-                const bookingCancelKeys = [
-                  bookingQueryKeys.ssoReservationsOf(),
-                  bookingQueryKeys.byReservationKey(reservationKey),
-                ];
-                if (labId) {
-                  bookingCancelKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
-                }
-                
                 enqueueReconciliationEntry({
                   id: `booking:cancel:${reservationKey}`,
                   category: 'booking-cancel',
-                  queryKeys: bookingCancelKeys,
+                  queryKeys: getInstitutionalReservationQueryFilters({
+                    labId,
+                    reservationKey,
+                  }),
                 });
               } else if (status === 'failed' || status === 'rejected') {
                 queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
@@ -741,12 +725,22 @@ export const useCancelBookingSSO = (options = {}) => {
               }
             } catch (err) {
               devLog.error('Polling cancel booking intent failed:', err);
-              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              const { labId: cachedLabId } = resolveBookingContext(queryClient, reservationKey);
+              invalidateInstitutionalReservationQueries(queryClient, {
+                labId: cachedLabId ?? normalizedInput.labId,
+                reservationKey,
+              });
+              invalidateAllBookings();
             }
           })();
         }
       } catch (error) {
         devLog.error('Failed to track cancel booking intent:', error);
+        invalidateInstitutionalReservationQueries(queryClient, {
+          labId: normalizedInput.labId,
+          reservationKey,
+        });
+        invalidateAllBookings();
       }
     },
     onError: (error, reservationInput) => {

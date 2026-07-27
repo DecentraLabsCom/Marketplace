@@ -38,7 +38,9 @@ describe('queryKeys', () => {
       expect(bookingQueryKeys.ssoReservationKeyOfUserPrefix()).toEqual(['bookings', 'sso', 'reservationKeyOfUser']);
       expect(bookingQueryKeys.userOfReservation('key123')).toEqual(['bookings', 'userOfReservation', 'key123']);
       expect(bookingQueryKeys.checkAvailable('123', 1000, 3600)).toEqual(['bookings', 'checkAvailable', '123', 1000, 3600]);
+      expect(bookingQueryKeys.checkAvailablePrefix(123)).toEqual(['bookings', 'checkAvailable', '123']);
       expect(bookingQueryKeys.ssoHasActiveBookingSession()).toEqual(['bookings', 'sso', 'hasActiveBooking', 'session']);
+      expect(bookingQueryKeys.ssoHasActiveBookingSessionByLab(123)).toEqual(['bookings', 'sso', 'hasActiveBooking', 'session', '123']);
       expect(bookingQueryKeys.ssoActiveReservationKeySession('123')).toEqual(['bookings', 'sso', 'activeReservationKey', '123']);
       expect(bookingQueryKeys.labCreditAddress()).toEqual(['bookings', 'labCreditAddress']);
     });

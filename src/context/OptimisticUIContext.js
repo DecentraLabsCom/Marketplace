@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 import { labQueryKeys, bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { getInstitutionalReservationQueryFilters } from '@/hooks/booking/bookingCacheInvalidation'
 import {
   RECONCILIATION_DEFAULTS,
   RECONCILIATION_SCHEDULE_MS,
@@ -55,19 +56,16 @@ export function OptimisticUIProvider({ children }) {
       }
     }))
     if (state?.isPending) {
-      const queryKeys = [
-        bookingQueryKeys.byReservationKey(key),
-      ]
       const labId = state?.labId
+      const queryKeys = [
+        ...getInstitutionalReservationQueryFilters({
+          labId,
+          reservationKey: key,
+        }),
+      ]
       if (labId !== null && labId !== undefined) {
         queryKeys.push(bookingQueryKeys.byLab(labId))
-        queryKeys.push(bookingQueryKeys.getReservationsOfToken(labId))
-        queryKeys.push({ queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId), exact: false })
-        queryKeys.push(bookingQueryKeys.ssoActiveReservationKeySession(labId))
       }
-      queryKeys.push(bookingQueryKeys.ssoReservationsOf())
-      queryKeys.push({ queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(), exact: false })
-      queryKeys.push(bookingQueryKeys.ssoHasActiveBookingSession())
       enqueueReconciliationEntry({
         id: `booking:${key}`,
         category: 'booking',
