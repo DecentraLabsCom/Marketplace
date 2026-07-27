@@ -107,6 +107,10 @@ describe("LabFilters - unit tests", () => {
       expect(within(panel).getByRole("option", { name: "Listed" })).toBeInTheDocument();
       expect(within(panel).getByRole("option", { name: "All" })).toBeInTheDocument();
       expect(within(panel).getByRole("option", { name: "Unlisted" })).toBeInTheDocument();
+      expect([...within(panel).getByLabelText(/filter by listing/i).options].map((option) => option.value))
+        .toEqual(["listed", "unlisted", "all"]);
+      expect([...panel.querySelectorAll("label")].map((label) => label.textContent.trim()))
+        .toEqual(["Filter by category", "Filter by provider", "Filter by type", "Filter by listing"]);
     });
 
     test("calls onSortChange with the selected catalogue order", async () => {

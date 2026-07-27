@@ -226,6 +226,23 @@ export default function LabFilters({
             </div>
 
             <div>
+              <label htmlFor="resource-type-filter" className="mb-1 block text-sm font-semibold text-hover-dark">
+                Filter by type
+              </label>
+              <select
+                id="resource-type-filter"
+                onChange={(event) => onResourceTypeChange?.(event.target.value)}
+                value={selectedResourceType}
+                className={selectClassName}
+                disabled={effectiveLoading}
+              >
+                <option value="All">All types</option>
+                <option value="lab">Real</option>
+                <option value="fmu">Simulated</option>
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="listing-filter" className="mb-1 block text-sm font-semibold text-hover-dark">
                 Filter by listing
               </label>
@@ -241,23 +258,6 @@ export default function LabFilters({
                     {label}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="resource-type-filter" className="mb-1 block text-sm font-semibold text-hover-dark">
-                Filter by type
-              </label>
-              <select
-                id="resource-type-filter"
-                onChange={(event) => onResourceTypeChange?.(event.target.value)}
-                value={selectedResourceType}
-                className={selectClassName}
-                disabled={effectiveLoading}
-              >
-                <option value="All">All types</option>
-                <option value="lab">Real</option>
-                <option value="fmu">Simulated</option>
               </select>
             </div>
           </div>
