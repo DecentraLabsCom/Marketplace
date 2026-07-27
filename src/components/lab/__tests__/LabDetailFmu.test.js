@@ -155,6 +155,49 @@ describe("LabDetail - FMU Resource", () => {
     expect(screen.getByText("output")).toBeInTheDocument();
   });
 
+  test("shows FMI type, resolved dimensions, and readable vector starts", () => {
+    useLabById.mockReturnValue({
+      data: {
+        ...fmuLab,
+        modelVariables: [
+          { name: "m", type: "UInt64", causality: "structuralParameter", start: "3" },
+          { name: "n", type: "UInt64", causality: "structuralParameter", start: "3" },
+          { name: "r", type: "UInt64", causality: "structuralParameter", start: "3" },
+          {
+            name: "A",
+            type: "Float64",
+            causality: "parameter",
+            start: "1 0 0 0 1 0 0 0 1",
+            dimensions: [
+              { valueReference: 2, variableName: "n" },
+              { valueReference: 2, variableName: "n" },
+            ],
+          },
+          {
+            name: "x0",
+            type: "Float64",
+            causality: "parameter",
+            start: "0 0 0",
+            dimensions: [{ valueReference: 2, variableName: "n" }],
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      metadataError: false,
+    });
+
+    render(<LabDetail id="42" />);
+
+    expect(screen.getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Shape" })).toBeInTheDocument();
+    expect(screen.getAllByText("Float64")).toHaveLength(2);
+    expect(screen.getByText("n × n (3 × 3)")).toBeInTheDocument();
+    expect(screen.getByText("n (3)")).toBeInTheDocument();
+    expect(screen.getByText("[1, 0, 0, 0, 1, 0, 0, 0, 1]")).toBeInTheDocument();
+  });
+
   test("shows default time range", () => {
     render(<LabDetail id="42" />);
     // "0s â€“ 10s"

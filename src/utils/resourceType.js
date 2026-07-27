@@ -140,6 +140,93 @@ export function getFmuMetadata(resource) {
   return result
 }
 
+const toScalarDimensionExtent = (value) => {
+  if (Array.isArray(value)) {
+    return value.length === 1 ? toScalarDimensionExtent(value[0]) : null
+  }
+
+  if (typeof value === 'string') {
+    const tokens = value.trim().split(/\s+/).filter(Boolean)
+    if (tokens.length !== 1) return null
+    value = tokens[0]
+  }
+
+  const extent = Number(value)
+  return Number.isInteger(extent) && extent >= 0 ? extent : null
+}
+
+const findDimensionVariable = (dimension, modelVariables) => {
+  if (!dimension || !Array.isArray(modelVariables)) return null
+
+  if (dimension.variableName) {
+    const namedVariable = modelVariables.find(variable => variable?.name === dimension.variableName)
+    if (namedVariable) return namedVariable
+  }
+
+  if (dimension.valueReference !== undefined && dimension.valueReference !== null) {
+    return modelVariables.find(variable => (
+      variable?.valueReference !== undefined &&
+      String(variable.valueReference) === String(dimension.valueReference)
+    )) || null
+  }
+
+  return null
+}
+
+/**
+ * Resolve an FMI variable shape for display, retaining symbolic dimensions and
+ * showing their current scalar extents when the referenced variables provide them.
+ *
+ * @param {Object} variable
+ * @param {Array<Object>} modelVariables
+ * @returns {string}
+ */
+export function formatFmuVariableShape(variable, modelVariables = []) {
+  const dimensions = Array.isArray(variable?.dimensions) ? variable.dimensions : []
+  if (dimensions.length === 0) return 'Scalar'
+
+  const symbolicShape = dimensions.map((dimension) => {
+    const referencedVariable = findDimensionVariable(dimension, modelVariables)
+    if (dimension?.variableName) return String(dimension.variableName)
+    if (referencedVariable?.name) return String(referencedVariable.name)
+    if (dimension?.start !== undefined && dimension?.start !== null) {
+      return String(dimension.start)
+    }
+    return '?'
+  }).join(' × ')
+
+  const resolvedShape = dimensions.map((dimension) => {
+    const referencedVariable = findDimensionVariable(dimension, modelVariables)
+    const extent = toScalarDimensionExtent(
+      dimension?.start ?? referencedVariable?.start
+    )
+    return extent === null ? '?' : String(extent)
+  }).join(' × ')
+
+  return symbolicShape === resolvedShape
+    ? symbolicShape
+    : `${symbolicShape} (${resolvedShape})`
+}
+
+/**
+ * Format FMI scalar, vector, or matrix start values without losing their shape.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function formatFmuVariableStart(value) {
+  if (value === null || value === undefined) return '—'
+
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.trim().split(/\s+/).filter(Boolean)
+      : [value]
+
+  if (values.length === 0) return '—'
+  if (values.length === 1) return String(values[0])
+  return `[${values.join(', ')}]`
+}
+
 /**
  * Format the simulation type label for UI consumption.
  * @param {string} value

@@ -14,7 +14,13 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
-import { isFmu, getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
+import {
+  isFmu,
+  getFmuMetadata,
+  formatFmuSimulationType,
+  formatFmuVariableShape,
+  formatFmuVariableStart,
+} from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
 import { safeExternalHttpUrl } from '@/utils/security/safeUrl'
@@ -317,12 +323,14 @@ export default function LabDetail({ id }) {
                 {Array.isArray(fmuMeta.modelVariables) && fmuMeta.modelVariables.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
-                    <div className="max-h-48 overflow-y-auto rounded border border-[#2a2f33]">
+                    <div className="max-h-48 overflow-x-auto overflow-y-auto rounded border border-[#2a2f33]">
                       <table className="w-full text-xs">
                         <thead className="bg-[#181b1d] sticky top-0">
                           <tr>
                             <th className="text-left px-2 py-1 text-text-secondary">Name</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Type</th>
                             <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Shape</th>
                             <th className="text-left px-2 py-1 text-text-secondary">Start</th>
                           </tr>
                         </thead>
@@ -330,6 +338,7 @@ export default function LabDetail({ id }) {
                           {fmuMeta.modelVariables.map((v, i) => (
                             <tr key={v.name || i} className="border-t border-[#2a2f33]">
                               <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
+                              <td className="px-2 py-1 text-neutral-200">{v.type || '—'}</td>
                               <td className="px-2 py-1">
                                 <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                   v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
@@ -339,7 +348,12 @@ export default function LabDetail({ id }) {
                                   {v.causality || 'local'}
                                 </span>
                               </td>
-                              <td className="px-2 py-1 text-neutral-200">{v.start ?? 'â€”'}</td>
+                              <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
+                                {formatFmuVariableShape(v, fmuMeta.modelVariables)}
+                              </td>
+                              <td className="px-2 py-1 text-neutral-200 break-words max-w-48">
+                                {formatFmuVariableStart(v.start)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
