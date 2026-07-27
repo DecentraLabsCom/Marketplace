@@ -26,7 +26,7 @@ describe('usePublicMarketLabs', () => {
 
   test('uses the SSR page without issuing a duplicate hydration request', () => {
     const initialData = {
-      labs: [{ id: 1, name: 'SSR lab' }],
+      labs: [{ id: 1, name: 'SSR lab', category: ['Physics'], provider: 'Provider University' }],
       totalLabs: 50,
       cursor: 0,
       nextCursor: '24',
@@ -39,6 +39,10 @@ describe('usePublicMarketLabs', () => {
     )
 
     expect(result.current.data.labs).toEqual(initialData.labs)
+    expect(result.current.data.facets).toEqual({
+      categories: ['Physics'],
+      providers: ['Provider University'],
+    })
     expect(result.current.isLoading).toBe(false)
     expect(global.fetch).not.toHaveBeenCalled()
   })
@@ -95,6 +99,7 @@ describe('usePublicMarketLabs', () => {
           provider: 'Provider University',
           resourceType: 'lab',
           sort: 'price_asc',
+          listing: 'unlisted',
         },
       }),
       { wrapper: createWrapper() },
@@ -102,7 +107,7 @@ describe('usePublicMarketLabs', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/market/labs?includeUnlisted=false&cursor=0&limit=24&q=quantum&searchField=keyword&category=Physics&provider=Provider+University&resourceType=lab&sort=price_asc',
+      '/api/market/labs?includeUnlisted=false&cursor=0&limit=24&q=quantum&searchField=keyword&category=Physics&provider=Provider+University&resourceType=lab&listing=unlisted&sort=price_asc',
       { headers: { Accept: 'application/json' } },
     )
   })

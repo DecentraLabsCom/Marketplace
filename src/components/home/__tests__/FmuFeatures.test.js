@@ -112,12 +112,12 @@ const baseFilterProps = {
   selectedSort: "relevance",
   selectedProvider: "All",
   selectedFilter: "Keyword",
-  showUnlisted: false,
   onCategoryChange: jest.fn(),
   onSortChange: jest.fn(),
   onProviderChange: jest.fn(),
   onFilterChange: jest.fn(),
-  onShowUnlistedChange: jest.fn(),
+  selectedListing: "listed",
+  onListingChange: jest.fn(),
   searchInputRef: { current: null },
   loading: false,
 };
@@ -142,7 +142,7 @@ describe("LabFilters - Resource Type Dropdown", () => {
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     expect(select).toBeInTheDocument();
     const selectEl = within(select.parentElement);
-    expect(selectEl.getByRole("option", { name: "Modality" })).toBeInTheDocument();
+    expect(selectEl.getByRole("option", { name: "All types" })).toBeInTheDocument();
     expect(selectEl.getByRole("option", { name: "Real" })).toBeInTheDocument();
     expect(selectEl.getByRole("option", { name: "Simulated" })).toBeInTheDocument();
   });

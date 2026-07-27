@@ -1,5 +1,5 @@
 export const MARKET_SORT_OPTIONS = Object.freeze([
-  { value: 'relevance', label: 'Relevance' },
+  { value: 'relevance', label: 'Sort by' },
   { value: 'price_asc', label: 'Price: low to high' },
   { value: 'price_desc', label: 'Price: high to low' },
   { value: 'rating_desc', label: 'Rating: highest first' },

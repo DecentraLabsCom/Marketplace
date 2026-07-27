@@ -120,11 +120,11 @@ describe('GET /api/market/labs', () => {
 
   test('validates and forwards server-side search and filter parameters', async () => {
     await GET({
-      nextUrl: new URL('https://market.example/api/market/labs?q=quantum&searchField=keyword&category=Physics&provider=Provider%20University&resourceType=lab&sort=price_asc'),
+      nextUrl: new URL('https://market.example/api/market/labs?q=quantum&searchField=keyword&category=Physics&provider=Provider%20University&resourceType=lab&sort=price_asc&listing=unlisted'),
     })
 
     expect(getMarketCatalogueSnapshot).toHaveBeenCalledWith({
-      includeUnlisted: false,
+      includeUnlisted: true,
       cursor: 0,
       limit: 24,
       filters: {
@@ -134,6 +134,7 @@ describe('GET /api/market/labs', () => {
         provider: 'Provider University',
         resourceType: 'lab',
         sort: 'price_asc',
+        listing: 'unlisted',
       },
     })
 

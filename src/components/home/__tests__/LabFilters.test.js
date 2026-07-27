@@ -18,13 +18,13 @@ describe("LabFilters - unit tests", () => {
     selectedProvider: "All",
     selectedFilter: "Keyword",
     selectedResourceType: "All",
-    showUnlisted: false,
+    selectedListing: "listed",
     onCategoryChange: jest.fn(),
     onSortChange: jest.fn(),
     onProviderChange: jest.fn(),
     onFilterChange: jest.fn(),
     onResourceTypeChange: jest.fn(),
-    onShowUnlistedChange: jest.fn(),
+    onListingChange: jest.fn(),
     searchInputRef: { current: null },
     loading: false,
   };
@@ -45,6 +45,8 @@ describe("LabFilters - unit tests", () => {
       expect(screen.getByPlaceholderText(/type here/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^filters/i })).toBeInTheDocument();
       expect(screen.getByLabelText(/sort labs/i)).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Sort by" })).toBeInTheDocument();
+      expect(screen.getByLabelText(/sort labs/i)).toHaveValue("relevance");
       expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: /filter options/i })).not.toBeInTheDocument();
     });
@@ -99,6 +101,12 @@ describe("LabFilters - unit tests", () => {
       expect(within(panel).getByLabelText(/filter by provider/i)).toBeInTheDocument();
       expect(within(panel).getByLabelText(/filter by listing/i)).toBeInTheDocument();
       expect(within(panel).getByLabelText(/filter by type/i)).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "All types" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Real" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Simulated" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Listed" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "All" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Unlisted" })).toBeInTheDocument();
     });
 
     test("calls onSortChange with the selected catalogue order", async () => {
@@ -189,24 +197,24 @@ describe("LabFilters - unit tests", () => {
   });
 
   describe("Listing Filter", () => {
+    test("changes from listed labs to unlisted labs", async () => {
+      const user = userEvent.setup();
+      render(<LabFilters {...defaultProps} selectedListing="listed" />);
+      await openFilterPanel(user);
+
+      await user.selectOptions(screen.getByLabelText(/filter by listing/i), "unlisted");
+
+      expect(defaultProps.onListingChange).toHaveBeenCalledWith("unlisted");
+    });
+
     test("changes from listed labs to all labs", async () => {
       const user = userEvent.setup();
-      render(<LabFilters {...defaultProps} showUnlisted={false} />);
+      render(<LabFilters {...defaultProps} selectedListing="listed" />);
       await openFilterPanel(user);
 
       await user.selectOptions(screen.getByLabelText(/filter by listing/i), "all");
 
-      expect(defaultProps.onShowUnlistedChange).toHaveBeenCalledWith(true);
-    });
-
-    test("changes from all labs to listed labs", async () => {
-      const user = userEvent.setup();
-      render(<LabFilters {...defaultProps} showUnlisted />);
-      await openFilterPanel(user);
-
-      await user.selectOptions(screen.getByLabelText(/filter by listing/i), "listed");
-
-      expect(defaultProps.onShowUnlistedChange).toHaveBeenCalledWith(false);
+      expect(defaultProps.onListingChange).toHaveBeenCalledWith("all");
     });
   });
 
@@ -221,7 +229,7 @@ describe("LabFilters - unit tests", () => {
           selectedProvider="Lab A"
           selectedFilter="Name"
           selectedResourceType="lab"
-          showUnlisted
+          selectedListing="unlisted"
         />
       );
       const panel = await openFilterPanel(user);

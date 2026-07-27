@@ -52,7 +52,7 @@ export const fetchPublicMarketLabs = async ({
     cursor: String(cursor),
     limit: String(limit),
   })
-  ;['q', 'searchField', 'category', 'provider', 'resourceType', 'sort'].forEach((key) => {
+  ;['q', 'searchField', 'category', 'provider', 'resourceType', 'listing', 'sort'].forEach((key) => {
     if (typeof filters?.[key] === 'string' && filters[key].trim()) {
       params.set(key, filters[key].trim())
     }
@@ -92,6 +92,15 @@ const getInitialDataUpdatedAt = (initialPage) => {
   return Number.isFinite(timestamp) ? timestamp : undefined
 }
 
+const deriveFacetValues = (labs, facet, valueSelector) => {
+  if (Array.isArray(facet) && facet.length > 0) return facet
+
+  return [...new Set((Array.isArray(labs) ? labs : [])
+    .flatMap(valueSelector)
+    .filter((value) => typeof value === 'string' && value.trim()))]
+    .sort((left, right) => left.localeCompare(right))
+}
+
 /**
  * Reads the server-side public catalogue DTO. The first page rendered by the
  * server seeds React Query, so hydration does not issue a duplicate catalogue
@@ -105,13 +114,13 @@ export const usePublicMarketLabs = ({
 } = {}) => {
   const normalizedIncludeUnlisted = Boolean(includeUnlisted)
   const normalizedFilters = useMemo(() => Object.fromEntries(
-    ['q', 'searchField', 'category', 'provider', 'resourceType', 'sort']
+    ['q', 'searchField', 'category', 'provider', 'resourceType', 'listing', 'sort']
       .flatMap((key) => (
         typeof filters?.[key] === 'string' && filters[key].trim()
           ? [[key, filters[key].trim()]]
           : []
       )),
-  ), [filters?.q, filters?.searchField, filters?.category, filters?.provider, filters?.resourceType, filters?.sort])
+  ), [filters?.q, filters?.searchField, filters?.category, filters?.provider, filters?.resourceType, filters?.listing, filters?.sort])
   const initialPage = getInitialPage({
     includeUnlisted: normalizedIncludeUnlisted,
     filters: normalizedFilters,
@@ -154,7 +163,18 @@ export const usePublicMarketLabs = ({
         : pages.some((page) => page?.catalogueStatus === 'stale')
           ? 'stale'
           : 'fresh',
-      facets: lastPage?.facets || pages[0]?.facets || { categories: [], providers: [] },
+      facets: {
+        categories: deriveFacetValues(
+          labs,
+          lastPage?.facets?.categories || pages[0]?.facets?.categories,
+          (lab) => (Array.isArray(lab?.category) ? lab.category : [lab?.category]),
+        ),
+        providers: deriveFacetValues(
+          labs,
+          lastPage?.facets?.providers || pages[0]?.facets?.providers,
+          (lab) => [lab?.provider],
+        ),
+      },
     }
   }, [query.data])
 

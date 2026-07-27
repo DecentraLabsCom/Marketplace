@@ -5,6 +5,7 @@ const MAX_FILTER_TEXT_LENGTH = 200
 const MAX_SEARCH_LENGTH = 120
 const SEARCH_FIELDS = new Set(['keyword', 'name'])
 const RESOURCE_TYPES_FILTER = new Set([RESOURCE_TYPES.LAB, RESOURCE_TYPES.FMU])
+const LISTING_FILTERS = new Set(['listed', 'all', 'unlisted'])
 const SORTS = new Set(MARKET_SORT_VALUES)
 
 const normalizeText = (value, { maxLength = MAX_FILTER_TEXT_LENGTH } = {}) => {
@@ -37,6 +38,7 @@ export function parseMarketCatalogueFilters(searchParams) {
   const category = normalizeText(read('category'))
   const provider = normalizeText(read('provider'))
   const resourceType = normalizeEnum(read('resourceType'), RESOURCE_TYPES_FILTER)
+  const listing = normalizeEnum(read('listing'), LISTING_FILTERS)
   const sort = normalizeEnum(read('sort'), SORTS)
 
   return {
@@ -45,6 +47,7 @@ export function parseMarketCatalogueFilters(searchParams) {
     ...(category ? { category } : {}),
     ...(provider ? { provider } : {}),
     ...(resourceType ? { resourceType } : {}),
+    ...(listing ? { listing } : {}),
     ...(sort ? { sort } : {}),
   }
 }
@@ -117,6 +120,8 @@ export function filterMarketLabs(labs, filters = {}) {
     ) return false
     if (filters.provider && fold(lab?.provider) !== fold(filters.provider)) return false
     if (filters.resourceType && getResourceType(lab) !== filters.resourceType) return false
+    if (filters.listing === 'listed' && lab?.isListed !== true) return false
+    if (filters.listing === 'unlisted' && lab?.isListed === true) return false
     return true
   })
 

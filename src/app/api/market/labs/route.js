@@ -24,8 +24,10 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Invalid market catalogue parameters' }, { status: 400 })
   }
 
+  const shouldIncludeUnlisted = includeUnlisted || filters.listing === 'all' || filters.listing === 'unlisted'
+
   const snapshot = await getMarketCatalogueSnapshot({
-    includeUnlisted,
+    includeUnlisted: shouldIncludeUnlisted,
     ...page,
     filters,
   })

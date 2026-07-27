@@ -16,14 +16,14 @@ import { getResourceType } from '@/utils/resourceType'
  * @returns {string} returns.selectedSort - Currently selected catalogue sorting
  * @returns {string} returns.selectedProvider - Currently selected provider filter
  * @returns {string} returns.selectedFilter - Currently selected search filter type
- * @returns {boolean} returns.showUnlisted - Whether to show unlisted labs
+ * @returns {string} returns.selectedListing - Listing filter ('listed', 'all', 'unlisted')
  * @returns {Array} returns.searchFilteredLabs - Filtered and enriched labs array
  * @returns {string} returns.searchDebounce - Current debounced search term
  * @returns {Function} returns.setSelectedCategory - Set category filter function
  * @returns {Function} returns.setSelectedSort - Set catalogue sorting function
  * @returns {Function} returns.setSelectedProvider - Set provider filter function
  * @returns {Function} returns.setSelectedFilter - Set search filter type function
- * @returns {Function} returns.setShowUnlisted - Set show unlisted labs function
+ * @returns {Function} returns.setSelectedListing - Set listing filter function
  * @returns {Array} returns.categories - Available categories for filtering
  * @returns {Array} returns.providers - Available providers for filtering
  * @returns {Object} returns.searchInputRef - Ref for search input element
@@ -38,7 +38,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
   const [selectedResourceType, setSelectedResourceType] = useState("All")
-  const [showUnlisted, setShowUnlisted] = useState(false)
+  const [selectedListing, setSelectedListing] = useState("listed")
   const [searchDebounce, setSearchDebounce] = useState("")
 
   // Get all lab categories and providers using memoization
@@ -236,7 +236,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedProvider,
     selectedFilter,
     selectedResourceType,
-    showUnlisted,
+    selectedListing,
     searchFilteredLabs: enrichedLabs, // Return enriched labs with active booking marks
     searchDebounce,
     
@@ -246,7 +246,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedProvider,
     setSelectedFilter,
     setSelectedResourceType,
-    setShowUnlisted,
+    setSelectedListing,
     
     // Derived data
     categories,

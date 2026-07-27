@@ -67,7 +67,7 @@ describe("useLabFilters", () => {
       expect(result.current.selectedSort).toBe("relevance");
       expect(result.current.selectedProvider).toBe("All");
       expect(result.current.selectedFilter).toBe("Keyword");
-      expect(result.current.showUnlisted).toBe(false);
+      expect(result.current.selectedListing).toBe("listed");
       expect(result.current.searchDebounce).toBe("");
     });
 

@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
+import { MARKET_LISTING_OPTIONS } from '@/utils/market/marketListings'
 import { MARKET_SORT_OPTIONS } from '@/utils/market/marketSorts'
 
 const selectClassName = 'w-full rounded border border-slate-200 bg-white px-4 py-2 text-gray-800 shadow-md hover:bg-header-bg cursor-pointer'
@@ -18,13 +19,13 @@ const selectClassName = 'w-full rounded border border-slate-200 bg-white px-4 py
  * @param {string} props.selectedProvider - Currently selected provider
  * @param {string} props.selectedFilter - Currently selected search filter type
  * @param {string} props.selectedResourceType - Currently selected resource type filter ('All', 'lab', 'fmu')
- * @param {boolean} props.showUnlisted - Whether to include unlisted labs
+ * @param {string} props.selectedListing - Listing filter ('listed', 'all', 'unlisted')
  * @param {Function} props.onCategoryChange - Category selection handler
  * @param {Function} props.onSortChange - Catalogue sort handler
  * @param {Function} props.onProviderChange - Provider selection handler
  * @param {Function} props.onFilterChange - Search filter type handler
  * @param {Function} props.onResourceTypeChange - Resource type filter handler
- * @param {Function} props.onShowUnlistedChange - Include unlisted labs handler
+ * @param {Function} props.onListingChange - Listing filter handler
  * @param {Object} props.searchInputRef - Ref for search input
  * @param {boolean} props.loading - Loading state
  */
@@ -36,13 +37,13 @@ export default function LabFilters({
   selectedProvider,
   selectedFilter,
   selectedResourceType = 'All',
-  showUnlisted = false,
+  selectedListing = 'listed',
   onCategoryChange,
   onSortChange = () => {},
   onProviderChange,
   onFilterChange,
   onResourceTypeChange,
-  onShowUnlistedChange,
+  onListingChange = () => {},
   searchInputRef,
   loading = false,
 }) {
@@ -60,7 +61,7 @@ export default function LabFilters({
     selectedCategory !== 'All',
     selectedProvider !== 'All',
     selectedResourceType !== 'All',
-    showUnlisted,
+    selectedListing !== 'listed',
   ].filter(Boolean).length
 
   const handleKeyDown = (event) => {
@@ -82,7 +83,7 @@ export default function LabFilters({
     onCategoryChange('All')
     onProviderChange('All')
     onResourceTypeChange?.('All')
-    onShowUnlistedChange(false)
+    onListingChange('listed')
   }
 
   return (
@@ -230,13 +231,16 @@ export default function LabFilters({
               </label>
               <select
                 id="listing-filter"
-                onChange={(event) => onShowUnlistedChange(event.target.value === 'all')}
-                value={showUnlisted ? 'all' : 'listed'}
+                onChange={(event) => onListingChange(event.target.value)}
+                value={selectedListing}
                 className={selectClassName}
                 disabled={effectiveLoading}
               >
-                <option value="listed">Listed labs</option>
-                <option value="all">All labs</option>
+                {MARKET_LISTING_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -251,7 +255,7 @@ export default function LabFilters({
                 className={selectClassName}
                 disabled={effectiveLoading}
               >
-                <option value="All">Modality</option>
+                <option value="All">All types</option>
                 <option value="lab">Real</option>
                 <option value="fmu">Simulated</option>
               </select>
@@ -286,13 +290,13 @@ LabFilters.propTypes = {
   selectedSort: PropTypes.string,
   selectedProvider: PropTypes.string.isRequired,
   selectedFilter: PropTypes.string.isRequired,
-  showUnlisted: PropTypes.bool,
+  selectedListing: PropTypes.oneOf(['listed', 'all', 'unlisted']),
   onCategoryChange: PropTypes.func.isRequired,
   onSortChange: PropTypes.func,
   onProviderChange: PropTypes.func.isRequired,
   onFilterChange: PropTypes.func.isRequired,
   onResourceTypeChange: PropTypes.func,
-  onShowUnlistedChange: PropTypes.func.isRequired,
+  onListingChange: PropTypes.func,
   selectedResourceType: PropTypes.string,
   searchInputRef: PropTypes.object.isRequired,
   loading: PropTypes.bool,

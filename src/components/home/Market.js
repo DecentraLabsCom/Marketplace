@@ -32,14 +32,14 @@ export default function Market({ initialMarketSnapshot = null }) {
     selectedProvider,
     selectedFilter,
     selectedResourceType,
-    showUnlisted,
+    selectedListing,
     searchDebounce,
     setSelectedCategory,
     setSelectedSort,
     setSelectedProvider,
     setSelectedFilter,
     setSelectedResourceType,
-    setShowUnlisted,
+    setSelectedListing,
     searchInputRef,
   } = marketFilters;
   const catalogueFilters = useMemo(() => ({
@@ -47,6 +47,7 @@ export default function Market({ initialMarketSnapshot = null }) {
     ...(selectedCategory !== 'All' ? { category: selectedCategory } : {}),
     ...(selectedProvider !== 'All' ? { provider: selectedProvider } : {}),
     ...(selectedResourceType !== 'All' ? { resourceType: selectedResourceType } : {}),
+    ...(selectedListing !== 'listed' ? { listing: selectedListing } : {}),
     ...(selectedSort !== 'relevance' ? { sort: selectedSort } : {}),
   }), [
     searchDebounce,
@@ -55,9 +56,10 @@ export default function Market({ initialMarketSnapshot = null }) {
     selectedSort,
     selectedProvider,
     selectedResourceType,
+    selectedListing,
   ]);
   const labsQuery = usePublicMarketLabs({
-    includeUnlisted: showUnlisted,
+    includeUnlisted: selectedListing !== 'listed',
     enabled: true,
     initialData: initialMarketSnapshot,
     filters: catalogueFilters,
@@ -167,12 +169,12 @@ export default function Market({ initialMarketSnapshot = null }) {
           selectedSort={selectedSort}
           selectedProvider={selectedProvider}
           selectedFilter={selectedFilter}
-          showUnlisted={showUnlisted}
+          selectedListing={selectedListing}
           onCategoryChange={handleCategoryChange}
           onSortChange={handleSortChange}
           onProviderChange={handleProviderChange}
           onFilterChange={handleFilterChange}
-          onShowUnlistedChange={setShowUnlisted}
+          onListingChange={setSelectedListing}
           selectedResourceType={selectedResourceType}
           onResourceTypeChange={handleResourceTypeChange}
           searchInputRef={searchInputRef}

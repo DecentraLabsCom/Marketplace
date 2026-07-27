@@ -26,6 +26,20 @@ describe('market catalogue sorting', () => {
     expect(parseMarketCatalogueFilters(new URLSearchParams('sort=age_oldest'))).toEqual({
       sort: 'age_oldest',
     })
+    expect(parseMarketCatalogueFilters(new URLSearchParams('listing=unlisted'))).toEqual({
+      listing: 'unlisted',
+    })
+  })
+
+  test('filters listed and unlisted labs explicitly', () => {
+    const labs = [
+      lab(1, { isListed: true }),
+      lab(2, { isListed: false }),
+    ]
+
+    expect(filterMarketLabs(labs, { listing: 'listed' }).map(({ id }) => id)).toEqual([1])
+    expect(filterMarketLabs(labs, { listing: 'all' }).map(({ id }) => id)).toEqual([1, 2])
+    expect(filterMarketLabs(labs, { listing: 'unlisted' }).map(({ id }) => id)).toEqual([2])
   })
 
   test('sorts by rating with unrated labs at the end', () => {
