@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import LabDetail from "../LabDetail";
 
 // Mocks
@@ -144,6 +144,38 @@ describe("LabDetail - FMU Resource", () => {
     expect(screen.getByText("Co-Simulation")).toBeInTheDocument();
   });
 
+  test("uses one row only when all simulation summary items fit the panel", () => {
+    const observerCallbacks = [];
+    const previousResizeObserver = global.ResizeObserver;
+    global.ResizeObserver = class MockResizeObserver {
+      constructor(callback) {
+        observerCallbacks.push(callback);
+      }
+
+      observe() {}
+
+      disconnect() {}
+    };
+
+    try {
+      render(<LabDetail id="42" />);
+
+      const summaryGrid = screen.getByTestId("fmu-summary-grid");
+      Object.defineProperty(summaryGrid, "clientWidth", { configurable: true, value: 600 });
+      Object.defineProperty(summaryGrid, "scrollWidth", { configurable: true, value: 590 });
+
+      act(() => observerCallbacks[0]());
+      expect(summaryGrid).toHaveClass("md:grid-cols-[repeat(4,minmax(max-content,1fr))]");
+
+      Object.defineProperty(summaryGrid, "scrollWidth", { configurable: true, value: 601 });
+      act(() => observerCallbacks[0]());
+      expect(summaryGrid).not.toHaveClass("md:grid-cols-[repeat(4,minmax(max-content,1fr))]");
+      expect(summaryGrid).toHaveClass("grid-cols-2");
+    } finally {
+      global.ResizeObserver = previousResizeObserver;
+    }
+  });
+
   test("shows model variables table with input/output badges", () => {
     render(<LabDetail id="42" />);
     expect(screen.getByText("Model Variables")).toBeInTheDocument();
@@ -196,6 +228,67 @@ describe("LabDetail - FMU Resource", () => {
     expect(screen.getByText("n × n (3 × 3)")).toBeInTheDocument();
     expect(screen.getByText("n (3)")).toBeInTheDocument();
     expect(screen.getByText("[1, 0, 0, 0, 1, 0, 0, 0, 1]")).toBeInTheDocument();
+  });
+
+  test("shows a legend only for symbolic dimensions declared by the FMU", () => {
+    useLabById.mockReturnValue({
+      data: {
+        ...fmuLab,
+        modelVariables: [
+          { name: "n", start: "3" },
+          {
+            name: "A",
+            dimensions: [
+              { valueReference: 1, variableName: "n" },
+              { valueReference: 1, variableName: "n" },
+            ],
+          },
+          {
+            name: "x0",
+            dimensions: [{ valueReference: 1, variableName: "n" }],
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      metadataError: false,
+    });
+
+    render(<LabDetail id="42" />);
+
+    expect(screen.getByText("Dimension relationships")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Dimension" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Referenced by" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "A, x0" })).toBeInTheDocument();
+  });
+
+  test("keeps the variable metadata area bounded and scrolls to the dimension legend", () => {
+    useLabById.mockReturnValue({
+      data: {
+        ...fmuLab,
+        modelVariables: [
+          { name: "n", start: "3" },
+          {
+            name: "A",
+            dimensions: [
+              { valueReference: 1, variableName: "n" },
+              { valueReference: 1, variableName: "n" },
+            ],
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      metadataError: false,
+    });
+
+    render(<LabDetail id="42" />);
+
+    const scrollRegion = screen.getByTestId("fmu-variables-scroll");
+    expect(scrollRegion).toHaveClass("max-h-48", "overflow-y-auto");
+    expect(scrollRegion).toContainElement(screen.getByText("Dimension relationships"));
   });
 
   test("shows default time range", () => {

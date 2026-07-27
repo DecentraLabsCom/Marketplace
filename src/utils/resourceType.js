@@ -209,6 +209,46 @@ export function formatFmuVariableShape(variable, modelVariables = []) {
 }
 
 /**
+ * Extract only the relationships needed to explain symbolic dimensions.
+ * Values, types, and causalities stay in the model-variable table.
+ *
+ * @param {Array<Object>} modelVariables
+ * @returns {Array<{name: string, description: string|null, usedBy: string[]}>}
+ */
+export function getFmuDimensionLegend(modelVariables = []) {
+  if (!Array.isArray(modelVariables)) return []
+
+  const dimensions = new Map()
+
+  modelVariables.forEach((variable) => {
+    const variableName = variable?.name
+    if (!variableName || !Array.isArray(variable?.dimensions)) return
+
+    variable.dimensions.forEach((dimension) => {
+      const referencedVariable = findDimensionVariable(dimension, modelVariables)
+      const name = dimension?.variableName || referencedVariable?.name
+      if (!name) return
+
+      const entry = dimensions.get(name) || {
+        name: String(name),
+        description: referencedVariable?.description || null,
+        usedBy: [],
+      }
+
+      if (!entry.description && referencedVariable?.description) {
+        entry.description = referencedVariable.description
+      }
+      if (!entry.usedBy.includes(variableName)) {
+        entry.usedBy.push(variableName)
+      }
+      dimensions.set(name, entry)
+    })
+  })
+
+  return [...dimensions.values()]
+}
+
+/**
  * Format FMI scalar, vector, or matrix start values without losing their shape.
  * @param {unknown} value
  * @returns {string}

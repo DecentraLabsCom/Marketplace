@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -20,6 +20,7 @@ import {
   formatFmuSimulationType,
   formatFmuVariableShape,
   formatFmuVariableStart,
+  getFmuDimensionLegend,
 } from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
@@ -75,6 +76,88 @@ export default function LabDetail({ id }) {
     }
   );
 
+  const labIsFmu = isFmu(lab);
+  const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
+  const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
+  const fmuSummaryItems = useMemo(() => {
+    if (!fmuMeta) return [];
+
+    const items = [];
+    if (fmuMeta.fmiVersion) {
+      items.push({ label: 'FMI Version', value: fmuMeta.fmiVersion });
+    }
+    if (fmuMeta.simulationType) {
+      items.push({ label: 'Type', value: fmuSimulationTypeLabel });
+    }
+    if (fmuMeta.defaultStartTime != null || fmuMeta.defaultStopTime != null) {
+      items.push({
+        label: 'Default Time',
+        value: `${fmuMeta.defaultStartTime ?? 0}s – ${fmuMeta.defaultStopTime ?? '?'}s`,
+      });
+    }
+    if (fmuMeta.defaultStepSize != null) {
+      items.push({ label: 'Step Size', value: `${fmuMeta.defaultStepSize}s` });
+    }
+    return items;
+  }, [
+    fmuMeta?.fmiVersion,
+    fmuMeta?.simulationType,
+    fmuMeta?.defaultStartTime,
+    fmuMeta?.defaultStopTime,
+    fmuMeta?.defaultStepSize,
+    fmuSimulationTypeLabel,
+  ]);
+  const [fmuSummaryFitsSingleRow, setFmuSummaryFitsSingleRow] = useState(false);
+  const fmuSummaryGridRef = useRef(null);
+
+  useEffect(() => {
+    const summaryGrid = fmuSummaryGridRef.current;
+    if (!summaryGrid) return undefined;
+
+    const measureSummary = () => {
+      const availableWidth = summaryGrid.clientWidth;
+      const summaryCards = Array.from(summaryGrid.children);
+      const previousGridStyle = summaryGrid.getAttribute('style');
+      const previousCardStyles = summaryCards.map((card) => card.getAttribute('style'));
+
+      summaryGrid.style.position = 'absolute';
+      summaryGrid.style.visibility = 'hidden';
+      summaryGrid.style.width = 'max-content';
+      summaryGrid.style.gridTemplateColumns = 'repeat(4, max-content)';
+      summaryCards.forEach((card) => {
+        card.style.width = 'max-content';
+        card.style.whiteSpace = 'nowrap';
+      });
+
+      const requiredWidth = summaryGrid.scrollWidth;
+
+      if (previousGridStyle === null) {
+        summaryGrid.removeAttribute('style');
+      } else {
+        summaryGrid.setAttribute('style', previousGridStyle);
+      }
+      summaryCards.forEach((card, index) => {
+        const previousStyle = previousCardStyles[index];
+        if (previousStyle === null) {
+          card.removeAttribute('style');
+        } else {
+          card.setAttribute('style', previousStyle);
+        }
+      });
+
+      setFmuSummaryFitsSingleRow(
+        fmuSummaryItems.length === 4 && requiredWidth > 0 && requiredWidth <= availableWidth
+      );
+    };
+
+    measureSummary();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+
+    const resizeObserver = new ResizeObserver(measureSummary);
+    resizeObserver.observe(summaryGrid);
+    return () => resizeObserver.disconnect();
+  }, [fmuSummaryItems]);
+
   // Lab is directly returned from the hook, no need for additional processing
 
   // âŒ Error handling for React Query
@@ -122,16 +205,52 @@ export default function LabDetail({ id }) {
   });
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
-  const labIsFmu = isFmu(lab);
-  const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
-  const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
+  const fmuDimensionLegend = fmuMeta
+    ? getFmuDimensionLegend(fmuMeta.modelVariables)
+    : [];
+  const hasFmuModelVariables = Array.isArray(fmuMeta?.modelVariables) && fmuMeta.modelVariables.length > 0;
+  const hasFmuDimensionDescriptions = fmuDimensionLegend.some((dimension) => dimension.description);
   const safeAccessUri = safeExternalHttpUrl(lab?.accessURI)
 
   return (
     <Container padding="sm">
-      <section className={`flex flex-col md:flex-row md:justify-center gap-6 md:gap-10 ${topSpacingClass}`}>
+      <section className={topSpacingClass}>
+        <header className="w-full">
+          <h1 className="text-2xl text-header-bg font-bold pb-2 text-center">
+            {lab?.name}
+          </h1>
+
+          {/* Unlisted Lab Badge */}
+          {lab?.isListed === false && (
+            <div className="flex justify-center mb-4">
+              <div className="bg-[#1f2426] border-l-4 border-brand p-3 rounded-r-lg shadow-sm">
+                <div className="flex items-center">
+                  <div className="shrink-0">
+                    <svg className="size-5 text-brand" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-header-bg font-medium">
+                      This laboratory is currently unlisted and not available for booking.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-center">
+            <hr className="mb-2 separator-width w-1/2" />
+          </div>
+        </header>
+
+        <div
+          data-testid="lab-content-columns"
+          className="mt-4 flex flex-col md:flex-row md:items-start md:justify-center gap-6 md:gap-10"
+        >
         {/* Carousel Section */}
-        <article className="w-full md:w-1/2 flex flex-col p-4">
+        <article className="w-full md:w-1/2 flex flex-col p-4 md:pt-0">
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} labId={lab.id} />
             {/* Price and Provider info - moved here */}
@@ -192,38 +311,8 @@ export default function LabDetail({ id }) {
         </article>
 
         {/* Lab Details Section */}
-        <article className="w-full md:w-2/5 mt-4">
-          <header>
-            <h1 className="text-2xl text-header-bg font-bold pb-2 text-center">
-              {lab?.name}
-            </h1>
-            
-            {/* Unlisted Lab Badge */}
-            {lab?.isListed === false && (
-              <div className="flex justify-center mb-4">
-                <div className="bg-[#1f2426] border-l-4 border-brand p-3 rounded-r-lg shadow-sm">
-                  <div className="flex items-center">
-                    <div className="shrink-0">
-                      <svg className="size-5 text-brand" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-header-bg font-medium">
-                        This laboratory is currently unlisted and not available for booking.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex justify-center">
-              <hr className="mb-2 separator-width w-1/2" />
-            </div>
-          </header>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
+        <article data-testid="lab-details-column" className="w-full md:w-2/5 md:mt-0">
+          <div className="mt-0 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
               <div className="mt-1 flex items-center gap-2">
@@ -290,74 +379,103 @@ export default function LabDetail({ id }) {
             {labIsFmu && fmuMeta && (
               <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
                 <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {fmuMeta.fmiVersion && (
-                    <div>
-                      <span className="text-text-secondary text-xs uppercase tracking-wide">FMI Version</span>
-                      <p className="text-neutral-200 font-medium">{fmuMeta.fmiVersion}</p>
-                    </div>
-                  )}
-                  {fmuMeta.simulationType && (
-                    <div>
-                      <span className="text-text-secondary text-xs uppercase tracking-wide">Type</span>
-                      <p className="text-neutral-200 font-medium">{fmuSimulationTypeLabel}</p>
-                    </div>
-                  )}
-                  {(fmuMeta.defaultStartTime != null || fmuMeta.defaultStopTime != null) && (
-                    <div>
-                      <span className="text-text-secondary text-xs uppercase tracking-wide">Default Time</span>
-                      <p className="text-neutral-200 font-medium">
-                        {fmuMeta.defaultStartTime ?? 0}s &ndash; {fmuMeta.defaultStopTime ?? '?'}s
+                <div
+                  ref={fmuSummaryGridRef}
+                  data-testid="fmu-summary-grid"
+                  className={`grid grid-cols-2 gap-3 text-sm ${
+                    fmuSummaryFitsSingleRow ? 'md:grid-cols-[repeat(4,minmax(max-content,1fr))]' : ''
+                  }`}
+                >
+                  {fmuSummaryItems.map(({ label, value }) => (
+                    <div key={label} className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
+                      <div className="text-xs uppercase tracking-wide text-text-secondary">
+                        {label}
+                      </div>
+                      <p className={`text-neutral-200 font-medium ${fmuSummaryFitsSingleRow ? 'md:whitespace-nowrap' : ''}`}>
+                        {value}
                       </p>
                     </div>
-                  )}
-                  {fmuMeta.defaultStepSize != null && (
-                    <div>
-                      <span className="text-text-secondary text-xs uppercase tracking-wide">Step Size</span>
-                      <p className="text-neutral-200 font-medium">{fmuMeta.defaultStepSize}s</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
 
-                {/* Model Variables Table */}
-                {Array.isArray(fmuMeta.modelVariables) && fmuMeta.modelVariables.length > 0 && (
+                {/* Model variables and dimension legend share one scroll region so the FMU panel keeps its height. */}
+                {(hasFmuModelVariables || fmuDimensionLegend.length > 0) && (
                   <div className="mt-4">
-                    <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
-                    <div className="max-h-48 overflow-x-auto overflow-y-auto rounded border border-[#2a2f33]">
-                      <table className="w-full text-xs">
-                        <thead className="bg-[#181b1d] sticky top-0">
-                          <tr>
-                            <th className="text-left px-2 py-1 text-text-secondary">Name</th>
-                            <th className="text-left px-2 py-1 text-text-secondary">Type</th>
-                            <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
-                            <th className="text-left px-2 py-1 text-text-secondary">Shape</th>
-                            <th className="text-left px-2 py-1 text-text-secondary">Start</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fmuMeta.modelVariables.map((v, i) => (
-                            <tr key={v.name || i} className="border-t border-[#2a2f33]">
-                              <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
-                              <td className="px-2 py-1 text-neutral-200">{v.type || '—'}</td>
-                              <td className="px-2 py-1">
-                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                  v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
-                                  v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
-                                  'bg-gray-700 text-gray-300'
-                                }`}>
-                                  {v.causality || 'local'}
-                                </span>
-                              </td>
-                              <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
-                                {formatFmuVariableShape(v, fmuMeta.modelVariables)}
-                              </td>
-                              <td className="px-2 py-1 text-neutral-200 break-words max-w-48">
-                                {formatFmuVariableStart(v.start)}
-                              </td>
+                    {hasFmuModelVariables && (
+                      <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
+                    )}
+                    <div
+                      data-testid="fmu-variables-scroll"
+                      className="max-h-48 overflow-x-auto overflow-y-auto rounded border border-[#2a2f33]"
+                    >
+                      {hasFmuModelVariables && (
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#181b1d] sticky top-0">
+                            <tr>
+                              <th className="text-left px-2 py-1 text-text-secondary">Name</th>
+                              <th className="text-left px-2 py-1 text-text-secondary">Type</th>
+                              <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
+                              <th className="text-left px-2 py-1 text-text-secondary">Shape</th>
+                              <th className="text-left px-2 py-1 text-text-secondary">Start</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {fmuMeta.modelVariables.map((v, i) => (
+                              <tr key={v.name || i} className="border-t border-[#2a2f33]">
+                                <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
+                                <td className="px-2 py-1 text-neutral-200">{v.type || '—'}</td>
+                                <td className="px-2 py-1">
+                                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
+                                    v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
+                                    'bg-gray-700 text-gray-300'
+                                  }`}>
+                                    {v.causality || 'local'}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
+                                  {formatFmuVariableShape(v, fmuMeta.modelVariables)}
+                                </td>
+                                <td className="px-2 py-1 text-neutral-200 break-words max-w-48">
+                                  {formatFmuVariableStart(v.start)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+
+                      {fmuDimensionLegend.length > 0 && (
+                        <div className="mt-4 rounded border border-[#2a2f33] bg-[#181b1d] p-3">
+                          <h4 className="text-header-bg text-sm font-semibold mb-2">Dimension relationships</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="bg-[#181b1d]">
+                                <tr>
+                                  <th className="text-left px-2 py-1 text-text-secondary">Dimension</th>
+                                  <th className="text-left px-2 py-1 text-text-secondary">Referenced by</th>
+                                  {hasFmuDimensionDescriptions && (
+                                    <th className="text-left px-2 py-1 text-text-secondary">Description</th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fmuDimensionLegend.map((dimension) => (
+                                  <tr key={dimension.name} className="border-t border-[#2a2f33]">
+                                    <td className="px-2 py-1 font-mono text-neutral-200">{dimension.name}</td>
+                                    <td className="px-2 py-1 text-neutral-300">{dimension.usedBy.join(', ')}</td>
+                                    {hasFmuDimensionDescriptions && (
+                                      <td className="px-2 py-1 text-neutral-300">
+                                        {dimension.description || '—'}
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -384,6 +502,7 @@ export default function LabDetail({ id }) {
             </div>
           </div>
         </article>
+        </div>
       </section>
     </Container>
   )

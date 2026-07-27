@@ -14,6 +14,7 @@ import {
   getResourceTypeLabel,
   getMaxConcurrentUsers,
   getFmuMetadata,
+  getFmuDimensionLegend,
 } from '../resourceType'
 
 describe('getResourceType', () => {
@@ -197,5 +198,57 @@ describe('getFmuMetadata', () => {
     const meta = getFmuMetadata(resource)
     expect(Object.keys(meta)).toEqual(['fmiVersion'])
     expect(meta.name).toBeUndefined()
+  })
+})
+
+describe('getFmuDimensionLegend', () => {
+  test('extracts only declared symbolic dimensions and their references', () => {
+    const modelVariables = [
+      { name: 'm', type: 'UInt64', causality: 'structuralParameter', start: '3' },
+      { name: 'n', type: 'UInt64', causality: 'structuralParameter', start: '3' },
+      {
+        name: 'A',
+        dimensions: [
+          { valueReference: 2, variableName: 'n' },
+          { valueReference: 2, variableName: 'n' },
+        ],
+      },
+      {
+        name: 'B',
+        dimensions: [{ valueReference: 2, variableName: 'n' }, { variableName: 'm' }],
+      },
+    ]
+
+    expect(getFmuDimensionLegend(modelVariables)).toEqual([
+      {
+        name: 'n',
+        description: null,
+        usedBy: ['A', 'B'],
+      },
+      {
+        name: 'm',
+        description: null,
+        usedBy: ['B'],
+      },
+    ])
+  })
+
+  test('does not invent labels for literal dimensions', () => {
+    expect(getFmuDimensionLegend([
+      { name: 'position', dimensions: [{ start: 3 }] },
+    ])).toEqual([])
+  })
+
+  test('preserves a description supplied by the FMU', () => {
+    expect(getFmuDimensionLegend([
+      { name: 'n', description: 'Number of states' },
+      { name: 'x', dimensions: [{ variableName: 'n' }] },
+    ])).toEqual([
+      {
+        name: 'n',
+        description: 'Number of states',
+        usedBy: ['x'],
+      },
+    ])
   })
 })

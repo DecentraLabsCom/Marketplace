@@ -195,6 +195,25 @@ describe("LabDetail", () => {
       expect(screen.queryByText("0.0")).not.toBeInTheDocument();
     });
   });
+
+  describe("Layout", () => {
+    test("places the lab title before and centered over the two content columns", () => {
+      render(<LabDetail id="lab-123" />);
+
+      const title = screen.getByRole("heading", {
+        level: 1,
+        name: "Advanced Chemistry Lab",
+      });
+      const carousel = screen.getByTestId("carousel");
+
+      expect(title.compareDocumentPosition(carousel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(title).toHaveClass("text-center");
+      expect(title.closest("header")).toHaveClass("w-full");
+      expect(screen.getByTestId("lab-content-columns")).toHaveClass("md:items-start");
+      expect(screen.getByTestId("lab-details-column")).toHaveClass("md:mt-0");
+    });
+  });
+
   describe("Booking Functionality", () => {
     test("enables booking button and navigates for listed lab", () => {
       render(<LabDetail id="lab-123" />);
