@@ -25,7 +25,7 @@ describe('GET /api/market/labs', () => {
     })
   })
 
-  test('requests the listed-only DTO by default and adds public caching', async () => {
+  test('requests the listed-only DTO by default without HTTP edge caching', async () => {
     const response = await GET({
       nextUrl: new URL('https://market.example/api/market/labs'),
     })
@@ -36,7 +36,7 @@ describe('GET /api/market/labs', () => {
       limit: 24,
       filters: {},
     })
-    expect(response.headers.get('Cache-Control')).toContain('s-maxage=60')
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     await expect(response.json()).resolves.toEqual(expect.objectContaining({ totalLabs: 1 }))
   })
 
@@ -115,7 +115,7 @@ describe('GET /api/market/labs', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
   test('validates and forwards server-side search and filter parameters', async () => {

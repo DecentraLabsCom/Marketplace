@@ -5,7 +5,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { useOptionalUser } from '@/context/UserContext'
-import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { labQueryKeys, marketQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
@@ -195,6 +195,25 @@ const pollExecutedIntentForLabId = async (requestId, {
   }
 };
 
+const invalidateServerMarketCache = async (labId) => {
+  try {
+    const response = await fetch('/api/market/invalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      cache: 'no-store',
+      body: JSON.stringify({ labId }),
+    })
+    if (!response.ok) {
+      devLog.warn('Public market server cache invalidation failed:', response.status)
+    }
+  } catch (error) {
+    // Cache invalidation is best effort; the confirmed on-chain mutation must
+    // remain successful even if the optional server-side cache is unavailable.
+    devLog.warn('Public market server cache invalidation unavailable:', error?.message || error)
+  }
+}
+
 // ===== MUTATIONS =====
 
 // Intent hook for /api/backend/intents/actions/prepare (institution executes)
@@ -333,6 +352,7 @@ export const useUpdateLabSSO = (options = {}) => {
 
                 if (status === 'executed') {
                   await assertInstitutionIntentExecuted(requestId, result);
+                  await invalidateServerMarketCache(variables.labId);
                   updateLab(variables.labId, {
                     ...variables.labData,
                     id: variables.labId,
@@ -342,6 +362,13 @@ export const useUpdateLabSSO = (options = {}) => {
                     intentStatus: 'executed',
                     note: 'Executed by institution',
                     timestamp: new Date().toISOString()
+                  });
+                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+                  queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
+                  queryClient.invalidateQueries({
+                    queryKey: metadataQueryKeys.byUri(variables.labData.uri, variables.labId),
+                    exact: true,
+                    refetchType: 'active',
                   });
                 } else if (status === 'failed' || status === 'rejected') {
                   updateLab(variables.labId, {
@@ -540,8 +567,9 @@ export const useListLabSSO = (options = {}) => {
         status,
       };
     },
-    onSuccess: (data, { labId }) => {
+    onSuccess: async (data, { labId }) => {
       try {
+        await invalidateServerMarketCache(labId);
         updateLab(labId, {
           id: labId,
           labId,
@@ -557,6 +585,7 @@ export const useListLabSSO = (options = {}) => {
         queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
         queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
         queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
       } catch (error) {
         devLog.error('Failed to handle list intent response:', error);
       }
@@ -613,8 +642,9 @@ export const useUnlistLabSSO = (options = {}) => {
         status,
       };
     },
-    onSuccess: (data, { labId }) => {
+    onSuccess: async (data, { labId }) => {
       try {
+        await invalidateServerMarketCache(labId);
         updateLab(labId, {
           id: labId,
           labId,
@@ -630,6 +660,7 @@ export const useUnlistLabSSO = (options = {}) => {
         queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
         queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
         queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
       } catch (error) {
         devLog.error('Failed to handle unlist intent response:', error);
       }

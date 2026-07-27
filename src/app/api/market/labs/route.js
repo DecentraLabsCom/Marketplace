@@ -36,11 +36,12 @@ export async function GET(request) {
   const isStale = snapshot?.catalogueStatus === MARKET_CATALOGUE_STATUS.STALE
   const response = NextResponse.json(publicSnapshot, { status: isUnavailable ? 503 : 200 })
 
-  response.headers.set('Cache-Control', isUnavailable
+  // The server-side snapshot store is the cache for this catalogue. Keeping
+  // the HTTP response private prevents a stale Vercel edge response from
+  // surviving an explicit snapshot invalidation after a lab mutation.
+  response.headers.set('Cache-Control', isUnavailable || isStale
     ? 'no-store'
-    : isStale
-      ? 'private, no-store'
-      : 'public, s-maxage=60, stale-while-revalidate=300')
+    : 'private, no-store')
 
   if (isUnavailable) {
     response.headers.set('Retry-After', '30')

@@ -2,7 +2,7 @@
  * Tests for institutional lab mutation hooks.
  */
 
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   useAddLabSSO,
@@ -11,6 +11,7 @@ import {
   useUnlistLabSSO,
   useUpdateLabSSO,
 } from '../useLabAtomicMutations'
+import { labQueryKeys, marketQueryKeys } from '@/utils/hooks/queryKeys'
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -60,8 +61,12 @@ const createWrapper = (queryClient) => {
 }
 
 describe('institutional lab mutations', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks()
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollIntentStatus.mockReset()
+    pollAuth.mockReset()
     global.fetch = jest.fn()
     jest.spyOn(Date, 'now').mockReturnValue(1000)
 
@@ -133,6 +138,7 @@ describe('institutional lab mutations', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useAddLabSSO(), {
       wrapper: createWrapper(queryClient),
     })
@@ -208,29 +214,29 @@ describe('institutional lab mutations', () => {
       .mockResolvedValueOnce({ status: 'executed', txHash: '0xlist' })
       .mockResolvedValueOnce({ status: 'executed', txHash: '0xunlist' })
 
-    global.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ name: 'Listed lab', description: 'Ready for reservations' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          authorizationUrl: 'https://backend.example/auth/list',
-          authorizationSessionId: 'auth-list',
-          intent: { meta: { requestId: 'req-list' }, payload: {} },
-          backendAuthToken: 'auth-list',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          authorizationUrl: 'https://backend.example/auth/unlist',
-          authorizationSessionId: 'auth-unlist',
-          intent: { meta: { requestId: 'req-unlist' }, payload: {} },
-          backendAuthToken: 'auth-unlist',
-        }),
-      })
+    const prepareResponses = [
+      {
+        authorizationUrl: 'https://backend.example/auth/list',
+        authorizationSessionId: 'auth-list',
+        intent: { meta: { requestId: 'req-list' }, payload: {} },
+        backendAuthToken: 'auth-list',
+      },
+      {
+        authorizationUrl: 'https://backend.example/auth/unlist',
+        authorizationSessionId: 'auth-unlist',
+        intent: { meta: { requestId: 'req-unlist' }, payload: {} },
+        backendAuthToken: 'auth-unlist',
+      },
+    ]
+    global.fetch.mockImplementation(async (url) => {
+      if (String(url).startsWith('/api/metadata?')) {
+        return { ok: true, json: async () => ({ name: 'Listed lab', description: 'Ready for reservations' }) }
+      }
+      if (url === '/api/market/invalidate') {
+        return { ok: true, json: async () => ({ invalidated: true }) }
+      }
+      return { ok: true, json: async () => prepareResponses.shift() }
+    })
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -245,6 +251,45 @@ describe('institutional lab mutations', () => {
     })
 
     expect(pollIntentStatus).toHaveBeenCalledTimes(2)
+  })
+
+  test('invalidates the public market catalogue after listing a lab', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-list-cache' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xlist-cache' })
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ name: 'Listed lab', description: 'Ready for reservations' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: 'https://backend.example/auth/list-cache',
+          authorizationSessionId: 'auth-list-cache',
+          intent: { meta: { requestId: 'req-list-cache' }, payload: {} },
+          backendAuthToken: 'auth-list-cache',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ invalidated: true }) })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useListLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await result.current.mutateAsync({ labId: '4', backendUrl: 'https://backend.example' })
+    })
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: marketQueryKeys.all(),
+    })
   })
 
   test('list mutation does not poison listing cache to false when polling fails', async () => {
@@ -353,36 +398,34 @@ describe('institutional lab mutations', () => {
   test('update and delete mutations prepare institutional intents', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
-    pollAuth
-      .mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-update' })
-      .mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-delete' })
-    pollIntentStatus
-      .mockResolvedValueOnce({ status: 'executed', txHash: '0xupdate' })
-      .mockResolvedValueOnce({ status: 'executed', txHash: '0xdelete' })
+    pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-update' })
+    pollIntentStatus.mockResolvedValue({ status: 'executed', txHash: '0xupdate' })
 
-    global.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          authorizationUrl: 'https://backend.example/auth/update',
-          authorizationSessionId: 'auth-update',
-          intent: { meta: { requestId: 'req-update' }, payload: {} },
-          backendAuthToken: 'auth-update',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          authorizationUrl: 'https://backend.example/auth/delete',
-          authorizationSessionId: 'auth-delete',
-          intent: { meta: { requestId: 'req-delete' }, payload: {} },
-          backendAuthToken: 'auth-delete',
-        }),
-      })
+    const prepareResponses = [
+      {
+        authorizationUrl: 'https://backend.example/auth/update',
+        authorizationSessionId: 'auth-update',
+        intent: { meta: { requestId: 'req-update' }, payload: {} },
+        backendAuthToken: 'auth-update',
+      },
+      {
+        authorizationUrl: 'https://backend.example/auth/delete',
+        authorizationSessionId: 'auth-delete',
+        intent: { meta: { requestId: 'req-delete' }, payload: {} },
+        backendAuthToken: 'auth-delete',
+      },
+    ]
+    global.fetch.mockImplementation(async (url) => {
+      if (url === '/api/market/invalidate') {
+        return { ok: true, json: async () => ({ invalidated: true }) }
+      }
+      return { ok: true, json: async () => prepareResponses.shift() }
+    })
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
 
     const { result: updateResult } = renderHook(() => useUpdateLabSSO(), { wrapper: createWrapper(queryClient) })
     const { result: deleteResult } = renderHook(() => useDeleteLabSSO(), { wrapper: createWrapper(queryClient) })
@@ -396,7 +439,60 @@ describe('institutional lab mutations', () => {
       await deleteResult.current.mutateAsync({ labId: '9', backendUrl: 'https://backend.example' })
     })
 
-    expect(global.fetch).toHaveBeenCalledTimes(2)
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: marketQueryKeys.all(),
+      })
+    })
+  })
+
+  test('invalidates lab and public market caches after an update intent executes', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-update-cache' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xupdate-cache' })
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: 'https://backend.example/auth/update-cache',
+          authorizationSessionId: 'auth-update-cache',
+          intent: { meta: { requestId: 'req-update-cache' }, payload: {} },
+          backendAuthToken: 'auth-update-cache',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ invalidated: true }) })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useUpdateLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        labId: '4',
+        labData: { uri: 'Lab-provider-4.json', price: '10', accessURI: '', accessKey: '' },
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: labQueryKeys.getLab('4'),
+        exact: true,
+      })
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: marketQueryKeys.all(),
+      })
+    })
+    expect(global.fetch).toHaveBeenCalledWith('/api/market/invalidate', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ labId: '4' }),
+    }))
   })
 
   test('delete mutation does not resolve before the institutional execution succeeds', async () => {

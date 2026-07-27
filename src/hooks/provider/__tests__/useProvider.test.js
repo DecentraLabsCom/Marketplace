@@ -22,7 +22,7 @@ import {
   useDeleteFile,
   useDeleteLabData,
 } from "../useProvider";
-import { metadataQueryKeys } from "@/utils/hooks/queryKeys";
+import { marketQueryKeys, metadataQueryKeys } from "@/utils/hooks/queryKeys";
 
 // Mock external dependencies
 jest.mock("@/utils/dev/logger", () => ({
@@ -139,6 +139,9 @@ describe("Provider Mutation Hooks", () => {
         exact: true,
         refetchType: "all",
       });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: marketQueryKeys.all(),
+      });
     });
 
     test("updates cache directly when metadata fetch succeeds", async () => {
@@ -172,8 +175,9 @@ describe("Provider Mutation Hooks", () => {
         metadataQueryKeys.byUri("lab-456"),
         freshMetadata
       );
-      // invalidateQueries should NOT be called when the direct fetch succeeds
-      expect(invalidateQueriesSpy).not.toHaveBeenCalled();
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: marketQueryKeys.all(),
+      });
     });
 
     test("uses the new lab id when refreshing metadata after creation", async () => {

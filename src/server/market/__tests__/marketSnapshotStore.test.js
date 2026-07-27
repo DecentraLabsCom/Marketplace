@@ -10,6 +10,7 @@ jest.mock('@/utils/redis/restClient', () => ({
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 import {
   clearMarketSnapshotStoreForTests,
+  invalidateMarketSnapshots,
   readMarketSnapshot,
   revalidateMarketSnapshot,
   writeMarketSnapshot,
@@ -77,5 +78,36 @@ describe('market snapshot store', () => {
       code: 'MARKET_SNAPSHOT_REVALIDATING',
     })
     expect(loader).not.toHaveBeenCalled()
+  })
+
+  test('invalidates local and Redis-backed market snapshots', async () => {
+    redisCommand.mockResolvedValueOnce('OK')
+    await writeMarketSnapshot(page, snapshot)
+
+    redisCommand.mockReset()
+    redisCommand
+      .mockResolvedValueOnce(['0', [
+        'marketplace:market-snapshot:v2:listed:0:24',
+        'marketplace:market-snapshot:v2:unlisted:0:100',
+      ]])
+      .mockResolvedValueOnce(2)
+    await invalidateMarketSnapshots()
+
+    expect(redisCommand).toHaveBeenCalledWith([
+      'SCAN',
+      '0',
+      'MATCH',
+      'marketplace:market-snapshot:v2:*',
+      'COUNT',
+      '100',
+    ])
+    expect(redisCommand).toHaveBeenCalledWith([
+      'DEL',
+      'marketplace:market-snapshot:v2:listed:0:24',
+      'marketplace:market-snapshot:v2:unlisted:0:100',
+    ])
+
+    redisCommand.mockResolvedValueOnce(null)
+    await expect(readMarketSnapshot(page)).resolves.toBeNull()
   })
 })

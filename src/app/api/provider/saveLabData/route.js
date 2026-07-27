@@ -33,6 +33,7 @@ import {
 } from '@/constants/labClassifications'
 import { publicErrorResponse, sanitizeErrorForLog } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
+import { invalidateMarketSnapshots } from '@/server/market/marketSnapshotStore'
 
 const checkRate = createRateLimiter({ operation: 'provider-save-lab-data', windowMs: 60_000, maxRequests: 10 })
 
@@ -584,6 +585,11 @@ export async function POST(req) {
         context: 'provider-save-lab-data-write',
       });
     }
+
+    // The saved metadata is part of the public catalogue read model. Clear
+    // its server-side snapshots before responding so the next Home request
+    // can observe the new name, image, categories and other public fields.
+    await invalidateMarketSnapshots()
 
     // Return success response optimized for React Query
     // Include finalData so the client can populate the metadata cache directly

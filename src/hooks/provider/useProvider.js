@@ -4,7 +4,7 @@
  * Following the pattern: one hook per API endpoint for consistent caching
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { marketQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 const createApiError = async (response, fallbackMessage) => {
@@ -89,6 +89,7 @@ export const useSaveLabData = (options = {}) => {
             metadataQueryKeys.byUri(cacheKeyUri, labId),
             data.metadata,
           );
+          await queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
           devLog.log('✅ [useSaveLabData] Cache populated from response payload for key:', cacheKeyUri);
           return;
         }
@@ -119,6 +120,7 @@ export const useSaveLabData = (options = {}) => {
               metadataQueryKeys.byUri(cacheKeyUri, labId),
               freshData,
             );
+            await queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
             devLog.log('✅ [useSaveLabData] Cache updated with fresh server data for key:', cacheKeyUri);
             return;
           }
@@ -132,6 +134,7 @@ export const useSaveLabData = (options = {}) => {
           exact: true,
           refetchType: 'all'
         });
+        await queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
         
         devLog.log('✅ [useSaveLabData] Cache invalidation completed for key:', cacheKeyUri);
       }

@@ -119,6 +119,55 @@ export async function writeMarketSnapshot(page, snapshot) {
   }
 }
 
+/**
+ * Drops all public catalogue snapshots after a confirmed lab mutation.
+ *
+ * Snapshot keys are intentionally discovered with SCAN rather than KEYS so a
+ * refresh cannot block Redis when the catalogue grows. Redis is an optional
+ * optimization, so an unavailable remote cache must not make a mutation fail.
+ */
+export async function invalidateMarketSnapshots() {
+  memorySnapshots.clear()
+
+  if (!hasRedisConfig()) {
+    return { remoteSnapshotsDeleted: 0 }
+  }
+
+  let cursor = '0'
+  let remoteSnapshotsDeleted = 0
+
+  try {
+    do {
+      const scanResult = await redisCommand([
+        'SCAN',
+        cursor,
+        'MATCH',
+        `${MARKET_SNAPSHOT_KEY_PREFIX}*`,
+        'COUNT',
+        '100',
+      ])
+      const nextCursor = scanResult?.[0]
+      const keys = Array.isArray(scanResult?.[1])
+        ? scanResult[1].filter((key) => typeof key === 'string' && key.startsWith(MARKET_SNAPSHOT_KEY_PREFIX))
+        : []
+
+      for (let index = 0; index < keys.length; index += 100) {
+        const batch = keys.slice(index, index + 100)
+        if (batch.length === 0) continue
+        await redisCommand(['DEL', ...batch])
+        remoteSnapshotsDeleted += batch.length
+      }
+
+      cursor = nextCursor === undefined || nextCursor === null ? '0' : String(nextCursor)
+    } while (cursor !== '0')
+  } catch {
+    // A stale remote copy is preferable to making a confirmed lab mutation
+    // fail. The normal freshness/revalidation path will repair it shortly.
+  }
+
+  return { remoteSnapshotsDeleted }
+}
+
 export const isMarketSnapshotRevalidating = (page) => revalidations.has(snapshotKey(page))
 
 export const shouldRetryMarketSnapshot = (page, now = Date.now()) => {
