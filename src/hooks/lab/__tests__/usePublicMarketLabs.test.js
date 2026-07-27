@@ -31,6 +31,10 @@ describe('usePublicMarketLabs', () => {
       cursor: 0,
       nextCursor: '24',
       snapshotAt: new Date().toISOString(),
+      facets: {
+        categories: ['Physics'],
+        providers: ['Provider University'],
+      },
     }
 
     const { result } = renderHook(
@@ -45,6 +49,26 @@ describe('usePublicMarketLabs', () => {
     })
     expect(result.current.isLoading).toBe(false)
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  test('does not synthesize facets when the server response omits them', () => {
+    const initialData = {
+      labs: [{ id: 1, name: 'SSR lab', category: ['Physics'], provider: 'Provider University' }],
+      totalLabs: 1,
+      cursor: 0,
+      nextCursor: null,
+      snapshotAt: new Date().toISOString(),
+    }
+
+    const { result } = renderHook(
+      () => usePublicMarketLabs({ initialData }),
+      { wrapper: createWrapper() },
+    )
+
+    expect(result.current.data.facets).toEqual({
+      categories: [],
+      providers: [],
+    })
   })
 
   test('fetches the next cursor page only when requested', async () => {

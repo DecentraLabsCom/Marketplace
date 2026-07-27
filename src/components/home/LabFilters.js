@@ -290,7 +290,7 @@ LabFilters.propTypes = {
   selectedSort: PropTypes.string,
   selectedProvider: PropTypes.string.isRequired,
   selectedFilter: PropTypes.string.isRequired,
-  selectedListing: PropTypes.oneOf(['listed', 'all', 'unlisted']),
+  selectedListing: PropTypes.oneOf(['listed', 'unlisted', 'all']),
   onCategoryChange: PropTypes.func.isRequired,
   onSortChange: PropTypes.func,
   onProviderChange: PropTypes.func.isRequired,

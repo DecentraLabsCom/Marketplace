@@ -92,15 +92,6 @@ const getInitialDataUpdatedAt = (initialPage) => {
   return Number.isFinite(timestamp) ? timestamp : undefined
 }
 
-const deriveFacetValues = (labs, facet, valueSelector) => {
-  if (Array.isArray(facet) && facet.length > 0) return facet
-
-  return [...new Set((Array.isArray(labs) ? labs : [])
-    .flatMap(valueSelector)
-    .filter((value) => typeof value === 'string' && value.trim()))]
-    .sort((left, right) => left.localeCompare(right))
-}
-
 /**
  * Reads the server-side public catalogue DTO. The first page rendered by the
  * server seeds React Query, so hydration does not issue a duplicate catalogue
@@ -164,16 +155,16 @@ export const usePublicMarketLabs = ({
           ? 'stale'
           : 'fresh',
       facets: {
-        categories: deriveFacetValues(
-          labs,
-          lastPage?.facets?.categories || pages[0]?.facets?.categories,
-          (lab) => (Array.isArray(lab?.category) ? lab.category : [lab?.category]),
-        ),
-        providers: deriveFacetValues(
-          labs,
-          lastPage?.facets?.providers || pages[0]?.facets?.providers,
-          (lab) => [lab?.provider],
-        ),
+        categories: Array.isArray(lastPage?.facets?.categories)
+          ? lastPage.facets.categories
+          : Array.isArray(pages[0]?.facets?.categories)
+            ? pages[0].facets.categories
+            : [],
+        providers: Array.isArray(lastPage?.facets?.providers)
+          ? lastPage.facets.providers
+          : Array.isArray(pages[0]?.facets?.providers)
+            ? pages[0].facets.providers
+            : [],
       },
     }
   }, [query.data])

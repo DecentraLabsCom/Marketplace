@@ -40,7 +40,7 @@ describe('market snapshot store', () => {
 
     expect(redisCommand).toHaveBeenCalledWith([
       'SET',
-      'marketplace:market-snapshot:v1:listed:0:24',
+      'marketplace:market-snapshot:v2:listed:0:24',
       JSON.stringify(snapshot),
       'EX',
       '86400',
@@ -60,7 +60,7 @@ describe('market snapshot store', () => {
 
     expect(redisCommand).toHaveBeenCalledWith([
       'SET',
-      'marketplace:market-snapshot-refresh:v1:marketplace:market-snapshot:v1:listed:0:24',
+      'marketplace:market-snapshot-refresh:v1:marketplace:market-snapshot:v2:listed:0:24',
       '1',
       'NX',
       'EX',

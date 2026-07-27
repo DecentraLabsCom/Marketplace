@@ -280,11 +280,19 @@ const isConfiguredBlobMetadataUri = (metadataUri) => {
   }
 }
 
-export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {}) {
+export async function loadOnChainLabMetadata(
+  labId,
+  {
+    cacheBuster = null,
+    contract: suppliedContract = null,
+    ownerAddress = null,
+    additionalAllowedOrigins = null,
+  } = {},
+) {
   const normalizedLabId = normalizeLabId(labId)
   let metadataUri
   try {
-    const contract = await getContractInstance()
+    const contract = suppliedContract || await getContractInstance()
     metadataUri = await contract.tokenURI(normalizedLabId)
   } catch (error) {
     if (error instanceof MetadataFetchError) throw error
@@ -296,7 +304,13 @@ export async function loadOnChainLabMetadata(labId, { cacheBuster = null } = {})
   const normalizedUri = metadataUri.trim()
   const providerOrigins = isLocalMetadataUri(normalizedUri) || isConfiguredBlobMetadataUri(normalizedUri)
     ? []
-    : await resolveProviderMetadataOrigins({ labId: normalizedLabId }).catch(() => [])
+    : Array.isArray(additionalAllowedOrigins)
+      ? additionalAllowedOrigins
+      : await resolveProviderMetadataOrigins({
+        labId: normalizedLabId,
+        ownerAddress,
+        contract: suppliedContract,
+      }).catch(() => [])
   return {
     metadataUri: normalizedUri,
     metadata: await loadMetadataDocument(normalizedUri, {

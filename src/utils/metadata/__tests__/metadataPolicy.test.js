@@ -245,6 +245,35 @@ describe('metadata egress policy', () => {
     })
   })
 
+  test('can reuse the market snapshot contract and trusted provider origins', async () => {
+    delete process.env.ALLOWED_METADATA_ORIGINS
+    const { getContractInstance } = jest.requireMock('@/app/api/contract/utils/contractInstance')
+    const suppliedContract = {
+      tokenURI: jest.fn().mockResolvedValue('https://gateway.example/lab.json'),
+    }
+    getContractInstance.mockResolvedValue({
+      tokenURI: jest.fn(),
+    })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      body: new Response(JSON.stringify({ name: 'Market lab' })).body,
+    })
+
+    await expect(policy.loadOnChainLabMetadata(7, {
+      contract: suppliedContract,
+      ownerAddress: '0x00000000000000000000000000000000000000a1',
+      additionalAllowedOrigins: ['https://gateway.example'],
+    })).resolves.toMatchObject({
+      metadataUri: 'https://gateway.example/lab.json',
+      metadata: { name: 'Market lab' },
+    })
+    expect(suppliedContract.tokenURI).toHaveBeenCalledWith(7n)
+    expect(getContractInstance).not.toHaveBeenCalled()
+    expect(resolveProviderMetadataOrigins).not.toHaveBeenCalled()
+  })
+
   test('does not resolve provider origins for a tokenURI at the configured Blob origin', async () => {
     delete process.env.ALLOWED_METADATA_ORIGINS
     process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.example'

@@ -1,6 +1,6 @@
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { buildEnrichedLab, collectMetadataImages } from '@/hooks/lab/labEnrichmentHelpers';
-import { isLocalMetadataUri, loadMetadataDocument } from '@/utils/metadata/metadataPolicy';
+import { loadOnChainLabMetadata } from '@/utils/metadata/metadataPolicy';
 import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins';
 import { toPublicMarketLab } from '@/utils/market/publicLabDto';
 import { getAllLabProviders } from '@/server/contract/getAllLabProviders';
@@ -24,6 +24,7 @@ const MEASURED_CONTRACT_METHODS = new Set([
   'getLabsPaginated',
   'getLabProvidersPaginated',
   'getLab',
+  'tokenURI',
   'ownerOf',
   'isTokenListed',
   'getLabReputation',
@@ -264,14 +265,16 @@ const getMarketLabsSnapshotUncached = async ({
     const reputation = reputationResult.status === 'fulfilled'
       ? transformReputation(reputationResult.value)
       : null;
-    const metadata = lab?.base?.uri
+    const metadata = lab
       ? await (async () => {
         metrics.metadataFetches += 1;
-        return loadMetadataDocument(lab.base.uri, {
-          additionalAllowedOrigins: isLocalMetadataUri(lab.base.uri)
-            ? []
-            : await getProviderMetadataOrigins(ownerAddress, labId),
-        }).catch(() => null);
+        return loadOnChainLabMetadata(labId, {
+          contract: measuredContract,
+          ownerAddress,
+          additionalAllowedOrigins: await getProviderMetadataOrigins(ownerAddress, labId),
+        })
+          .then((result) => result?.metadata || null)
+          .catch(() => null);
       })()
       : null;
     const imageUrls = collectMetadataImages(metadata);
