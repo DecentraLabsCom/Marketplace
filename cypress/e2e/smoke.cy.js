@@ -17,14 +17,19 @@ describe("Smoke Test - Basic Navigation", () => {
     // Verify login button exists
     cy.contains("button", /login/i).should("be.visible");
 
-    // Verify filter section is present
+    // Open the grouped filters before checking the filter controls.
+    cy.get('button[aria-controls="market-filter-panel"]').click();
+    cy.get("#market-filter-panel").should("be.visible");
     cy.get("#category-filter").should("be.visible");
     cy.get("#provider-filter").should("be.visible");
   });
 
   it("should display available labs", () => {
     // Wait for labs to load (increased timeout to allow API response time)
-    cy.contains("button", /listed labs/i, { timeout: 10000 }).should("be.visible");
+    cy.get('button[aria-controls="market-filter-panel"]').click();
+    cy.get("#listing-filter", { timeout: 10000 })
+      .should("be.visible")
+      .and("have.value", "listed");
   });
 
   // Separated into individual tests to avoid navigation interference

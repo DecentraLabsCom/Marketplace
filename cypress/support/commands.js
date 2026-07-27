@@ -108,11 +108,14 @@ Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
 
   cy.intercept("GET", "/api/market/labs*", (req) => {
     const includeUnlisted = String(req.query?.includeUnlisted) === "true";
+    const listing = String(req.query?.listing || "").trim().toLowerCase();
     const cursor = Math.max(Number(req.query?.cursor || 0), 0);
     const limit = Math.max(Number(req.query?.limit || 24), 1);
-    const visibleLabs = includeUnlisted
-      ? publicLabs
-      : publicLabs.filter((lab) => lab.isListed);
+    const visibleLabs = listing === "unlisted"
+      ? publicLabs.filter((lab) => lab.isListed === false)
+      : listing === "all" || includeUnlisted
+        ? publicLabs
+        : publicLabs.filter((lab) => lab.isListed);
     const query = String(req.query?.q || "").trim().toLowerCase();
     const searchField = String(req.query?.searchField || "keyword");
     const category = String(req.query?.category || "").trim().toLowerCase();

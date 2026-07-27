@@ -95,6 +95,8 @@ describe("Market - FMU resource type filter", () => {
     cy.mockLabApis(labs);
     cy.visit("/");
     cy.wait("@getAllLabs");
+    cy.get('button[aria-controls="market-filter-panel"]').click();
+    cy.get("#market-filter-panel").should("be.visible");
   });
 
   it("shows all resources by default (All Types)", () => {

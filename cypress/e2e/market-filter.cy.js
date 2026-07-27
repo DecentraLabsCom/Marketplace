@@ -2,7 +2,7 @@
  * Market filtering E2E tests
  * - Verifies real-time search (debounced)
  * - Verifies Search button triggers the same filter
- * - Verifies Listed / All labs toggle shows/hides unlisted labs
+ * - Verifies Listed / All / Unlisted listing filters show the right labs
  */
 
 describe("Market - search and listing toggle", () => {
@@ -63,6 +63,8 @@ describe("Market - search and listing toggle", () => {
     cy.mockLabApis(labs);
     cy.visit("/");
     cy.wait("@getAllLabs");
+    cy.get('button[aria-controls="market-filter-panel"]').click();
+    cy.get("#market-filter-panel").should("be.visible");
   });
 
   it("filters labs in real time as the user types (debounced)", () => {
@@ -91,19 +93,30 @@ describe("Market - search and listing toggle", () => {
     cy.contains("Advanced AI Lab").should("be.visible");
   });
 
-  it("Listed / All labs toggle hides and shows unlisted labs", () => {
+  it("Listed / All / Unlisted filters show the corresponding labs", () => {
     // By default unlisted lab should be hidden
+    cy.get("#listing-filter").should("have.value", "listed");
     cy.contains("h2", "Quantum Computing Lab").should("not.exist");
 
-    // Toggle to show unlisted labs
-    cy.contains("button", /listed labs/i).click();
-    cy.contains("button", /all labs/i).should("be.visible");
-
-    // Unlisted lab should now be visible
+    // The unlisted option should show only unlisted labs.
+    cy.get("#listing-filter").select("unlisted");
+    cy.get("#listing-filter").should("have.value", "unlisted");
     cy.contains("h2", "Quantum Computing Lab").should("be.visible");
+    cy.contains("h2", "Advanced AI Lab").should("not.exist");
+    cy.contains("h2", "Basic AI Lab").should("not.exist");
 
-    // Toggle back to listed-only
-    cy.contains("button", /all labs/i).click();
+    // All should include both listed and unlisted labs.
+    cy.get("#listing-filter").select("all");
+    cy.get("#listing-filter").should("have.value", "all");
+    cy.contains("h2", "Advanced AI Lab").should("be.visible");
+    cy.contains("h2", "Quantum Computing Lab").should("be.visible");
+    cy.contains("h2", "Basic AI Lab").should("be.visible");
+
+    // Listed should return to the default listed-only catalogue.
+    cy.get("#listing-filter").select("listed");
+    cy.get("#listing-filter").should("have.value", "listed");
     cy.contains("h2", "Quantum Computing Lab").should("not.exist");
+    cy.contains("h2", "Advanced AI Lab").should("be.visible");
+    cy.contains("h2", "Basic AI Lab").should("be.visible");
   });
 });
