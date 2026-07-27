@@ -7,7 +7,7 @@
  *
  * - Initial State: Default filter values and empty arrays handling
  * - Category Filtering: Filters labs by selected category
- * - Price Sorting: Sorts labs by price (low-to-high, high-to-low)
+ * - Catalogue Sorting: Sorts labs by price, rating, age, and name
  * - Provider Filtering: Filters labs by provider
  * - Search Filtering: Keyword and name-based filtering logic
  * - Active Booking Marking: Enriches labs with hasActiveBooking flag
@@ -64,7 +64,7 @@ describe("useLabFilters", () => {
       const { result } = renderHook(() => useLabFilters(mockLabs));
 
       expect(result.current.selectedCategory).toBe("All");
-      expect(result.current.selectedPrice).toBe("Sort by Price");
+      expect(result.current.selectedSort).toBe("relevance");
       expect(result.current.selectedProvider).toBe("All");
       expect(result.current.selectedFilter).toBe("Keyword");
       expect(result.current.showUnlisted).toBe(false);
@@ -128,12 +128,12 @@ describe("useLabFilters", () => {
     });
   });
 
-  describe("Price Sorting", () => {
+  describe("Catalogue Sorting", () => {
     test("sorts labs from low to high price", () => {
       const { result } = renderHook(() => useLabFilters(mockLabs));
 
       act(() => {
-        result.current.setSelectedPrice("Low to High");
+        result.current.setSelectedSort("price_asc");
       });
 
       const prices = result.current.searchFilteredLabs.map((lab) => lab.price);
@@ -144,7 +144,7 @@ describe("useLabFilters", () => {
       const { result } = renderHook(() => useLabFilters(mockLabs));
 
       act(() => {
-        result.current.setSelectedPrice("High to Low");
+        result.current.setSelectedSort("price_desc");
       });
 
       const prices = result.current.searchFilteredLabs.map((lab) => lab.price);
@@ -156,7 +156,7 @@ describe("useLabFilters", () => {
       const { result } = renderHook(() => useLabFilters(mockLabs));
 
       act(() => {
-        result.current.setSelectedPrice("Low to High");
+        result.current.setSelectedSort("price_asc");
       });
 
       expect(mockLabs).toEqual(originalOrder);
@@ -233,7 +233,7 @@ describe("useLabFilters", () => {
 
       act(() => {
         result.current.setSelectedCategory("AI");
-        result.current.setSelectedPrice("Low to High");
+        result.current.setSelectedSort("price_asc");
       });
 
       expect(result.current.searchFilteredLabs).toHaveLength(2);
@@ -258,7 +258,7 @@ describe("useLabFilters", () => {
 
       act(() => {
         result.current.setSelectedCategory("AI");
-        result.current.setSelectedPrice("High to Low");
+        result.current.setSelectedSort("price_desc");
         result.current.setSelectedProvider("Google");
       });
 

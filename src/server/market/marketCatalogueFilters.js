@@ -1,10 +1,11 @@
 import { getResourceType, RESOURCE_TYPES } from '@/utils/resourceType'
+import { MARKET_SORT_VALUES } from '@/utils/market/marketSorts'
 
 const MAX_FILTER_TEXT_LENGTH = 200
 const MAX_SEARCH_LENGTH = 120
 const SEARCH_FIELDS = new Set(['keyword', 'name'])
 const RESOURCE_TYPES_FILTER = new Set([RESOURCE_TYPES.LAB, RESOURCE_TYPES.FMU])
-const SORTS = new Set(['price_asc', 'price_desc'])
+const SORTS = new Set(MARKET_SORT_VALUES)
 
 const normalizeText = (value, { maxLength = MAX_FILTER_TEXT_LENGTH } = {}) => {
   if (value === undefined || value === null || value === '') return undefined
@@ -56,6 +57,37 @@ const priceAsBigInt = (value) => {
   }
 }
 
+const finiteNumberOrNull = (value) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+const ratingAsNumber = (lab) => finiteNumberOrNull(lab?.reputation?.score ?? lab?.rating?.score)
+
+const createdAtAsNumber = (lab) => finiteNumberOrNull(lab?.createdAt)
+
+const compareNullableNumbers = (left, right, direction) => {
+  if (left === null && right === null) return 0
+  if (left === null) return 1
+  if (right === null) return -1
+  if (left === right) return 0
+  return left > right ? direction : -direction
+}
+
+const compareText = (left, right) => {
+  const leftText = fold(left)
+  const rightText = fold(right)
+  if (leftText === rightText) return 0
+  return leftText > rightText ? 1 : -1
+}
+
+const compareIds = (left, right) => {
+  const leftId = finiteNumberOrNull(left?.id)
+  const rightId = finiteNumberOrNull(right?.id)
+  if (leftId === null || rightId === null || leftId === rightId) return 0
+  return leftId > rightId ? 1 : -1
+}
+
 const matchesSearch = (lab, query, searchField) => {
   if (!query) return true
   const normalizedQuery = fold(query)
@@ -88,14 +120,31 @@ export function filterMarketLabs(labs, filters = {}) {
     return true
   })
 
-  if (!filters.sort) return filtered
+  if (!filters.sort || filters.sort === 'relevance') return filtered
 
-  const direction = filters.sort === 'price_desc' ? -1 : 1
   return [...filtered].sort((left, right) => {
-    const leftPrice = priceAsBigInt(left?.price)
-    const rightPrice = priceAsBigInt(right?.price)
-    if (leftPrice === rightPrice) return Number(left?.id) - Number(right?.id)
-    return leftPrice > rightPrice ? direction : -direction
+    if (filters.sort === 'price_asc' || filters.sort === 'price_desc') {
+      const leftPrice = priceAsBigInt(left?.price)
+      const rightPrice = priceAsBigInt(right?.price)
+      if (leftPrice !== rightPrice) {
+        const direction = filters.sort === 'price_desc' ? -1 : 1
+        return leftPrice > rightPrice ? direction : -direction
+      }
+    } else if (filters.sort === 'rating_asc' || filters.sort === 'rating_desc') {
+      const direction = filters.sort === 'rating_desc' ? -1 : 1
+      const comparison = compareNullableNumbers(ratingAsNumber(left), ratingAsNumber(right), direction)
+      if (comparison !== 0) return comparison
+    } else if (filters.sort === 'age_newest' || filters.sort === 'age_oldest') {
+      const direction = filters.sort === 'age_newest' ? -1 : 1
+      const comparison = compareNullableNumbers(createdAtAsNumber(left), createdAtAsNumber(right), direction)
+      if (comparison !== 0) return comparison
+    } else if (filters.sort === 'name_asc' || filters.sort === 'name_desc') {
+      const direction = filters.sort === 'name_desc' ? -1 : 1
+      const comparison = compareText(left?.name, right?.name) * direction
+      if (comparison !== 0) return comparison
+    }
+
+    return compareIds(left, right)
   })
 }
 

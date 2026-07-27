@@ -109,12 +109,12 @@ const baseFilterProps = {
   categories: ["All", "Electronics", "Chemistry"],
   providers: ["All", "ProviderA"],
   selectedCategory: "All",
-  selectedPrice: "Sort by Price",
+  selectedSort: "relevance",
   selectedProvider: "All",
   selectedFilter: "Keyword",
   showUnlisted: false,
   onCategoryChange: jest.fn(),
-  onPriceChange: jest.fn(),
+  onSortChange: jest.fn(),
   onProviderChange: jest.fn(),
   onFilterChange: jest.fn(),
   onShowUnlistedChange: jest.fn(),
@@ -125,6 +125,7 @@ const baseFilterProps = {
 describe("LabFilters - Resource Type Dropdown", () => {
   test("renders resource type dropdown even when onResourceTypeChange is not provided", () => {
     render(<LabFilters {...baseFilterProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
     expect(screen.getByRole("combobox", { name: /filter by type/i })).toBeInTheDocument();
   });
 
@@ -137,9 +138,10 @@ describe("LabFilters - Resource Type Dropdown", () => {
         onResourceTypeChange={onChange}
       />
     );
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     expect(select).toBeInTheDocument();
-    const selectEl = within(select.closest('div'));
+    const selectEl = within(select.parentElement);
     expect(selectEl.getByRole("option", { name: "Modality" })).toBeInTheDocument();
     expect(selectEl.getByRole("option", { name: "Real" })).toBeInTheDocument();
     expect(selectEl.getByRole("option", { name: "Simulated" })).toBeInTheDocument();
@@ -154,6 +156,7 @@ describe("LabFilters - Resource Type Dropdown", () => {
         onResourceTypeChange={onChange}
       />
     );
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     fireEvent.change(select, { target: { value: "lab" } });
     expect(onChange).toHaveBeenCalledWith("lab");
@@ -168,6 +171,7 @@ describe("LabFilters - Resource Type Dropdown", () => {
         onResourceTypeChange={onChange}
       />
     );
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     fireEvent.change(select, { target: { value: "fmu" } });
     expect(onChange).toHaveBeenCalledWith("fmu");
@@ -182,6 +186,7 @@ describe("LabFilters - Resource Type Dropdown", () => {
         onResourceTypeChange={onChange}
       />
     );
+    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     fireEvent.change(select, { target: { value: "All" } });
     expect(onChange).toHaveBeenCalledWith("All");

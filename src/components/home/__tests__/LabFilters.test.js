@@ -1,17 +1,8 @@
 /**
- * Unit tests for LabFilters component
- *
- * Test Behaviors:
- * - Renders all filter controls (category, provider, search, price, listing toggle)
- * - Calls handlers when user changes filters
- * - Triggers search on Enter key and Search button click
- * - Cycles through price sort states (default → low-to-high → high-to-low → default)
- * - Toggles between "Listed labs" and "All labs"
- * - Disables all controls when loading prop is true
- * - Prevents hydration mismatch with loading state
+ * Unit tests for the marketplace search, filter panel, and sorting controls.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LabFilters from "../LabFilters";
 
@@ -23,14 +14,16 @@ describe("LabFilters - unit tests", () => {
     categories: mockCategories,
     providers: mockProviders,
     selectedCategory: "All",
-    selectedPrice: "Sort by Price",
+    selectedSort: "relevance",
     selectedProvider: "All",
     selectedFilter: "Keyword",
+    selectedResourceType: "All",
     showUnlisted: false,
     onCategoryChange: jest.fn(),
-    onPriceChange: jest.fn(),
+    onSortChange: jest.fn(),
     onProviderChange: jest.fn(),
     onFilterChange: jest.fn(),
+    onResourceTypeChange: jest.fn(),
     onShowUnlistedChange: jest.fn(),
     searchInputRef: { current: null },
     loading: false,
@@ -40,70 +33,89 @@ describe("LabFilters - unit tests", () => {
     jest.clearAllMocks();
   });
 
+  const openFilterPanel = async (user) => {
+    await user.click(screen.getByRole("button", { name: /^filters/i }));
+    return screen.getByRole("region", { name: /filter options/i });
+  };
+
   describe("Rendering", () => {
-    test("renders all filter controls", () => {
+    test("renders the main search, filter, and sorting controls", () => {
       render(<LabFilters {...defaultProps} />);
 
-      expect(screen.getByLabelText(/filter by category/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/filter by provider/i)).toBeInTheDocument();
-      // Search input doesn't have proper id association, use placeholder instead
       expect(screen.getByPlaceholderText(/type here/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /sort by price/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /listed labs/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /search/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^filters/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/sort labs/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: /filter options/i })).not.toBeInTheDocument();
     });
 
-    test("renders all category options", () => {
+    test("places the keyword/name search in the centered desktop toolbar column", () => {
       render(<LabFilters {...defaultProps} />);
 
-      expect(
-        screen.getByRole("option", { name: "All Categories" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("option", { name: "Biology" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("option", { name: "Chemistry" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("option", { name: "Physics" })
-      ).toBeInTheDocument();
+      const searchWrapper = screen.getByPlaceholderText(/type here/i).parentElement.parentElement;
+      expect(searchWrapper).toHaveClass("lg:col-start-2", "lg:row-start-1");
     });
 
-    test("renders all provider options", () => {
+    test("renders all category options inside the filter panel", async () => {
+      const user = userEvent.setup();
       render(<LabFilters {...defaultProps} />);
+      const panel = await openFilterPanel(user);
 
-      expect(
-        screen.getByRole("option", { name: "All Providers" })
-      ).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Lab A" })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Lab B" })).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Lab C" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "All Categories" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Biology" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Chemistry" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Physics" })).toBeInTheDocument();
+    });
+
+    test("renders all provider options inside the filter panel", async () => {
+      const user = userEvent.setup();
+      render(<LabFilters {...defaultProps} />);
+      const panel = await openFilterPanel(user);
+
+      expect(within(panel).getByRole("option", { name: "All Providers" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Lab A" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Lab B" })).toBeInTheDocument();
+      expect(within(panel).getByRole("option", { name: "Lab C" })).toBeInTheDocument();
     });
 
     test("renders search filter options", () => {
       render(<LabFilters {...defaultProps} />);
 
-      expect(
-        screen.getByRole("option", { name: "Keyword" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Keyword" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Name" })).toBeInTheDocument();
     });
   });
 
   describe("Filter Interactions", () => {
-    test("calls onCategoryChange when category is selected", async () => {
+    test("groups catalogue filters behind a Filters menu", async () => {
+      const user = userEvent.setup();
+      const panel = await (async () => {
+        render(<LabFilters {...defaultProps} />);
+        return openFilterPanel(user);
+      })();
+
+      expect(panel).toBeInTheDocument();
+      expect(within(panel).getByLabelText(/filter by category/i)).toBeInTheDocument();
+      expect(within(panel).getByLabelText(/filter by provider/i)).toBeInTheDocument();
+      expect(within(panel).getByLabelText(/filter by listing/i)).toBeInTheDocument();
+      expect(within(panel).getByLabelText(/filter by type/i)).toBeInTheDocument();
+    });
+
+    test("calls onSortChange with the selected catalogue order", async () => {
       const user = userEvent.setup();
       render(<LabFilters {...defaultProps} />);
 
-      const categorySelect = screen.getByLabelText(/filter by category/i);
-      await user.selectOptions(categorySelect, "Biology");
+      await user.selectOptions(screen.getByLabelText(/sort labs/i), "rating_desc");
+
+      expect(defaultProps.onSortChange).toHaveBeenCalledWith("rating_desc");
+    });
+
+    test("calls onCategoryChange when category is selected", async () => {
+      const user = userEvent.setup();
+      render(<LabFilters {...defaultProps} />);
+      await openFilterPanel(user);
+
+      await user.selectOptions(screen.getByLabelText(/filter by category/i), "Biology");
 
       expect(defaultProps.onCategoryChange).toHaveBeenCalledWith("Biology");
     });
@@ -111,9 +123,9 @@ describe("LabFilters - unit tests", () => {
     test("calls onProviderChange when provider is selected", async () => {
       const user = userEvent.setup();
       render(<LabFilters {...defaultProps} />);
+      await openFilterPanel(user);
 
-      const providerSelect = screen.getByLabelText(/filter by provider/i);
-      await user.selectOptions(providerSelect, "Lab A");
+      await user.selectOptions(screen.getByLabelText(/filter by provider/i), "Lab A");
 
       expect(defaultProps.onProviderChange).toHaveBeenCalledWith("Lab A");
     });
@@ -122,15 +134,7 @@ describe("LabFilters - unit tests", () => {
       const user = userEvent.setup();
       render(<LabFilters {...defaultProps} />);
 
-      // Find the filter type select (it's unlabeled but has options)
-      const filterSelects = screen.getAllByRole("combobox");
-      const searchFilterSelect = filterSelects.find(
-        (select) =>
-          select.querySelector('option[value="Keyword"]') &&
-          select.querySelector('option[value="Name"]')
-      );
-
-      await user.selectOptions(searchFilterSelect, "Name");
+      await user.selectOptions(screen.getByLabelText(/search filter/i), "Name");
 
       expect(defaultProps.onFilterChange).toHaveBeenCalledWith("Name");
     });
@@ -140,12 +144,10 @@ describe("LabFilters - unit tests", () => {
     test("allows user to type in search input", async () => {
       const user = userEvent.setup();
       const searchInputRef = { current: null };
-
       render(<LabFilters {...defaultProps} searchInputRef={searchInputRef} />);
 
       const searchInput = screen.getByPlaceholderText(/type here/i);
       searchInputRef.current = searchInput;
-
       await user.type(searchInput, "test query");
 
       expect(searchInput).toHaveValue("test query");
@@ -154,7 +156,6 @@ describe("LabFilters - unit tests", () => {
     test("triggers search on Enter key press", async () => {
       const user = userEvent.setup();
       const searchInputRef = { current: null };
-
       render(<LabFilters {...defaultProps} searchInputRef={searchInputRef} />);
 
       const searchInput = screen.getByPlaceholderText(/type here/i);
@@ -169,25 +170,17 @@ describe("LabFilters - unit tests", () => {
       );
     });
 
-    // Search button dispatches input event for parent to handle
-    test("triggers search when search button is clicked", async () => {
+    test("triggers search when the search button is clicked", async () => {
       const user = userEvent.setup();
-
-      // Create real ref that will point to actual DOM element
       const searchInputRef = { current: null };
-
       render(<LabFilters {...defaultProps} searchInputRef={searchInputRef} />);
 
-      // Get the real input element and assign to ref
       const searchInput = screen.getByPlaceholderText(/type here/i);
       searchInputRef.current = searchInput;
-
-      // Mock dispatchEvent on the actual DOM element
       const mockDispatchEvent = jest.fn();
       searchInput.dispatchEvent = mockDispatchEvent;
 
-      const searchButton = screen.getByRole("button", { name: /search/i });
-      await user.click(searchButton);
+      await user.click(screen.getByRole("button", { name: /search/i }));
 
       expect(mockDispatchEvent).toHaveBeenCalledWith(
         expect.objectContaining({ type: "input", bubbles: true })
@@ -195,171 +188,123 @@ describe("LabFilters - unit tests", () => {
     });
   });
 
-  describe("Price Sorting", () => {
-    // Price button cycles through 3 states: "Sort by Price" → "Price ↑" → "Price ↓" → repeat
-    test("cycles through price sort options", async () => {
-      const user = userEvent.setup();
-      render(<LabFilters {...defaultProps} />);
-
-      const priceButton = screen.getByRole("button", {
-        name: /sort by price/i,
-      });
-
-      // First click: Sort by Price → Low to High (displays "Price ↑")
-      await user.click(priceButton);
-      expect(defaultProps.onPriceChange).toHaveBeenCalledWith("Low to High");
-
-      // Second click: Low to High → High to Low (displays "Price ↓")
-      const { rerender } = render(
-        <LabFilters {...defaultProps} selectedPrice="Low to High" />
-      );
-      const priceButtonLowToHigh = screen.getByRole("button", {
-        name: /price ↑/i,
-      });
-      await user.click(priceButtonLowToHigh);
-      expect(defaultProps.onPriceChange).toHaveBeenCalledWith("High to Low");
-
-      // Third click: High to Low → Sort by Price
-      rerender(<LabFilters {...defaultProps} selectedPrice="High to Low" />);
-      const priceButtonHighToLow = screen.getByRole("button", {
-        name: /price ↓/i,
-      });
-      await user.click(priceButtonHighToLow);
-      expect(defaultProps.onPriceChange).toHaveBeenCalledWith("Sort by Price");
-    });
-  });
-
-  describe("Listing Toggle", () => {
-    test("toggles from listed to all labs", async () => {
+  describe("Listing Filter", () => {
+    test("changes from listed labs to all labs", async () => {
       const user = userEvent.setup();
       render(<LabFilters {...defaultProps} showUnlisted={false} />);
+      await openFilterPanel(user);
 
-      const toggleButton = screen.getByRole("button", { name: /listed labs/i });
-      await user.click(toggleButton);
+      await user.selectOptions(screen.getByLabelText(/filter by listing/i), "all");
 
       expect(defaultProps.onShowUnlistedChange).toHaveBeenCalledWith(true);
     });
 
-    test("toggles from all labs to listed", async () => {
+    test("changes from all labs to listed labs", async () => {
       const user = userEvent.setup();
-      render(<LabFilters {...defaultProps} showUnlisted={true} />);
+      render(<LabFilters {...defaultProps} showUnlisted />);
+      await openFilterPanel(user);
 
-      const toggleButton = screen.getByRole("button", { name: /all labs/i });
-      await user.click(toggleButton);
+      await user.selectOptions(screen.getByLabelText(/filter by listing/i), "listed");
 
       expect(defaultProps.onShowUnlistedChange).toHaveBeenCalledWith(false);
     });
   });
 
   describe("Reset", () => {
-    test("does not render a reset button when filters are active", () => {
+    test("renders a clear button when filters are active", async () => {
+      const user = userEvent.setup();
       render(
         <LabFilters
           {...defaultProps}
           selectedCategory="Biology"
-          selectedPrice="Low to High"
+          selectedSort="price_asc"
           selectedProvider="Lab A"
           selectedFilter="Name"
           selectedResourceType="lab"
-          showUnlisted={true}
+          showUnlisted
         />
       );
+      const panel = await openFilterPanel(user);
 
-      expect(screen.queryByRole("button", { name: /reset filters/i })).not.toBeInTheDocument();
+      expect(within(panel).getByRole("button", { name: /clear filters/i })).toBeInTheDocument();
     });
   });
 
   describe("Loading State", () => {
-    test("disables all controls when loading", () => {
-      render(<LabFilters {...defaultProps} loading={true} />);
+    test("disables the visible controls when loading", () => {
+      render(<LabFilters {...defaultProps} loading />);
 
-      expect(screen.getByLabelText(/filter by category/i)).toBeDisabled();
-      expect(screen.getByLabelText(/filter by provider/i)).toBeDisabled();
       expect(screen.getByPlaceholderText(/type here/i)).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /sort by price/i })
-      ).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /listed labs/i })
-      ).toBeDisabled();
+      expect(screen.getByLabelText(/sort labs/i)).toBeDisabled();
+      expect(screen.getByRole("button", { name: /^filters/i })).toBeDisabled();
       expect(screen.getByRole("button", { name: /search/i })).toBeDisabled();
     });
 
-    test("enables all controls when not loading", () => {
+    test("enables all controls when not loading", async () => {
+      const user = userEvent.setup();
       render(<LabFilters {...defaultProps} loading={false} />);
+      const panel = await openFilterPanel(user);
 
-      expect(screen.getByLabelText(/filter by category/i)).not.toBeDisabled();
-      expect(screen.getByLabelText(/filter by provider/i)).not.toBeDisabled();
+      expect(within(panel).getByLabelText(/filter by category/i)).not.toBeDisabled();
+      expect(within(panel).getByLabelText(/filter by provider/i)).not.toBeDisabled();
       expect(screen.getByPlaceholderText(/type here/i)).not.toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /sort by price/i })
-      ).not.toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /listed labs/i })
-      ).not.toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /search/i })
-      ).not.toBeDisabled();
+      expect(screen.getByLabelText(/sort labs/i)).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: /search/i })).not.toBeDisabled();
     });
 
-    // Hydration check: component uses effectiveLoading=false until hydrated
     test("prevents hydration mismatch by using consistent initial state", async () => {
-      render(<LabFilters {...defaultProps} loading={true} />);
+      render(<LabFilters {...defaultProps} loading />);
 
-      // Initially, loading should be false (before hydration) so controls are enabled
-      // After hydration effect runs, loading becomes true and controls get disabled
       await waitFor(() => {
-        expect(screen.getByLabelText(/filter by category/i)).toBeDisabled();
+        expect(screen.getByRole("button", { name: /^filters/i })).toBeDisabled();
       });
     });
   });
 
   describe("Edge Cases", () => {
-    test("handles empty categories array", () => {
-      render(<LabFilters {...defaultProps} categories={[]} />);
-
-      const categorySelect = screen.getByLabelText(/filter by category/i);
-      expect(categorySelect.children).toHaveLength(1); // Only "All Categories"
-    });
-
-    test("handles empty providers array", () => {
-      render(<LabFilters {...defaultProps} providers={[]} />);
-
-      const providerSelect = screen.getByLabelText(/filter by provider/i);
-      expect(providerSelect.children).toHaveLength(1); // Only "All Providers"
-    });
-
-    test("handles missing searchInputRef gracefully", async () => {
+    test("handles empty categories array", async () => {
       const user = userEvent.setup();
-      render(
-        <LabFilters {...defaultProps} searchInputRef={{ current: null }} />
-      );
+      render(<LabFilters {...defaultProps} categories={[]} />);
+      await openFilterPanel(user);
+
+      expect(screen.getByLabelText(/filter by category/i).children).toHaveLength(1);
+    });
+
+    test("handles empty providers array", async () => {
+      const user = userEvent.setup();
+      render(<LabFilters {...defaultProps} providers={[]} />);
+      await openFilterPanel(user);
+
+      expect(screen.getByLabelText(/filter by provider/i).children).toHaveLength(1);
+    });
+
+    test("handles a missing search input ref gracefully", async () => {
+      const user = userEvent.setup();
+      render(<LabFilters {...defaultProps} searchInputRef={{ current: null }} />);
 
       const searchButton = screen.getByRole("button", { name: /search/i });
-
-      // Should not crash when ref is null
       await user.click(searchButton);
+
       expect(searchButton).toBeInTheDocument();
     });
 
-    test("reflects selected values in controls", () => {
+    test("reflects selected values in controls", async () => {
+      const user = userEvent.setup();
       render(
         <LabFilters
           {...defaultProps}
           selectedCategory="Biology"
           selectedProvider="Lab A"
           selectedFilter="Name"
-          selectedPrice="Low to High"
+          selectedSort="price_asc"
         />
       );
+      await openFilterPanel(user);
 
-      expect(screen.getByLabelText(/filter by category/i)).toHaveValue(
-        "Biology"
-      );
+      expect(screen.getByLabelText(/filter by category/i)).toHaveValue("Biology");
       expect(screen.getByLabelText(/filter by provider/i)).toHaveValue("Lab A");
-      expect(
-        screen.getByRole("button", { name: /price ↑/i })
-      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/search filter/i)).toHaveValue("Name");
+      expect(screen.getByLabelText(/sort labs/i)).toHaveValue("price_asc");
     });
   });
 });

@@ -13,14 +13,14 @@ import { getResourceType } from '@/utils/resourceType'
  * @param {boolean} bookingsLoading - Whether bookings are still loading
  * @returns {Object} Filter state, handlers, and filtered results
  * @returns {string} returns.selectedCategory - Currently selected category filter
- * @returns {string} returns.selectedPrice - Currently selected price sorting
+ * @returns {string} returns.selectedSort - Currently selected catalogue sorting
  * @returns {string} returns.selectedProvider - Currently selected provider filter
  * @returns {string} returns.selectedFilter - Currently selected search filter type
  * @returns {boolean} returns.showUnlisted - Whether to show unlisted labs
  * @returns {Array} returns.searchFilteredLabs - Filtered and enriched labs array
  * @returns {string} returns.searchDebounce - Current debounced search term
  * @returns {Function} returns.setSelectedCategory - Set category filter function
- * @returns {Function} returns.setSelectedPrice - Set price sorting function
+ * @returns {Function} returns.setSelectedSort - Set catalogue sorting function
  * @returns {Function} returns.setSelectedProvider - Set provider filter function
  * @returns {Function} returns.setSelectedFilter - Set search filter type function
  * @returns {Function} returns.setShowUnlisted - Set show unlisted labs function
@@ -34,7 +34,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [selectedPrice, setSelectedPrice] = useState("Sort by Price")
+  const [selectedSort, setSelectedSort] = useState("relevance")
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
   const [selectedResourceType, setSelectedResourceType] = useState("All")
@@ -131,13 +131,6 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
       })
     }
     
-    // Price sorting
-    if (selectedPrice === "Low to High") {
-      filtered = [...filtered].sort((a, b) => a.price - b.price)
-    } else if (selectedPrice === "High to Low") {
-      filtered = [...filtered].sort((a, b) => b.price - a.price)
-    }
-    
     // Provider filter
     if (selectedProvider !== "All") {
       filtered = filtered.filter((lab) => lab.provider === selectedProvider)
@@ -177,26 +170,69 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   }, [
     labs, 
     selectedCategory, 
-    selectedPrice, 
     selectedProvider, 
     selectedFilter, 
     selectedResourceType,
     searchDebounce
   ])
 
+  const sortedLabs = useMemo(() => {
+    if (selectedSort === "relevance") return searchFilteredLabs
+
+    const numericValue = (value) => {
+      const number = Number(value)
+      return Number.isFinite(number) ? number : null
+    }
+    const compareNullableNumbers = (left, right, direction) => {
+      if (left === null && right === null) return 0
+      if (left === null) return 1
+      if (right === null) return -1
+      if (left === right) return 0
+      return left > right ? direction : -direction
+    }
+    const compareIds = (left, right) => numericValue(left.id) - numericValue(right.id)
+
+    return [...searchFilteredLabs].sort((left, right) => {
+      if (selectedSort === 'price_asc' || selectedSort === 'price_desc') {
+        const direction = selectedSort === 'price_desc' ? -1 : 1
+        const comparison = compareNullableNumbers(numericValue(left.price), numericValue(right.price), direction)
+        if (comparison !== 0) return comparison
+      } else if (selectedSort === 'rating_asc' || selectedSort === 'rating_desc') {
+        const direction = selectedSort === 'rating_desc' ? -1 : 1
+        const comparison = compareNullableNumbers(
+          numericValue(left.rating?.score ?? left.reputation?.score),
+          numericValue(right.rating?.score ?? right.reputation?.score),
+          direction,
+        )
+        if (comparison !== 0) return comparison
+      } else if (selectedSort === 'age_newest' || selectedSort === 'age_oldest') {
+        const direction = selectedSort === 'age_newest' ? -1 : 1
+        const comparison = compareNullableNumbers(numericValue(left.createdAt), numericValue(right.createdAt), direction)
+        if (comparison !== 0) return comparison
+      } else if (selectedSort === 'name_asc' || selectedSort === 'name_desc') {
+        const direction = selectedSort === 'name_desc' ? -1 : 1
+        const leftName = String(left.name || '').toLocaleLowerCase()
+        const rightName = String(right.name || '').toLocaleLowerCase()
+        if (leftName !== rightName) return leftName > rightName ? direction : -direction
+      }
+
+      return compareIds(left, right)
+    })
+  }, [searchFilteredLabs, selectedSort])
+
   // Separate memo for active booking marking to minimize re-renders
   const enrichedLabs = useMemo(() => {
-    return searchFilteredLabs.map(lab => ({
+    return sortedLabs.map(lab => ({
       ...lab,
       hasActiveBooking: isLoggedIn && !bookingsLoading && userBookingsData?.hasBookingInLab?.(lab.id),
       activeBookingKey: isLoggedIn && !bookingsLoading ? (userBookingsData?.getActiveBookingKey?.(lab.id) || null) : null,
     }))
-  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData, now])
+  }, [sortedLabs, isLoggedIn, bookingsLoading, userBookingsData, now])
 
   return {
     // State
     selectedCategory,
-    selectedPrice,
+    selectedSort,
     selectedProvider,
     selectedFilter,
     selectedResourceType,
@@ -206,7 +242,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     
     // Setters
     setSelectedCategory,
-    setSelectedPrice,
+    setSelectedSort,
     setSelectedProvider,
     setSelectedFilter,
     setSelectedResourceType,

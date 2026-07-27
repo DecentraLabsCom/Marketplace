@@ -28,14 +28,14 @@ export default function Market({ initialMarketSnapshot = null }) {
   const marketFilters = useLabFilters([], null, false, false, isHydrated, now);
   const {
     selectedCategory,
-    selectedPrice,
+    selectedSort,
     selectedProvider,
     selectedFilter,
     selectedResourceType,
     showUnlisted,
     searchDebounce,
     setSelectedCategory,
-    setSelectedPrice,
+    setSelectedSort,
     setSelectedProvider,
     setSelectedFilter,
     setSelectedResourceType,
@@ -47,16 +47,12 @@ export default function Market({ initialMarketSnapshot = null }) {
     ...(selectedCategory !== 'All' ? { category: selectedCategory } : {}),
     ...(selectedProvider !== 'All' ? { provider: selectedProvider } : {}),
     ...(selectedResourceType !== 'All' ? { resourceType: selectedResourceType } : {}),
-    ...(selectedPrice === 'Low to High'
-      ? { sort: 'price_asc' }
-      : selectedPrice === 'High to Low'
-        ? { sort: 'price_desc' }
-        : {}),
+    ...(selectedSort !== 'relevance' ? { sort: selectedSort } : {}),
   }), [
     searchDebounce,
     selectedCategory,
     selectedFilter,
-    selectedPrice,
+    selectedSort,
     selectedProvider,
     selectedResourceType,
   ]);
@@ -141,9 +137,9 @@ export default function Market({ initialMarketSnapshot = null }) {
     startFilterTransition(() => setSelectedCategory(value));
   }, [setSelectedCategory, startFilterTransition]);
 
-  const handlePriceChange = useCallback((value) => {
-    startFilterTransition(() => setSelectedPrice(value));
-  }, [setSelectedPrice, startFilterTransition]);
+  const handleSortChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedSort(value));
+  }, [setSelectedSort, startFilterTransition]);
 
   const handleProviderChange = useCallback((value) => {
     startFilterTransition(() => setSelectedProvider(value));
@@ -168,12 +164,12 @@ export default function Market({ initialMarketSnapshot = null }) {
           categories={categories}
           providers={providers}
           selectedCategory={selectedCategory}
-          selectedPrice={selectedPrice}
+          selectedSort={selectedSort}
           selectedProvider={selectedProvider}
           selectedFilter={selectedFilter}
           showUnlisted={showUnlisted}
           onCategoryChange={handleCategoryChange}
-          onPriceChange={handlePriceChange}
+          onSortChange={handleSortChange}
           onProviderChange={handleProviderChange}
           onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}

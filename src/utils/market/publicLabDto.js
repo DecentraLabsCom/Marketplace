@@ -13,6 +13,11 @@ const normalizeId = (value) => {
   return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : null
 }
 
+const normalizeCreatedAt = (value) => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+}
+
 const normalizeCategories = (value) => {
   const values = Array.isArray(value) ? value : [value]
   return [...new Set(values
@@ -87,6 +92,7 @@ export const toPublicMarketLab = (lab) => {
     price: typeof lab?.price === 'string' || typeof lab?.price === 'number'
       ? String(lab.price)
       : '0',
+    createdAt: normalizeCreatedAt(lab?.createdAt),
     priceUnit: normalizePriceUnit(lab),
     category: normalizeCategories(lab?.category),
     keywords: normalizeKeywords(lab?.keywords),
@@ -108,6 +114,7 @@ export const PUBLIC_MARKET_LAB_FIELDS = Object.freeze([
   'provider',
   'image',
   'price',
+  'createdAt',
   'priceUnit',
   'category',
   'keywords',
