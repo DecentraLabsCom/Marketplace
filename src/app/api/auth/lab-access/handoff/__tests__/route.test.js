@@ -87,6 +87,26 @@ describe('POST /api/auth/lab-access/handoff', () => {
     expect(resolveLabAccessGateway).not.toHaveBeenCalled()
   })
 
+  test('accepts the public origin when the request passed through a reverse proxy', async () => {
+    const request = new Request('http://marketplace-internal/api/auth/lab-access/handoff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://marketplace.example',
+        Host: 'marketplace.example',
+        'X-Forwarded-Proto': 'https',
+      },
+      body: new URLSearchParams({
+        lab_id: '42',
+        access_code: 'opaque-code',
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+  })
+
   test('fails closed for an HTTP gateway in production', async () => {
     const originalNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'

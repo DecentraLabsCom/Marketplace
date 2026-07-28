@@ -33,9 +33,45 @@ function escapeHtml(value) {
   })[character])
 }
 
+function firstHeaderValue(request, name) {
+  return request.headers.get(name)?.split(',')[0]?.trim() || null
+}
+
+function originFromHost(protocol, host) {
+  if (!host || !['http:', 'https:'].includes(protocol)) return null
+  try {
+    return new URL(`${protocol}//${host}`).origin
+  } catch {
+    return null
+  }
+}
+
+function requestOriginCandidates(request) {
+  const requestUrl = new URL(request.url)
+  const origins = new Set([requestUrl.origin])
+  const forwardedProtocol = firstHeaderValue(request, 'x-forwarded-proto')
+  const protocols = [
+    forwardedProtocol ? `${forwardedProtocol}:` : null,
+    requestUrl.protocol,
+  ].filter(Boolean)
+  const hosts = [
+    firstHeaderValue(request, 'x-forwarded-host'),
+    request.headers.get('host')?.trim() || null,
+  ].filter(Boolean)
+
+  for (const protocol of protocols) {
+    for (const host of hosts) {
+      const origin = originFromHost(protocol, host)
+      if (origin) origins.add(origin)
+    }
+  }
+
+  return origins
+}
+
 function assertSameOrigin(request) {
   const origin = request.headers.get('origin')
-  if (origin && origin !== new URL(request.url).origin) {
+  if (origin && !requestOriginCandidates(request).has(origin)) {
     throw new ForbiddenError('Cross-origin lab handoff is not allowed')
   }
 }
