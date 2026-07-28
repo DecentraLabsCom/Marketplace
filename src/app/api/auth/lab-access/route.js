@@ -17,6 +17,7 @@ import {
 import {
   GatewayValidationError,
   gatewayFetch,
+  resolveLabAccessGateway,
   resolveProviderAuthBackend,
 } from '@/utils/api/gatewayProxy'
 import { publicErrorResponse } from '@/utils/security/publicError'
@@ -255,6 +256,14 @@ function providerFailureResponse(response, responseText, message) {
   })
 }
 
+function withGatewayOrigin(responseText, gatewayOrigin) {
+  const data = parseResponseJson(responseText)
+  return {
+    ...data,
+    gatewayOrigin,
+  }
+}
+
 export async function POST(req) {
   try {
     const session = await requireAuth()
@@ -273,6 +282,18 @@ export async function POST(req) {
     const { authBase, audience: providerAudience } = await resolveAuthContext(labId)
     if (!authBase) {
       throw new BadRequestError('Missing or invalid auth endpoint')
+    }
+
+    let gatewayOrigin
+    try {
+      // The browser must submit the one-time code to the access plane registered
+      // for this lab, not to the provider response's arbitrary URL field.
+      gatewayOrigin = await resolveLabAccessGateway({ labId })
+    } catch (error) {
+      if (error instanceof GatewayValidationError) {
+        throw new BadRequestError('The provider access endpoint is invalid.')
+      }
+      throw error
     }
 
     if (!(await marketplaceJwtService.isConfigured())) {
@@ -364,10 +385,10 @@ export async function POST(req) {
             'Provider access credential issuance failed',
           )
         }
-        return NextResponse.json(parseResponseJson(credentialText), { status: 200 })
+        return NextResponse.json(withGatewayOrigin(credentialText, gatewayOrigin), { status: 200 })
       }
       const authResponse = parseResponseJson(responseText)
-      return NextResponse.json(authResponse, { status: 200 })
+      return NextResponse.json({ ...authResponse, gatewayOrigin }, { status: 200 })
     }
 
     const consumerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
@@ -416,8 +437,7 @@ export async function POST(req) {
       return providerFailureResponse(response, responseText, 'Provider access credential issuance failed')
     }
 
-    const data = parseResponseJson(responseText)
-    return NextResponse.json(data, { status: 200 })
+    return NextResponse.json(withGatewayOrigin(responseText, gatewayOrigin), { status: 200 })
   } catch (error) {
     return handleGuardError(error, req)
   }

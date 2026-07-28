@@ -9,6 +9,7 @@ import {
   institutionalBackendFetch,
   resolveInstitutionalBackendUrl,
 } from '@/utils/onboarding/institutionalBackend'
+import { resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
 
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
@@ -32,6 +33,14 @@ jest.mock('@/utils/onboarding/institutionalBackend', () => ({
   institutionalBackendFetch: jest.fn((...args) => fetch(...args)),
 }))
 
+jest.mock('@/utils/api/gatewayProxy', () => {
+  const actual = jest.requireActual('@/utils/api/gatewayProxy')
+  return {
+    ...actual,
+    resolveLabAccessGateway: jest.fn(),
+  }
+})
+
 describe('/api/auth/lab-access route', () => {
   const originalFetch = global.fetch
 
@@ -49,6 +58,7 @@ describe('/api/auth/lab-access route', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    resolveLabAccessGateway.mockResolvedValue('https://lab.example.com')
     global.fetch = jest.fn()
   })
 
@@ -137,6 +147,7 @@ describe('/api/auth/lab-access route', () => {
       .mockResolvedValueOnce('consumer-marketplace-token')
       .mockResolvedValueOnce('provider-marketplace-token')
     resolveInstitutionalBackendUrl.mockResolvedValue('https://consumer.example.com')
+    resolveLabAccessGateway.mockResolvedValue('https://canonical-lab.example.com')
 
     getContractInstance.mockResolvedValue({
       getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
@@ -173,6 +184,7 @@ describe('/api/auth/lab-access route', () => {
     await expect(res.json()).resolves.toMatchObject({
       accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/guacamole/',
+      gatewayOrigin: 'https://canonical-lab.example.com',
     })
 
     expect(global.fetch).toHaveBeenNthCalledWith(
@@ -399,7 +411,11 @@ describe('/api/auth/lab-access route', () => {
     }))
 
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({ token: 'fmu-jwt', labURL: 'https://lab.example.com/fmu/model' })
+    await expect(res.json()).resolves.toEqual({
+      token: 'fmu-jwt',
+      labURL: 'https://lab.example.com/fmu/model',
+      gatewayOrigin: 'https://lab.example.com',
+    })
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 

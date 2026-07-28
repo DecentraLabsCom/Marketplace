@@ -67,9 +67,11 @@ describe('LabAccess', () => {
 
   test('authenticates through the institutional flow on success', async () => {
     useUser.mockReturnValue({ isSSO: true })
+    const submit = jest.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
-      labURL: 'https://lab.example.com/run',
+      labURL: 'https://untrusted.example/guacamole',
+      gatewayOrigin: 'https://lab.example.com',
       resourceType: 'lab',
       reservationKey: '0xabc',
     })
@@ -87,6 +89,13 @@ describe('LabAccess', () => {
         reservationKey: 'rk-1',
       })
     })
+
+    await waitFor(() => expect(submit).toHaveBeenCalled())
+    expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1)).toHaveAttribute(
+      'action',
+      'https://lab.example.com/auth/access',
+    )
+    submit.mockRestore()
 
   })
 
@@ -111,8 +120,12 @@ describe('LabAccess', () => {
 
   test('submits an opaque access code to the gateway exchange endpoint', () => {
     const submit = jest.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
-    submitLabAccessCode('https://lab.example.com/run?mode=remote', 'opaque-code')
+    submitLabAccessCode('https://lab.example.com', 'opaque-code')
     expect(submit).toHaveBeenCalled()
+    expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1)).toHaveAttribute(
+      'action',
+      'https://lab.example.com/auth/access',
+    )
     submit.mockRestore()
   })
 
@@ -121,6 +134,7 @@ describe('LabAccess', () => {
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
+      gatewayOrigin: 'https://lab.example.com',
       resourceType: 'lab',
       reservationKey: '0xabc',
     })

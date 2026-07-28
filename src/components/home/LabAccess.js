@@ -10,11 +10,20 @@ import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-export function submitLabAccessCode(labURL, accessCode) {
-  const labUrl = new URL(String(labURL || ''))
+export function submitLabAccessCode(gatewayOrigin, accessCode) {
+  const gatewayUrl = new URL(String(gatewayOrigin || ''))
+  if (!['http:', 'https:'].includes(gatewayUrl.protocol)) {
+    throw new Error('Invalid lab gateway protocol')
+  }
+  if (window.location.protocol === 'https:' && gatewayUrl.protocol !== 'https:') {
+    throw new Error('Secure lab gateway is required')
+  }
+  if (gatewayUrl.username || gatewayUrl.password || gatewayUrl.search || gatewayUrl.hash) {
+    throw new Error('Invalid lab gateway origin')
+  }
   const form = document.createElement('form')
   form.method = 'POST'
-  form.action = `${labUrl.origin}/auth/access`
+  form.action = `${gatewayUrl.origin}/auth/access`
   form.target = '_self'
   const input = document.createElement('input')
   input.type = 'hidden'
@@ -160,8 +169,11 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
             : ''
           window.location.assign(`/simulation/${encodeURIComponent(String(id))}${qs}`)
         } else {
-          devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
-          submitLabAccessCode(authResult.labURL, authResult.accessCode);
+          if (!authResult.gatewayOrigin) {
+            throw new Error('Provider did not return a canonical lab gateway origin')
+          }
+          devLog.log('🚀 Lab access granted, redirecting to:', authResult.gatewayOrigin);
+          submitLabAccessCode(authResult.gatewayOrigin, authResult.accessCode);
         }
       } else if (authResult.error) {
         // Handle authentication errors returned by the service

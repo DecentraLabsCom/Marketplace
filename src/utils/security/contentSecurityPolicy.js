@@ -7,6 +7,23 @@ const readConfiguredSources = (...names) => names
 
 const unique = (values) => [...new Set(values)]
 
+const readConfiguredOriginSources = (name, { allowHttp = false } = {}) => unique(
+  readConfiguredSources(name)
+    .map((source) => {
+      try {
+        const url = new URL(source)
+        if (!['http:', 'https:'].includes(url.protocol)) return null
+        if (!allowHttp && url.protocol !== 'https:') return null
+        if (url.hostname.includes('*')) return null
+        if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) return null
+        return `${url.protocol}//${url.host}`
+      } catch {
+        return null
+      }
+    })
+    .filter(Boolean),
+)
+
 const defaultImageSources = () => unique([
   "'self'",
   'data:',
@@ -53,7 +70,10 @@ export function buildContentSecurityPolicy({ nonce, isDevelopment = false } = {}
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action ${[
+      "'self'",
+      ...readConfiguredOriginSources('CSP_FORM_ACTION_SRC', { allowHttp: isDevelopment }),
+    ].join(' ')}`,
   ]
 
   if (!isDevelopment) directives.push('upgrade-insecure-requests')
