@@ -71,7 +71,11 @@ function requestOriginCandidates(request) {
 
 function assertSameOrigin(request) {
   const origin = request.headers.get('origin')
-  if (origin && !requestOriginCandidates(request).has(origin)) {
+  const fetchSite = request.headers.get('sec-fetch-site')?.trim().toLowerCase() || null
+  if (fetchSite && fetchSite !== 'same-origin') {
+    throw new ForbiddenError('Cross-origin lab handoff is not allowed')
+  }
+  if (origin && !requestOriginCandidates(request).has(origin) && fetchSite !== 'same-origin') {
     throw new ForbiddenError('Cross-origin lab handoff is not allowed')
   }
 }

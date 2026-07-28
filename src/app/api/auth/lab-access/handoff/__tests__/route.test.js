@@ -107,6 +107,33 @@ describe('POST /api/auth/lab-access/handoff', () => {
     expect(response.status).toBe(200)
   })
 
+  test('accepts a browser same-origin handoff when the hosting URL is internal', async () => {
+    const response = await POST(new Request('http://marketplace-internal/api/auth/lab-access/handoff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: 'https://marketplace.example',
+        'Sec-Fetch-Site': 'same-origin',
+      },
+      body: new URLSearchParams({
+        lab_id: '42',
+        access_code: 'opaque-code',
+      }),
+    }))
+
+    expect(response.status).toBe(200)
+  })
+
+  test('rejects a browser cross-site handoff even when the origin is unavailable', async () => {
+    const response = await POST(buildRequest(
+      { lab_id: '42', access_code: 'opaque-code' },
+      { Origin: 'https://marketplace.example', 'Sec-Fetch-Site': 'cross-site' },
+    ))
+
+    expect(response.status).toBe(403)
+    expect(resolveLabAccessGateway).not.toHaveBeenCalled()
+  })
+
   test('fails closed for an HTTP gateway in production', async () => {
     const originalNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'
