@@ -17,6 +17,7 @@
 
 import { cookies } from 'next/headers';
 import { getSessionFromCookies } from './sessionCookie';
+import { SessionStoreUnavailableError } from './sessionStore';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { readLabCreatorPucHash, ZERO_BYTES32 } from '@/utils/blockchain/labCreatorHash';
 import { getPucHashFromSession } from './puc';
@@ -108,7 +109,10 @@ export async function getOptionalSession() {
   try {
     const cookieStore = await cookies();
     return await getSessionFromCookies(cookieStore);
-  } catch {
+  } catch (error) {
+    if (error instanceof SessionStoreUnavailableError || error?.code === 'SESSION_STORE_UNAVAILABLE') {
+      throw error;
+    }
     return null;
   }
 }

@@ -86,4 +86,11 @@ describe('FMU gateway context authorization', () => {
       resourceSessionId: 'session_identifier_aaaaaaaa',
     })
   })
+
+  test('fails closed when the Marketplace session store is unavailable', async () => {
+    const error = { code: 'SESSION_STORE_UNAVAILABLE' }
+    getOptionalSession.mockRejectedValue(error)
+
+    await expect(requireFmuResourceContext(requestFor('user-a'), lookup)).rejects.toBe(error)
+  })
 })

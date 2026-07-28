@@ -102,6 +102,36 @@ describe('guards', () => {
     });
   });
 
+  describe('getOptionalSession', () => {
+    it('returns null when no session exists', async () => {
+      const mockCookieStore = { get: jest.fn() };
+
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockResolvedValue(null);
+
+      await expect(guards.getOptionalSession()).resolves.toBeNull();
+    });
+
+    it('propagates session store outages instead of treating them as no session', async () => {
+      const mockCookieStore = { get: jest.fn() };
+      const error = { code: 'SESSION_STORE_UNAVAILABLE' };
+
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockRejectedValue(error);
+
+      await expect(guards.getOptionalSession()).rejects.toBe(error);
+    });
+
+    it('continues to suppress unrelated optional-session errors', async () => {
+      const mockCookieStore = { get: jest.fn() };
+
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockRejectedValue(new Error('invalid optional session'));
+
+      await expect(guards.getOptionalSession()).resolves.toBeNull();
+    });
+  });
+
   describe('requireAuthWithWallet', () => {
     it('should return session when session has valid wallet', async () => {
       const mockSession = {
