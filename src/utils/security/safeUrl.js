@@ -23,3 +23,15 @@ export const safeExternalHttpUrl = (value) => {
 }
 
 export const parseSafeExternalHttpUrl = (value) => parseSafeUrl(value, ['http:', 'https:'])
+
+// Demo access is always a gateway-origin handoff.  Preserve the validated
+// origin from accessURI, but never forward a lab path, query, or fragment into
+// the authentication endpoint.
+export const buildDemoAccessUrl = (value) => {
+  const parsed = parseSafeUrl(value, ['http:', 'https:'])
+  if (!parsed) return null
+  parsed.pathname = '/auth/demo'
+  parsed.search = ''
+  parsed.hash = ''
+  return parsed.toString()
+}

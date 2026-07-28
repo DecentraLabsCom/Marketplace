@@ -24,7 +24,7 @@ import {
 } from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
-import { safeExternalHttpUrl } from '@/utils/security/safeUrl'
+import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUrl'
 
 let countryLocaleRegistered = false
 
@@ -61,6 +61,7 @@ export default function LabDetail({ id }) {
   } = useLabById(id);
   const { formatPrice } = useLabCredit();
   const router = useRouter();
+  const labIsFmu = isFmu(lab);
 
   // Demo availability check — stable minute-aligned start time so the query key
   // doesn't change on every render; refetchInterval handles periodic refresh.
@@ -70,13 +71,12 @@ export default function LabDetail({ id }) {
     demoCheckStart,
     60,
     {
-      enabled: !!(lab?.id && lab?.demoEnabled),
+      enabled: !!(lab?.id && lab?.demoEnabled && !labIsFmu),
       refetchInterval: 60000,
       staleTime: 30000,
     }
   );
 
-  const labIsFmu = isFmu(lab);
   const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
   const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
   const fmuSummaryItems = useMemo(() => {
@@ -212,6 +212,7 @@ export default function LabDetail({ id }) {
   const hasFmuModelVariables = Array.isArray(fmuMeta?.modelVariables) && fmuMeta.modelVariables.length > 0;
   const hasFmuDimensionDescriptions = fmuDimensionLegend.some((dimension) => dimension.description);
   const safeAccessUri = safeExternalHttpUrl(lab?.accessURI)
+  const demoAccessUri = buildDemoAccessUrl(safeAccessUri)
 
   return (
     <Container padding="sm">
@@ -289,7 +290,7 @@ export default function LabDetail({ id }) {
             </button>
 
             {/* Demo Access */}
-            {lab?.demoEnabled && safeAccessUri && (
+            {lab?.demoEnabled && !labIsFmu && demoAccessUri && (
               <div className="mt-3 w-2/3 mx-auto">
                 {demoAvailData?.isAvailable === false ? (
                   <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
@@ -297,7 +298,7 @@ export default function LabDetail({ id }) {
                   </p>
                 ) : (
                   <a
-                    href={safeAccessUri || undefined}
+                    href={demoAccessUri}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-center px-4 py-2 rounded bg-brand/20 border border-brand text-brand hover:bg-brand hover:text-white transition-colors text-sm font-medium"
@@ -437,7 +438,7 @@ export default function LabDetail({ id }) {
                                 <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
                                   {formatFmuVariableShape(v, fmuMeta.modelVariables)}
                                 </td>
-                                <td className="px-2 py-1 text-neutral-200 break-words max-w-48">
+                                <td className="px-2 py-1 text-neutral-200 wrap-break-word max-w-48">
                                   {formatFmuVariableStart(v.start)}
                                 </td>
                               </tr>

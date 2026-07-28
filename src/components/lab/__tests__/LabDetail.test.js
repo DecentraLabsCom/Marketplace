@@ -387,7 +387,7 @@ describe("LabDetail", () => {
 
       const demoLink = screen.getByRole("link", { name: /Try.*demo/i });
       expect(demoLink).toBeInTheDocument();
-      expect(demoLink).toHaveAttribute("href", "https://demo.example.com/guacamole");
+      expect(demoLink).toHaveAttribute("href", "https://demo.example.com/auth/demo");
       expect(demoLink).toHaveAttribute("target", "_blank");
     });
 
