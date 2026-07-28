@@ -10,26 +10,25 @@ import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-export function submitLabAccessCode(gatewayOrigin, accessCode) {
-  const gatewayUrl = new URL(String(gatewayOrigin || ''))
-  if (!['http:', 'https:'].includes(gatewayUrl.protocol)) {
-    throw new Error('Invalid lab gateway protocol')
-  }
-  if (window.location.protocol === 'https:' && gatewayUrl.protocol !== 'https:') {
-    throw new Error('Secure lab gateway is required')
-  }
-  if (gatewayUrl.username || gatewayUrl.password || gatewayUrl.search || gatewayUrl.hash) {
-    throw new Error('Invalid lab gateway origin')
+export function submitLabAccessCode(labId, accessCode) {
+  if ((labId === undefined || labId === null || labId === '') || !accessCode) {
+    throw new Error('Lab handoff data is incomplete')
   }
   const form = document.createElement('form')
   form.method = 'POST'
-  form.action = `${gatewayUrl.origin}/auth/access`
+  form.action = '/api/auth/lab-access/handoff'
   form.target = '_self'
-  const input = document.createElement('input')
-  input.type = 'hidden'
-  input.name = 'access_code'
-  input.value = String(accessCode || '')
-  form.appendChild(input)
+  const fields = {
+    lab_id: String(labId),
+    access_code: String(accessCode),
+  }
+  Object.entries(fields).forEach(([name, value]) => {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = name
+    input.value = value
+    form.appendChild(input)
+  })
   document.body.appendChild(form)
   form.submit()
 }
@@ -169,11 +168,8 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
             : ''
           window.location.assign(`/simulation/${encodeURIComponent(String(id))}${qs}`)
         } else {
-          if (!authResult.gatewayOrigin) {
-            throw new Error('Provider did not return a canonical lab gateway origin')
-          }
-          devLog.log('🚀 Lab access granted, redirecting to:', authResult.gatewayOrigin);
-          submitLabAccessCode(authResult.gatewayOrigin, authResult.accessCode);
+          devLog.log('🚀 Lab access granted, starting secure gateway handoff');
+          submitLabAccessCode(id, authResult.accessCode);
         }
       } else if (authResult.error) {
         // Handle authentication errors returned by the service

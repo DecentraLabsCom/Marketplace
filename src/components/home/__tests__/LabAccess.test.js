@@ -71,7 +71,6 @@ describe('LabAccess', () => {
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
       labURL: 'https://untrusted.example/guacamole',
-      gatewayOrigin: 'https://lab.example.com',
       resourceType: 'lab',
       reservationKey: '0xabc',
     })
@@ -93,8 +92,10 @@ describe('LabAccess', () => {
     await waitFor(() => expect(submit).toHaveBeenCalled())
     expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1)).toHaveAttribute(
       'action',
-      'https://lab.example.com/auth/access',
+      '/api/auth/lab-access/handoff',
     )
+    expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1))
+      .toHaveFormValues({ lab_id: '123', access_code: 'opaque-code' })
     submit.mockRestore()
 
   })
@@ -118,14 +119,16 @@ describe('LabAccess', () => {
     expect(await screen.findByText('Connection failed. Please try again.')).toBeInTheDocument()
   })
 
-  test('submits an opaque access code to the gateway exchange endpoint', () => {
+  test('submits an opaque access code to the same-origin gateway handoff endpoint', () => {
     const submit = jest.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
-    submitLabAccessCode('https://lab.example.com', 'opaque-code')
+    submitLabAccessCode('123', 'opaque-code')
     expect(submit).toHaveBeenCalled()
     expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1)).toHaveAttribute(
       'action',
-      'https://lab.example.com/auth/access',
+      '/api/auth/lab-access/handoff',
     )
+    expect(document.querySelectorAll('form').item(document.querySelectorAll('form').length - 1))
+      .toHaveFormValues({ lab_id: '123', access_code: 'opaque-code' })
     submit.mockRestore()
   })
 
@@ -134,7 +137,6 @@ describe('LabAccess', () => {
     mockAuthenticateLabAccessSSO.mockResolvedValue({
       accessCode: 'opaque-code',
       labURL: 'https://lab.example.com/run',
-      gatewayOrigin: 'https://lab.example.com',
       resourceType: 'lab',
       reservationKey: '0xabc',
     })

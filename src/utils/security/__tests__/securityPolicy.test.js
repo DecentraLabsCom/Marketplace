@@ -31,27 +31,6 @@ describe('browser security policy', () => {
     expect(policy).not.toContain('connect-src \'self\' https: wss:')
   })
 
-  test('allows only deployment-supplied exact HTTPS origins for lab form handoff', () => {
-    process.env.CSP_FORM_ACTION_SRC = 'https://sarlab.dia.uned.es,https://second-lab.example/'
-
-    const policy = buildContentSecurityPolicy({ nonce: 'nonce-value' })
-
-    expect(policy).toContain(
-      "form-action 'self' https://sarlab.dia.uned.es https://second-lab.example",
-    )
-  })
-
-  test('rejects broad or non-origin form-action configuration in production', () => {
-    process.env.CSP_FORM_ACTION_SRC = 'https://*.example,https://trusted.example/path,http://insecure.example'
-
-    const policy = buildContentSecurityPolicy({ nonce: 'nonce-value' })
-
-    expect(policy).toContain("form-action 'self'")
-    expect(policy).not.toContain('https://*.example')
-    expect(policy).not.toContain('https://trusted.example/path')
-    expect(policy).not.toContain('http://insecure.example')
-  })
-
   test('permits local development evaluation but never enables HSTS there', () => {
     const policy = buildContentSecurityPolicy({ nonce: 'nonce-value', isDevelopment: true })
     expect(policy).toContain("'unsafe-eval'")
