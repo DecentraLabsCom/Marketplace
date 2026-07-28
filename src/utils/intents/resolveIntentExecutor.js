@@ -42,7 +42,10 @@ async function resolveInstitutionBackendExecutor(schacHomeOrganization) {
 
   try {
     const contract = await getContractInstance('diamond', true);
-    const orgHash = ethers.keccak256(ethers.toUtf8Bytes(schacHomeOrganization));
+    // Match LibInstitutionalOrg.normalizeOrganization before resolving the
+    // on-chain institution/backend mapping.
+    const normalizedOrganization = String(schacHomeOrganization).trim().toLowerCase();
+    const orgHash = ethers.keccak256(ethers.toUtf8Bytes(normalizedOrganization));
     const institution = await contract.getInstitutionWalletByOrganizationHash(orgHash);
 
     if (!institution || institution === ethers.ZeroAddress) {
