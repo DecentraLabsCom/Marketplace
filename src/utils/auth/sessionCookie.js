@@ -9,9 +9,11 @@ import {
   deleteServerSession,
   getServerSession,
   isServerSessionId,
+  isServerSessionRenewalDue,
   renewServerSession,
 } from './sessionStore'
 import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
+import { registerSamlSessionBinding } from './samlSessionStateStore'
 
 const COOKIE_NAME = '__Host-user_session'
 
@@ -55,11 +57,26 @@ export async function getSessionFromCookies(cookieStore, { renew = true } = {}) 
   const session = await getServerSession(values[0])
   if (!session || !renew || typeof cookieStore?.set !== 'function') return session
 
+  const renewalTime = Date.now()
+  if (!isServerSessionRenewalDue(session, renewalTime)) return session
+
   let renewedSession
   try {
-    renewedSession = await renewServerSession(values[0], session)
+    const samlNameId = String(session.samlNameId || '').trim()
+    const samlSessionIndex = String(session.samlSessionIndex || '').trim()
+    if (samlNameId && samlSessionIndex) {
+      await registerSamlSessionBinding({
+        sessionId: values[0],
+        nameId: samlNameId,
+        sessionIndex: samlSessionIndex,
+        ttlSeconds: MARKETPLACE_SESSION_TTL_SECONDS,
+      })
+    }
+    renewedSession = await renewServerSession(values[0], session, renewalTime)
   } catch {
     // A renewal failure must not turn an otherwise valid session into a logout.
+    // The SAML binding is refreshed before the session so a partial renewal
+    // cannot leave a live Marketplace session without a matching SLO index.
     return session
   }
 

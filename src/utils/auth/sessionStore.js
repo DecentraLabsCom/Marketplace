@@ -248,6 +248,14 @@ export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_S
   return { sessionId, record }
 }
 
+export function isServerSessionRenewalDue(session, now = Date.now()) {
+  const expiresAt = Number(session?.expiresAt)
+  const currentTime = Number(now)
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || expiresAt <= currentTime) return false
+
+  return expiresAt - currentTime <= MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS * 1000
+}
+
 /**
  * Extends a valid session only when it is inside the renewal window.
  *
@@ -258,12 +266,8 @@ export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_S
 export async function renewServerSession(sessionId, session, now = Date.now()) {
   if (!isValidSessionId(sessionId) || !session || session.sessionId !== sessionId) return null
 
-  const expiresAt = Number(session.expiresAt)
   const currentTime = Number(now)
-  if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || expiresAt <= currentTime) return null
-
-  const remainingMs = expiresAt - currentTime
-  if (remainingMs > MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS * 1000) return null
+  if (!isServerSessionRenewalDue(session, currentTime)) return null
 
   const renewedExpiresAt = currentTime + MARKETPLACE_SESSION_TTL_SECONDS * 1000
   const renewedSession = {

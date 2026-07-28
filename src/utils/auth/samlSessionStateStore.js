@@ -6,6 +6,17 @@ const SAML_BINDING_PREFIX = 'marketplace:saml:binding:'
 const FMU_CAPABILITY_PREFIX = 'marketplace:fmu:capabilities:'
 const MAX_BINDING_VALUE_LENGTH = 2048
 const MAX_TTL_SECONDS = 7 * 24 * 60 * 60
+// The session index is retained until the latest capability can expire. The
+// TTL comparison must happen in the same Redis script as SADD to avoid races.
+const REGISTER_FMU_CAPABILITY_SCRIPT = `
+local added = redis.call('SADD', KEYS[1], ARGV[1])
+local current_ttl = redis.call('TTL', KEYS[1])
+local requested_ttl = tonumber(ARGV[2]) or 0
+if current_ttl < requested_ttl then
+  redis.call('EXPIRE', KEYS[1], requested_ttl)
+end
+return added
+`
 const memoryBindings = new Map()
 const memoryCapabilities = new Map()
 const developmentEncryptionKey = randomBytes(32)
@@ -159,8 +170,14 @@ export async function registerFmuCapabilityForSession({ sessionId, context, ttlS
   const key = capabilityKey(normalizedSessionId)
 
   if (redisEnabled()) {
-    await redisCommand(['SADD', key, encrypted])
-    await redisCommand(['EXPIRE', key, String(ttl)])
+    await redisCommand([
+      'EVAL',
+      REGISTER_FMU_CAPABILITY_SCRIPT,
+      '1',
+      key,
+      encrypted,
+      String(ttl),
+    ])
     return
   }
 

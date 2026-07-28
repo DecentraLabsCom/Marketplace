@@ -89,6 +89,46 @@ describe('sessionCookie', () => {
     jest.useRealTimers();
   });
 
+  it('refreshes the SAML binding together with the sliding server session', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
+    let samlSessionStateStore;
+
+    try {
+      const sessionData = {
+        id: 'user123',
+        email: 'test@example.com',
+        samlNameId: 'name-id-1',
+        samlSessionIndex: 'session-index-1',
+      };
+      const createdCookies = await sessionCookie.createSessionCookie(sessionData);
+      samlSessionStateStore = await import('@/utils/auth/samlSessionStateStore');
+      await samlSessionStateStore.registerSamlSessionBinding({
+        sessionId: createdCookies[0].value,
+        nameId: sessionData.samlNameId,
+        sessionIndex: sessionData.samlSessionIndex,
+        ttlSeconds: 60 * 60,
+      });
+
+      const cookieStore = {
+        get: () => ({ value: createdCookies[0].value }),
+        set: jest.fn(),
+      };
+
+      jest.advanceTimersByTime(46 * 60 * 1000);
+      await sessionCookie.getSessionFromCookies(cookieStore);
+
+      jest.advanceTimersByTime(15 * 60 * 1000);
+
+      await expect(samlSessionStateStore.getSamlSessionIds(
+        sessionData.samlNameId,
+        sessionData.samlSessionIndex,
+      )).resolves.toEqual([createdCookies[0].value]);
+    } finally {
+      samlSessionStateStore?.clearSamlSessionStateForTests();
+      jest.useRealTimers();
+    }
+  });
+
   it('does not refresh the browser cookie while more than 15 minutes remain', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
     const createdCookies = await sessionCookie.createSessionCookie({ id: 'user123' });

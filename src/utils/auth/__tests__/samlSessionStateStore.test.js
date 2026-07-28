@@ -1,5 +1,10 @@
 /** @jest-environment node */
 
+jest.mock('@/utils/redis/restClient', () => ({
+  hasRedisConfig: jest.fn(),
+  redisCommand: jest.fn(),
+}))
+
 import {
   clearSamlSessionBinding,
   clearSamlSessionStateForTests,
@@ -8,6 +13,7 @@ import {
   registerFmuCapabilityForSession,
   registerSamlSessionBinding,
 } from '../samlSessionStateStore'
+import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
 describe('samlSessionStateStore', () => {
   const sessionId = 'a'.repeat(43)
@@ -23,6 +29,9 @@ describe('samlSessionStateStore', () => {
   }
 
   beforeEach(() => {
+    process.env.NODE_ENV = 'test'
+    hasRedisConfig.mockReturnValue(false)
+    redisCommand.mockReset()
     clearSamlSessionStateForTests()
   })
 
@@ -39,5 +48,95 @@ describe('samlSessionStateStore', () => {
     await clearSamlSessionBinding(nameId, sessionIndex)
 
     await expect(getSamlSessionIds(nameId, sessionIndex)).resolves.toEqual([])
+  })
+
+  test('adds capabilities and preserves the longest Redis TTL atomically', async () => {
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalEncryptionKey = process.env.SESSION_STORE_ENCRYPTION_KEY
+    const firstContext = { ...context, resourceSessionId: 'resource-session-1' }
+    const secondContext = { ...context, resourceSessionId: 'resource-session-2' }
+    const storedValues = []
+
+    try {
+      process.env.NODE_ENV = 'production'
+      process.env.SESSION_STORE_ENCRYPTION_KEY = 'a'.repeat(64)
+      hasRedisConfig.mockReturnValue(true)
+      redisCommand.mockImplementation(async ([command, , , , member]) => {
+        if (command === 'EVAL') {
+          storedValues.push(member)
+          return 1
+        }
+        if (command === 'SMEMBERS') return storedValues
+        return 'OK'
+      })
+
+      await registerFmuCapabilityForSession({
+        sessionId,
+        context: firstContext,
+        ttlSeconds: 4 * 60 * 60,
+      })
+      await registerFmuCapabilityForSession({
+        sessionId,
+        context: secondContext,
+        ttlSeconds: 30 * 60,
+      })
+
+      const evaluations = redisCommand.mock.calls
+        .map(([command]) => command)
+        .filter(([operation]) => operation === 'EVAL')
+      expect(evaluations).toHaveLength(2)
+      expect(evaluations.every(([operation, script]) => (
+        operation === 'EVAL'
+        && script.includes("redis.call('SADD'")
+        && script.includes("redis.call('TTL'")
+        && script.includes("redis.call('EXPIRE'")
+        && script.includes('if current_ttl < requested_ttl then')
+      ))).toBe(true)
+      expect(evaluations.map(([, , , , , ttl]) => ttl)).toEqual(['14400', '1800'])
+      expect(redisCommand.mock.calls.some(([command]) => command[0] === 'SADD')).toBe(false)
+      expect(redisCommand.mock.calls.some(([command]) => command[0] === 'EXPIRE')).toBe(false)
+
+      await expect(getFmuCapabilitiesForSession(sessionId)).resolves.toEqual(
+        expect.arrayContaining([firstContext, secondContext]),
+      )
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = originalNodeEnv
+      if (originalEncryptionKey === undefined) delete process.env.SESSION_STORE_ENCRYPTION_KEY
+      else process.env.SESSION_STORE_ENCRYPTION_KEY = originalEncryptionKey
+    }
+  })
+
+  test('requests a longer index TTL when a longer capability is registered', async () => {
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalEncryptionKey = process.env.SESSION_STORE_ENCRYPTION_KEY
+
+    try {
+      process.env.NODE_ENV = 'production'
+      process.env.SESSION_STORE_ENCRYPTION_KEY = 'a'.repeat(64)
+      hasRedisConfig.mockReturnValue(true)
+      redisCommand.mockResolvedValue(1)
+
+      await registerFmuCapabilityForSession({
+        sessionId,
+        context,
+        ttlSeconds: 30 * 60,
+      })
+      await registerFmuCapabilityForSession({
+        sessionId,
+        context: { ...context, resourceSessionId: 'resource-session-2' },
+        ttlSeconds: 4 * 60 * 60,
+      })
+
+      const evaluations = redisCommand.mock.calls
+        .map(([command]) => command)
+        .filter(([operation]) => operation === 'EVAL')
+      expect(evaluations.map(([, , , , , ttl]) => ttl)).toEqual(['1800', '14400'])
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = originalNodeEnv
+      if (originalEncryptionKey === undefined) delete process.env.SESSION_STORE_ENCRYPTION_KEY
+      else process.env.SESSION_STORE_ENCRYPTION_KEY = originalEncryptionKey
+    }
   })
 })
