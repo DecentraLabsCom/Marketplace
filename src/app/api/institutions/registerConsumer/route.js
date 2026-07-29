@@ -84,7 +84,7 @@ function normalizeBackendUrl(backendUrl) {
  * POST /api/institutions/registerConsumer
  * 
  * Secure endpoint for blockchain-services to register as CONSUMER-ONLY institution.
- * Only executes grantInstitutionRole (does NOT call addProvider).
+ * Uses the atomic institution provisioning path (does NOT call addProvider).
  * 
  * Requires provisioning token authentication.
  */
