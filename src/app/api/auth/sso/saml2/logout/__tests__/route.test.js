@@ -6,12 +6,11 @@ jest.mock('@/utils/auth/sessionCookie', () => ({
   getSessionFromCookies: jest.fn(),
 }))
 jest.mock('@/utils/auth/fmuSessionStore', () => ({ clearFmuContextCookie: jest.fn() }))
-jest.mock('@/utils/auth/revokeFmuContexts', () => ({ revokeFmuContexts: jest.fn() }))
-jest.mock('@/utils/auth/samlLogoutReplayStore', () => ({
-  consumeSamlLogoutRequestId: jest.fn(),
+jest.mock('@/utils/auth/samlLogoutOutbox', () => ({
+  acceptSamlLogoutRequest: jest.fn(),
 }))
-jest.mock('@/utils/auth/revokeSamlBoundSessions', () => ({
-  revokeSamlBoundSessions: jest.fn(),
+jest.mock('@/utils/auth/processSamlLogout', () => ({
+  processSamlLogoutRequest: jest.fn(),
 }))
 jest.mock('@/utils/auth/sso', () => ({
   createIdentityProvider: jest.fn(),
@@ -26,9 +25,8 @@ jest.mock('@/utils/auth/samlLogoutSecurity', () => ({
 import { cookies } from 'next/headers'
 import { clearSessionCookies, getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
-import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
-import { consumeSamlLogoutRequestId } from '@/utils/auth/samlLogoutReplayStore'
-import { revokeSamlBoundSessions } from '@/utils/auth/revokeSamlBoundSessions'
+import { acceptSamlLogoutRequest } from '@/utils/auth/samlLogoutOutbox'
+import { processSamlLogoutRequest } from '@/utils/auth/processSamlLogout'
 import { createIdentityProvider, createServiceProvider } from '@/utils/auth/sso'
 import {
   decodeSamlLogoutRequest,
@@ -77,11 +75,19 @@ describe('POST /api/auth/sso/saml2/logout', () => {
       samlSessionIndex: 'session-index-1',
     })
     verifySamlLogoutRequestSignature.mockReturnValue(true)
-    consumeSamlLogoutRequestId.mockResolvedValue(true)
-    revokeSamlBoundSessions.mockResolvedValue([])
+    acceptSamlLogoutRequest.mockResolvedValue({
+      status: 'pending',
+      record: {
+        requestId: '_logout-1',
+        nameId: 'name-id-1',
+        sessionIndex: 'session-index-1',
+        attempts: 0,
+      },
+    })
+    processSamlLogoutRequest.mockResolvedValue(undefined)
   })
 
-  test('verifies the issuer and signature before clearing sessions and returning a SAML response redirect', async () => {
+  test('accepts the request before processing and returns a SAML response redirect', async () => {
     const body = new URLSearchParams({ SAMLRequest: 'encoded-request', RelayState: 'relay-1' }).toString()
 
     const response = await POST(requestWithBody(body))
@@ -95,14 +101,16 @@ describe('POST /api/auth/sso/saml2/logout', () => {
       'idp-signing-certificate',
       '_logout-1',
     )
-    expect(consumeSamlLogoutRequestId).toHaveBeenCalledWith('_logout-1')
-    expect(revokeSamlBoundSessions).toHaveBeenCalledWith('name-id-1', 'session-index-1')
-    expect(serviceProvider.create_logout_response_url).toHaveBeenCalledWith(
-      identityProvider,
-      { in_response_to: '_logout-1', relay_state: 'relay-1' },
-      expect.any(Function),
+    expect(acceptSamlLogoutRequest).toHaveBeenCalledWith({
+      requestId: '_logout-1',
+      nameId: 'name-id-1',
+      sessionIndex: 'session-index-1',
+    })
+    expect(processSamlLogoutRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: '_logout-1' }),
+      cookieStore,
     )
-    expect(revokeFmuContexts).toHaveBeenCalledWith(cookieStore)
+    expect(createServiceProvider).toHaveBeenCalled()
     expect(clearSessionCookies).toHaveBeenCalledWith(cookieStore)
     expect(clearFmuContextCookie).toHaveBeenCalledWith(cookieStore)
   })
@@ -116,9 +124,8 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
 
     expect(response.status).toBe(400)
-    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(acceptSamlLogoutRequest).not.toHaveBeenCalled()
     expect(clearSessionCookies).not.toHaveBeenCalled()
-    expect(revokeSamlBoundSessions).not.toHaveBeenCalled()
   })
 
   test('processes IdP-initiated logout when the browser does not send the Lax session cookie', async () => {
@@ -126,7 +133,10 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
 
     expect(response.status).toBe(303)
-    expect(revokeSamlBoundSessions).toHaveBeenCalledWith('name-id-1', 'session-index-1')
+    expect(processSamlLogoutRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ nameId: 'name-id-1', sessionIndex: 'session-index-1' }),
+      cookieStore,
+    )
     expect(clearSessionCookies).toHaveBeenCalledWith(cookieStore)
   })
 
@@ -137,8 +147,7 @@ describe('POST /api/auth/sso/saml2/logout', () => {
 
     expect(response.status).toBe(400)
     expect(verifySamlLogoutRequestSignature).not.toHaveBeenCalled()
-    expect(consumeSamlLogoutRequestId).not.toHaveBeenCalled()
-    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(acceptSamlLogoutRequest).not.toHaveBeenCalled()
   })
 
   test('rejects an unsigned or invalidly signed request', async () => {
@@ -147,17 +156,27 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
 
     expect(response.status).toBe(400)
-    expect(consumeSamlLogoutRequestId).not.toHaveBeenCalled()
-    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(acceptSamlLogoutRequest).not.toHaveBeenCalled()
   })
 
-  test('rejects a LogoutRequest ID that has already been consumed', async () => {
-    consumeSamlLogoutRequestId.mockResolvedValue(false)
+  test('rejects a LogoutRequest that has already completed', async () => {
+    acceptSamlLogoutRequest.mockResolvedValue({ status: 'completed' })
 
     const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
 
     expect(response.status).toBe(400)
-    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(processSamlLogoutRequest).not.toHaveBeenCalled()
+    expect(clearSessionCookies).not.toHaveBeenCalled()
+  })
+
+  test('returns 503 while leaving an accepted pending request retryable', async () => {
+    processSamlLogoutRequest.mockRejectedValue(new Error('session store unavailable'))
+
+    const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
+
+    expect(response.status).toBe(503)
+    expect(acceptSamlLogoutRequest).toHaveBeenCalledTimes(1)
+    expect(processSamlLogoutRequest).toHaveBeenCalledTimes(1)
     expect(clearSessionCookies).not.toHaveBeenCalled()
   })
 
@@ -169,7 +188,7 @@ describe('POST /api/auth/sso/saml2/logout', () => {
     const response = await POST(requestWithBody('SAMLRequest=encoded-request'))
 
     expect(response.status).toBe(503)
-    expect(revokeFmuContexts).not.toHaveBeenCalled()
+    expect(acceptSamlLogoutRequest).not.toHaveBeenCalled()
     expect(clearSessionCookies).not.toHaveBeenCalled()
   })
 })

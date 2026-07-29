@@ -7,9 +7,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { clearSessionCookies, getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
-import { revokeFmuContexts } from '@/utils/auth/revokeFmuContexts'
-import { consumeSamlLogoutRequestId } from '@/utils/auth/samlLogoutReplayStore'
-import { revokeSamlBoundSessions } from '@/utils/auth/revokeSamlBoundSessions'
+import { acceptSamlLogoutRequest } from '@/utils/auth/samlLogoutOutbox'
+import { processSamlLogoutRequest } from '@/utils/auth/processSamlLogout'
 import { createIdentityProvider, createServiceProvider } from '@/utils/auth/sso'
 import {
   decodeSamlLogoutRequest,
@@ -102,10 +101,10 @@ export async function POST(request) {
       identityProvider,
       responseOptions,
     )
-    if (!await consumeSamlLogoutRequestId(requestId)) return invalidRequest()
+    const acceptance = await acceptSamlLogoutRequest({ requestId, nameId, sessionIndex })
+    if (acceptance.status === 'completed') return invalidRequest()
 
-    await revokeSamlBoundSessions(nameId, sessionIndex)
-    await revokeFmuContexts(cookieStore)
+    await processSamlLogoutRequest(acceptance.record, cookieStore)
     await clearSessionCookies(cookieStore)
     clearFmuContextCookie(cookieStore)
 

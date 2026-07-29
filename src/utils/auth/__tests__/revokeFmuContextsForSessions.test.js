@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { gatewayFetch, buildGatewayTargetUrl } from '@/utils/api/gatewayProxy'
+import { gatewayFetch } from '@/utils/api/gatewayProxy'
 import {
   ackFmuRevocation,
   clearFmuCapabilitiesForSession,

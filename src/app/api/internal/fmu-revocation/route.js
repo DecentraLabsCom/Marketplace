@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { drainFmuRevocationOutbox } from '@/utils/auth/revokeFmuContexts'
+import { drainSamlLogoutOutbox } from '@/utils/auth/processSamlLogout'
 
 export const runtime = 'nodejs'
 
@@ -21,8 +22,14 @@ export async function POST(request) {
   }
 
   try {
-    const result = await drainFmuRevocationOutbox()
-    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+    const [fmu, samlLogout] = await Promise.all([
+      drainFmuRevocationOutbox(),
+      drainSamlLogoutOutbox(),
+    ])
+    return NextResponse.json(
+      { fmu, samlLogout },
+      { headers: { 'Cache-Control': 'no-store' } },
+    )
   } catch (error) {
     console.error('FMU revocation reconciliation failed:', error)
     return NextResponse.json(

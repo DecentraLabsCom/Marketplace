@@ -1,10 +1,14 @@
 /** @jest-environment node */
 
 import { drainFmuRevocationOutbox } from '@/utils/auth/revokeFmuContexts'
+import { drainSamlLogoutOutbox } from '@/utils/auth/processSamlLogout'
 import { POST } from '../route'
 
 jest.mock('@/utils/auth/revokeFmuContexts', () => ({
   drainFmuRevocationOutbox: jest.fn(),
+}))
+jest.mock('@/utils/auth/processSamlLogout', () => ({
+  drainSamlLogoutOutbox: jest.fn(),
 }))
 
 describe('FMU revocation reconciliation route', () => {
@@ -14,6 +18,7 @@ describe('FMU revocation reconciliation route', () => {
     process.env.FMU_REVOCATION_RECONCILIATION_TOKEN = 'worker-secret'
     jest.clearAllMocks()
     drainFmuRevocationOutbox.mockResolvedValue({ checked: 1, confirmed: 1, pending: 0 })
+    drainSamlLogoutOutbox.mockResolvedValue({ checked: 1, completed: 1, pending: 0 })
   })
 
   afterAll(() => {
@@ -35,7 +40,11 @@ describe('FMU revocation reconciliation route', () => {
     ))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ checked: 1, confirmed: 1, pending: 0 })
+    await expect(response.json()).resolves.toEqual({
+      fmu: { checked: 1, confirmed: 1, pending: 0 },
+      samlLogout: { checked: 1, completed: 1, pending: 0 },
+    })
     expect(drainFmuRevocationOutbox).toHaveBeenCalledTimes(1)
+    expect(drainSamlLogoutOutbox).toHaveBeenCalledTimes(1)
   })
 })

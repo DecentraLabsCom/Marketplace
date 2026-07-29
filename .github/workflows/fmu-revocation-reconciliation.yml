@@ -1,4 +1,4 @@
-name: FMU revocation reconciliation
+name: Authentication revocation reconciliation
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   reconcile:
-    name: Drain FMU revocation outbox
+    name: Drain authentication revocation outboxes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -19,7 +19,7 @@ jobs:
           test -n "$MARKETPLACE_BASE_URL"
           test -n "$FMU_REVOCATION_RECONCILIATION_TOKEN"
 
-      - name: Drain pending FMU revocations
+      - name: Drain pending FMU and SAML revocations
         env:
           MARKETPLACE_BASE_URL: ${{ secrets.MARKETPLACE_BASE_URL }}
           FMU_REVOCATION_RECONCILIATION_TOKEN: ${{ secrets.FMU_REVOCATION_RECONCILIATION_TOKEN }}
