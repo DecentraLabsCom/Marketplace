@@ -157,7 +157,8 @@ LabBookingItem.propTypes = {
     lab: PropTypes.shape({
         id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         name: PropTypes.string,
-        provider: PropTypes.string
+        provider: PropTypes.string,
+        resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     }),
     booking: PropTypes.shape({
         id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

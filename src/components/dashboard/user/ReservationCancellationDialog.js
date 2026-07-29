@@ -39,8 +39,12 @@ export default function ReservationCancellationDialog({
   onClose,
   onConfirm,
 }) {
-  const creditReturn = getCancellationCreditReturnLabel(booking)
-  const preview = getCancellationPreview(booking)
+  const policyBooking = {
+    ...booking,
+    resourceType: booking?.resourceType ?? booking?.labDetails?.resourceType ?? lab?.resourceType,
+  }
+  const creditReturn = getCancellationCreditReturnLabel(policyBooking)
+  const preview = getCancellationPreview(policyBooking)
   const hasChargedReservation = Number(preview?.status) === 1
   const sourceLotLabel = preview?.allocations?.length
     ? `${preview.allocations.length} lot${preview.allocations.length === 1 ? '' : 's'} recorded`

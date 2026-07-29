@@ -1,8 +1,9 @@
 import { formatRawCredits, RAW_PER_CREDIT } from '@/utils/blockchain/creditUnits'
+import { isFmu } from '@/utils/resourceType'
 
-const CANCELLATION_FEE_PERCENT = 5n
+const CANCELLATION_FEE_PERCENT = 10n
 const CANCELLATION_FEE_DENOMINATOR = 100n
-const PROVIDER_FEE_PERCENT_OF_TOTAL = 3n
+const PROVIDER_FEE_PERCENT_OF_TOTAL = 6n
 const MIN_CANCELLATION_FEE = RAW_PER_CREDIT / 10n
 
 const parseRawCreditAmount = (value) => {
@@ -50,7 +51,7 @@ const buildPreview = ({
   periodEnd = null,
   sourceCreditExpiry = null,
   allocations = [],
-  policyVersion = 1,
+  policyVersion = 2,
   cancellable = status === 1,
 }) => {
   const percentageFee = (price * CANCELLATION_FEE_PERCENT) / CANCELLATION_FEE_DENOMINATOR
@@ -72,7 +73,7 @@ const buildPreview = ({
     spendingPeriodEnd: toTimestamp(periodEnd),
     sourceCreditExpiry: toTimestamp(sourceCreditExpiry),
     allocations: normalizeAllocations(allocations),
-    policyVersion: Number(policyVersion) || 1,
+    policyVersion: Number(policyVersion) || 2,
   }
 }
 
@@ -127,6 +128,18 @@ export function getCancellationPreview(booking) {
   }
 
   if (status !== 1 || bookingPrice === null) return null
+
+  if (isFmu(booking)) {
+    return buildPreview({
+      source: 'local-fallback',
+      status,
+      price: bookingPrice,
+      totalFee: 0n,
+      providerFee: 0n,
+      refund: bookingPrice,
+      cutoff: booking?.start,
+    })
+  }
 
   const percentageFee = (bookingPrice * CANCELLATION_FEE_PERCENT) / CANCELLATION_FEE_DENOMINATOR
   const minimumFee = bookingPrice < MIN_CANCELLATION_FEE ? bookingPrice : MIN_CANCELLATION_FEE
