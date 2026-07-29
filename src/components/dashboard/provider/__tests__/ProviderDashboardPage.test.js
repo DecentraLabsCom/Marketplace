@@ -712,6 +712,7 @@ describe("ProviderDashboard Component", () => {
               accessURI: "https://lab.com",
               resourceType: "fmu",
               fmuFileName: "spring-damper.fmu",
+              maxConcurrentUsers: 4,
               classification: [
                 {
                   scheme: "OECD-FORD",
@@ -729,6 +730,7 @@ describe("ProviderDashboard Component", () => {
                 accessURI: "https://lab.com",
                 resourceType: "fmu",
                 fmuFileName: "spring-damper.fmu",
+                maxConcurrentUsers: 7,
                 accessKey: "spring-damper.fmu",
                 category: ["1.2", "2.2"],
               },
@@ -753,6 +755,7 @@ describe("ProviderDashboard Component", () => {
               id: "2",
               resourceType: "fmu",
               accessKey: "spring-damper.fmu",
+              maxConcurrentUsers: 7,
               category: ["1.2", "2.2"],
             })
           );

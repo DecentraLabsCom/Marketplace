@@ -22,7 +22,10 @@ describe('signInstitutionalReservationIntent utilities', () => {
       start: 1,
       end: 2,
       price: 0,
-      reservationKey: ethers.solidityPackedKeccak256(['uint256', 'uint32'], [1n, 1n]),
+      reservationKey: ethers.solidityPackedKeccak256(
+        ['uint256', 'uint32', 'bytes32'],
+        [1n, 1n, ethers.keccak256(ethers.toUtf8Bytes('user@example.org'))],
+      ),
       expiresInSec: 100,
       assertionHash: hash,
       nonce: 1n,

@@ -134,7 +134,7 @@ function resolveActionPayloadInput(payloadInput, action, cancellationSnapshot) {
   }
 }
 
-async function prepareReservationData({ action, payloadInput, session, contract, cancellationSnapshot: existingSnapshot }) {
+async function prepareReservationData({ action, payloadInput, session, contract, pucHash, cancellationSnapshot: existingSnapshot }) {
   if (action === ACTION_CODES.CANCEL_REQUEST_BOOKING) {
     validateCancellationReservationKey(payloadInput.reservationKey)
     const snapshot = existingSnapshot || await resolveCancellationReservationSnapshot(payloadInput.reservationKey)
@@ -197,7 +197,10 @@ async function prepareReservationData({ action, payloadInput, session, contract,
     start: window.start,
     end: window.end,
     price,
-    reservationKey: ethers.solidityPackedKeccak256(['uint256', 'uint32'], [window.labId, window.start]),
+    reservationKey: ethers.solidityPackedKeccak256(
+      ['uint256', 'uint32', 'bytes32'],
+      [window.labId, window.start, pucHash],
+    ),
     assertionHash: computeReservationAssertionHash(session.samlAssertion),
   }
 }
@@ -315,6 +318,7 @@ export async function POST(request) {
         payloadInput,
         session,
         contract,
+        pucHash,
         cancellationSnapshot,
       })
       if (preparedReservation.error) return preparedReservation.error
