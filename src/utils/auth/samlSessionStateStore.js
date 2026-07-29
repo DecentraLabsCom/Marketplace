@@ -4,8 +4,11 @@ import { isServerSessionId } from './sessionStore'
 
 const SAML_BINDING_PREFIX = 'marketplace:saml:binding:'
 const FMU_CAPABILITY_PREFIX = 'marketplace:fmu:capabilities:'
+const FMU_REVOCATION_OUTBOX_INDEX = 'marketplace:fmu:revocation:outbox'
+const FMU_REVOCATION_OUTBOX_PREFIX = 'marketplace:fmu:revocation:entry:'
 const MAX_BINDING_VALUE_LENGTH = 2048
 const MAX_TTL_SECONDS = 7 * 24 * 60 * 60
+const MAX_REVOCATION_RETRY_DELAY_SECONDS = 5 * 60
 // The session index is retained until the latest capability can expire. The
 // TTL comparison must happen in the same Redis script as SADD to avoid races.
 const REGISTER_FMU_CAPABILITY_SCRIPT = `
@@ -17,8 +20,19 @@ if current_ttl < requested_ttl then
 end
 return added
 `
+const ENQUEUE_FMU_REVOCATION_SCRIPT = `
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+redis.call('ZADD', KEYS[2], ARGV[3], ARGV[4])
+return 1
+`
+const ACK_FMU_REVOCATION_SCRIPT = `
+redis.call('DEL', KEYS[1])
+redis.call('ZREM', KEYS[2], ARGV[1])
+return 1
+`
 const memoryBindings = new Map()
 const memoryCapabilities = new Map()
+const memoryRevocationOutbox = new Map()
 const developmentEncryptionKey = randomBytes(32)
 
 function normalizeBindingValue(value, label) {
@@ -52,6 +66,29 @@ function samlBindingKey(nameId, sessionIndex) {
 
 function capabilityKey(sessionId) {
   return `${FMU_CAPABILITY_PREFIX}${sessionId}`
+}
+
+function capabilityIdentity(context) {
+  let gatewayOrigin
+  try {
+    gatewayOrigin = new URL(context?.gatewayOrigin).origin
+  } catch {
+    gatewayOrigin = ''
+  }
+  return `${gatewayOrigin}\0${String(context?.resourceSessionId || '')}`
+}
+
+function revocationMember(sessionId, context) {
+  return createHmac('sha256', encryptionKey())
+    .update('marketplace-fmu-revocation\0')
+    .update(String(sessionId))
+    .update('\0')
+    .update(capabilityIdentity(context))
+    .digest('hex')
+}
+
+function revocationEntryKey(member) {
+  return `${FMU_REVOCATION_OUTBOX_PREFIX}${member}`
 }
 
 function redisEnabled() {
@@ -115,6 +152,9 @@ function sweepMemory(now = Date.now()) {
       if (expiresAt <= now) records.delete(value)
     }
     if (records.size === 0) memoryCapabilities.delete(sessionId)
+  }
+  for (const [member, entry] of memoryRevocationOutbox.entries()) {
+    if (entry.expiresAt <= now) memoryRevocationOutbox.delete(member)
   }
 }
 
@@ -193,9 +233,182 @@ export async function getFmuCapabilitiesForSession(sessionId) {
   const values = redisEnabled()
     ? await redisCommand(['SMEMBERS', capabilityKey(normalizedSessionId)])
     : [...(memoryCapabilities.get(normalizedSessionId)?.keys() || [])]
+  const now = Math.floor(Date.now() / 1000)
   return (Array.isArray(values) ? values : [])
     .map(decryptCapability)
-    .filter(Boolean)
+    .filter((context) => context && Number(context.expiresAt) > now)
+}
+
+function validateRevocationContext(context) {
+  if (!context || typeof context !== 'object') throw new Error('FMU capability context is required')
+  const gatewayOrigin = new URL(context.gatewayOrigin).origin
+  const resourceSessionId = String(context.resourceSessionId || '')
+  const expiresAt = Number(context.expiresAt)
+  if (!/^[A-Za-z0-9_-]{16,512}$/.test(resourceSessionId)) {
+    throw new Error('FMU resource session ID is invalid')
+  }
+  if (!Number.isSafeInteger(expiresAt) || expiresAt < 1) {
+    throw new Error('FMU capability expiration is invalid')
+  }
+  return { ...context, gatewayOrigin, resourceSessionId, expiresAt }
+}
+
+function revocationRecord({ sessionId, context, attempts = 0, nextAttemptAt }) {
+  return {
+    sessionId: normalizeSessionId(sessionId),
+    context: validateRevocationContext(context),
+    attempts: Number.isSafeInteger(attempts) && attempts >= 0 ? attempts : 0,
+    nextAttemptAt: Number.isSafeInteger(nextAttemptAt) ? nextAttemptAt : Math.floor(Date.now() / 1000),
+  }
+}
+
+export async function enqueueFmuRevocation({ sessionId, context, now = Date.now() }) {
+  const record = revocationRecord({ sessionId, context })
+  const nowSeconds = Math.floor(Number(now) / 1000)
+  if (!Number.isSafeInteger(nowSeconds) || record.context.expiresAt <= nowSeconds) return false
+
+  const member = revocationMember(record.sessionId, record.context)
+  const ttlSeconds = Math.max(1, record.context.expiresAt - nowSeconds)
+  const encrypted = encryptCapability(record)
+  if (redisEnabled()) {
+    await redisCommand([
+      'EVAL',
+      ENQUEUE_FMU_REVOCATION_SCRIPT,
+      '2',
+      revocationEntryKey(member),
+      FMU_REVOCATION_OUTBOX_INDEX,
+      encrypted,
+      String(ttlSeconds),
+      String(record.nextAttemptAt),
+      member,
+    ])
+    return true
+  }
+
+  sweepMemory(Number(now))
+  memoryRevocationOutbox.set(member, {
+    record,
+    expiresAt: Number(now) + ttlSeconds * 1000,
+  })
+  return true
+}
+
+export async function getDueFmuRevocations({ now = Date.now(), limit = 100 } = {}) {
+  const nowSeconds = Math.floor(Number(now) / 1000)
+  const boundedLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 500) : 100
+  if (!Number.isSafeInteger(nowSeconds)) return []
+
+  if (redisEnabled()) {
+    const members = await redisCommand([
+      'ZRANGEBYSCORE',
+      FMU_REVOCATION_OUTBOX_INDEX,
+      '-inf',
+      String(nowSeconds),
+      'LIMIT',
+      '0',
+      String(boundedLimit),
+    ])
+    const normalizedMembers = Array.isArray(members) ? members : []
+    const values = normalizedMembers.length > 0
+      ? await redisCommand(['MGET', ...normalizedMembers.map(revocationEntryKey)])
+      : []
+    const due = []
+    for (const [index, member] of normalizedMembers.entries()) {
+      const record = decryptCapability(values[index])
+      if (record?.sessionId && record?.context) {
+        due.push({ member, ...record })
+      } else {
+        await redisCommand(['ZREM', FMU_REVOCATION_OUTBOX_INDEX, member])
+      }
+    }
+    return due
+  }
+
+  sweepMemory(Number(now))
+  return [...memoryRevocationOutbox.entries()]
+    .filter(([, entry]) => entry.record.nextAttemptAt <= nowSeconds)
+    .slice(0, boundedLimit)
+    .map(([member, entry]) => ({ member, ...entry.record }))
+}
+
+export async function ackFmuRevocation({ sessionId, context }) {
+  const normalizedSessionId = normalizeSessionId(sessionId)
+  const member = revocationMember(normalizedSessionId, context)
+  if (redisEnabled()) {
+    await redisCommand([
+      'EVAL',
+      ACK_FMU_REVOCATION_SCRIPT,
+      '2',
+      revocationEntryKey(member),
+      FMU_REVOCATION_OUTBOX_INDEX,
+      member,
+    ])
+    return
+  }
+  memoryRevocationOutbox.delete(member)
+}
+
+export async function rescheduleFmuRevocation({ sessionId, context, attempts = 0, now = Date.now() }) {
+  const normalizedSessionId = normalizeSessionId(sessionId)
+  const normalizedContext = validateRevocationContext(context)
+  const nowSeconds = Math.floor(Number(now) / 1000)
+  if (normalizedContext.expiresAt <= nowSeconds) return false
+  const nextAttempts = Math.max(0, Number.isSafeInteger(attempts) ? attempts : 0) + 1
+  const delay = Math.min(
+    MAX_REVOCATION_RETRY_DELAY_SECONDS,
+    30 * (2 ** Math.min(nextAttempts - 1, 4)),
+  )
+  const record = revocationRecord({
+    sessionId: normalizedSessionId,
+    context: normalizedContext,
+    attempts: nextAttempts,
+    nextAttemptAt: Math.min(normalizedContext.expiresAt, nowSeconds + delay),
+  })
+  const member = revocationMember(normalizedSessionId, normalizedContext)
+  const ttlSeconds = Math.max(1, normalizedContext.expiresAt - nowSeconds)
+  if (redisEnabled()) {
+    await redisCommand([
+      'EVAL',
+      ENQUEUE_FMU_REVOCATION_SCRIPT,
+      '2',
+      revocationEntryKey(member),
+      FMU_REVOCATION_OUTBOX_INDEX,
+      encryptCapability(record),
+      String(ttlSeconds),
+      String(record.nextAttemptAt),
+      member,
+    ])
+    return true
+  }
+  memoryRevocationOutbox.set(member, {
+    record,
+    expiresAt: Number(now) + ttlSeconds * 1000,
+  })
+  return true
+}
+
+export async function removeFmuCapabilityForSession(sessionId, context) {
+  const normalizedSessionId = normalizeSessionId(sessionId)
+  const expectedIdentity = capabilityIdentity(validateRevocationContext(context))
+  const key = capabilityKey(normalizedSessionId)
+  if (redisEnabled()) {
+    const values = await redisCommand(['SMEMBERS', key])
+    for (const value of Array.isArray(values) ? values : []) {
+      const stored = decryptCapability(value)
+      if (stored && capabilityIdentity(stored) === expectedIdentity) {
+        await redisCommand(['SREM', key, value])
+      }
+    }
+    return
+  }
+  sweepMemory()
+  const records = memoryCapabilities.get(normalizedSessionId)
+  if (!records) return
+  for (const value of records.keys()) {
+    const stored = decryptCapability(value)
+    if (stored && capabilityIdentity(stored) === expectedIdentity) records.delete(value)
+  }
+  if (records.size === 0) memoryCapabilities.delete(normalizedSessionId)
 }
 
 export async function clearFmuCapabilitiesForSession(sessionId) {
@@ -210,4 +423,5 @@ export async function clearFmuCapabilitiesForSession(sessionId) {
 export function clearSamlSessionStateForTests() {
   memoryBindings.clear()
   memoryCapabilities.clear()
+  memoryRevocationOutbox.clear()
 }

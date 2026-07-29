@@ -6,12 +6,17 @@ jest.mock('@/utils/redis/restClient', () => ({
 }))
 
 import {
+  ackFmuRevocation,
   clearSamlSessionBinding,
   clearSamlSessionStateForTests,
+  enqueueFmuRevocation,
+  getDueFmuRevocations,
   getFmuCapabilitiesForSession,
   getSamlSessionIds,
+  removeFmuCapabilityForSession,
   registerFmuCapabilityForSession,
   registerSamlSessionBinding,
+  rescheduleFmuRevocation,
 } from '../samlSessionStateStore'
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
@@ -138,5 +143,32 @@ describe('samlSessionStateStore', () => {
       if (originalEncryptionKey === undefined) delete process.env.SESSION_STORE_ENCRYPTION_KEY
       else process.env.SESSION_STORE_ENCRYPTION_KEY = originalEncryptionKey
     }
+  })
+
+  test('persists, reschedules and acknowledges an encrypted revocation entry', async () => {
+    const now = Date.now()
+    await enqueueFmuRevocation({ sessionId, context, now })
+
+    await expect(getDueFmuRevocations({ now })).resolves.toEqual([
+      expect.objectContaining({ sessionId, context, attempts: 0 }),
+    ])
+
+    await rescheduleFmuRevocation({ sessionId, context, attempts: 0, now })
+    await expect(getDueFmuRevocations({ now: now + 31_000 })).resolves.toEqual([
+      expect.objectContaining({ sessionId, context, attempts: 1 }),
+    ])
+
+    await ackFmuRevocation({ sessionId, context })
+    await expect(getDueFmuRevocations({ now: now + 31_000 })).resolves.toEqual([])
+  })
+
+  test('removes only the confirmed capability from a session snapshot', async () => {
+    const secondContext = { ...context, resourceSessionId: 'resource-session-2' }
+    await registerFmuCapabilityForSession({ sessionId, context, ttlSeconds: 300 })
+    await registerFmuCapabilityForSession({ sessionId, context: secondContext, ttlSeconds: 300 })
+
+    await removeFmuCapabilityForSession(sessionId, context)
+
+    await expect(getFmuCapabilitiesForSession(sessionId)).resolves.toEqual([secondContext])
   })
 })

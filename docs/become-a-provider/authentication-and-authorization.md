@@ -16,6 +16,8 @@ The browser receives a short-lived opaque access code, not a reusable signed lab
 
 For FMU access, Marketplace exchanges the access code server-side, binds the resulting capability to the Marketplace session and returns only the gateway origin required by the client flow.
 
+When logout or SAML Single Logout cannot reach the Lab Gateway, Marketplace clears the browser cookie but retains the server-side capability snapshot in an encrypted revocation outbox. The record is removed only after the Gateway returns `204` (including an already-absent capability) or after the capability's natural expiry. The scheduled `FMU revocation reconciliation` workflow drains that outbox; production deployments must configure the matching `FMU_REVOCATION_RECONCILIATION_TOKEN` in Marketplace and GitHub Actions.
+
 ## Provider responsibilities
 
 1. Keep the Lab Gateway, backend and on-chain configuration aligned.
