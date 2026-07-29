@@ -16,6 +16,7 @@ import {
   removeFmuCapabilityForSession,
   registerFmuCapabilityForSession,
   registerSamlSessionBinding,
+  removeSamlSessionBindingMember,
   rescheduleFmuRevocation,
 } from '../samlSessionStateStore'
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
@@ -53,6 +54,49 @@ describe('samlSessionStateStore', () => {
     await clearSamlSessionBinding(nameId, sessionIndex)
 
     await expect(getSamlSessionIds(nameId, sessionIndex)).resolves.toEqual([])
+  })
+
+  test('removes only the locally logged-out session from a shared SAML binding', async () => {
+    const secondSessionId = 'b'.repeat(43)
+    await registerSamlSessionBinding({ sessionId, nameId, sessionIndex, ttlSeconds: 300 })
+    await registerSamlSessionBinding({ sessionId: secondSessionId, nameId, sessionIndex, ttlSeconds: 300 })
+
+    await removeSamlSessionBindingMember(nameId, sessionIndex, sessionId)
+
+    await expect(getSamlSessionIds(nameId, sessionIndex)).resolves.toEqual([secondSessionId])
+  })
+
+  test('removes the SAML binding key after its final member is removed', async () => {
+    await registerSamlSessionBinding({ sessionId, nameId, sessionIndex, ttlSeconds: 300 })
+
+    await removeSamlSessionBindingMember(nameId, sessionIndex, sessionId)
+
+    await expect(getSamlSessionIds(nameId, sessionIndex)).resolves.toEqual([])
+  })
+
+  test('uses an atomic SREM and empty-set cleanup for Redis bindings', async () => {
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalEncryptionKey = process.env.SESSION_STORE_ENCRYPTION_KEY
+    try {
+      process.env.NODE_ENV = 'production'
+      process.env.SESSION_STORE_ENCRYPTION_KEY = 'a'.repeat(64)
+      hasRedisConfig.mockReturnValue(true)
+      redisCommand.mockResolvedValue(1)
+
+      await removeSamlSessionBindingMember(nameId, sessionIndex, sessionId)
+
+      const [command] = redisCommand.mock.calls[0]
+      expect(command[0]).toBe('EVAL')
+      expect(command[1]).toContain("redis.call('SREM'")
+      expect(command[1]).toContain("redis.call('SCARD'")
+      expect(command[1]).toContain("redis.call('DEL'")
+      expect(command[4]).toBe(sessionId)
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = originalNodeEnv
+      if (originalEncryptionKey === undefined) delete process.env.SESSION_STORE_ENCRYPTION_KEY
+      else process.env.SESSION_STORE_ENCRYPTION_KEY = originalEncryptionKey
+    }
   })
 
   test('adds capabilities and preserves the longest Redis TTL atomically', async () => {

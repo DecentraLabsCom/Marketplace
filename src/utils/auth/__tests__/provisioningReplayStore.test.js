@@ -267,4 +267,22 @@ describe('provisioning jti consumption', () => {
       'KEEPTTL',
     ]);
   });
+
+  test('allows reconciliation to retain the last valid on-chain stage', async () => {
+    redisCommand
+      .mockResolvedValueOnce(JSON.stringify({
+        jti: claims.jti,
+        status: 'ACTIVE',
+        stage: 'ACTIVE',
+        lastConfirmedStage: 'ACTIVE',
+      }))
+      .mockResolvedValueOnce('OK');
+
+    const updated = await markProvisioningReconciliationRequired(claims.jti, {
+      errorCode: 'AUTHORIZED_BACKEND_MISSING',
+      lastConfirmedStage: 'INSTITUTION_ROLE_GRANTED',
+    });
+
+    expect(updated.lastConfirmedStage).toBe('INSTITUTION_ROLE_GRANTED');
+  });
 });

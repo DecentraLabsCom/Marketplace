@@ -6,6 +6,7 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { INTENT_META_TYPES, hashActionPayload } from '@/utils/intents/signInstitutionalActionIntent'
 import { hashReservationPayload } from '@/utils/intents/signInstitutionalReservationIntent'
 import devLog, { isDebugEnabled } from '@/utils/dev/logger'
+import { INTENT_STATE, getIntentStateName } from '@/utils/intents/intentState'
 
 const ACTION_ALLOWED = new Set([1, 2, 3, 4, 5, 6, 7, 10])
 const RESERVATION_ALLOWED = new Set([8, 9, 11])
@@ -118,8 +119,8 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
     }
 
     const intent = await contract.getIntent(normalized.requestId)
-    intentState = Number(intent?.state ?? 0)
-    if (intentState !== 0) {
+    intentState = Number(intent?.state ?? INTENT_STATE.NONE)
+    if (intentState !== INTENT_STATE.NONE) {
       errors.push(`intent already exists (state=${intentState})`)
     }
 
@@ -233,13 +234,11 @@ function getIntentContract(wallet) {
   return new ethers.Contract(address, contractABI, wallet)
 }
 
-const INTENT_STATE_NAMES = ['pending', 'executed', 'cancelled', 'expired']
-
-const resolveIntentState = (intent) => {
-  const state = Number(intent?.state ?? 0)
+export const resolveIntentState = (intent) => {
+  const state = Number(intent?.state ?? INTENT_STATE.NONE)
   return {
     state,
-    stateName: INTENT_STATE_NAMES[state] || 'unknown',
+    stateName: getIntentStateName(state),
   }
 }
 
@@ -269,7 +268,7 @@ export async function cancelIntentOnChain(requestId, options = {}) {
   const contract = getIntentContract(wallet)
   const intent = await contract.getIntent(requestId)
   const lifecycle = resolveIntentState(intent)
-  if (lifecycle.state !== 0) return lifecycle
+  if (lifecycle.state !== INTENT_STATE.PENDING) return lifecycle
 
   const signer = intent?.signer
   if (!signer || signer.toLowerCase() !== wallet.address.toLowerCase()) {
@@ -283,14 +282,23 @@ export async function expireIntentOnChain(requestId, options = {}) {
   const wallet = await getAdminWallet()
   const contract = getIntentContract(wallet)
   const lifecycle = resolveIntentState(await contract.getIntent(requestId))
-  if (lifecycle.state !== 0 && lifecycle.state !== 3) return lifecycle
+  if (lifecycle.state !== INTENT_STATE.PENDING && lifecycle.state !== INTENT_STATE.EXPIRED) {
+    return lifecycle
+  }
   try {
     return await settleIntentLifecycleTransaction(contract, 'expireIntent', requestId, waitForReceipt)
   } catch (error) {
     // getIntent derives EXPIRED from the timestamp even before the state is
     // materialized. If another reconciler already materialized it, cleanup is
-    // still idempotent and no second transaction is required.
-    if (lifecycle.state === 3) return lifecycle
+    // still idempotent and no second successful transaction is required.
+    try {
+      const refreshed = resolveIntentState(await contract.getIntent(requestId))
+      if (refreshed.state === INTENT_STATE.EXPIRED) return refreshed
+    } catch {
+      // Preserve the original transaction error when the verification read
+      // is unavailable.
+    }
+    if (lifecycle.state === INTENT_STATE.EXPIRED) return lifecycle
     throw error
   }
 }
@@ -317,7 +325,7 @@ export async function registerIntentOnChain(kind, meta, payload, signature, opti
     toBigInt(meta.nonce),
     toBigInt(meta.requestedAt),
     toBigInt(meta.expiresAt),
-    Number(meta.state ?? 0),
+    Number(meta.state ?? INTENT_STATE.NONE),
   ]
 
   if (kind === 'reservation') {

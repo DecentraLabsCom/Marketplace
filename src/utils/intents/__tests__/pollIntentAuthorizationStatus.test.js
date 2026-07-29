@@ -42,4 +42,24 @@ describe('pollIntentAuthorizationStatus', () => {
     })
     expect(global.fetch).toHaveBeenCalledTimes(2)
   })
+
+  test('fails closed when authorization polling reaches its timeout', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: 'PENDING' }),
+    })
+
+    const resultPromise = pollIntentAuthorizationStatus('session-timeout', {
+      backendUrl: 'https://institution.example',
+      maxDurationMs: 1,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+    })
+    const rejection = (async () => {
+      await expect(resultPromise).rejects.toThrow('timed out')
+    })()
+
+    await jest.advanceTimersByTimeAsync(2)
+    await rejection
+  })
 })

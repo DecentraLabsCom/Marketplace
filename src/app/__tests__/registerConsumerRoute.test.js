@@ -157,6 +157,7 @@ describe('/api/institutions/registerConsumer route', () => {
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
         resolveSchacHomeOrganization: jest.fn().mockResolvedValue(null),
+        getAuthorizedBackend: jest.fn().mockResolvedValue('0x0000000000000000000000000000000000000000'),
       })
     );
   });
@@ -279,6 +280,9 @@ describe('/api/institutions/registerConsumer route', () => {
     const readContract = {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue(null),
       getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(''),
+      getAuthorizedBackend: jest.fn()
+        .mockResolvedValueOnce('0x0000000000000000000000000000000000000000')
+        .mockResolvedValueOnce(walletAddress),
     };
 
     const writeContract = {
@@ -305,6 +309,7 @@ describe('/api/institutions/registerConsumer route', () => {
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toMatchObject({
       success: true,
+      registered: true,
       walletAddress,
       organization: 'example.edu',
       backendUrl: 'https://auth.example.com',

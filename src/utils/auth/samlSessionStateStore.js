@@ -20,6 +20,13 @@ if current_ttl < requested_ttl then
 end
 return added
 `
+const REMOVE_SAML_SESSION_BINDING_MEMBER_SCRIPT = `
+local removed = redis.call('SREM', KEYS[1], ARGV[1])
+if redis.call('SCARD', KEYS[1]) == 0 then
+  redis.call('DEL', KEYS[1])
+end
+return removed
+`
 const ENQUEUE_FMU_REVOCATION_SCRIPT = `
 redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
 redis.call('ZADD', KEYS[2], ARGV[3], ARGV[4])
@@ -200,6 +207,31 @@ export async function clearSamlSessionBinding(nameId, sessionIndex) {
     return
   }
   memoryBindings.delete(key)
+}
+
+export async function removeSamlSessionBindingMember(nameId, sessionIndex, sessionId) {
+  const key = samlBindingKey(
+    normalizeBindingValue(nameId, 'SAML NameID'),
+    normalizeBindingValue(sessionIndex, 'SAML SessionIndex'),
+  )
+  const normalizedSessionId = normalizeSessionId(sessionId)
+
+  if (redisEnabled()) {
+    await redisCommand([
+      'EVAL',
+      REMOVE_SAML_SESSION_BINDING_MEMBER_SCRIPT,
+      '1',
+      key,
+      normalizedSessionId,
+    ])
+    return
+  }
+
+  sweepMemory()
+  const records = memoryBindings.get(key)
+  if (!records) return
+  records.delete(normalizedSessionId)
+  if (records.size === 0) memoryBindings.delete(key)
 }
 
 export async function registerFmuCapabilityForSession({ sessionId, context, ttlSeconds }) {

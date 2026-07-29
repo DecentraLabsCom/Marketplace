@@ -3,6 +3,11 @@ jest.mock('@/utils/intents/adminIntentSigner', () => ({
   expireIntentOnChain: jest.fn(),
 }))
 
+jest.mock('@/utils/intents/intentNonceStore', () => ({
+  getServerSignerAddress: jest.fn(() => '0xsigner'),
+  withIntentSignerLock: jest.fn((_signer, callback) => callback()),
+}))
+
 jest.mock('@/utils/intents/intentLifecycleStore', () => ({
   getRegisteredIntent: jest.fn(),
   listRegisteredIntentIds: jest.fn(),
@@ -16,6 +21,7 @@ import {
   removeRegisteredIntent,
 } from '@/utils/intents/intentLifecycleStore'
 import { reconcileTrackedIntents } from '../intentLifecycleReconciler'
+import { INTENT_STATE } from '../intentState'
 
 describe('intent lifecycle reconciler', () => {
   beforeEach(() => {
@@ -25,8 +31,8 @@ describe('intent lifecycle reconciler', () => {
       .mockResolvedValueOnce({ requestId: 'req-expired', expiresAt: '99' })
       .mockResolvedValueOnce({ requestId: 'req-executed', expiresAt: '500' })
     getIntentOnChain
-      .mockResolvedValueOnce({ state: 3, stateName: 'expired' })
-      .mockResolvedValueOnce({ state: 1, stateName: 'executed' })
+      .mockResolvedValueOnce({ state: INTENT_STATE.EXPIRED, stateName: 'expired' })
+      .mockResolvedValueOnce({ state: INTENT_STATE.EXECUTED, stateName: 'executed' })
     expireIntentOnChain.mockResolvedValue({ status: 'expired', txHash: '0xexpire' })
   })
 
@@ -40,5 +46,40 @@ describe('intent lifecycle reconciler', () => {
       { requestId: 'req-expired', status: 'expired' },
       { requestId: 'req-executed', status: 'executed' },
     ])
+  })
+
+  test('keeps a genuinely pending intent tracked before its deadline', async () => {
+    getRegisteredIntent.mockReset()
+    getIntentOnChain.mockReset()
+    expireIntentOnChain.mockReset()
+    listRegisteredIntentIds.mockResolvedValue(['req-pending'])
+    getRegisteredIntent.mockResolvedValue({ requestId: 'req-pending', expiresAt: '500' })
+    getIntentOnChain.mockResolvedValue({ state: INTENT_STATE.PENDING, stateName: 'pending' })
+
+    const result = await reconcileTrackedIntents({ nowSec: 100 })
+
+    expect(expireIntentOnChain).not.toHaveBeenCalled()
+    expect(removeRegisteredIntent).not.toHaveBeenCalled()
+    expect(result).toEqual([])
+  })
+
+  test('coalesces concurrent reconciliation runs for the same process', async () => {
+    getRegisteredIntent.mockReset()
+    getIntentOnChain.mockReset()
+    expireIntentOnChain.mockReset()
+    listRegisteredIntentIds.mockResolvedValue(['req-concurrent'])
+    getRegisteredIntent.mockResolvedValue({ requestId: 'req-concurrent', expiresAt: '99' })
+    getIntentOnChain.mockResolvedValue({ state: INTENT_STATE.PENDING, stateName: 'pending' })
+    expireIntentOnChain.mockResolvedValue({ status: 'expired', txHash: '0xexpire' })
+
+    const [first, second] = await Promise.all([
+      reconcileTrackedIntents({ nowSec: 100 }),
+      reconcileTrackedIntents({ nowSec: 100 }),
+    ])
+
+    expect(getIntentOnChain).toHaveBeenCalledTimes(1)
+    expect(expireIntentOnChain).toHaveBeenCalledTimes(1)
+    expect(removeRegisteredIntent).toHaveBeenCalledTimes(1)
+    expect(first).toEqual(second)
   })
 })

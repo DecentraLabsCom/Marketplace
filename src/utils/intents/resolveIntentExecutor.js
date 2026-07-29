@@ -40,31 +40,29 @@ export function resolveIntentExecutorAddress() {
 async function resolveInstitutionBackendExecutor(schacHomeOrganization) {
   if (!schacHomeOrganization) return null;
 
-  try {
-    const contract = await getContractInstance('diamond', true);
-    // Match LibInstitutionalOrg.normalizeOrganization before resolving the
-    // on-chain institution/backend mapping.
-    const normalizedOrganization = String(schacHomeOrganization).trim().toLowerCase();
-    const orgHash = ethers.keccak256(ethers.toUtf8Bytes(normalizedOrganization));
-    const institution = await contract.getInstitutionWalletByOrganizationHash(orgHash);
+  const contract = await getContractInstance('diamond', true);
+  // Match LibInstitutionalOrg.normalizeOrganization before resolving the
+  // on-chain institution/backend mapping.
+  const normalizedOrganization = String(schacHomeOrganization).trim().toLowerCase();
+  const orgHash = ethers.keccak256(ethers.toUtf8Bytes(normalizedOrganization));
+  const institution = await contract.getInstitutionWalletByOrganizationHash(orgHash);
 
-    if (!institution || institution === ethers.ZeroAddress) {
-      return null;
-    }
-
-    try {
-      const backend = await contract.getAuthorizedBackend(institution);
-      if (backend && backend !== ethers.ZeroAddress) {
-        return backend;
-      }
-    } catch {
-      // If the backend lookup fails, fall back to the institution wallet.
-    }
-
-    return institution;
-  } catch {
+  if (!institution || institution === ethers.ZeroAddress) {
     return null;
   }
+
+  let backend;
+  try {
+    backend = await contract.getAuthorizedBackend(institution);
+  } catch (error) {
+    throw new Error('Unable to resolve institutional backend executor', { cause: error });
+  }
+
+  if (!backend || backend === ethers.ZeroAddress) {
+    throw new Error(`Institutional backend executor is not authorized for ${normalizedOrganization}`);
+  }
+
+  return backend;
 }
 
 export async function resolveIntentExecutorForInstitution(schacHomeOrganization) {

@@ -2,6 +2,7 @@ import { Contract, JsonRpcProvider } from 'ethers';
 import {
   advanceProvisioningSaga,
   listProvisioningAudits,
+  markProvisioningReconciliationRequired,
 } from '../src/utils/auth/provisioningReplayStore.js';
 import {
   deriveProvisioningStage,
@@ -13,6 +14,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const REGISTRY_ABI = [
   'function resolveSchacHomeOrganization(string organization) view returns (address)',
   'function getSchacHomeOrganizationBackend(string organization) view returns (string)',
+  'function getAuthorizedBackend(address institution) view returns (address)',
   'function isLabProvider(address provider) view returns (bool)',
 ];
 
@@ -43,9 +45,10 @@ function hasConfirmedSagaStage(record) {
 }
 
 async function readOnChainState(record, registry) {
-  const [resolvedWallet, backendOrigin, providerRegistered] = await Promise.all([
+  const [resolvedWallet, backendOrigin, authorizedBackend, providerRegistered] = await Promise.all([
     registry.resolveSchacHomeOrganization(record.institutionId),
     registry.getSchacHomeOrganizationBackend(record.institutionId),
+    registry.getAuthorizedBackend(record.walletAddress),
     record.registrationType === 'provider'
       ? registry.isLabProvider(record.walletAddress)
       : Promise.resolve(false),
@@ -53,8 +56,8 @@ async function readOnChainState(record, registry) {
 
   const institutionRoleGranted = isNonZeroAddress(resolvedWallet)
     && resolvedWallet.toLowerCase() === String(record.walletAddress).toLowerCase();
-  const backendRegistered = normalizeBackendUrl(backendOrigin)
-    === normalizeBackendUrl(record.canonicalBackendOrigin);
+  const backendRegistered = isNonZeroAddress(authorizedBackend)
+    && normalizeBackendUrl(backendOrigin) === normalizeBackendUrl(record.canonicalBackendOrigin);
 
   return {
     walletVerified: hasConfirmedSagaStage(record),
@@ -72,6 +75,24 @@ async function reconcileRecord(record, registry) {
   });
   const currentStage = record.lastConfirmedStage
     || (hasConfirmedSagaStage(record) ? record.stage : 'TOKEN_ISSUED');
+  const activeInvariantBroken = currentStage === 'ACTIVE' && !onChainState.backendRegistered;
+
+  if (activeInvariantBroken) {
+    await markProvisioningReconciliationRequired(record.jti, {
+      errorCode: 'AUTHORIZED_BACKEND_MISSING',
+      reconciliationSource: 'on-chain-read',
+      reconciliationCheckedAt: new Date().toISOString(),
+      lastConfirmedStage: 'INSTITUTION_ROLE_GRANTED',
+    });
+
+    return {
+      jti: record.jti,
+      changed: true,
+      stage: currentStage,
+      reconciledStage: 'RECONCILIATION_REQUIRED',
+    };
+  }
+
   const needsRepair = isProvisioningStageAhead(reconciledStage, currentStage);
 
   if (!needsRepair) {

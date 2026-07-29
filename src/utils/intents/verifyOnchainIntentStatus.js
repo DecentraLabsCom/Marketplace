@@ -1,10 +1,4 @@
-const INTENT_STATE = {
-  NONE: 0,
-  PENDING: 1,
-  EXECUTED: 2,
-  CANCELLED: 3,
-  EXPIRED: 4,
-}
+import { INTENT_STATE } from './intentState'
 
 const DEFAULT_RETRY_OPTIONS = {
   attempts: 3,

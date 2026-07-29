@@ -333,16 +333,19 @@ export async function markProvisioningReconciliationRequired(jti, patch = {}) {
     await redisCommand(['GET', key]),
     'Provisioning saga record was not found while marking reconciliation',
   );
+  const lastConfirmedStage = typeof patch.lastConfirmedStage === 'string'
+    ? patch.lastConfirmedStage
+    : record.lastConfirmedStage
+      || (record.stage !== PROVISIONING_SAGA_STAGES.FAILED
+        && record.stage !== PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED
+        ? record.stage
+        : null);
   const updated = {
     ...record,
     ...patch,
     status: 'RECONCILIATION_REQUIRED',
     stage: PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED,
-    lastConfirmedStage: record.lastConfirmedStage
-      || (record.stage !== PROVISIONING_SAGA_STAGES.FAILED
-        && record.stage !== PROVISIONING_SAGA_STAGES.RECONCILIATION_REQUIRED
-        ? record.stage
-        : null),
+    lastConfirmedStage,
     reconciliationRequiredAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

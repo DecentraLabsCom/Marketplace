@@ -7,10 +7,12 @@ import {
   listRegisteredIntentIds,
   removeRegisteredIntent,
 } from '@/utils/intents/intentLifecycleStore'
+import { getServerSignerAddress, withIntentSignerLock } from '@/utils/intents/intentNonceStore'
+import { INTENT_STATE } from '@/utils/intents/intentState'
 
-const PENDING_STATE = 0
+let activeReconciliation = null
 
-export async function reconcileTrackedIntents({ limit = 20, nowSec = Math.floor(Date.now() / 1000) } = {}) {
+async function reconcileTrackedIntentsUnlocked({ limit = 20, nowSec = Math.floor(Date.now() / 1000) } = {}) {
   const requestIds = await listRegisteredIntentIds(limit)
   const results = []
 
@@ -24,13 +26,18 @@ export async function reconcileTrackedIntents({ limit = 20, nowSec = Math.floor(
       }
 
       const lifecycle = await getIntentOnChain(requestId)
-      if (lifecycle.state !== PENDING_STATE && Number(record.expiresAt) > nowSec) {
+      if (lifecycle.state !== INTENT_STATE.PENDING && Number(record.expiresAt) > nowSec) {
         await removeRegisteredIntent(requestId)
         results.push({ requestId, status: lifecycle.stateName })
         continue
       }
 
       if (Number(record.expiresAt) <= nowSec) {
+        if (lifecycle.state !== INTENT_STATE.PENDING && lifecycle.state !== INTENT_STATE.EXPIRED) {
+          await removeRegisteredIntent(requestId)
+          results.push({ requestId, status: lifecycle.stateName })
+          continue
+        }
         const expired = await expireIntentOnChain(requestId)
         await removeRegisteredIntent(requestId)
         results.push({ requestId, status: expired.status || 'expired' })
@@ -41,6 +48,24 @@ export async function reconcileTrackedIntents({ limit = 20, nowSec = Math.floor(
   }
 
   return results
+}
+
+export async function reconcileTrackedIntents(options = {}) {
+  if (activeReconciliation) return activeReconciliation
+
+  const run = process.env.WALLET_PRIVATE_KEY
+    ? withIntentSignerLock(
+      getServerSignerAddress(),
+      () => reconcileTrackedIntentsUnlocked(options),
+    )
+    : reconcileTrackedIntentsUnlocked(options)
+
+  activeReconciliation = Promise.resolve(run)
+    .finally(() => {
+      activeReconciliation = null
+    })
+
+  return activeReconciliation
 }
 
 export default { reconcileTrackedIntents }

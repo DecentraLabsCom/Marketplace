@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 import { clearSessionCookies, getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { clearFmuContextCookie } from '@/utils/auth/fmuSessionStore'
 import { revokeFmuContexts, revokeFmuContextsForSession } from '@/utils/auth/revokeFmuContexts'
-import { clearSamlSessionBinding } from '@/utils/auth/samlSessionStateStore'
+import { removeSamlSessionBindingMember } from '@/utils/auth/samlSessionStateStore'
 import { isValidLogoutNonce } from '@/utils/auth/logoutProtection'
 
 function expectedOrigin(request) {
@@ -46,7 +46,11 @@ export async function POST(request) {
   await revokeFmuContexts(cookieStore)
   await revokeFmuContextsForSession(session.sessionId)
   if (session.samlNameId && session.samlSessionIndex) {
-    await clearSamlSessionBinding(session.samlNameId, session.samlSessionIndex)
+    await removeSamlSessionBindingMember(
+      session.samlNameId,
+      session.samlSessionIndex,
+      session.sessionId,
+    )
   }
   await clearSessionCookies(cookieStore)
   clearFmuContextCookie(cookieStore)

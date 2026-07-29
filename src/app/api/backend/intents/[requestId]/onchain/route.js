@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { publicErrorResponse } from '@/utils/security/publicError'
-
-const INTENT_STATE_NAMES = ['NONE', 'PENDING', 'EXECUTED', 'CANCELLED', 'EXPIRED']
+import { getIntentStateName } from '@/utils/intents/intentState'
 
 function normalizeRequestId(value) {
   if (typeof value !== 'string') return null
@@ -38,7 +37,7 @@ export async function GET(_request, { params }) {
       requestedAt: intent?.requestedAt?.toString?.() ?? null,
       expiresAt: intent?.expiresAt?.toString?.() ?? null,
       state,
-      stateName: INTENT_STATE_NAMES[state] || 'UNKNOWN',
+      stateName: getIntentStateName(state).toUpperCase(),
     })
   } catch (error) {
     return publicErrorResponse({

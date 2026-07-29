@@ -247,7 +247,7 @@ export async function POST(request) {
     if (rateLimitResponse) return rateLimitResponse
 
     try {
-      await withIntentSignerLock(getServerSignerAddress(), () => reconcileTrackedIntents({ limit: 20 }))
+      await reconcileTrackedIntents({ limit: 20 })
     } catch (error) {
       devLog.warn('[API] Intent lifecycle reconciliation skipped', error?.message || String(error))
     }

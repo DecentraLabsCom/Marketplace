@@ -218,6 +218,79 @@ describe('institutional reservation request mutations', () => {
     expect(mockSetOptimisticBookingState).not.toHaveBeenCalled();
   });
 
+  test('cancels the registered intent when the WebAuthn authorization fails', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({
+      status: 'FAILED',
+      requestId: 'req-webauthn-failed',
+      error: 'WebAuthn ceremony failed',
+    });
+
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-webauthn',
+          authorizationSessionId: 'session-webauthn',
+          backendUrl: 'https://institution.example',
+          requestId: 'req-webauthn-failed',
+          intent: { meta: { requestId: 'req-webauthn-failed' } },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'cancelled', txHash: '0xcancel' }),
+      });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ tokenId: 'tk-webauthn', start: 111, end: 222, userAddress: 'u1' }),
+      ).rejects.toThrow('WebAuthn ceremony failed');
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[1][0]).toBe('/api/backend/intents/req-webauthn-failed/cancel');
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
+      authorizationSessionId: 'session-webauthn',
+    });
+  });
+
+  test('cancels the registered intent when authorization polling times out', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockRejectedValueOnce(new Error('Intent authorization polling timed out'));
+
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-timeout',
+          authorizationSessionId: 'session-timeout',
+          backendUrl: 'https://institution.example',
+          requestId: 'req-timeout',
+          intent: { meta: { requestId: 'req-timeout' } },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'cancelled', txHash: '0xcancel-timeout' }),
+      });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ tokenId: 'tk-timeout', start: 111, end: 222, userAddress: 'u1' }),
+      ).rejects.toMatchObject({ code: 'INTENT_AUTH_NOT_CONFIRMED' });
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[1][0]).toBe('/api/backend/intents/req-timeout/cancel');
+  });
+
   test('intent denial removes optimistic booking cache entries', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);

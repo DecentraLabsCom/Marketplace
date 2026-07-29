@@ -3,6 +3,7 @@ import {
   isOnchainIntentExecuted,
   verifyInstitutionReportedExecution,
 } from '../verifyOnchainIntentStatus'
+import { INTENT_STATE } from '../intentState'
 
 describe('verifyOnchainIntentStatus', () => {
   beforeEach(() => {
@@ -15,8 +16,8 @@ describe('verifyOnchainIntentStatus', () => {
   })
 
   test('recognizes executed intent state', () => {
-    expect(isOnchainIntentExecuted({ state: 2 })).toBe(true)
-    expect(isOnchainIntentExecuted({ state: 1 })).toBe(false)
+    expect(isOnchainIntentExecuted({ state: INTENT_STATE.EXECUTED })).toBe(true)
+    expect(isOnchainIntentExecuted({ state: INTENT_STATE.PENDING })).toBe(false)
   })
 
   test('fetches on-chain intent status from marketplace proxy', async () => {
@@ -37,7 +38,7 @@ describe('verifyOnchainIntentStatus', () => {
   test('rejects institution-reported execution when chain state is not executed', async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ state: 1, stateName: 'PENDING' }),
+      json: async () => ({ state: INTENT_STATE.PENDING, stateName: 'PENDING' }),
     })
 
     await expect(
@@ -49,11 +50,11 @@ describe('verifyOnchainIntentStatus', () => {
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ state: 1, stateName: 'PENDING' }),
+        json: async () => ({ state: INTENT_STATE.PENDING, stateName: 'PENDING' }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ state: 2, stateName: 'EXECUTED' }),
+        json: async () => ({ state: INTENT_STATE.EXECUTED, stateName: 'EXECUTED' }),
       })
 
     const status = await verifyInstitutionReportedExecution('0x' + '3'.repeat(64), {
@@ -68,7 +69,7 @@ describe('verifyOnchainIntentStatus', () => {
   test('does not retry terminal non-executed intent states', async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ state: 3, stateName: 'CANCELLED' }),
+      json: async () => ({ state: INTENT_STATE.CANCELLED, stateName: 'CANCELLED' }),
     })
 
     await expect(

@@ -33,6 +33,12 @@ import { invalidateInstitutionalBackend } from '@/utils/onboarding/institutional
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+function isNonZeroAddress(value) {
+  return typeof value === 'string'
+    && /^0x[0-9a-fA-F]{40}$/.test(value)
+    && value.toLowerCase() !== ZERO_ADDRESS;
+}
+
 const PROVISIONING_SIGNER_WAIT_MS = Number.parseInt(
   process.env.PROVISIONING_SIGNER_WAIT_MS || '30000',
   10,
@@ -182,6 +188,9 @@ export async function POST(request) {
           );
         }
 
+        const authorizedBackend = await contract.getAuthorizedBackend(walletAddress);
+        const needsBackendAuthorization = !isNonZeroAddress(authorizedBackend);
+
         let existingBackendUrl = null;
         if (normalizedBackendUrl) {
           const rawBackend = await contract.getSchacHomeOrganizationBackend(normalizedOrganization);
@@ -195,7 +204,7 @@ export async function POST(request) {
           fencingToken: lease.fencingToken,
         });
 
-        if (!needsRoleGrant && !shouldUpdateBackend) {
+        if (!needsRoleGrant && !needsBackendAuthorization && !shouldUpdateBackend) {
           await recordProvisioningResult(payload.jti, {
             stage: PROVISIONING_SAGA_STAGES.ACTIVE,
             txHashes: [],
@@ -203,6 +212,7 @@ export async function POST(request) {
           });
           return NextResponse.json({
             success: true,
+            registered: true,
             alreadyRegistered: true,
             walletAddress,
             organization: normalizedOrganization,
@@ -213,7 +223,7 @@ export async function POST(request) {
         const writeContract = await getContractInstance('diamond', false);
         let provisioningTxHash = null;
         let backendTxHash = null;
-        if (needsRoleGrant) {
+        if (needsRoleGrant || needsBackendAuthorization) {
           await lease.assertActive();
           const transaction = await writeContract.provisionInstitution(
             walletAddress, normalizedOrganization, normalizedBackendUrl || '',
@@ -233,6 +243,11 @@ export async function POST(request) {
           await invalidateInstitutionalBackend(normalizedOrganization);
         }
 
+        const postAuthorizedBackend = await contract.getAuthorizedBackend(walletAddress);
+        if (!isNonZeroAddress(postAuthorizedBackend)) {
+          throw new Error('Institutional backend authorization is missing after provisioning');
+        }
+
         const txHashes = [provisioningTxHash, backendTxHash].filter(Boolean);
         await recordProvisioningResult(payload.jti, {
           stage: PROVISIONING_SAGA_STAGES.ACTIVE,
@@ -241,6 +256,7 @@ export async function POST(request) {
         });
         return NextResponse.json({
           success: true,
+          registered: true,
           walletAddress,
           organization: normalizedOrganization,
           backendUrl: normalizedBackendUrl || null,
