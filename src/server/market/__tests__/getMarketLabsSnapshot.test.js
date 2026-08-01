@@ -18,7 +18,8 @@ jest.mock('@/hooks/lab/labEnrichmentHelpers', () => ({
 }))
 
 jest.mock('@/utils/metadata/metadataPolicy', () => ({
-  loadOnChainLabMetadata: jest.fn(),
+  isLocalMetadataUri: jest.fn(),
+  loadMetadataDocument: jest.fn(),
 }))
 
 jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
@@ -27,7 +28,7 @@ jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
 
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { buildEnrichedLab } from '@/hooks/lab/labEnrichmentHelpers'
-import { loadOnChainLabMetadata } from '@/utils/metadata/metadataPolicy'
+import { isLocalMetadataUri, loadMetadataDocument } from '@/utils/metadata/metadataPolicy'
 import { resolveProviderMetadataOrigins } from '@/utils/metadata/providerMetadataOrigins'
 import {
   getMarketLabsSnapshot,
@@ -60,12 +61,10 @@ describe('getMarketLabsSnapshot', () => {
     }
     getContractInstance.mockResolvedValue(contract)
     resolveProviderMetadataOrigins.mockResolvedValue([])
-    loadOnChainLabMetadata.mockResolvedValue({
-      metadataUri: 'https://metadata.example/lab-7.json',
-      metadata: {
-        name: 'Public Lab',
-        image: 'https://images.example/lab.png',
-      },
+    isLocalMetadataUri.mockImplementation((uri) => uri.startsWith('Lab-'))
+    loadMetadataDocument.mockResolvedValue({
+      name: 'Public Lab',
+      image: 'https://images.example/lab.png',
     })
     buildEnrichedLab.mockImplementation(({ lab, metadata, isListed, reputation }) => ({
       id: lab.labId,
@@ -104,10 +103,9 @@ describe('getMarketLabsSnapshot', () => {
     })
     expect(contract.getLabsPaginated).toHaveBeenCalledWith(0, 24)
     expect(contract.getLabProvidersPaginated).toHaveBeenCalledWith(0, 100)
-    expect(loadOnChainLabMetadata).toHaveBeenCalledWith(7, expect.objectContaining({
-      contract: expect.anything(),
-      ownerAddress: '0x1234567890123456789012345678901234567890',
-    }))
+    expect(loadMetadataDocument).toHaveBeenCalledWith('Lab-Provider-7.json', {
+      additionalAllowedOrigins: [],
+    })
   })
 
   test('requests the requested cursor page and exposes a next cursor', async () => {
@@ -153,7 +151,7 @@ describe('getMarketLabsSnapshot', () => {
     expect(contract.ownerOf).toHaveBeenCalledTimes(1)
     expect(contract.isTokenListed).toHaveBeenCalledTimes(1)
     expect(contract.getLabReputation).toHaveBeenCalledTimes(1)
-    expect(loadOnChainLabMetadata).toHaveBeenCalledTimes(1)
+    expect(loadMetadataDocument).toHaveBeenCalledTimes(1)
   })
 
   test('keeps the last valid snapshot and marks it stale when revalidation fails', async () => {
