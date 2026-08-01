@@ -13,10 +13,9 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 
 const readPreviewField = (preview, name, index) => preview?.[name] ?? preview?.[index]
 
-const serializeCancellationPreview = (preview) => {
+const serializeCancellationPreview = (preview, allocationCount = null) => {
   if (!preview) return null
 
-  const allocations = readPreviewField(preview, 'allocations', 11) || []
   return {
     status: Number(readPreviewField(preview, 'reservationStatus', 0)),
     cancellable: Boolean(readPreviewField(preview, 'cancellable', 1)),
@@ -29,15 +28,27 @@ const serializeCancellationPreview = (preview) => {
     spendingPeriodStart: readPreviewField(preview, 'spendingPeriodStart', 8)?.toString?.() || null,
     spendingPeriodEnd: readPreviewField(preview, 'spendingPeriodEnd', 9)?.toString?.() || null,
     sourceCreditExpiry: readPreviewField(preview, 'sourceCreditExpiry', 10)?.toString?.() || null,
-    allocations: Array.from(allocations, (allocation) => ({
-      fundingOrderId: allocation?.fundingOrderId ?? allocation?.[0] ?? null,
-      amount: (allocation?.amount ?? allocation?.[1])?.toString?.() || null,
-      refundedAmount: (allocation?.refundedAmount ?? allocation?.[2])?.toString?.() || null,
-      eurGrossAmount: (allocation?.eurGrossAmount ?? allocation?.[3])?.toString?.() || null,
-      refundedEurGrossAmount: (allocation?.refundedEurGrossAmount ?? allocation?.[4])?.toString?.() || null,
-      expiresAt: (allocation?.expiresAt ?? allocation?.[5])?.toString?.() || null,
-    })),
+    // Source-lot provenance is read through the paginated credit-ledger
+    // endpoint. Keeping this summary array empty prevents one reservation
+    // response from becoming proportional to its full allocation history.
+    allocations: [],
+    allocationCount: allocationCount?.toString?.() || null,
     policyVersion: Number(readPreviewField(preview, 'policyVersion', 12)),
+  }
+}
+
+const readAllocationCount = async (contract, preview, reservationKey) => {
+  if (typeof contract.getCreditReservationAllocations !== 'function') return null
+
+  const account = readPreviewField(preview, 'refundDestination', 2)
+  if (!account) return null
+
+  try {
+    const page = await contract.getCreditReservationAllocations(account, reservationKey, 0, 0)
+    return page?.total ?? page?.[1] ?? null
+  } catch (error) {
+    devLog.warn('Cancellation allocation count unavailable:', error?.shortMessage || error?.message)
+    return null
   }
 }
 
@@ -139,7 +150,8 @@ export async function GET(request) {
     if (typeof contract.previewInstitutionalBookingCancellation === 'function') {
       try {
         const preview = await contract.previewInstitutionalBookingCancellation(reservationKey);
-        cancellationPreview = serializeCancellationPreview(preview);
+        const allocationCount = await readAllocationCount(contract, preview, reservationKey);
+        cancellationPreview = serializeCancellationPreview(preview, allocationCount);
       } catch (previewError) {
         // Keep reads compatible with a diamond that has not yet received the new selector.
         devLog.warn('Cancellation preview unavailable for reservation:', previewError?.shortMessage || previewError?.message);

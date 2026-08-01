@@ -44,7 +44,8 @@ describe('cancellationSummary', () => {
         spendingPeriodEnd: '1900000000',
         sourceCreditExpiry: '1905000000',
         policyVersion: '2',
-        allocations: [{ fundingOrderId: '0xabc', amount: '100000000' }],
+        allocations: [],
+        allocationCount: '1',
       },
     })
 
@@ -53,7 +54,8 @@ describe('cancellationSummary', () => {
     expect(preview.providerFeeRaw).toBe(6000000n)
     expect(preview.refundRaw).toBe(90000000n)
     expect(preview.minimumFeeApplied).toBe(false)
-    expect(preview.allocations).toHaveLength(1)
+    expect(preview.allocations).toHaveLength(0)
+    expect(preview.allocationCount).toBe(1)
     expect(preview.policyVersion).toBe(2)
   })
 

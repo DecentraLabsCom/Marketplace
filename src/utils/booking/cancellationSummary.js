@@ -39,6 +39,11 @@ const normalizeAllocations = (allocations) => (
   Array.isArray(allocations) ? allocations : []
 )
 
+const normalizeAllocationCount = (value) => {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null
+}
+
 const buildPreview = ({
   source,
   status,
@@ -51,6 +56,7 @@ const buildPreview = ({
   periodEnd = null,
   sourceCreditExpiry = null,
   allocations = [],
+  allocationCount = null,
   policyVersion = 2,
   cancellable = status === 1,
 }) => {
@@ -73,6 +79,7 @@ const buildPreview = ({
     spendingPeriodEnd: toTimestamp(periodEnd),
     sourceCreditExpiry: toTimestamp(sourceCreditExpiry),
     allocations: normalizeAllocations(allocations),
+    allocationCount: normalizeAllocationCount(allocationCount),
     policyVersion: Number(policyVersion) || 2,
   }
 }
@@ -108,6 +115,7 @@ export function getCancellationPreview(booking) {
         periodEnd: onChain.spendingPeriodEnd,
         sourceCreditExpiry: onChain.sourceCreditExpiry,
         allocations: onChain.allocations,
+        allocationCount: onChain.allocationCount,
         policyVersion: onChain.policyVersion,
       })
     }

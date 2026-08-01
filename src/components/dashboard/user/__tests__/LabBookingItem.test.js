@@ -148,7 +148,7 @@ describe('LabBookingItem', () => {
         refundAmount: '9000000',
         cancellationCutoff: '1893456000',
         policyVersion: '2',
-        allocations: [{ fundingOrderId: '0xabc', amount: '10000000' }],
+        allocations: [],
       },
     });
 
