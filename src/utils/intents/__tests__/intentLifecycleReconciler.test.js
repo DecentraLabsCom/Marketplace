@@ -82,4 +82,17 @@ describe('intent lifecycle reconciler', () => {
     expect(removeRegisteredIntent).toHaveBeenCalledTimes(1)
     expect(first).toEqual(second)
   })
+
+  test('keeps the lifecycle record when the on-chain backend is temporarily unavailable', async () => {
+    getRegisteredIntent.mockReset()
+    getIntentOnChain.mockReset()
+    listRegisteredIntentIds.mockResolvedValue(['req-backend-down'])
+    getRegisteredIntent.mockResolvedValue({ requestId: 'req-backend-down', expiresAt: '500' })
+    getIntentOnChain.mockRejectedValue(new Error('RPC unavailable'))
+
+    await expect(reconcileTrackedIntents({ nowSec: 100 })).resolves.toEqual([
+      { requestId: 'req-backend-down', status: 'reconcile_failed', error: 'RPC unavailable' },
+    ])
+    expect(removeRegisteredIntent).not.toHaveBeenCalled()
+  })
 })
