@@ -46,11 +46,6 @@ export default function ReservationCancellationDialog({
   const creditReturn = getCancellationCreditReturnLabel(policyBooking)
   const preview = getCancellationPreview(policyBooking)
   const hasChargedReservation = Number(preview?.status) === 1
-  const sourceLotLabel = preview?.allocations?.length
-    ? `${preview.allocations.length} lot${preview.allocations.length === 1 ? '' : 's'} recorded`
-    : hasChargedReservation
-      ? 'Unavailable for legacy reservation'
-      : 'No charged lots'
 
   return (
     <Modal
@@ -107,14 +102,6 @@ export default function ReservationCancellationDialog({
                   </dd>
                 </div>
               )}
-              <div>
-                <dt className="font-semibold">Source credit lots:</dt>
-                <dd>{sourceLotLabel}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Policy version:</dt>
-                <dd>v{preview.policyVersion} ({preview.source === 'on-chain' ? 'on-chain contract' : 'local fallback'})</dd>
-              </div>
             </>
           )}
           <div>

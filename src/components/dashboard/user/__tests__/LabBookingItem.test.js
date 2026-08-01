@@ -163,8 +163,8 @@ describe('LabBookingItem', () => {
     expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0.9 credits');
     expect(screen.getByText(/Cancellation fee:/i).parentElement).toHaveTextContent('0.1 credits');
     expect(screen.getByText(/Cancellation cutoff:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Policy version:/i).parentElement).toHaveTextContent('v2');
-    expect(screen.getByText(/Source credit lots:/i).parentElement).toHaveTextContent('1 lot');
+    expect(screen.queryByText(/Source credit lots:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Policy version:/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/institutional credit account/i);
     expect(screen.getByText(/Access will no longer be available/i)).toBeInTheDocument();
 
