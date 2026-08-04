@@ -147,6 +147,11 @@ describe('LabBookingItem', () => {
         providerFee: '600000',
         refundAmount: '9000000',
         cancellationCutoff: '1893456000',
+        spendingPeriodStart: '1890000000',
+        spendingPeriodEnd: '1900000000',
+        sourceCreditExpiry: '1905000000',
+        refundDestination: '0x3333333333333333333333333333333333333333',
+        allocationCount: '1',
         policyVersion: '2',
         allocations: [],
       },
@@ -163,15 +168,112 @@ describe('LabBookingItem', () => {
     expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0.9 credits');
     expect(screen.getByText(/Cancellation fee:/i).parentElement).toHaveTextContent('0.1 credits');
     expect(screen.getByText(/Cancellation cutoff:/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Source credit lots:/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Policy version:/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/institutional credit account/i);
+    expect(screen.getByText(/Refund source expiry:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Allocation count:/i).parentElement).toHaveTextContent('1');
+    expect(screen.getByText(/Policy:/i).parentElement).toHaveTextContent(/on-chain policy v2/i);
+    expect(screen.getByText(/Preview source:/i).parentElement).toHaveTextContent(/on-chain policy v2/i);
+    expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/0x3333/i);
     expect(screen.getByText(/Access will no longer be available/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^cancel reservation$/i }));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledWith(booking);
+  });
+
+  test('keeps a confirmed cancellation fail-closed when the on-chain preview is missing', async () => {
+    const user = userEvent.setup();
+    const onCancel = jest.fn();
+    const booking = createBooking({
+      status: '1',
+      price: '10000000',
+      start: 1893456000,
+    });
+
+    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
+
+    await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
+
+    expect(screen.getByText(/legacy local diagnostic estimate/i)).toBeInTheDocument();
+    const confirmButton = screen.getByRole('button', { name: /^cancel reservation$/i });
+    expect(confirmButton).toBeDisabled();
+
+    await user.click(confirmButton);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  test('keeps a confirmed cancellation fail-closed when reservation pricing is unavailable', async () => {
+    const user = userEvent.setup();
+    const booking = createBooking({ status: '1', price: null });
+
+    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={jest.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
+
+    expect(screen.getByText(/on-chain cancellation preview is unavailable/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
+  });
+
+  test('keeps confirmation disabled when the contract says cancellation is not allowed', async () => {
+    const user = userEvent.setup();
+    const onCancel = jest.fn();
+    const booking = createBooking({
+      status: '1',
+      price: '10000000',
+      cancellationPreview: {
+        status: '1',
+        cancellable: false,
+        refundDestination: '0x3333333333333333333333333333333333333333',
+        price: '10000000',
+        totalFee: '1000000',
+        providerFee: '600000',
+        refundAmount: '9000000',
+        cancellationCutoff: '1893456000',
+        spendingPeriodStart: '1890000000',
+        spendingPeriodEnd: '1900000000',
+        sourceCreditExpiry: '1905000000',
+        allocationCount: '1',
+        policyVersion: '2',
+      },
+    });
+
+    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
+
+    await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
+
+    expect(screen.getAllByText(/on-chain policy v2/i)).toHaveLength(2);
+    expect(screen.getByText(/on-chain policy does not allow this cancellation/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
+  });
+
+  test('keeps confirmation disabled and warns when the refund source has expired', async () => {
+    const user = userEvent.setup();
+    const booking = createBooking({
+      status: '1',
+      price: '10000000',
+      cancellationPreview: {
+        status: '1',
+        cancellable: true,
+        refundDestination: '0x3333333333333333333333333333333333333333',
+        price: '10000000',
+        totalFee: '1000000',
+        providerFee: '600000',
+        refundAmount: '9000000',
+        cancellationCutoff: '4102444800',
+        spendingPeriodStart: '1890000000',
+        spendingPeriodEnd: '1900000000',
+        sourceCreditExpiry: '1',
+        allocationCount: '1',
+        policyVersion: '2',
+      },
+    });
+
+    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={jest.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
+
+    expect(screen.getByText(/source credits may be partially or fully expired/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
   });
 
   test('shows "Cancel Request" button for pending booking', async () => {

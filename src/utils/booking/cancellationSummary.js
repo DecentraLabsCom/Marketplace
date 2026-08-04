@@ -20,6 +20,17 @@ const parseRawCreditAmount = (value) => {
   }
 }
 
+const parseNonNegativeInteger = (value) => {
+  if (typeof value === 'bigint') return value >= 0n && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+
+  const normalized = String(value).trim()
+  if (!/^\d+$/.test(normalized)) return null
+
+  const parsed = Number(normalized)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null
+}
+
 /**
  * Mirrors LibRevenue.computeCancellationFee for the confirmation UI. The
  * cancellation intent still reads the current reservation from the contract
@@ -31,8 +42,8 @@ export function calculateCancellationCreditReturn(booking) {
 }
 
 const toTimestamp = (value) => {
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+  const parsed = parseNonNegativeInteger(value)
+  return parsed !== null && parsed > 0 ? parsed : null
 }
 
 const normalizeAllocations = (allocations) => (
@@ -40,8 +51,54 @@ const normalizeAllocations = (allocations) => (
 )
 
 const normalizeAllocationCount = (value) => {
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null
+  return parseNonNegativeInteger(value)
+}
+
+const normalizePolicyVersion = (value) => {
+  const parsed = parseNonNegativeInteger(value)
+  return parsed !== null && parsed > 0 ? parsed : null
+}
+
+const isNonZeroAddress = (value) => (
+  typeof value === 'string'
+  && /^0x[\da-f]{40}$/i.test(value)
+  && !/^0x0{40}$/i.test(value)
+)
+
+const normalizeSourceCreditExpiry = (value) => {
+  const parsed = parseNonNegativeInteger(value)
+  return {
+    value: parsed !== null && parsed > 0 ? parsed : null,
+    known: parsed !== null,
+  }
+}
+
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key)
+
+const isCompleteOnChainPreview = (preview, status) => {
+  if (!preview || !hasOwn(preview, 'status') || !hasOwn(preview, 'cancellable')) return false
+  if (!Number.isInteger(Number(preview.status)) || Number(preview.status) !== status) return false
+  if (typeof preview.cancellable !== 'boolean') return false
+  if (!isNonZeroAddress(preview.refundDestination)) return false
+  if (parseRawCreditAmount(preview.price) === null) return false
+  if (parseRawCreditAmount(preview.refundAmount) === null) return false
+  if (parseRawCreditAmount(preview.totalFee) === null) return false
+  if (parseRawCreditAmount(preview.providerFee) === null) return false
+  if (toTimestamp(preview.cancellationCutoff) === null) return false
+  if (normalizeAllocationCount(preview.allocationCount) === null) return false
+  if (normalizePolicyVersion(preview.policyVersion) === null) return false
+
+  const expiry = normalizeSourceCreditExpiry(preview.sourceCreditExpiry)
+  if (!hasOwn(preview, 'sourceCreditExpiry') || !expiry.known) return false
+
+  // Confirmed reservations must expose the captured spending period in the
+  // consent screen. Pending requests do not have a financial period yet.
+  if (Number(preview.status) === 1 && (
+    toTimestamp(preview.spendingPeriodStart) === null
+    || toTimestamp(preview.spendingPeriodEnd) === null
+  )) return false
+
+  return true
 }
 
 const buildPreview = ({
@@ -51,17 +108,19 @@ const buildPreview = ({
   totalFee,
   providerFee,
   refund,
+  refundDestination = null,
   cutoff,
   periodStart = null,
   periodEnd = null,
   sourceCreditExpiry = null,
   allocations = [],
   allocationCount = null,
-  policyVersion = 2,
+  policyVersion = null,
   cancellable = status === 1,
 }) => {
   const percentageFee = (price * CANCELLATION_FEE_PERCENT) / CANCELLATION_FEE_DENOMINATOR
   const minimumFee = price < MIN_CANCELLATION_FEE ? price : MIN_CANCELLATION_FEE
+  const sourceExpiry = normalizeSourceCreditExpiry(sourceCreditExpiry)
 
   return {
     source,
@@ -73,14 +132,16 @@ const buildPreview = ({
     totalFeeRaw: totalFee,
     providerFeeRaw: providerFee,
     refundRaw: refund,
+    refundDestination,
     minimumFeeApplied: totalFee > percentageFee,
     cancellationCutoff: toTimestamp(cutoff),
     spendingPeriodStart: toTimestamp(periodStart),
     spendingPeriodEnd: toTimestamp(periodEnd),
-    sourceCreditExpiry: toTimestamp(sourceCreditExpiry),
+    sourceCreditExpiry: sourceExpiry.value,
+    sourceCreditExpiryKnown: sourceExpiry.known,
     allocations: normalizeAllocations(allocations),
     allocationCount: normalizeAllocationCount(allocationCount),
-    policyVersion: Number(policyVersion) || 2,
+    policyVersion: normalizePolicyVersion(policyVersion),
   }
 }
 
@@ -95,30 +156,29 @@ export function getCancellationPreview(booking) {
   const bookingPrice = parseRawCreditAmount(booking?.price)
   const onChain = booking?.cancellationPreview
 
-  if (onChain && bookingPrice !== null) {
-    const price = parseRawCreditAmount(onChain.price) ?? bookingPrice
+  if (onChain && bookingPrice !== null && isCompleteOnChainPreview(onChain, status)) {
+    const price = parseRawCreditAmount(onChain.price)
     const refund = parseRawCreditAmount(onChain.refundAmount)
     const totalFee = parseRawCreditAmount(onChain.totalFee)
     const providerFee = parseRawCreditAmount(onChain.providerFee)
 
-    if (refund !== null && totalFee !== null && providerFee !== null) {
-      return buildPreview({
-        source: 'on-chain',
-        status: Number(onChain.status ?? status),
-        cancellable: Boolean(onChain.cancellable),
-        price,
-        totalFee,
-        providerFee,
-        refund,
-        cutoff: onChain.cancellationCutoff ?? booking?.start,
-        periodStart: onChain.spendingPeriodStart,
-        periodEnd: onChain.spendingPeriodEnd,
-        sourceCreditExpiry: onChain.sourceCreditExpiry,
-        allocations: onChain.allocations,
-        allocationCount: onChain.allocationCount,
-        policyVersion: onChain.policyVersion,
-      })
-    }
+    return buildPreview({
+      source: 'on-chain',
+      status: Number(onChain.status),
+      cancellable: onChain.cancellable,
+      price,
+      totalFee,
+      providerFee,
+      refund,
+      refundDestination: onChain.refundDestination,
+      cutoff: onChain.cancellationCutoff,
+      periodStart: onChain.spendingPeriodStart,
+      periodEnd: onChain.spendingPeriodEnd,
+      sourceCreditExpiry: onChain.sourceCreditExpiry,
+      allocations: onChain.allocations,
+      allocationCount: onChain.allocationCount,
+      policyVersion: onChain.policyVersion,
+    })
   }
 
   // A pending request has not consumed credits and has no cancellation fee.
@@ -130,6 +190,7 @@ export function getCancellationPreview(booking) {
       totalFee: 0n,
       providerFee: 0n,
       refund: 0n,
+      refundDestination: booking?.payerInstitution ?? null,
       cutoff: booking?.start,
       cancellable: false,
     })
@@ -145,7 +206,9 @@ export function getCancellationPreview(booking) {
       totalFee: 0n,
       providerFee: 0n,
       refund: bookingPrice,
+      refundDestination: booking?.payerInstitution ?? null,
       cutoff: booking?.start,
+      cancellable: false,
     })
   }
 
@@ -161,8 +224,17 @@ export function getCancellationPreview(booking) {
     totalFee,
     providerFee,
     refund: bookingPrice - totalFee,
+    refundDestination: booking?.payerInstitution ?? null,
     cutoff: booking?.start,
+    cancellable: false,
   })
+}
+
+export function getCancellationRefundExpiryStatus(preview, now = Math.floor(Date.now() / 1000)) {
+  if (!preview?.sourceCreditExpiryKnown) return 'unknown'
+  if (preview.sourceCreditExpiry === null) return 'not-expiring'
+  if (!Number.isSafeInteger(now) || now < 0) return 'unknown'
+  return preview.sourceCreditExpiry <= now ? 'expired' : 'active'
 }
 
 export function getCancellationCreditReturnLabel(booking) {

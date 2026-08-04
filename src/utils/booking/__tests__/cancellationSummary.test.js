@@ -1,5 +1,6 @@
 import {
   calculateCancellationCreditReturn,
+  getCancellationRefundExpiryStatus,
   getCancellationPreview,
   getCancellationCreditReturnLabel,
 } from '../cancellationSummary'
@@ -43,6 +44,7 @@ describe('cancellationSummary', () => {
         spendingPeriodStart: '1890000000',
         spendingPeriodEnd: '1900000000',
         sourceCreditExpiry: '1905000000',
+        refundDestination: '0x3333333333333333333333333333333333333333',
         policyVersion: '2',
         allocations: [],
         allocationCount: '1',
@@ -57,6 +59,9 @@ describe('cancellationSummary', () => {
     expect(preview.allocations).toHaveLength(0)
     expect(preview.allocationCount).toBe(1)
     expect(preview.policyVersion).toBe(2)
+    expect(preview.refundDestination).toBe('0x3333333333333333333333333333333333333333')
+    expect(preview.sourceCreditExpiryKnown).toBe(true)
+    expect(getCancellationRefundExpiryStatus(preview, 1900000000)).toBe('active')
   })
 
   test('provides the exact local policy fallback when legacy data lacks a preview', () => {
@@ -72,5 +77,52 @@ describe('cancellationSummary', () => {
     expect(preview.refundRaw).toBe(9000000n)
     expect(preview.minimumFeeApplied).toBe(false)
     expect(preview.cancellationCutoff).toBe(1893456000)
+    expect(preview.cancellable).toBe(false)
+    expect(preview.policyVersion).toBeNull()
+    expect(getCancellationRefundExpiryStatus(preview, 1900000000)).toBe('unknown')
+  })
+
+  test('does not treat an incomplete on-chain preview as contractual', () => {
+    const preview = getCancellationPreview({
+      status: 1,
+      price: '10000000',
+      cancellationPreview: {
+        status: '1',
+        cancellable: true,
+        totalFee: '1000000',
+        providerFee: '600000',
+        refundAmount: '9000000',
+        policyVersion: '2',
+        sourceCreditExpiry: '1905000000',
+      },
+    })
+
+    expect(preview.source).toBe('local-fallback')
+    expect(preview.cancellable).toBe(false)
+  })
+
+  test('classifies an expired source lot as unavailable for confirmation', () => {
+    const preview = getCancellationPreview({
+      status: 1,
+      price: '10000000',
+      cancellationPreview: {
+        status: '1',
+        cancellable: true,
+        refundDestination: '0x3333333333333333333333333333333333333333',
+        price: '10000000',
+        totalFee: '1000000',
+        providerFee: '600000',
+        refundAmount: '9000000',
+        cancellationCutoff: '1905000000',
+        spendingPeriodStart: '1890000000',
+        spendingPeriodEnd: '1900000000',
+        sourceCreditExpiry: '100',
+        allocations: [],
+        allocationCount: '1',
+        policyVersion: '2',
+      },
+    })
+
+    expect(getCancellationRefundExpiryStatus(preview, 101)).toBe('expired')
   })
 })

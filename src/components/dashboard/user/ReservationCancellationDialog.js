@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
 import {
   getCancellationCreditReturnLabel,
+  getCancellationRefundExpiryStatus,
   getCancellationPreview,
 } from '@/utils/booking/cancellationSummary'
 import { formatRawCredits } from '@/utils/blockchain/creditUnits'
@@ -31,6 +32,14 @@ const formatTimestamp = (timestamp) => {
   return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleString()
 }
 
+const formatRefundDestination = (address) => address || 'Unavailable'
+
+const formatSourceExpiry = (preview) => {
+  if (!preview?.sourceCreditExpiryKnown) return 'Unavailable'
+  if (preview.sourceCreditExpiry === null) return 'No expiry recorded'
+  return formatTimestamp(preview.sourceCreditExpiry)
+}
+
 export default function ReservationCancellationDialog({
   isOpen,
   lab,
@@ -45,7 +54,31 @@ export default function ReservationCancellationDialog({
   }
   const creditReturn = getCancellationCreditReturnLabel(policyBooking)
   const preview = getCancellationPreview(policyBooking)
-  const hasChargedReservation = Number(preview?.status) === 1
+  const hasChargedReservation = Number(policyBooking?.status) === 1 || Number(preview?.status) === 1
+  const expiryStatus = getCancellationRefundExpiryStatus(preview)
+  const hasOnChainPreview = preview?.source === 'on-chain'
+  const sourceLabel = hasOnChainPreview
+    ? `on-chain policy v${preview.policyVersion}`
+    : preview?.source === 'local-fallback'
+      ? 'Legacy local diagnostic estimate'
+      : 'Unavailable'
+  const isConfirmationBlocked = hasChargedReservation && (
+    !hasOnChainPreview
+    || preview.cancellable !== true
+    || expiryStatus === 'expired'
+  )
+  const diagnosticCreditReturn = hasChargedReservation && !hasOnChainPreview
+    ? `Diagnostic estimate only: ${creditReturn}`
+    : creditReturn
+
+  let blockingMessage = null
+  if (hasChargedReservation && !hasOnChainPreview) {
+    blockingMessage = 'The on-chain cancellation preview is unavailable. The local estimate is diagnostic only; confirmation is disabled.'
+  } else if (hasOnChainPreview && preview.cancellable !== true) {
+    blockingMessage = 'The on-chain policy does not allow this cancellation. Refresh the reservation details before trying again.'
+  } else if (expiryStatus === 'expired') {
+    blockingMessage = 'The refund source credits may be partially or fully expired; confirmation is disabled.'
+  }
 
   return (
     <Modal
@@ -71,10 +104,18 @@ export default function ReservationCancellationDialog({
           </div>
           <div>
             <dt className="font-semibold">Credits to return:</dt>
-            <dd>{creditReturn}</dd>
+            <dd>{diagnosticCreditReturn}</dd>
           </div>
           {preview && (
             <>
+              <div>
+                <dt className="font-semibold">Preview source:</dt>
+                <dd>{sourceLabel}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Policy:</dt>
+                <dd>{hasOnChainPreview ? `on-chain policy v${preview.policyVersion}` : 'Unavailable (legacy local diagnostic)'}</dd>
+              </div>
               <div>
                 <dt className="font-semibold">Cancellation fee:</dt>
                 <dd>
@@ -88,12 +129,10 @@ export default function ReservationCancellationDialog({
                   <dd>{formatRawCredits(preview.providerFeeRaw)} credits</dd>
                 </div>
               )}
-              {preview.cancellationCutoff && (
-                <div>
-                  <dt className="font-semibold">Cancellation cutoff:</dt>
-                  <dd>{formatTimestamp(preview.cancellationCutoff)}</dd>
-                </div>
-              )}
+              <div>
+                <dt className="font-semibold">Cancellation cutoff:</dt>
+                <dd>{formatTimestamp(preview.cancellationCutoff)}</dd>
+              </div>
               {preview.spendingPeriodStart && preview.spendingPeriodEnd && (
                 <div>
                   <dt className="font-semibold">Spending period:</dt>
@@ -102,13 +141,36 @@ export default function ReservationCancellationDialog({
                   </dd>
                 </div>
               )}
+              {(!preview.spendingPeriodStart || !preview.spendingPeriodEnd) && (
+                <div>
+                  <dt className="font-semibold">Spending period:</dt>
+                  <dd>Unavailable</dd>
+                </div>
+              )}
+              <div>
+                <dt className="font-semibold">Allocation count:</dt>
+                <dd>{preview.allocationCount ?? 'Unavailable'}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Refund source expiry:</dt>
+                <dd>{formatSourceExpiry(preview)}</dd>
+              </div>
             </>
           )}
           <div>
             <dt className="font-semibold">Destination:</dt>
-            <dd>Institutional credit account</dd>
+            <dd>
+              {hasChargedReservation
+                ? formatRefundDestination(preview?.refundDestination)
+                : 'No credit refund'}
+            </dd>
           </div>
         </dl>
+        {blockingMessage && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+            {blockingMessage}
+          </p>
+        )}
         <p className="text-sm">Access will no longer be available for this time window.</p>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
@@ -123,7 +185,8 @@ export default function ReservationCancellationDialog({
             type="button"
             className="rounded bg-[#a87583] px-4 py-2 text-sm font-medium text-white hover:bg-[#8a5c66] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onConfirm}
-            disabled={isProcessing}
+            disabled={isProcessing || isConfirmationBlocked}
+            title={blockingMessage || undefined}
           >
             {isProcessing ? 'Cancelling...' : 'Cancel reservation'}
           </button>
