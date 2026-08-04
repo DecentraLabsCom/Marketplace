@@ -29,6 +29,9 @@ const ACTION_NAMES = {
 const UINT32_MAX = (1n << 32n) - 1n
 const UINT96_MAX = (1n << 96n) - 1n
 const UINT256_MAX = (1n << 256n) - 1n
+// Reserve five minutes for the provider decision window and five more for
+// intent registration, WebAuthn authorization and transaction propagation.
+export const MIN_RESERVATION_LEAD_TIME_SECONDS = 10 * 60
 
 const MAX_TEXT_LENGTHS = {
   uri: 4096,
@@ -228,7 +231,11 @@ export function validateReservationWindow({ labId, start, end, timeslot }) {
 
   if (normalizedEnd <= normalizedStart) fail('Reservation end must be after start')
   if (normalizedEnd > UINT32_MAX) fail('Invalid end')
-  if (normalizedStart < BigInt(Math.floor(Date.now() / 1000))) fail('Cannot book in the past')
+  const nowSeconds = BigInt(Math.floor(Date.now() / 1000))
+  if (normalizedStart < nowSeconds) fail('Cannot book in the past')
+  if (normalizedStart < nowSeconds + BigInt(MIN_RESERVATION_LEAD_TIME_SECONDS)) {
+    fail('Reservation start does not leave enough authorization lead time')
+  }
 
   return {
     labId: normalizedLabId,
