@@ -2,6 +2,11 @@
 
 The provider-side Lab Gateway and the canonical `blockchain-services` backend decide whether a user with an institutional Marketplace session may enter a laboratory. Marketplace does not forward a personal wallet credential or provider secret to the browser.
 
+Endpoint ownership and the cross-project two-phase access-code invariant are
+defined by `Lab Gateway/docs/documentation-contract.md` and the canonical
+check-in/access workflow; this guide describes Marketplace's audience-facing
+responsibilities only.
+
 ## What is checked
 
 When a user requests access during a reservation window, the backend verifies the institutional context and reservation state recorded on-chain. Marketplace then asks the provider gateway for an access credential.
@@ -12,7 +17,7 @@ When a user requests access during a reservation window, the backend verifies th
 
 ## Credential handling
 
-The browser receives a short-lived opaque access code, not a reusable signed lab-access JWT in a URL. The gateway redeems it once with a POST request, creates its secure session cookie and redirects to the resource without exposing the credential in query parameters.
+The browser receives a short-lived opaque access code, not a reusable signed lab-access JWT in a URL. The gateway reserves a short-lived redemption handle, validates the JWT and local destination/state, and commits the handle only after those checks succeed; it then creates its secure session cookie and redirects to the resource without exposing the credential in query parameters. A failed local check releases the handle.
 
 For FMU access, Marketplace exchanges the access code server-side, binds the resulting capability to the Marketplace session and returns only the gateway origin required by the client flow.
 

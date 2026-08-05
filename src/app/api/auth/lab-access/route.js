@@ -286,7 +286,7 @@ export async function POST(req) {
 
     let gatewayOrigin
     try {
-      // The browser must submit the one-time code to the access plane registered
+      // The browser must submit the short-lived access code to the access plane registered
       // for this lab, not to the provider response's arbitrary URL field.
       gatewayOrigin = await resolveLabAccessGateway({ labId })
     } catch (error) {
