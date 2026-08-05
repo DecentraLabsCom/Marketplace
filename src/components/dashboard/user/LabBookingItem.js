@@ -44,6 +44,10 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const endTimeUnix = parseUnixTime(booking?.end ?? booking?.endTime);
 
     const isCancelled = isCancelledBooking(booking);
+    // The consumer intent selectors only accept PENDING or CONFIRMED
+    // reservations; the on-chain preview enforces the confirmed pre-start
+    // cutoff. ACCESS_AUTHORIZED is a provider-only service-failure path;
+    // exposing it here would create a button that the Diamond must reject.
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
     const isAccessAuthorized = booking.status === "2" || booking.status === 2;
     const isTemporallyActive =

@@ -176,6 +176,37 @@ describe('/api/provider/saveLabData route', () => {
     expect(attributes.resourceType).toBe('lab')
   })
 
+  test('persists a local URI when its generated filename does not predict the minted lab id', async () => {
+    const { promises: fs } = await import('fs')
+    const path = await import('path')
+    const uri = 'Lab-provider-1.json'
+    const filePath = path.join(process.cwd(), 'data', uri)
+
+    await fs.rm(filePath, { force: true }).catch(() => {})
+    mockGetContractInstance.mockResolvedValueOnce({
+      tokenURI: jest.fn().mockResolvedValue(uri),
+    })
+
+    const { POST } = await import('../api/provider/saveLabData/route.js')
+    const response = await POST(new Request('http://localhost/api/provider/saveLabData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labData: {
+          id: 3,
+          uri,
+          name: 'Minted after another provider',
+          description: 'The filename is stable even when token IDs are global.',
+          category: ['1.3'],
+        },
+      }),
+    }))
+
+    expect(response.status).toBe(200)
+    await expect(fs.access(filePath)).resolves.toBeUndefined()
+    await fs.rm(filePath, { force: true })
+  })
+
   test('rejects a metadata URI that could escape the data directory', async () => {
     const { POST } = await import('../api/provider/saveLabData/route.js')
     const req = new Request('http://localhost/api/provider/saveLabData', {

@@ -314,6 +314,25 @@ describe('LabBookingItem', () => {
     expect(screen.getByText('Access Window Open')).toBeInTheDocument();
   });
 
+  test('does not expose the consumer cancel intent for an access-authorized booking', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const booking = createBooking({
+      status: 2,
+      start: now - 120,
+      end: now + 1800,
+    });
+
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={booking}
+        onCancel={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Cancel/i })).not.toBeInTheDocument();
+  });
+
   test('disables cancel button and shows spinner while cancellation is in progress', async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();

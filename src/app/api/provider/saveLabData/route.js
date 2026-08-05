@@ -363,15 +363,18 @@ export async function POST(req) {
     // ===== AUTHORIZATION =====
     // Prefer explicit labId from request/body, fallback to extracting from URI.
     const resolvedLabId = body?.labId || labData?.labId || labData?.id;
-    const labIdFromUri = normalizedUri?.match(/-(\d+)\.json$/)?.[1];
-    const labId = (resolvedLabId || labIdFromUri)?.toString?.();
+    const labId = (
+      resolvedLabId || normalizedUri?.match(/-(\d+)\.json$/)?.[1]
+    )?.toString?.();
 
     if (!labId) {
       throw new BadRequestError('Missing labId (provide labData.id/labData.labId or include it in the URI)');
     }
-    if (labIdFromUri && String(labId) !== String(labIdFromUri)) {
-      throw new BadRequestError('labId does not match the metadata URI');
-    }
+    // The filename is a provider-local storage key, not an ERC-721 token ID.
+    // Token IDs are global and are assigned only after the mint, so a client
+    // cannot safely predict the numeric suffix used by older Lab-*.json
+    // conventions. The explicit labId is authoritative after ownership and
+    // the exact on-chain tokenURI have been checked below.
 
     await requireLabOwner(session, labId);
 

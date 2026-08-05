@@ -110,6 +110,10 @@ Open the reservation from your **User Dashboard** and choose **Cancel** when it 
 * the institutional backend and smart contract verify the final cancellation and amount again.
 
 Cancellation is not a cash refund. A completed, expired, already cancelled or otherwise ineligible reservation cannot be cancelled from Marketplace.
+An `ACCESS_AUTHORIZED` reservation is also not a consumer-cancellable state: the
+Diamond reserves that state for provider-side `PROVIDER_SERVICE_FAILURE`
+cancellation while the attestation grace period is open. Providers must use the
+Lab Gateway's **Actionable Reservations** view for that path.
 
 ---
 

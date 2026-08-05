@@ -548,6 +548,15 @@ describe("ProviderDashboard Component", () => {
 
         await waitFor(() => {
           expect(mockAddLabMutate).toHaveBeenCalled();
+          expect(mockAddLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ uri: 'Lab-Test-Provider-1.json' }),
+          );
+          expect(mockSaveLabDataMutate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              id: '3',
+              uri: 'Lab-Test-Provider-1.json',
+            }),
+          );
           expect(mockAddNotification).toHaveBeenCalledWith(
             "pending",
             expect.any(String),

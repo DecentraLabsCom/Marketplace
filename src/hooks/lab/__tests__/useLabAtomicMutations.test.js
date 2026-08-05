@@ -519,4 +519,34 @@ describe('institutional lab mutations', () => {
       act(async () => result.current.mutateAsync({ labId: '9', backendUrl: 'https://backend.example' }))
     ).rejects.toThrow('Cannot delete lab with uncollected reservations')
   })
+
+  test('update mutation does not resolve before the institutional execution succeeds', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-update-failed' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Lab update rejected by institution' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth/update',
+        authorizationSessionId: 'auth-update-failed',
+        intent: { meta: { requestId: 'req-update-failed' }, payload: {} },
+        backendAuthToken: 'auth-update-failed',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(() => useUpdateLabSSO(), { wrapper: createWrapper(queryClient) })
+
+    await expect(
+      act(async () => result.current.mutateAsync({
+        labId: '9',
+        labData: { uri: 'updated.json', price: '10', accessURI: '', accessKey: '' },
+        backendUrl: 'https://backend.example',
+      }))
+    ).rejects.toThrow('Lab update rejected by institution')
+  })
 })

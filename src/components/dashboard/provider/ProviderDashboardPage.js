@@ -377,7 +377,9 @@ export default function ProviderDashboard() {
       : 0;
     const providerSegmentSource = user?.institutionName || user?.name;
     labData.uri = buildProviderLabUri(labData.uri, providerSegmentSource, maxId + 1);
-    const onchainUri = resolveOnchainLabUri(labData.uri, { labId: labData.id });
+    // Keep managed metadata as its local filename until the mint returns the
+    // globally assigned lab ID; the metadata API binds it to that ID later.
+    const onchainUri = resolveOnchainLabUri(labData.uri);
 
     // Store the original human-readable price before blockchain conversion
     const originalPrice = labData.price;
@@ -422,7 +424,10 @@ export default function ProviderDashboard() {
 
       if (metadataSaved && labData.uri.startsWith('Lab-')) {
         try {
-          await deleteLabDataMutation.mutateAsync(labData.uri);
+          await deleteLabDataMutation.mutateAsync({
+            labURI: labData.uri,
+            labId: blockchainLabId,
+          });
         } catch (cleanupError) {
           metadataClean = false;
           devLog.warn('Failed to remove lab metadata during compensation:', cleanupError);
@@ -523,7 +528,7 @@ export default function ProviderDashboard() {
             ...labData,
             id: blockchainLabId, // Use the blockchain labId
             price: originalPrice, // Save with human-readable price for JSON consistency
-            onchainUri            // Ensures onSuccess updates the correct cache key (full blob URL)
+            onchainUri            // Ensures onSuccess updates the canonical URI cache key
           });
           
           // Add a small delay to ensure cache propagation in production
@@ -690,9 +695,10 @@ export default function ProviderDashboard() {
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
     const providerSegmentSource = user?.institutionName || user?.name;
     labData.uri = buildProviderLabUri(labData.uri || originalLab?.uri, providerSegmentSource, labData.id);
-    const onchainUri = resolveOnchainLabUri(labData.uri, { labId: labData.id });
+    const onchainUri = resolveOnchainLabUri(labData.uri);
 
-    const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
+    const originalLocalUri = extractLocalMetadataUri(originalLab?.uri);
+    const wasLocalJson = Boolean(originalLocalUri);
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
                           labData.uri.startsWith('https://'));
     const mustDeleteOldJson = wasLocalJson && isNowExternal;
@@ -786,7 +792,7 @@ export default function ProviderDashboard() {
             await saveLabDataMutation.mutateAsync({
               ...labData,
               price: originalPrice, // Save with human-readable price for JSON consistency
-              onchainUri             // Passed so onSuccess can invalidate the correct cache key
+              onchainUri             // Passed so onSuccess can invalidate the canonical URI cache key
             });
             
             // Add a small delay to ensure cache propagation in production
@@ -811,7 +817,7 @@ export default function ProviderDashboard() {
           await saveLabDataMutation.mutateAsync({
             ...labData,
             price: originalPrice, // Save with human-readable price for JSON consistency
-            onchainUri             // Passed so onSuccess can invalidate the correct cache key
+            onchainUri             // Passed so onSuccess can invalidate the canonical URI cache key
           });
           
           // Add a small delay to ensure cache propagation in production
@@ -827,7 +833,10 @@ export default function ProviderDashboard() {
 
       // 3. Delete the old JSON if necessary
       if (mustDeleteOldJson) {
-        await deleteLabDataMutation.mutateAsync(originalLab.uri);
+        await deleteLabDataMutation.mutateAsync({
+          labURI: originalLocalUri || originalLab.uri,
+          labId: labData.id,
+        });
       }
     } catch (error) {
       devLog.error('Error updating lab:', error);
@@ -887,7 +896,7 @@ export default function ProviderDashboard() {
       notifyLabDeleted(addTemporaryNotification, labId);
 
       // React Query mutations and event contexts will further ensure cache consistency
-      devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
+      devLog.log('🗑️ Lab deleted on-chain; cache cleanup will be handled automatically by event contexts');
 
       // Clear optimistic deleting state
       clearOptimisticLabState(String(labId));

@@ -156,8 +156,9 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
           size="md"
         >
           <div className="space-y-4 text-gray-700">
-            <p>This removes the listing and its application-managed metadata.</p>
-            <p>This action cannot be reversed from the Marketplace.</p>
+            <p>This permanently deletes the lab on-chain: it is unlisted, burned, and removed from the active catalogue.</p>
+            <p>Existing reservations and settlement history are not cancelled or erased. Marketplace-managed metadata/assets are cleaned after confirmation; Gateway-hosted content is hidden immediately and retained until its configured purge deadline.</p>
+            <p>Use Unlist to stop new bookings while preserving the lab record.</p>
             <div>
               <label htmlFor={`delete-lab-confirmation-${lab.id}`} className="block text-sm font-semibold">
                 Type the lab name to continue: <span className="font-normal">{lab.name}</span>

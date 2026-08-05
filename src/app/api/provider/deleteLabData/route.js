@@ -22,12 +22,32 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 
 const checkRate = createRateLimiter({ operation: 'provider-delete-lab-data', windowMs: 60_000, maxRequests: 10 })
+const MANAGED_METADATA_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/
+const LAB_ID_PATTERN = /^(?:0|[1-9][0-9]*)$/
+
+function extractManagedMetadataUri(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const candidate = value.trim()
+  if (MANAGED_METADATA_PATTERN.test(candidate)) return candidate
+
+  try {
+    const parsed = new URL(candidate, 'http://localhost')
+    const queryUri = parsed.searchParams.get('uri')
+    if (MANAGED_METADATA_PATTERN.test(queryUri || '')) return queryUri
+    const pathMatch = parsed.pathname.match(/(Lab-[A-Za-z0-9][A-Za-z0-9._-]*\.json)$/)
+    return pathMatch?.[1] || null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Deletes lab data file from storage
  * @param {Request} req - HTTP request with lab data to delete
  * @param {Object} req.body - Request body
  * @param {string} req.body.labURI - URI/filename of lab data to delete (required)
+ * @param {string|number} [req.body.labId] - Minted ERC-721 ID when the filename
+ * was generated before the global ID was known
  * @returns {Response} JSON response with deletion result or error
  */
 export async function POST(req) {
@@ -38,7 +58,7 @@ export async function POST(req) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(req, session));
     if (rateLimitResponse) return rateLimitResponse;
     
-    const { labURI } = await req.json();
+    const { labURI, labId: requestedLabId } = await req.json();
     
     // Validate required parameters
     if (!labURI || typeof labURI !== 'string' || labURI.trim() === '') {
@@ -48,22 +68,24 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const sanitizedLabURI = labURI.trim().replace(/\\/g, '/').replace(/^\/+/, '');
-    const labIdMatch = sanitizedLabURI.match(/^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-(\d+)\.json$/);
-    if (!labIdMatch || sanitizedLabURI.includes('/') || sanitizedLabURI.includes('\0')) {
+    const sanitizedLabURI = extractManagedMetadataUri(labURI)
+    if (!sanitizedLabURI) {
       throw new BadRequestError('Invalid lab data URI');
     }
-    
+
     // ===== AUTHORIZATION =====
-    // Extract labId from URI and verify ownership
-    // URI format: "Lab-{provider}-{labId}.json"
-    if (labIdMatch && labIdMatch[1]) {
-      const labId = labIdMatch[1];
-      await requireLabOwner(session, labId);
-    } else {
-      // Can't extract labId - deny access for safety
+    // A managed filename is a provider-local storage key, not necessarily the
+    // globally assigned ERC-721 ID. Prefer the explicit ID returned by mint;
+    // retain suffix extraction for legacy callers.
+    const normalizedRequestedLabId = requestedLabId === undefined || requestedLabId === null
+      ? ''
+      : String(requestedLabId).trim()
+    const labIdMatch = sanitizedLabURI.match(/-(\d+)\.json$/)
+    const labId = normalizedRequestedLabId || labIdMatch?.[1]
+    if (!LAB_ID_PATTERN.test(labId || '')) {
       throw new BadRequestError('Unable to determine lab ID from URI');
     }
+    await requireLabOwner(session, labId);
     
     const isVercel = getIsVercel();
 

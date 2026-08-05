@@ -316,21 +316,50 @@ export const useUpdateLabSSO = (options = {}) => {
       };
       const data = await runActionIntent(ACTION_CODES.LAB_UPDATE, payload);
       devLog.log('useUpdateLabSSO intent (webauthn):', data);
-      return data;
+
+      const requestId = resolveIntentRequestId(data);
+      const resolvedBackendUrl = data?.backendUrl || updateData?.backendUrl;
+      if (!requestId) {
+        throw new Error('Institution intent did not return requestId');
+      }
+
+      // A prepared/authorized intent is not a completed lab update. Wait for
+      // the institutional backend to report execution (and verify the chain
+      // state) before resolving mutateAsync so callers cannot show success or
+      // persist metadata ahead of the on-chain mutation.
+      const result = await pollIntentStatus(requestId, {
+        backendUrl: resolvedBackendUrl,
+        signal: updateData?.abortSignal,
+        maxDurationMs: updateData?.pollMaxDurationMs,
+        initialDelayMs: updateData?.pollInitialDelayMs,
+        maxDelayMs: updateData?.pollMaxDelayMs,
+      });
+      await assertInstitutionIntentExecuted(requestId, result, {
+        signal: updateData?.abortSignal,
+        fallbackMessage: 'Update intent not executed',
+      });
+
+      return {
+        ...data,
+        requestId,
+        backendUrl: resolvedBackendUrl,
+        status: result?.status,
+        txHash: result?.txHash,
+      };
     },
     onSuccess: (data, variables) => {
       try {
         if (variables.labId && variables.labData) {
           const requestId = resolveIntentRequestId(data);
-          const backendUrl = data?.backendUrl || variables?.backendUrl;
           const updatedLab = {
             ...variables.labData,
             id: variables.labId,
             labId: variables.labId,
-            isIntentPending: true,
+            transactionHash: data?.txHash,
+            isIntentPending: false,
             intentRequestId: requestId,
-            intentStatus: 'requested',
-            note: 'Requested to institution',
+            intentStatus: 'executed',
+            note: 'Executed by institution',
             timestamp: new Date().toISOString()
           };
 
@@ -342,67 +371,10 @@ export const useUpdateLabSSO = (options = {}) => {
               refetchType: 'active'
             });
           }
-          if (requestId) {
-            (async () => {
-              try {
-                const result = await pollIntentStatus(requestId, { backendUrl });
-                const status = result?.status;
-                const txHash = result?.txHash;
-                const reason = result?.error || result?.reason;
-
-                if (status === 'executed') {
-                  await assertInstitutionIntentExecuted(requestId, result);
-                  await invalidateServerMarketCache(variables.labId);
-                  updateLab(variables.labId, {
-                    ...variables.labData,
-                    id: variables.labId,
-                    labId: variables.labId,
-                    transactionHash: txHash,
-                    isIntentPending: false,
-                    intentStatus: 'executed',
-                    note: 'Executed by institution',
-                    timestamp: new Date().toISOString()
-                  });
-                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
-                  queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
-                  queryClient.invalidateQueries({
-                    queryKey: metadataQueryKeys.byUri(variables.labData.uri, variables.labId),
-                    exact: true,
-                    refetchType: 'active',
-                  });
-                } else if (status === 'failed' || status === 'rejected') {
-                  updateLab(variables.labId, {
-                    ...variables.labData,
-                    id: variables.labId,
-                    labId: variables.labId,
-                    isIntentPending: false,
-                    intentStatus: status,
-                    note: reason || 'Rejected by institution',
-                    intentError: reason,
-                    timestamp: new Date().toISOString()
-                  });
-                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
-                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-                }
-              } catch (err) {
-                const reason = err?.message || 'Intent status unavailable';
-                devLog.error('Polling intent updateLab failed:', err);
-                updateLab(variables.labId, {
-                  ...variables.labData,
-                  id: variables.labId,
-                  labId: variables.labId,
-                  isIntentPending: false,
-                  intentStatus: 'unknown',
-                  intentError: reason,
-                  note: reason,
-                  timestamp: new Date().toISOString()
-                });
-                queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
-                queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-                invalidateAllLabs();
-              }
-            })();
-          }
+          queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+          queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+          queryClient.invalidateQueries({ queryKey: marketQueryKeys.all() });
+          invalidateServerMarketCache(variables.labId);
         }
       } catch (error) {
         devLog.error('Failed to handle update intent response:', error);

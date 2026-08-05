@@ -1,4 +1,3 @@
-import getBaseUrl from '@/utils/env/baseUrl'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 
 export const LAB_CREATION_STAGES = Object.freeze({
@@ -112,14 +111,7 @@ export function isLabIdListCache(entries) {
   ))
 }
 
-export function resolveOnchainLabUri(
-  uri,
-  {
-    labId = null,
-    blobBaseUrl = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL,
-    resolveBaseUrl = getBaseUrl,
-  } = {}
-) {
+export function resolveOnchainLabUri(uri) {
   if (!uri) return uri
 
   const trimmed = String(uri).trim()
@@ -130,15 +122,12 @@ export function resolveOnchainLabUri(
   }
 
   if (trimmed.startsWith('Lab-')) {
-    if (blobBaseUrl && typeof blobBaseUrl === 'string' && blobBaseUrl.trim().length > 0) {
-      const normalizedBase = blobBaseUrl.replace(/\/+$/, '')
-      return `${normalizedBase}/data/${trimmed}`
-    }
-
-    const baseUrl = resolveBaseUrl().replace(/\/+$/, '')
-    const params = new URLSearchParams({ uri: trimmed })
-    if (labId !== null && labId !== undefined && labId !== '') params.set('labId', String(labId))
-    return `${baseUrl}/api/metadata?${params.toString()}`
+    // Keep the managed filename as the on-chain tokenURI. The Marketplace
+    // resolves this filename through `/api/metadata?labId=...` after the
+    // mint, when the actual globally assigned token ID is known. Building a
+    // metadata API URL here is incorrect: the new lab has no ID yet, and the
+    // endpoint deliberately requires one to bind the request to tokenURI.
+    return trimmed
   }
 
   return trimmed

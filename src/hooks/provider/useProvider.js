@@ -76,8 +76,9 @@ export const useSaveLabData = (options = {}) => {
       devLog.log('🔄 [useSaveLabData] onSuccess - starting cache updates for:', variables?.uri);
       
       if (variables?.uri) {
-        // Use the on-chain URI as the cache key when available — components subscribe to
-        // the on-chain URI (full blob URL), not the local 'Lab-*.json' form stored in variables.uri.
+        // Use the canonical on-chain URI as the cache key when available. Managed
+        // metadata intentionally keeps its local `Lab-*.json` tokenURI; the API
+        // binds that filename to the real lab ID when it reads the document.
         const cacheKeyUri = variables.onchainUri || variables.uri;
         const labId = variables.labId ?? variables.id;
 
@@ -98,8 +99,8 @@ export const useSaveLabData = (options = {}) => {
         await new Promise(resolve => setTimeout(resolve, 200));
 
         // Force-fetch fresh metadata with cache-busting to bypass the CDN stale entry.
-        // Always use the local 'Lab-*.json' URI for the API call so the route takes the
-        // blob path (which supports the '?t=' cache-buster) regardless of the on-chain URI format.
+        // Use the local managed URI for the API call so the route resolves the
+        // exact on-chain tokenURI and applies the cache buster after the write.
         const cacheBuster = data?.cacheBreaker || Date.now();
         const metadataParams = new URLSearchParams({
           uri: variables.uri,
@@ -277,22 +278,35 @@ export const useDeleteFile = (options = {}) => {
  * POST /api/provider/deleteLabData
  * 
  * @param {Object} options - React Query mutation options
+ * @param {string|Object} variables - Managed URI, or `{ labURI, labId }` when
+ * the filename does not encode the globally assigned lab ID.
  * @returns {Object} React Query mutation result
  */
 export const useDeleteLabData = (options = {}) => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (labURI) => {
+    mutationFn: async (variables) => {
       try {
+        const labURI = typeof variables === 'object' && variables !== null
+          ? variables.labURI
+          : variables
+        const labId = typeof variables === 'object' && variables !== null
+          ? variables.labId
+          : undefined
         if (!labURI) {
           throw new Error('Lab URI is required');
+        }
+
+        const body = { labURI }
+        if (labId !== undefined && labId !== null && String(labId).trim()) {
+          body.labId = labId
         }
 
         const response = await fetch('/api/provider/deleteLabData', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labURI })
+          body: JSON.stringify(body)
         });
         
         if (!response.ok) {
@@ -307,7 +321,10 @@ export const useDeleteLabData = (options = {}) => {
         throw error;
       }
     },
-    onSuccess: (data, labURI) => {
+    onSuccess: (data, variables) => {
+      const labURI = typeof variables === 'object' && variables !== null
+        ? variables.labURI
+        : variables
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: metadataQueryKeys.all() });
       queryClient.invalidateQueries({ queryKey: metadataQueryKeys.byUri(labURI) });

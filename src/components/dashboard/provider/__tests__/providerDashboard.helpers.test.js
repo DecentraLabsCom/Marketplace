@@ -84,7 +84,7 @@ describe('providerDashboard.helpers', () => {
     expect(isLabIdListCache([{ id: 1 }])).toBe(false)
   })
 
-  test('resolveOnchainLabUri keeps external URIs and resolves local ones through blob or metadata endpoints', () => {
+  test('resolveOnchainLabUri keeps external URIs and preserves local filenames', () => {
     expect(resolveOnchainLabUri('https://cdn.example.com/lab.json')).toBe(
       'https://cdn.example.com/lab.json'
     )
@@ -93,14 +93,14 @@ describe('providerDashboard.helpers', () => {
       resolveOnchainLabUri('Lab-UNED-3.json', {
         blobBaseUrl: 'https://blob.example.com/',
       })
-    ).toBe('https://blob.example.com/data/Lab-UNED-3.json')
+    ).toBe('Lab-UNED-3.json')
 
     expect(
       resolveOnchainLabUri('Lab-UNED-3.json', {
         labId: 3,
         blobBaseUrl: '',
       })
-    ).toBe('https://market.example.com/api/metadata?uri=Lab-UNED-3.json&labId=3')
+    ).toBe('Lab-UNED-3.json')
   })
 
   test('remapMovedLabAssetPaths rewrites uploaded file paths and falls back to moved assets when needed', () => {

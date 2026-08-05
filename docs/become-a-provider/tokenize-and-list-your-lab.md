@@ -37,6 +37,23 @@ The metadata URL is public catalogue input. Keep access URLs, access keys, servi
 
 Creating a lab and publishing it are separate states. The default public catalogue contains listed labs only. An explicit `includeUnlisted=true` request can expose an unlisted lab for discovery or administration, but an unlisted lab is not eligible for public booking. If the Marketplace cannot read the on-chain listing status, it does not treat the lab as listed.
 
+## Unlisting versus deleting
+
+These operations are not interchangeable:
+
+- **Unlist** calls `unlistLab`. The lab token remains owned and editable, but
+  new reservation intake stops; existing obligations remain in force.
+- **Delete** calls `deleteLab`. The contract unlists and burns the lab token,
+  removes it from the active catalogue and cannot be reversed on-chain. It does
+  not cancel historical reservations or erase settlement history.
+- **Metadata cleanup** is separate from either contract operation. Marketplace-
+  managed metadata and assets are cleaned after a confirmed deletion, while
+  Gateway-hosted content is hidden immediately and retained until its configured
+  local purge deadline.
+
+Use **Unlist** when the intention is only to stop new bookings. Use **Delete**
+only when the on-chain lab record should be permanently removed.
+
 ## FMU and gateway files
 
 Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.

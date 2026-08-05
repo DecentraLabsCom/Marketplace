@@ -4,7 +4,8 @@ import { del, list } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
 
 const LAB_ID_PATTERN = /^(?:0|[1-9][0-9]*)$/
-const MANAGED_METADATA_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-(\d+)\.json$/
+const MANAGED_METADATA_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/
+const LEGACY_METADATA_ID_PATTERN = /^Lab-[A-Za-z0-9][A-Za-z0-9._-]*-(\d+)\.json$/
 
 export function normalizeRetainedLabId(value) {
   const normalized = String(value ?? '').trim()
@@ -14,12 +15,10 @@ export function normalizeRetainedLabId(value) {
   return normalized
 }
 
-function normalizeManagedMetadataUri(value, labId) {
+function normalizeManagedMetadataUri(value) {
   if (typeof value !== 'string') return null
   const candidate = value.trim().replace(/^\/+/, '')
-  const match = candidate.match(MANAGED_METADATA_PATTERN)
-  if (!match || match[1] !== labId) return null
-  return candidate
+  return MANAGED_METADATA_PATTERN.test(candidate) ? candidate : null
 }
 
 async function deleteLocalFile(filePath) {
@@ -55,7 +54,11 @@ async function listBlobUrls(prefix, exactPath = null) {
  */
 export async function cleanupLabStorage({ labId, metadataUri } = {}) {
   const normalizedLabId = normalizeRetainedLabId(labId)
-  const managedMetadataUri = normalizeManagedMetadataUri(metadataUri, normalizedLabId)
+  // The managed filename is the canonical tokenURI and is not required to
+  // contain the globally assigned lab ID. Use the explicit URI when present;
+  // retain the suffix-based lookup only for legacy records that predate this
+  // invariant.
+  const managedMetadataUri = normalizeManagedMetadataUri(metadataUri)
 
   if (!getIsVercel()) {
     const dataRoot = path.resolve(process.cwd(), 'data')
@@ -69,8 +72,13 @@ export async function cleanupLabStorage({ labId, metadataUri } = {}) {
     for (const entry of metadataEntries) {
       if (!entry.isFile()) continue
       const match = entry.name.match(MANAGED_METADATA_PATTERN)
-      if (!match || match[1] !== normalizedLabId) continue
-      if (managedMetadataUri && entry.name !== managedMetadataUri) continue
+      if (!match) continue
+      if (managedMetadataUri) {
+        if (entry.name !== managedMetadataUri) continue
+      } else {
+        const legacyMatch = entry.name.match(LEGACY_METADATA_ID_PATTERN)
+        if (!legacyMatch || legacyMatch[1] !== normalizedLabId) continue
+      }
       if (await deleteLocalFile(path.join(dataRoot, entry.name))) {
         removed.push(`data/${entry.name}`)
       }

@@ -77,8 +77,8 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri, labId = null) 
 
 /**
  * Hook for fetching metadata by URI
- * GET /api/metadata?labId={labId}&uri={metadataUri} for external metadata;
- * local Lab-* metadata may omit labId.
+ * GET /api/metadata?labId={labId}&uri={metadataUri}; labId binds both managed
+ * local and external metadata to the laboratory's exact on-chain tokenURI.
  * 
  * @param {string} metadataUri - Metadata URI to fetch (required)
  * @param {Object} [options={}] - React Query options

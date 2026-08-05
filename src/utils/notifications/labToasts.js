@@ -87,7 +87,7 @@ export const notifyLabDeleted = (addTemporaryNotification, labId) =>
   notify(
     addTemporaryNotification,
     'success',
-    'Lab deleted. Existing reservations were not cancelled automatically.',
+    'Lab deleted on-chain. Existing reservations were not cancelled automatically.',
     labToastIds.deleted(labId)
   )
 
@@ -95,7 +95,7 @@ export const notifyLabStorageCleanupWarning = (addTemporaryNotification, labId) 
   notify(
     addTemporaryNotification,
     'warning',
-    'The lab was deleted, but some Marketplace assets could not be cleaned yet.',
+    'The lab was deleted on-chain, but some Marketplace assets could not be cleaned yet.',
     labToastIds.storageCleanupWarning(labId)
   )
 

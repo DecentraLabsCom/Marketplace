@@ -184,7 +184,9 @@ describe("ProviderLabItem", () => {
 
       expect(mockHandlers.onDelete).not.toHaveBeenCalled();
       expect(screen.getByRole("dialog", { name: /delete this lab/i })).toBeInTheDocument();
-      expect(screen.getByText(/removes the listing and its application-managed metadata/i)).toBeInTheDocument();
+      expect(screen.getByText(/permanently deletes the lab on-chain/i)).toBeInTheDocument();
+      expect(screen.getByText(/Marketplace-managed metadata\/assets are cleaned after confirmation/i)).toBeInTheDocument();
+      expect(screen.getByText(/Use Unlist to stop new bookings/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^delete lab$/i })).toBeDisabled();
 
       await user.type(screen.getByLabelText(/type the lab name/i), mockLab.name);

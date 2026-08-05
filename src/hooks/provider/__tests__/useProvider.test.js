@@ -534,6 +534,28 @@ describe("Provider Mutation Hooks", () => {
       });
     });
 
+    test("sends the minted lab id when the local filename uses a different suffix", async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const queryClient = createTestQueryClient();
+      const { result } = renderHook(() => useDeleteLabData(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      result.current.mutate({ labURI: "Lab-provider-1.json", labId: 3 });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(global.fetch).toHaveBeenCalledWith("/api/provider/deleteLabData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ labURI: "Lab-provider-1.json", labId: 3 }),
+      });
+    });
+
     test("invalidates all metadata queries on success", async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
