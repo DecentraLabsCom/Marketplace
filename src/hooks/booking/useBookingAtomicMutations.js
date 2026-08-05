@@ -38,6 +38,10 @@ import {
   notifyReservationDenied,
   notifyReservationOnChainRequested,
 } from '@/utils/notifications/reservationToasts'
+import {
+  isReservationConfirmedStatus,
+  normalizeReservationStatus,
+} from '@/utils/intents/reservationStatus'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -275,6 +279,8 @@ export const useReservationRequestSSO = (options = {}) => {
 
               if (status === 'executed') {
                 await assertInstitutionIntentExecuted(intentId, result, { signal: variables?.abortSignal });
+                const reservationStatus = normalizeReservationStatus(result?.reservationStatus);
+                const reservationConfirmed = isReservationConfirmedStatus(reservationStatus);
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
                   labId: variables.tokenId,
@@ -282,16 +288,21 @@ export const useReservationRequestSSO = (options = {}) => {
                   end: variables.end,
                   isIntentPending: false,
                   intentStatus: 'executed',
-                  status: 'pending',
+                  reservationStatus,
+                  status: reservationConfirmed ? 'confirmed' : 'pending',
                   transactionHash: txHash,
-                  note: 'Executed by institution',
+                  note: reservationConfirmed
+                    ? 'Reservation confirmed on-chain'
+                    : 'Transaction executed; reservation awaiting on-chain confirmation',
                   timestamp: new Date().toISOString(),
                 });
 
-                try {
-                  completeOptimisticBookingState(finalKey);
-                } catch (err) {
-                  devLog.warn('Failed to complete optimistic booking state after intent executed:', err);
+                if (reservationConfirmed) {
+                  try {
+                    completeOptimisticBookingState(finalKey);
+                  } catch (err) {
+                    devLog.warn('Failed to complete optimistic booking state after reservation confirmation:', err);
+                  }
                 }
 
                 if (reservationKey && finalKey && reservationKey !== finalKey) {
@@ -314,11 +325,11 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
-                // DIRECT_BOOKING atomically requests and confirms in a single tx;
-                // the "Waiting for final confirmation" toast is misleading and would
-                // appear after "Reservation confirmed." is already shown.
-                const isDirectBooking = data?.intent?.meta?.action === 11 /* DIRECT_BOOKING */;
-                if (!isDirectBooking) {
+                // A successful transaction is not confirmation evidence. The
+                // backend must return a confirmed (or later) reservation state;
+                // otherwise keep the user in the pending/reconciliation path,
+                // including for DIRECT_BOOKING.
+                if (!reservationConfirmed) {
                   notifyReservationOnChainRequested(addTemporaryNotification, finalKey);
                 }
                 if (typeof window !== 'undefined') {

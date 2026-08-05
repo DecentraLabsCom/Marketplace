@@ -31,6 +31,7 @@ const UINT96_MAX = (1n << 96n) - 1n
 const UINT256_MAX = (1n << 256n) - 1n
 // Reserve five minutes for the provider decision window and five more for
 // intent registration, WebAuthn authorization and transaction propagation.
+// Keep this aligned with LibReservationConfig.RESERVATION_CONFIRMATION_LEAD_TIME.
 export const MIN_RESERVATION_LEAD_TIME_SECONDS = 10 * 60
 
 const MAX_TEXT_LENGTHS = {
