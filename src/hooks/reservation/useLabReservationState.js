@@ -307,11 +307,19 @@ export function useLabReservationState({
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const opensDate = selectedLab ? safeParseDate(selectedLab.opens, today) : today
-    const min = opensDate > today ? opensDate : today
+    const earliestDate = isCalendarPeriod ? addDaysAtStartOfDay(today, 1) : today
+    const min = opensDate > earliestDate ? opensDate : earliestDate
     const max = selectedLab ? safeParseDate(selectedLab.closes) : undefined
 
     return { minDate: min, maxDate: max }
-  }, [selectedLab])
+  }, [selectedLab, isCalendarPeriod])
+
+  useEffect(() => {
+    if (!isCalendarPeriod || !(minDate instanceof Date) || isNaN(minDate.getTime())) return
+    if (startOfDay(date) < minDate) {
+      setDate(new Date(minDate))
+    }
+  }, [date, minDate, isCalendarPeriod])
 
   const { periodEndMinDate, periodEndMaxDate } = useMemo(() => {
     if (!isCalendarPeriod) return { periodEndMinDate: null, periodEndMaxDate: null }

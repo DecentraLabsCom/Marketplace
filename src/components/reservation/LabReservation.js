@@ -15,6 +15,7 @@ import AccessControl from '@/components/auth/AccessControl'
 import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
 import ReservationReviewDialog from '@/components/reservation/ReservationReviewDialog'
 import devLog from '@/utils/dev/logger'
+import { hasReservationLeadTime } from '@/utils/booking/reservationLeadTime'
 import {
   notifyReservationMissingInstitutionalBackend,
   notifyReservationMissingLabSelection,
@@ -24,6 +25,7 @@ import {
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
+  notifyReservationLeadTimeViolation,
 } from '@/utils/notifications/reservationToasts'
 
 /**
@@ -186,6 +188,11 @@ export default function LabReservation({ id }) {
       : isCalendarPeriod
         ? start + Number(duration || 1) * 86400
         : start + timeslot
+
+    if (!hasReservationLeadTime(start)) {
+      notifyReservationLeadTimeViolation(addTemporaryNotification)
+      return null
+    }
 
     if (end <= start) {
       notifyReservationMissingTimeSelection(addTemporaryNotification)

@@ -1,4 +1,5 @@
 import { format, isToday } from 'date-fns'
+import { getMinimumReservationStartUnix } from '@/utils/booking/reservationLeadTime'
 import { getBookingStatusText } from './bookingStatus'
 import { isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
@@ -341,6 +342,8 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
   const dayEnd = new Date(date)
   dayEnd.setHours(23, 59, 59, 999)
   const dayEndExclusive = new Date(dayEnd.getTime() + 1)
+  const isSelectedToday = isToday(date)
+  const minimumStartUnix = isSelectedToday ? getMinimumReservationStartUnix(now) : null
 
   const dayBookings = (bookingInfo || [])
     .map((booking) => ({
@@ -364,7 +367,7 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
     const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60 * 1000)
     const slotStartInfo = getZonedTimeInfo(slotStart, timezone, WEEKDAYS[slotStart.getDay()])
 
-    const isPast = isToday(date) && slotStart <= now
+    const isPast = isSelectedToday && slotStart <= now
     const outsideDayAvailability = availableDays.length > 0 && !availableDays.includes(slotStartInfo.weekday)
     const outsideHours = hasDailyHours
       ? (
@@ -384,6 +387,9 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
 
     const slotStartUnix = Math.floor(slotStart.getTime() / 1000)
     const slotEndUnix = Math.floor(slotEnd.getTime() / 1000)
+    const isBeforeMinimumStart = isSelectedToday
+      && Number.isFinite(minimumStartUnix)
+      && slotStartUnix < minimumStartUnix
     const outsideGlobalWindow =
       (Number.isFinite(opensUnix) && slotStartUnix < opensUnix) ||
       (Number.isFinite(closesUnix) && slotEndUnix > closesUnix)
@@ -391,7 +397,7 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
       slotStartUnix < window.endUnix && slotEndUnix > window.startUnix
     )
 
-    const isBlocked = isPast || outsideDayAvailability || outsideHours || outsideGlobalWindow || conflictsWithBooking || inMaintenanceWindow
+    const isBlocked = isPast || isBeforeMinimumStart || outsideDayAvailability || outsideHours || outsideGlobalWindow || conflictsWithBooking || inMaintenanceWindow
     const isReserved = conflictsWithBooking || inMaintenanceWindow
     const timeFormatted = format(slotStart, "HH:mm")
 

@@ -1,6 +1,8 @@
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
+import { MIN_RESERVATION_LEAD_TIME_SECONDS } from '@/utils/booking/reservationLeadTime'
 
 const RESERVATION_CONFIRM_DEDUPE_WINDOW_MS = 120000
+const MIN_RESERVATION_LEAD_TIME_MINUTES = Math.floor(MIN_RESERVATION_LEAD_TIME_SECONDS / 60)
 export const RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS = 10000
 
 export const RESERVATION_DENY_REASON = {
@@ -24,6 +26,7 @@ export const reservationToastIds = {
   missingCredential: () => 'reservation-webauthn-missing-credential',
   validationMissingTime: () => 'reservation-validation-missing-time',
   validationMissingLab: () => 'reservation-validation-missing-lab',
+  validationLeadTime: () => 'reservation-validation-lead-time',
   missingInstitutionalBackend: () => 'reservation-missing-institutional-backend',
 }
 
@@ -148,6 +151,15 @@ export const notifyReservationMissingTimeSelection = (addTemporaryNotification) 
 
 export const notifyReservationMissingLabSelection = (addTemporaryNotification) =>
   notify(addTemporaryNotification, 'error', 'Please select a lab.', reservationToastIds.validationMissingLab())
+
+export const notifyReservationLeadTimeViolation = (addTemporaryNotification) =>
+  notify(
+    addTemporaryNotification,
+    'warning',
+    `Reservations must start at least ${MIN_RESERVATION_LEAD_TIME_MINUTES} minutes from now.`,
+    reservationToastIds.validationLeadTime(),
+    { duration: 5000 }
+  )
 
 export const notifyReservationMissingInstitutionalBackend = (addTemporaryNotification) =>
   notify(addTemporaryNotification, 'error', 'Missing institutional backend URL.', reservationToastIds.missingInstitutionalBackend())

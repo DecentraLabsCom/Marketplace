@@ -323,6 +323,9 @@ describe("LabReservation Component", () => {
    */
   test("completes full booking flow: select time slot and create booking", async () => {
     const labId = "1";
+    const bookingDate = new Date();
+    bookingDate.setDate(bookingDate.getDate() + 1);
+    bookingDate.setHours(0, 0, 0, 0);
 
     // Mock the reservation state with a selected time
     const mockHandleTimeChange = jest.fn();
@@ -336,13 +339,13 @@ describe("LabReservation Component", () => {
       useLabReservationState,
     } = require("@/hooks/reservation/useLabReservationState");
     useLabReservationState.mockReturnValue({
-      date: new Date(),
+      date: bookingDate,
       duration: 60,
       selectedTime: "10:00", // TIME SELECTED - ready to book
       isBooking: false,
       forceRefresh: false,
       isClient: true,
-      minDate: new Date().toISOString().split("T")[0],
+      minDate: bookingDate.toISOString().split("T")[0],
       maxDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0],

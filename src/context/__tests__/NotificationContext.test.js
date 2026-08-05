@@ -618,6 +618,22 @@ describe('NotificationContext', () => {
       expect(result.current.notifications[0].message).toBe('❌ Network error');
     });
 
+    test('explains reservation lead-time errors from the API', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(
+          new Error('Reservation start does not leave enough authorization lead time')
+        );
+      });
+
+      expect(result.current.notifications[0].message).toContain(
+        'Reservations must start at least 10 minutes from now'
+      );
+    });
+
     test('handles abort errors as warnings', () => {
       const { result } = renderHook(() => useNotifications(), {
         wrapper: NotificationProvider,

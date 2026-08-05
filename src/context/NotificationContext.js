@@ -327,6 +327,13 @@ function NotificationProviderCore({ children }) {
                         errorMessage = '❌ Insufficient funds';
                         priority = 'high';
                         duration = 6000;
+                    } else if (
+                        message.toLowerCase().includes('authorization lead time') ||
+                        message.toLowerCase().includes('at least 10 minutes from now')
+                    ) {
+                        errorMessage = '⚠️ Reservations must start at least 10 minutes from now';
+                        priority = 'normal';
+                        duration = 5000;
                     } else if (message.includes('network') || message.includes('fetch')) {
                         errorMessage = '❌ Network error';
                         priority = 'high';

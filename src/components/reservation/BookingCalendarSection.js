@@ -11,6 +11,9 @@ import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
 import { getSelectedSlotTimeZonePresentation } from '@/utils/dates/timeZonePresentation'
+import { MIN_RESERVATION_LEAD_TIME_SECONDS } from '@/utils/booking/reservationLeadTime'
+
+const MIN_RESERVATION_LEAD_TIME_MINUTES = Math.floor(MIN_RESERVATION_LEAD_TIME_SECONDS / 60)
 
 const toDateInputValue = (value) => {
   if (!(value instanceof Date) || isNaN(value.getTime())) return ''
@@ -278,6 +281,14 @@ export default function BookingCalendarSection({
             </dl>
           </div>
         )}
+
+        <p
+          className="mt-4 text-left text-sm text-slate-300"
+          data-testid="reservation-lead-time-hint"
+          role="note"
+        >
+          Reservation start times must be at least {MIN_RESERVATION_LEAD_TIME_MINUTES} minutes from now.
+        </p>
 
         {/* Payment balance information is only relevant to the non-SSO fallback path. */}
         {!isSSO && (

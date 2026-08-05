@@ -256,6 +256,9 @@ describe("BookingCalendarSection", () => {
 
       expect(screen.getByLabelText("Starting time:")).toHaveValue("09:00");
       expect(screen.getByText("09:00 AM")).toBeInTheDocument();
+      expect(screen.getByTestId("reservation-lead-time-hint")).toHaveTextContent(
+        "at least 10 minutes from now"
+      );
     });
 
     test("triggers onTimeChange callback", () => {

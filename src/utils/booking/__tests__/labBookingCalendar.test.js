@@ -214,6 +214,24 @@ describe("generateTimeOptions", () => {
       const allEnabled = result.every((slot) => !slot.disabled);
       expect(allEnabled).toBe(true);
     });
+
+    test("blocks slots inside the ten-minute confirmation window", () => {
+      dateFns.isToday.mockReturnValue(true);
+      const date = new Date("2025-06-15T00:00:00");
+      const now = new Date("2025-06-15T14:00:30");
+
+      const result = generateTimeOptions({
+        date,
+        interval: 5,
+        bookingInfo: [],
+        now,
+      });
+
+      const slotsByValue = new Map(result.map((slot) => [slot.value, slot]));
+      expect(slotsByValue.get("14:05").disabled).toBe(true);
+      expect(slotsByValue.get("14:10").disabled).toBe(true);
+      expect(slotsByValue.get("14:15").disabled).toBe(false);
+    });
   });
 
   describe("Availability metadata", () => {

@@ -118,15 +118,19 @@ describe("LabReservation Component", () => {
       data: { userBookings: [] },
     })
 
+    const bookingDate = new Date()
+    bookingDate.setDate(bookingDate.getDate() + 1)
+    bookingDate.setHours(0, 0, 0, 0)
+
     reservationHooks.useLabReservationState.mockReturnValue({
-      date: new Date("2024-12-01"),
+      date: bookingDate,
       duration: 60,
       selectedTime: "10:00",
       isBooking: false,
       forceRefresh: 0,
       isClient: true,
       minDate: new Date(),
-      maxDate: new Date("2024-12-31"),
+      maxDate: new Date(bookingDate.getTime() + 2 * 86400000),
       availableTimes: [{ value: "10:00", label: "10:00", disabled: false }],
       totalCost: BigInt(100),
       creditBalance: BigInt(1_000),
