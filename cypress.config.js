@@ -18,6 +18,12 @@ export default defineConfig({
     env: {
       liveIntegration: process.env.CYPRESS_LIVE_INTEGRATION === 'true',
       liveSessionId: process.env.CYPRESS_LIVE_SESSION_ID || '',
+      releaseGate: process.env.CYPRESS_RELEASE_GATE === 'true',
+      releaseGateConsumerUrl: process.env.CYPRESS_RELEASE_GATE_CONSUMER_URL || '',
+      releaseGateProviderUrl: process.env.CYPRESS_RELEASE_GATE_PROVIDER_URL || '',
+      releaseGateGatewayUrl: process.env.CYPRESS_RELEASE_GATE_GATEWAY_URL || '',
+      releaseGateRedisRestUrl: process.env.CYPRESS_RELEASE_GATE_REDIS_REST_URL || '',
+      releaseGateRedisRestToken: process.env.CYPRESS_RELEASE_GATE_REDIS_REST_TOKEN || '',
     },
     setupNodeEvents(on, config) {
       codeCoverageTask(on, config);
