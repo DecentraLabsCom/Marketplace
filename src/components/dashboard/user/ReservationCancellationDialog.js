@@ -65,7 +65,6 @@ export default function ReservationCancellationDialog({
   const isConfirmationBlocked = hasChargedReservation && (
     !hasOnChainPreview
     || preview.cancellable !== true
-    || expiryStatus === 'expired'
   )
   const diagnosticCreditReturn = hasChargedReservation && !hasOnChainPreview
     ? `Diagnostic estimate only: ${creditReturn}`
@@ -76,9 +75,11 @@ export default function ReservationCancellationDialog({
     blockingMessage = 'The on-chain cancellation preview is unavailable. The local estimate is diagnostic only; confirmation is disabled.'
   } else if (hasOnChainPreview && preview.cancellable !== true) {
     blockingMessage = 'The on-chain policy does not allow this cancellation. Refresh the reservation details before trying again.'
-  } else if (expiryStatus === 'expired') {
-    blockingMessage = 'The refund source credits may be partially or fully expired; confirmation is disabled.'
   }
+
+  const advisoryMessage = hasOnChainPreview && preview.cancellable === true && expiryStatus === 'expired'
+    ? 'The refund source credits may be partially or fully expired. This is advisory only; the on-chain preview still allows cancellation.'
+    : null
 
   return (
     <Modal
@@ -169,6 +170,11 @@ export default function ReservationCancellationDialog({
         {blockingMessage && (
           <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
             {blockingMessage}
+          </p>
+        )}
+        {advisoryMessage && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+            {advisoryMessage}
           </p>
         )}
         <p className="text-sm">Access will no longer be available for this time window.</p>

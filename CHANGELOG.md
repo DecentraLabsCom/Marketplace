@@ -21,6 +21,13 @@ browser behavior.
   2D plots, projected 3D trajectories and state-space projections, with
   selectable vector components, axes, colour variable and point tooltips.
 
+### Reservations
+
+- Kept confirmed cancellation enabled when the on-chain preview is cancellable
+  but its source-credit expiry has passed; Marketplace now presents that expiry
+  as an advisory about the returned credits instead of a second authorization
+  rule.
+
 ### Authentication
 
 - Extended the default Marketplace SSO session lifetime from 30 to 60 minutes.

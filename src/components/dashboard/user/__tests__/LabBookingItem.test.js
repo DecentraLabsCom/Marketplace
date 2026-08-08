@@ -246,8 +246,9 @@ describe('LabBookingItem', () => {
     expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
   });
 
-  test('keeps confirmation disabled and warns when the refund source has expired', async () => {
+  test('allows confirmation and warns when the refund source has expired', async () => {
     const user = userEvent.setup();
+    const onCancel = jest.fn();
     const booking = createBooking({
       status: '1',
       price: '10000000',
@@ -268,12 +269,16 @@ describe('LabBookingItem', () => {
       },
     });
 
-    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={jest.fn()} />);
+    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
 
     await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
 
     expect(screen.getByText(/source credits may be partially or fully expired/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
+    const confirmButton = screen.getByRole('button', { name: /^cancel reservation$/i });
+    expect(confirmButton).not.toBeDisabled();
+
+    await user.click(confirmButton);
+    expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
   test('shows "Cancel Request" button for pending booking', async () => {

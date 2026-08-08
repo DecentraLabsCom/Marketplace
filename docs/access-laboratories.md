@@ -107,6 +107,7 @@ Open the reservation from your **User Dashboard** and choose **Cancel** when it 
 * a pending request and a confirmed reservation follow different cancellation paths;
 * the marketplace checks that the reservation belongs to your institution and that its on-chain state can be cancelled;
 * the confirmation screen shows the current credit-return and fee preview when the contract provides one;
+* an expired source-credit date is shown as an advisory because it may affect part or all of the returned credits, but it does not disable cancellation when the on-chain preview says `cancellable=true`;
 * the institutional backend and smart contract verify the final cancellation and amount again.
 
 Cancellation is not a cash refund. A completed, expired, already cancelled or otherwise ineligible reservation cannot be cancelled from Marketplace.
