@@ -125,7 +125,6 @@
       "brace-expansion": "1.1.16"
     },
     "next": {
-      "postcss": "8.5.22",
       "sharp": "$sharp"
     },
     "xmlbuilder2": "4.0.3",
