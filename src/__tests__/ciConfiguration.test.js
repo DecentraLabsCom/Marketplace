@@ -21,6 +21,11 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/run: npm run build/);
   });
 
+  test('keeps the Next test bootstrap on the JavaScript project configuration', () => {
+    expect(fs.existsSync(path.join(repositoryRoot, 'tsconfig.json'))).toBe(false);
+    expect(fs.existsSync(path.join(repositoryRoot, 'jsconfig.json'))).toBe(true);
+  });
+
   test('runs strict peer dependency installation periodically', () => {
     const workflow = readRepositoryFile('.github/workflows/strict-dependencies.yml');
 
