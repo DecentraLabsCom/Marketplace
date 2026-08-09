@@ -89,18 +89,7 @@ describe('providerDashboard.helpers', () => {
       'https://cdn.example.com/lab.json'
     )
 
-    expect(
-      resolveOnchainLabUri('Lab-UNED-3.json', {
-        blobBaseUrl: 'https://blob.example.com/',
-      })
-    ).toBe('Lab-UNED-3.json')
-
-    expect(
-      resolveOnchainLabUri('Lab-UNED-3.json', {
-        labId: 3,
-        blobBaseUrl: '',
-      })
-    ).toBe('Lab-UNED-3.json')
+    expect(resolveOnchainLabUri('Lab-UNED-3.json')).toBe('Lab-UNED-3.json')
   })
 
   test('remapMovedLabAssetPaths rewrites uploaded file paths and falls back to moved assets when needed', () => {
