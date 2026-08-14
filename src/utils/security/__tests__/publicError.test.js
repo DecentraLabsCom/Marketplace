@@ -61,4 +61,69 @@ describe('publicError', () => {
       consoleError.mockRestore()
     }
   })
+
+  test('logs safe transport diagnostics from an error cause', () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    process.env.NODE_ENV = 'production'
+
+    try {
+      publicErrorResponse({
+        status: 502,
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: 'The requested service is temporarily unavailable.',
+        error: Object.assign(new Error('fetch failed'), {
+          cause: {
+            name: 'ConnectTimeoutError',
+            code: 'UND_ERR_CONNECT_TIMEOUT',
+            syscall: 'connect',
+            address: '203.0.113.10',
+            port: 443,
+            message: 'Bearer secret-token email@example.edu',
+            token: 'should-not-be-logged',
+          },
+        }),
+        context: 'test-route',
+      })
+
+      const logData = consoleError.mock.calls.at(-1)[1]
+
+      expect(logData.cause).toEqual({
+        name: 'ConnectTimeoutError',
+        code: 'UND_ERR_CONNECT_TIMEOUT',
+        syscall: 'connect',
+        address: '203.0.113.10',
+        port: 443,
+      })
+      expect(JSON.stringify(logData)).not.toContain('secret-token')
+      expect(JSON.stringify(logData)).not.toContain('email@example.edu')
+      expect(JSON.stringify(logData)).not.toContain('should-not-be-logged')
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+      consoleError.mockRestore()
+    }
+  })
+
+  test('omits cause diagnostics when the cause has no safe fields', () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    process.env.NODE_ENV = 'production'
+
+    try {
+      publicErrorResponse({
+        status: 502,
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: 'The requested service is temporarily unavailable.',
+        error: Object.assign(new Error('fetch failed'), { cause: { stack: 'sensitive details' } }),
+        context: 'test-route',
+      })
+
+      const logData = consoleError.mock.calls.at(-1)[1]
+
+      expect(logData).not.toHaveProperty('cause')
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+      consoleError.mockRestore()
+    }
+  })
 })

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 
 const MAX_LOG_MESSAGE_LENGTH = 500
+const MAX_CAUSE_FIELD_LENGTH = 120
+const SAFE_CAUSE_FIELDS = ['name', 'code', 'syscall', 'address', 'port']
 
 const redactSensitiveText = (value) => String(value || '')
   .replace(/Bearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]')
@@ -12,6 +14,33 @@ const redactSensitiveText = (value) => String(value || '')
 export const sanitizeErrorForLog = (error) => {
   const message = error instanceof Error ? error.message : error
   return redactSensitiveText(message || 'Unknown error').slice(0, MAX_LOG_MESSAGE_LENGTH)
+}
+
+export const sanitizeErrorCauseForLog = (error) => {
+  const cause = error && typeof error === 'object' ? error.cause : null
+  if (!cause || typeof cause !== 'object') return undefined
+
+  const safeCause = {}
+
+  SAFE_CAUSE_FIELDS.forEach((field) => {
+    let value
+    try {
+      value = cause[field]
+    } catch {
+      return
+    }
+
+    if (typeof value === 'string' && value) {
+      safeCause[field] = redactSensitiveText(value).slice(0, MAX_CAUSE_FIELD_LENGTH)
+      return
+    }
+
+    if (field === 'port' && typeof value === 'number' && Number.isFinite(value)) {
+      safeCause[field] = value
+    }
+  })
+
+  return Object.keys(safeCause).length > 0 ? safeCause : undefined
 }
 
 export const createCorrelationId = () => randomUUID()
@@ -32,10 +61,12 @@ export function publicErrorResponse({
   const correlationId = createCorrelationId()
 
   if (error) {
+    const cause = sanitizeErrorCauseForLog(error)
     const logData = {
       correlationId,
       context,
       error: sanitizeErrorForLog(error),
+      ...(cause ? { cause } : {}),
     }
 
     // Development logging is intentionally quiet in production, but API
