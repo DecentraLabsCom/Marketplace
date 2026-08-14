@@ -42,6 +42,7 @@ describe("MarketplaceJwtService", () => {
       JWT_PRIVATE_KEY: undefined,
       JWT_ISSUER: undefined,
       JWT_EXPIRATION_MS: undefined,
+      MARKETPLACE_BACKEND_JWT_TTL_SECONDS: undefined,
     };
 
     // Mock Date.now for consistent timestamps
@@ -508,6 +509,19 @@ describe("MarketplaceJwtService", () => {
           subject: 'marketplace',
         })
       );
+    });
+
+    test('caps backend SAML auth JWT TTL at 60 seconds', async () => {
+      process.env.JWT_EXPIRATION_MS = '600000';
+      process.env.MARKETPLACE_BACKEND_JWT_TTL_SECONDS = '120';
+
+      await MarketplaceJwtService.generateSamlAuthToken({
+        puc: 'puc-capped',
+        audience: 'https://backend.example.edu',
+      });
+
+      const payload = jwt.sign.mock.calls.at(-1)[0];
+      expect(payload.exp - payload.iat).toBe(60);
     });
 
     test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {

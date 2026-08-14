@@ -212,7 +212,14 @@ class MarketplaceJwtService {
       }
 
       const nowSec = Math.floor(Date.now() / 1000);
-      const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
+      const configuredTtl = Number.parseInt(
+        process.env.MARKETPLACE_BACKEND_JWT_TTL_SECONDS || '60',
+        10,
+      );
+      const ttlSeconds = Number.isFinite(configuredTtl) && configuredTtl > 0
+        ? Math.min(configuredTtl, 60)
+        : 60;
+      const expSec = nowSec + ttlSeconds;
 
       const payload = {
         puc,
