@@ -7,7 +7,11 @@ import { cookies } from 'next/headers'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
 import { reconcileFmuContextsForSession } from '@/utils/auth/reconcileFmuContexts'
 import { MAX_SAML_FORM_BYTES, extractSamlResponseIdentifiers } from '@/utils/auth/samlResponseSecurity'
-import { consumeSamlAssertionId, consumeSamlLoginTransaction } from '@/utils/auth/samlTransactionStore'
+import {
+  consumeSamlAssertionId,
+  consumeSamlLoginTransaction,
+  consumeSamlResponseId,
+} from '@/utils/auth/samlTransactionStore'
 
 const invalidSamlResponse = () => NextResponse.json({ error: 'Invalid SAML response' }, { status: 400 })
 const unavailable = () => NextResponse.json({ error: 'SSO is temporarily unavailable' }, { status: 503 })
@@ -60,6 +64,8 @@ export async function POST(request) {
     }
 
     try {
+      const isFirstResponseUse = await consumeSamlResponseId(identifiers.responseId)
+      if (!isFirstResponseUse) return invalidSamlResponse()
       const isFirstUse = await consumeSamlAssertionId(identifiers.assertionId)
       if (!isFirstUse) return invalidSamlResponse()
     } catch {

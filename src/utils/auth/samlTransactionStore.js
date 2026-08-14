@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
 const LOGIN_PREFIX = 'marketplace:saml:login:'
+const RESPONSE_PREFIX = 'marketplace:saml:response:'
 const ASSERTION_PREFIX = 'marketplace:saml:assertion:'
 const DEFAULT_TTL_SECONDS = 10 * 60
 const memoryRecords = new Map()
@@ -81,13 +82,13 @@ export async function consumeSamlLoginTransaction({ requestId, relayState }) {
   }
 }
 
-export async function consumeSamlAssertionId(assertionId) {
-  const normalizedAssertionId = normalizeValue(assertionId)
-  if (!normalizedAssertionId) return false
+async function consumeReplayIdentifier(prefix, identifier) {
+  const normalizedIdentifier = normalizeValue(identifier)
+  if (!normalizedIdentifier) return false
 
   requireRemoteStoreInProduction()
   const ttl = resolveTtlSeconds()
-  const key = keyFor(ASSERTION_PREFIX, normalizedAssertionId)
+  const key = keyFor(prefix, normalizedIdentifier)
   if (shouldUseRemoteStore()) {
     return (await redisCommand(['SET', key, '1', 'NX', 'EX', String(ttl)])) === 'OK'
   }
@@ -95,6 +96,14 @@ export async function consumeSamlAssertionId(assertionId) {
   if (memoryRecords.has(key)) return false
   memoryRecords.set(key, { value: '1', expiresAt: Date.now() + ttl * 1000 })
   return true
+}
+
+export function consumeSamlResponseId(responseId) {
+  return consumeReplayIdentifier(RESPONSE_PREFIX, responseId)
+}
+
+export function consumeSamlAssertionId(assertionId) {
+  return consumeReplayIdentifier(ASSERTION_PREFIX, assertionId)
 }
 
 export function clearSamlTransactionStoreForTests() {

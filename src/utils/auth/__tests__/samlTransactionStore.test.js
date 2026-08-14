@@ -4,6 +4,7 @@ import {
   clearSamlTransactionStoreForTests,
   consumeSamlAssertionId,
   consumeSamlLoginTransaction,
+  consumeSamlResponseId,
   createSamlLoginTransaction,
 } from '../samlTransactionStore'
 
@@ -33,5 +34,10 @@ describe('SAML transaction and replay store', () => {
   test('accepts each assertion identifier only once', async () => {
     await expect(consumeSamlAssertionId('_assertion-1')).resolves.toBe(true)
     await expect(consumeSamlAssertionId('_assertion-1')).resolves.toBe(false)
+  })
+
+  test('accepts each response identifier only once', async () => {
+    await expect(consumeSamlResponseId('_response-1')).resolves.toBe(true)
+    await expect(consumeSamlResponseId('_response-1')).resolves.toBe(false)
   })
 })
