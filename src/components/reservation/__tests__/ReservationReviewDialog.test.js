@@ -24,6 +24,8 @@ describe('ReservationReviewDialog', () => {
     expect(screen.getByText('16 Jul 2026, 11:00 (local time)')).toBeInTheDocument()
     expect(screen.getByText('End time')).toBeInTheDocument()
     expect(screen.getByText('16 Jul 2026, 12:00 (local time)')).toBeInTheDocument()
+    expect(screen.getByText('Estimated cost')).toBeInTheDocument()
+    expect(screen.queryByText('Credits to be held')).not.toBeInTheDocument()
     expect(screen.queryByText('Lab time')).not.toBeInTheDocument()
     expect(screen.queryByText('Your local time')).not.toBeInTheDocument()
     expect(screen.queryByText('Duration')).not.toBeInTheDocument()

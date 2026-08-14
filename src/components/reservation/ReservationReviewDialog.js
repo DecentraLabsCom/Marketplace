@@ -52,7 +52,7 @@ export default function ReservationReviewDialog({
           <ReviewItem label="Starting time" value={review.startingTime} />
           <ReviewItem label="End time" value={review.endTime} />
           <ReviewItem label="Unit price" value={review.unitPrice} />
-          <ReviewItem label="Credits to be held" value={review.totalCost} />
+          <ReviewItem label="Estimated cost" value={review.totalCost} />
         </dl>
 
         <div className="mt-5 space-y-3 rounded-lg border border-slate-700 bg-slate-800 p-4 text-sm">
