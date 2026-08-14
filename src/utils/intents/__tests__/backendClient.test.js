@@ -45,17 +45,29 @@ describe('backendClient', () => {
     })
   })
 
-  test('hasUsableAuthorizationSession requires at least one usable field', () => {
-    expect(hasUsableAuthorizationSession({ sessionId: 'session-1' })).toBe(true)
-    expect(hasUsableAuthorizationSession({ ceremonyUrl: 'https://ib.example/ceremony' })).toBe(true)
-    expect(hasUsableAuthorizationSession({ authorizationUrl: 'https://ib.example/auth' })).toBe(true)
+  test('hasUsableAuthorizationSession requires both the session id and browser URL', () => {
+    expect(hasUsableAuthorizationSession({
+      sessionId: 'session-1',
+      ceremonyUrl: 'https://ib.example/ceremony',
+    })).toBe(true)
+    expect(hasUsableAuthorizationSession({
+      sessionId: 'session-1',
+      authorizationUrl: 'https://ib.example/auth',
+    })).toBe(true)
+    expect(hasUsableAuthorizationSession({ sessionId: 'session-1' })).toBe(false)
+    expect(hasUsableAuthorizationSession({ ceremonyUrl: 'https://ib.example/ceremony' })).toBe(false)
+    expect(hasUsableAuthorizationSession({ authorizationUrl: 'https://ib.example/auth' })).toBe(false)
+    expect(hasUsableAuthorizationSession({ sessionId: ' ', ceremonyUrl: 'https://ib.example/ceremony' })).toBe(false)
     expect(hasUsableAuthorizationSession({ sessionId: null, ceremonyUrl: null, authorizationUrl: null })).toBe(false)
   })
 
-  test('resolveAuthorizationUrl falls back to ceremony URL built from session id', () => {
+  test('resolveAuthorizationUrl returns the explicit ceremony URL', () => {
     expect(
-      resolveAuthorizationUrl('https://ib.example/', { sessionId: 'session-42' })
-    ).toBe('https://ib.example/intents/authorize/ceremony/session-42')
+      resolveAuthorizationUrl('https://ib.example/', {
+        sessionId: 'session-42',
+        ceremonyUrl: '/intents/authorize/ceremony/session-42',
+      })
+    ).toBe('/intents/authorize/ceremony/session-42')
   })
 
   test('notifyIntentRegistrationMined posts mined signal with backend auth headers', async () => {

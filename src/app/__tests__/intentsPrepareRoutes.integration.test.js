@@ -246,7 +246,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: false },
+      { waitForReceipt: true },
     )
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'actionPayload',
@@ -269,7 +269,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: false },
+      { waitForReceipt: true },
     )
   })
 
@@ -332,7 +332,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: false },
+      { waitForReceipt: true },
     )
   })
 
@@ -389,7 +389,7 @@ describe('Unified intent prepare route', () => {
     }))
     registerIntentOnChain.mockResolvedValueOnce({
       txHash: '0xparallel',
-      wait: jest.fn().mockResolvedValue({ blockNumber: 777 }),
+      blockNumber: 777,
     })
 
     const responsePromise = prepareIntentPOST(buildRequest({

@@ -419,24 +419,21 @@ export async function POST(request) {
         // Keep a rejection handler attached while the on-chain submission is in flight.
         authorizationRequest.catch(() => {})
 
-        const registrationSubmission = await registerIntentOnChain(
+        const registrationReceipt = await registerIntentOnChain(
           kind,
           packageValue.meta,
           packageValue.payload,
           signature,
-          { waitForReceipt: false },
+          { waitForReceipt: true },
         )
-        const receipt = typeof registrationSubmission?.wait === 'function'
-          ? await registrationSubmission.wait()
-          : null
 
         return {
           packageValue,
           signature,
           authToken,
           authorizationRequest,
-          registrationSubmission,
-          receipt,
+          registrationSubmission: registrationReceipt,
+          receipt: registrationReceipt,
         }
       })
 

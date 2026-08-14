@@ -53,11 +53,11 @@ export function normalizeAuthorizationResponse(payload) {
 }
 
 export function hasUsableAuthorizationSession(authorization) {
-  return Boolean(
-    authorization?.sessionId ||
-    authorization?.ceremonyUrl ||
-    authorization?.authorizationUrl
-  )
+  const sessionId = authorization?.sessionId || authorization?.authorizationSessionId
+  const authorizationUrl = authorization?.ceremonyUrl || authorization?.authorizationUrl
+  const hasUsableValue = (value) => typeof value === 'string' ? value.trim().length > 0 : Boolean(value)
+
+  return hasUsableValue(sessionId) && hasUsableValue(authorizationUrl)
 }
 
 export function resolveAuthorizationUrl(backendUrl, authorization) {
