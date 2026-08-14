@@ -19,6 +19,11 @@ jest.mock('@/utils/metadata/providerMetadataOrigins', () => ({
   resolveProviderMetadataOrigins: jest.fn(),
 }))
 
+jest.mock('undici', () => ({
+  ...jest.requireActual('undici'),
+  fetch: jest.fn((...args) => global.fetch(...args)),
+}))
+
 describe('metadata egress policy', () => {
   let policy
   let originalFetch
@@ -26,6 +31,7 @@ describe('metadata egress policy', () => {
   let hasRedisConfig
   let redisCommand
   let resolveProviderMetadataOrigins
+  let undiciFetch
 
   beforeEach(async () => {
     jest.resetModules()
@@ -43,6 +49,8 @@ describe('metadata egress policy', () => {
     resolveProviderMetadataOrigins = jest.requireMock('@/utils/metadata/providerMetadataOrigins').resolveProviderMetadataOrigins
     resolveProviderMetadataOrigins.mockReset()
     resolveProviderMetadataOrigins.mockResolvedValue([])
+    undiciFetch = jest.requireMock('undici').fetch
+    undiciFetch.mockClear()
     originalFetch = global.fetch
     policy = await import('../metadataPolicy')
   })
