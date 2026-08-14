@@ -1,7 +1,7 @@
 ﻿import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { BlockList, isIP } from 'node:net'
 import { lookup } from 'node:dns/promises'
-import { Agent } from 'undici'
+import { Agent, fetch as undiciFetch } from 'undici'
 import { createHash } from 'node:crypto'
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
@@ -232,6 +232,17 @@ function pinnedAgent(url, resolved) {
   return agent
 }
 
+function fetchWithOptionalPinnedDispatcher(url, init, resolved, usePlatformFetch = false) {
+  const usePinnedDispatcher = Boolean(resolved && !usePlatformFetch)
+  const dispatcher = usePinnedDispatcher ? pinnedAgent(url, resolved) : null
+  const requestFetch = dispatcher ? undiciFetch : fetch
+
+  return requestFetch(url.toString(), {
+    ...init,
+    ...(dispatcher ? { dispatcher } : {}),
+  })
+}
+
 function configuredVercelBlobOrigin() {
   try {
     const parsed = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
@@ -369,11 +380,10 @@ export async function gatewayFetch(rawUrl, init = {}, redirectCount = 0) {
   }
   assertGatewayHostAllowed(url.hostname)
   const resolved = await assertGatewayUrlResolvesPublic(url)
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithOptionalPinnedDispatcher(url, {
     ...init,
     redirect: 'manual',
-    ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
-  })
+  }, resolved)
 
   if (![301, 302, 303, 307, 308].includes(response.status)) return response
   if (redirectCount >= 3) {
@@ -413,11 +423,10 @@ export async function institutionalBackendFetch(rawUrl, init = {}) {
   const usePlatformBlobFetch = canUsePlatformBlobFetch(url, init)
   let response
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithOptionalPinnedDispatcher(url, {
       ...init,
       redirect: 'manual',
-      ...(resolved && !usePlatformBlobFetch ? { dispatcher: pinnedAgent(url, resolved) } : {}),
-    })
+    }, resolved, usePlatformBlobFetch)
   } catch (error) {
     await recordInstitutionalBackendFailure(url.origin)
     throw error
@@ -537,12 +546,11 @@ export async function fetchAllowlistedJson(
   callerSignal?.addEventListener?.('abort', abortFromCaller, { once: true })
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithOptionalPinnedDispatcher(url, {
       ...init,
       signal: controller.signal,
       redirect: 'manual',
-      ...(resolved && !usePlatformBlobFetch ? { dispatcher: pinnedAgent(url, resolved) } : {}),
-    })
+    }, resolved, usePlatformBlobFetch)
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       throw new GatewayValidationError('Metadata redirects are not allowed', 502)

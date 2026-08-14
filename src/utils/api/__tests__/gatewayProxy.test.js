@@ -20,6 +20,10 @@ jest.mock('@/app/api/contract/utils/contractInstance', () => ({
 jest.mock('node:dns/promises', () => ({
   lookup: jest.fn(),
 }))
+jest.mock('undici', () => ({
+  ...jest.requireActual('undici'),
+  fetch: jest.fn(),
+}))
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -29,11 +33,13 @@ let originalNodeEnv
 
 describe('gatewayProxy', () => {
   let mod
+  let undiciFetch
 
   beforeEach(async () => {
     jest.resetModules()
     originalNodeEnv = process.env.NODE_ENV
     mod = await import('../gatewayProxy')
+    undiciFetch = require('undici').fetch
   })
 
   afterEach(() => {
@@ -230,8 +236,10 @@ describe('gatewayProxy', () => {
       dnsLookup.mockReset()
       dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
       originalFetch = global.fetch
-      global.fetch = jest.fn()
+      global.fetch = jest.fn().mockResolvedValue({ status: 200, headers: new Headers() })
       mod = await import('../gatewayProxy')
+      undiciFetch = require('undici').fetch
+      undiciFetch.mockReset()
     })
 
     afterEach(() => {
@@ -252,12 +260,12 @@ describe('gatewayProxy', () => {
     })
 
     test('pins the validated DNS answer for the connection', async () => {
-      global.fetch.mockResolvedValue({ status: 200, headers: new Headers() })
+      undiciFetch.mockResolvedValue({ status: 200, headers: new Headers() })
 
       await mod.gatewayFetch('https://gateway.example.com/fmu')
 
       expect(dnsLookup).toHaveBeenCalledWith('gateway.example.com', { all: true, verbatim: true })
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(undiciFetch).toHaveBeenCalledWith(
         'https://gateway.example.com/fmu',
         expect.objectContaining({ redirect: 'manual', dispatcher: expect.any(Object) })
       )
@@ -275,7 +283,7 @@ describe('gatewayProxy', () => {
     })
 
     test('rejects a cross-origin redirect', async () => {
-      global.fetch.mockResolvedValue({
+      undiciFetch.mockResolvedValue({
         status: 302,
         headers: new Headers({ location: 'https://other.example/fmu' }),
       })
@@ -283,11 +291,11 @@ describe('gatewayProxy', () => {
       await expect(mod.gatewayFetch('https://gateway.example.com/fmu')).rejects.toThrow(
         /Cross-origin gateway redirects/
       )
-      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(undiciFetch).toHaveBeenCalledTimes(1)
     })
 
     test('revalidates DNS for each same-origin redirect', async () => {
-      global.fetch
+      undiciFetch
         .mockResolvedValueOnce({
           status: 302,
           headers: new Headers({ location: '/fmu/redirected' }),
@@ -297,7 +305,7 @@ describe('gatewayProxy', () => {
       await mod.gatewayFetch('https://gateway.example.com/fmu')
 
       expect(dnsLookup).toHaveBeenCalledTimes(2)
-      expect(global.fetch).toHaveBeenCalledTimes(2)
+      expect(undiciFetch).toHaveBeenCalledTimes(2)
     })
   })
 
@@ -314,6 +322,9 @@ describe('gatewayProxy', () => {
       originalFetch = global.fetch
       global.fetch = jest.fn().mockResolvedValue({ status: 200, headers: new Headers() })
       mod = await import('../gatewayProxy')
+      undiciFetch = require('undici').fetch
+      undiciFetch.mockReset()
+      undiciFetch.mockResolvedValue({ status: 200, headers: new Headers() })
     })
 
     afterEach(() => {
@@ -327,11 +338,14 @@ describe('gatewayProxy', () => {
       dnsLookup.mockReset()
       dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
       mod = await import('../gatewayProxy')
+      undiciFetch = require('undici').fetch
+      undiciFetch.mockReset()
+      undiciFetch.mockResolvedValue({ status: 200, headers: new Headers() })
 
       await expect(
         mod.institutionalBackendFetch('https://consumer.example.com/auth/checkin-institutional')
       ).resolves.toMatchObject({ status: 200 })
-      expect(global.fetch).toHaveBeenCalled()
+      expect(undiciFetch).toHaveBeenCalled()
     })
 
     test('requires HTTPS in production', async () => {
@@ -356,7 +370,7 @@ describe('gatewayProxy', () => {
         { method: 'POST', body: '{}' },
       )
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(undiciFetch).toHaveBeenCalledWith(
         'https://consumer.example.com/auth/checkin-institutional',
         expect.objectContaining({
           method: 'POST',
@@ -380,7 +394,7 @@ describe('gatewayProxy', () => {
     })
 
     test('does not follow even same-origin redirects with sensitive credentials', async () => {
-      global.fetch.mockResolvedValue({
+      undiciFetch.mockResolvedValue({
         status: 307,
         headers: new Headers({ location: '/auth/other' }),
       })
@@ -391,11 +405,11 @@ describe('gatewayProxy', () => {
           body: '{"marketplaceToken":"secret"}',
         })
       ).rejects.toThrow(/redirects are not allowed/)
-      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(undiciFetch).toHaveBeenCalledTimes(1)
     })
 
     test('opens the backend circuit after repeated transient failures', async () => {
-      global.fetch.mockResolvedValue({ status: 503, headers: new Headers() })
+      undiciFetch.mockResolvedValue({ status: 503, headers: new Headers() })
       const url = 'https://consumer.example.com/auth/checkin-institutional'
 
       await mod.institutionalBackendFetch(url)
@@ -403,7 +417,7 @@ describe('gatewayProxy', () => {
       await mod.institutionalBackendFetch(url)
 
       await expect(mod.institutionalBackendFetch(url)).rejects.toThrow(/circuit is open/)
-      expect(global.fetch).toHaveBeenCalledTimes(3)
+      expect(undiciFetch).toHaveBeenCalledTimes(3)
     })
   })
 
