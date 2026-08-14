@@ -1,4 +1,5 @@
 import { ServiceProvider, IdentityProvider } from 'saml2-js'
+import { X509Certificate } from 'node:crypto'
 import xml2js from 'xml2js'
 import countries from 'i18n-iso-countries'
 import enLocale from 'i18n-iso-countries/langs/en.json'
@@ -174,6 +175,32 @@ export async function createSession(response, userData) {
 export function createServiceProvider() {
   const privateKey = process.env.SAML_SP_PRIVATE_KEY?.replace(/\\n/g, "\n") ?? "";
   const certificate = process.env.SAML_SP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!privateKey || !certificate) {
+      throw new Error('SAML SP private key and certificate are required in production')
+    }
+
+    let parsedCertificate
+    try {
+      parsedCertificate = new X509Certificate(certificate)
+    } catch {
+      throw new Error('SAML SP certificate is invalid')
+    }
+
+    const validFrom = Date.parse(parsedCertificate.validFrom)
+    const validTo = Date.parse(parsedCertificate.validTo)
+    const now = Date.now()
+    if (!Number.isFinite(validFrom) || !Number.isFinite(validTo)) {
+      throw new Error('SAML SP certificate has invalid validity dates')
+    }
+    if (now < validFrom) {
+      throw new Error('SAML SP certificate is not valid yet')
+    }
+    if (now >= validTo) {
+      throw new Error('SAML SP certificate is expired')
+    }
+  }
   
   const spLogoutUrl = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
   const sp = new ServiceProvider({

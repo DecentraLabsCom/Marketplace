@@ -15,6 +15,7 @@
 
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import xml2js from "xml2js";
+import { X509Certificate } from "node:crypto";
 import {
   createSession,
   createServiceProvider,
@@ -25,6 +26,13 @@ import {
 // Mock dependencies
 jest.mock("saml2-js");
 jest.mock("xml2js");
+jest.mock("node:crypto", () => {
+  const actual = jest.requireActual("node:crypto");
+  return {
+    ...actual,
+    X509Certificate: jest.fn(),
+  };
+});
 jest.mock("@/utils/dev/logger", () => ({
   __esModule: true,
   default: {
@@ -160,6 +168,31 @@ describe("SSO Utilities", () => {
   });
 
   describe("createServiceProvider", () => {
+    test("rejects an expired SP certificate in production", () => {
+      process.env.NODE_ENV = "production";
+      X509Certificate.mockImplementation(() => ({
+        validFrom: "May 8 20:01:09 2025 GMT",
+        validTo: "May 8 20:01:09 2026 GMT",
+      }));
+
+      expect(() => createServiceProvider()).toThrow(
+        "SAML SP certificate is expired",
+      );
+      expect(ServiceProvider).not.toHaveBeenCalled();
+    });
+
+    test("accepts a currently valid SP certificate in production", () => {
+      process.env.NODE_ENV = "production";
+      X509Certificate.mockImplementation(() => ({
+        validFrom: "May 8 2025 20:01:09 GMT",
+        validTo: "May 8 2036 20:01:09 GMT",
+      }));
+      ServiceProvider.mockImplementation(() => ({}));
+
+      expect(() => createServiceProvider()).not.toThrow();
+      expect(ServiceProvider).toHaveBeenCalledTimes(1);
+    });
+
     test("creates ServiceProvider with correct configuration", () => {
       const mockSP = { entity_id: "test-sp" };
       ServiceProvider.mockImplementation(() => mockSP);
