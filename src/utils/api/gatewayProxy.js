@@ -232,6 +232,38 @@ function pinnedAgent(url, resolved) {
   return agent
 }
 
+function configuredVercelBlobOrigin() {
+  try {
+    const parsed = new URL(String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || ''))
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return null
+    return parsed.origin
+  } catch {
+    return null
+  }
+}
+
+const isConfiguredVercelBlobUrl = (url) => {
+  const configuredOrigin = configuredVercelBlobOrigin()
+  return configuredOrigin !== null && configuredOrigin === url.origin
+}
+
+/**
+ * Vercel Blob is an explicitly configured public asset origin. Vercel's
+ * serverless runtime can reject a custom Undici dispatcher for that origin,
+ * even though the platform fetch can reach it normally. Keep DNS validation,
+ * but use the platform transport for simple, credential-free asset reads.
+ */
+const canUsePlatformBlobFetch = (url, init = {}) => {
+  if (!isConfiguredVercelBlobUrl(url)) return false
+
+  const method = String(init.method || 'GET').toUpperCase()
+  if (!['GET', 'HEAD'].includes(method) || init.body !== undefined) return false
+
+  const headers = new Headers(init.headers || {})
+  return !['authorization', 'cookie', 'proxy-authorization']
+    .some((name) => headers.has(name))
+}
+
 export function normalizeGatewayBaseUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== 'string') {
     throw new GatewayValidationError('Missing gatewayUrl')
@@ -365,7 +397,9 @@ export async function gatewayFetch(rawUrl, init = {}, redirectCount = 0) {
 /**
  * Fetch an on-chain-discovered institutional backend without ever forwarding
  * credential-bearing requests across redirects. Production connections require
- * HTTPS, public A/AAAA answers and a DNS-pinned dispatcher.
+ * HTTPS and public A/AAAA answers; configured Blob asset reads use the
+ * platform transport after the same validation, while other requests use a
+ * DNS-pinned dispatcher.
  */
 export async function institutionalBackendFetch(rawUrl, init = {}) {
   const url = new URL(rawUrl)
@@ -376,12 +410,13 @@ export async function institutionalBackendFetch(rawUrl, init = {}) {
     throw new GatewayValidationError('Institutional backend circuit is open', 503)
   }
   const resolved = await assertInstitutionalBackendResolvesPublic(url)
+  const usePlatformBlobFetch = canUsePlatformBlobFetch(url, init)
   let response
   try {
     response = await fetch(url.toString(), {
       ...init,
       redirect: 'manual',
-      ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+      ...(resolved && !usePlatformBlobFetch ? { dispatcher: pinnedAgent(url, resolved) } : {}),
     })
   } catch (error) {
     await recordInstitutionalBackendFailure(url.origin)
@@ -493,6 +528,7 @@ export async function fetchAllowlistedJson(
   }
 
   const resolved = await resolvePublicGatewayAddress(url.hostname, { always: true })
+  const usePlatformBlobFetch = canUsePlatformBlobFetch(url, init)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const callerSignal = init.signal
@@ -505,7 +541,7 @@ export async function fetchAllowlistedJson(
       ...init,
       signal: controller.signal,
       redirect: 'manual',
-      ...(resolved ? { dispatcher: pinnedAgent(url, resolved) } : {}),
+      ...(resolved && !usePlatformBlobFetch ? { dispatcher: pinnedAgent(url, resolved) } : {}),
     })
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -533,7 +569,8 @@ export async function fetchAllowlistedJson(
     if (error?.name === 'AbortError') {
       throw new GatewayValidationError('Metadata fetch timed out', 504)
     }
-    throw error
+    if (error instanceof GatewayValidationError) throw error
+    throw new GatewayValidationError('Metadata fetch failed', 502)
   } finally {
     clearTimeout(timeout)
     callerSignal?.removeEventListener?.('abort', abortFromCaller)

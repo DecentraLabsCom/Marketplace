@@ -236,6 +236,7 @@ describe('gatewayProxy', () => {
 
     afterEach(() => {
       global.fetch = originalFetch
+      delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
     })
 
     test('rejects a hostname if any DNS answer is private', async () => {
@@ -317,6 +318,7 @@ describe('gatewayProxy', () => {
 
     afterEach(() => {
       global.fetch = originalFetch
+      delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
     })
 
     test('allows a public institutional backend without a static origin allowlist', async () => {
@@ -361,6 +363,19 @@ describe('gatewayProxy', () => {
           redirect: 'manual',
           dispatcher: expect.any(Object),
         }),
+      )
+    })
+
+    test('uses the platform fetch for the explicitly configured Vercel Blob origin', async () => {
+      process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.example.com'
+
+      await mod.institutionalBackendFetch(
+        'https://blob.example.com/data/2/images/cover.jpg',
+      )
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://blob.example.com/data/2/images/cover.jpg',
+        expect.not.objectContaining({ dispatcher: expect.anything() }),
       )
     })
 

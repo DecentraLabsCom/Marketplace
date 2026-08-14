@@ -123,7 +123,19 @@ describe('metadata egress policy', () => {
     const result = await policy.fetchMetadataJson('https://blob.example/data/Lab-Provider-7.json')
 
     expect(result.data).toEqual({ name: 'Blob lab' })
-    expect(global.fetch).toHaveBeenCalled()
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://blob.example/data/Lab-Provider-7.json',
+      expect.not.objectContaining({ dispatcher: expect.anything() }),
+    )
+  })
+
+  test('normalizes unexpected outbound fetch errors as gateway errors', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'))
+
+    await expect(policy.fetchMetadataJson('https://metadata.example/lab.json')).rejects.toMatchObject({
+      name: 'GatewayValidationError',
+      status: 502,
+    })
   })
 
   test('rejects HTTP metadata even outside production', async () => {
