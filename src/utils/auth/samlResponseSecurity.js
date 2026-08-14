@@ -110,7 +110,7 @@ function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId 
   }
 
   const destination = readAttribute(response, 'Destination')
-  if (destination !== expectedRecipient) {
+  if (destination && destination !== expectedRecipient) {
     throw new Error('SAML response Destination does not match the configured callback')
   }
   if (readAttribute(response, 'ID') !== responseId || readAttribute(response, 'InResponseTo') !== inResponseTo) {
@@ -139,19 +139,36 @@ function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId 
   const subjects = directChildren(assertion, SAML_ASSERTION_NAMESPACE, 'Subject')
   if (subjects.length !== 1) throw new Error('SAML Subject is required')
   const confirmations = directChildren(subjects[0], SAML_ASSERTION_NAMESPACE, 'SubjectConfirmation')
-  if (confirmations.length !== 1 || readAttribute(confirmations[0], 'Method') !== SAML_BEARER_METHOD) {
+  const bearerConfirmations = confirmations.filter(
+    (confirmation) => readAttribute(confirmation, 'Method') === SAML_BEARER_METHOD
+  )
+  if (bearerConfirmations.length === 0) {
     throw new Error('SAML SubjectConfirmation bearer method is required')
   }
-  const confirmationData = directChildren(confirmations[0], SAML_ASSERTION_NAMESPACE, 'SubjectConfirmationData')
-  if (confirmationData.length !== 1) throw new Error('SAML SubjectConfirmationData is required')
-  const data = confirmationData[0]
-  validateSamlTimeWindow(data, 'SAML SubjectConfirmationData', now)
-  if (readAttribute(data, 'Recipient') !== expectedRecipient) {
-    throw new Error('SAML SubjectConfirmationData Recipient does not match the configured callback')
+
+  let lastConfirmationError = null
+  for (const confirmation of bearerConfirmations) {
+    try {
+      const confirmationData = directChildren(confirmation, SAML_ASSERTION_NAMESPACE, 'SubjectConfirmationData')
+      if (confirmationData.length !== 1) throw new Error('SAML SubjectConfirmationData is required')
+      const data = confirmationData[0]
+      validateSamlTimeWindow(data, 'SAML SubjectConfirmationData', now)
+      if (readAttribute(data, 'Recipient') !== expectedRecipient) {
+        throw new Error('SAML SubjectConfirmationData Recipient does not match the configured callback')
+      }
+      if (readAttribute(data, 'InResponseTo') !== inResponseTo) {
+        throw new Error('SAML SubjectConfirmationData InResponseTo does not match the response')
+      }
+      if (!destination) {
+        console.warn('SAML response Destination is absent; relying on Recipient and request correlation')
+      }
+      return
+    } catch (error) {
+      lastConfirmationError = error
+    }
   }
-  if (readAttribute(data, 'InResponseTo') !== inResponseTo) {
-    throw new Error('SAML SubjectConfirmationData InResponseTo does not match the response')
-  }
+
+  throw lastConfirmationError || new Error('SAML SubjectConfirmationData is required')
 }
 
 /**

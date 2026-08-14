@@ -12,6 +12,7 @@ const validResponseXml = ({
   recipient = callbackUrl,
   subjectConfirmationInResponseTo = '_request-1',
   subjectConfirmationNotOnOrAfter = new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+  additionalSubjectConfirmations = '',
 } = {}) => `
   <samlp:Response
     xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
@@ -23,6 +24,7 @@ const validResponseXml = ({
       <saml:Issuer>https://idp.example</saml:Issuer>
       <saml:Subject>
         <saml:NameID>user@example.com</saml:NameID>
+        ${additionalSubjectConfirmations}
         <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
           <saml:SubjectConfirmationData
             NotOnOrAfter="${subjectConfirmationNotOnOrAfter}"
@@ -49,6 +51,52 @@ describe('SAML response correlation identifiers', () => {
 
   test('extracts the response, AuthnRequest and assertion identifiers', () => {
     const response = encode(validResponseXml())
+
+    expect(extractSamlResponseIdentifiers(response)).toEqual({
+      responseId: '_response-1',
+      inResponseTo: '_request-1',
+      assertionId: '_assertion-1',
+    })
+  })
+
+  test('accepts a response without Destination and emits a warning', () => {
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const response = encode(validResponseXml().replace(`    Destination="${callbackUrl}">`, '>'))
+
+    try {
+      expect(extractSamlResponseIdentifiers(response)).toEqual({
+        responseId: '_response-1',
+        inResponseTo: '_request-1',
+        assertionId: '_assertion-1',
+      })
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining('SAML response Destination is absent')
+      )
+    } finally {
+      warning.mockRestore()
+    }
+  })
+
+  test('rejects a present Destination that targets another callback', () => {
+    const response = encode(validResponseXml().replace(
+      `Destination="${callbackUrl}"`,
+      'Destination="https://other-sp.example/callback"'
+    ))
+
+    expect(() => extractSamlResponseIdentifiers(response)).toThrow('Destination')
+  })
+
+  test('accepts multiple SubjectConfirmation elements when one bearer confirmation is valid', () => {
+    const expiredConfirmation = `
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData
+          NotOnOrAfter="${new Date(Date.now() - 2 * 60 * 1000).toISOString()}"
+          Recipient="https://other-sp.example/callback"
+          InResponseTo="_other-request" />
+      </saml:SubjectConfirmation>`
+    const response = encode(validResponseXml({
+      additionalSubjectConfirmations: expiredConfirmation,
+    }))
 
     expect(extractSamlResponseIdentifiers(response)).toEqual({
       responseId: '_response-1',
