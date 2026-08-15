@@ -12,7 +12,10 @@ import {
   isServerSessionRenewalDue,
   renewServerSession,
 } from './sessionStore'
-import { MARKETPLACE_SESSION_TTL_SECONDS } from './sessionConfig'
+import {
+  MARKETPLACE_SESSION_TTL_SECONDS,
+  resolveSessionTtlSeconds,
+} from './sessionConfig'
 import { registerSamlSessionBinding } from './samlSessionStateStore'
 
 const COOKIE_NAME = '__Host-user_session'
@@ -32,9 +35,9 @@ export function getSessionCookieOptions(maxAgeSec = MARKETPLACE_SESSION_TTL_SECO
  * Creates one opaque cookie and persists the complete session server-side.
  */
 export async function createSessionCookie(sessionData, maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
-  const { sessionId } = await createServerSession(sessionData, maxAgeSec)
+  const { sessionId, ttlSeconds } = await createServerSession(sessionData, maxAgeSec)
   return [{
-    ...getSessionCookieOptions(maxAgeSec),
+    ...getSessionCookieOptions(ttlSeconds),
     value: sessionId,
   }]
 }
@@ -64,12 +67,18 @@ export async function getSessionFromCookies(cookieStore, { renew = true } = {}) 
   try {
     const samlNameId = String(session.samlNameId || '').trim()
     const samlSessionIndex = String(session.samlSessionIndex || '').trim()
+    const renewalTtlSeconds = resolveSessionTtlSeconds(
+      session,
+      MARKETPLACE_SESSION_TTL_SECONDS,
+      renewalTime,
+    )
+    if (renewalTime + renewalTtlSeconds * 1000 <= Number(session.expiresAt)) return session
     if (samlNameId && samlSessionIndex) {
       await registerSamlSessionBinding({
         sessionId: values[0],
         nameId: samlNameId,
         sessionIndex: samlSessionIndex,
-        ttlSeconds: MARKETPLACE_SESSION_TTL_SECONDS,
+        ttlSeconds: renewalTtlSeconds,
       })
     }
     renewedSession = await renewServerSession(values[0], session, renewalTime)
@@ -82,7 +91,8 @@ export async function getSessionFromCookies(cookieStore, { renew = true } = {}) 
 
   if (!renewedSession) return session
 
-  const { name, ...cookieOptions } = getSessionCookieOptions()
+  const renewedTtlSeconds = Math.max(1, Math.floor((renewedSession.expiresAt - renewalTime) / 1000))
+  const { name, ...cookieOptions } = getSessionCookieOptions(renewedTtlSeconds)
   cookieStore.set(name, renewedSession.sessionId, cookieOptions)
   return renewedSession
 }

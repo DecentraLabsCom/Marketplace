@@ -3,6 +3,7 @@ import devLog from '@/utils/dev/logger'
 import {
   MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS,
   MARKETPLACE_SESSION_TTL_SECONDS,
+  resolveSessionTtlSeconds,
 } from './sessionConfig'
 
 const SESSION_KEY_PREFIX = 'marketplace:session:'
@@ -223,11 +224,9 @@ function sweepMemorySessions(now = Date.now()) {
 
 export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_SESSION_TTL_SECONDS) {
   requireValidSessionData(sessionData)
-  let ttl = Number(maxAgeSec)
-  if (!Number.isSafeInteger(ttl) || ttl <= 0) throw new Error('Invalid session TTL')
-
   const sessionId = buildSessionId()
   const now = Date.now()
+  const ttl = resolveSessionTtlSeconds(sessionData, maxAgeSec, now)
   const expiresAt = now + ttl * 1000
   const record = protectSessionData({
     ...sessionData,
@@ -245,7 +244,7 @@ export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_S
     devLog.warn('Using an in-memory session store outside production; configure SESSION_STORE_REST_URL for shared sessions')
   }
 
-  return { sessionId, record }
+  return { sessionId, record, expiresAt, ttlSeconds: ttl }
 }
 
 export function isServerSessionRenewalDue(session, now = Date.now()) {
@@ -269,7 +268,15 @@ export async function renewServerSession(sessionId, session, now = Date.now()) {
   const currentTime = Number(now)
   if (!isServerSessionRenewalDue(session, currentTime)) return null
 
-  const renewedExpiresAt = currentTime + MARKETPLACE_SESSION_TTL_SECONDS * 1000
+  let renewedTtlSeconds
+  try {
+    renewedTtlSeconds = resolveSessionTtlSeconds(session, MARKETPLACE_SESSION_TTL_SECONDS, currentTime)
+  } catch {
+    return null
+  }
+
+  const renewedExpiresAt = currentTime + renewedTtlSeconds * 1000
+  if (renewedExpiresAt <= Number(session.expiresAt)) return null
   const renewedSession = {
     ...session,
     expiresAt: renewedExpiresAt,
@@ -279,7 +286,7 @@ export async function renewServerSession(sessionId, session, now = Date.now()) {
 
   if (config) {
     await remoteCommand(
-      ['SET', sessionKey(sessionId), JSON.stringify(record), 'EX', String(MARKETPLACE_SESSION_TTL_SECONDS)],
+      ['SET', sessionKey(sessionId), JSON.stringify(record), 'EX', String(renewedTtlSeconds)],
       config,
     )
   } else {

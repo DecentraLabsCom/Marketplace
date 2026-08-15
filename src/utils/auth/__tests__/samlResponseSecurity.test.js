@@ -50,12 +50,16 @@ describe('SAML response correlation identifiers', () => {
   })
 
   test('extracts the response, AuthnRequest and assertion identifiers', () => {
-    const response = encode(validResponseXml())
+    const response = encode(validResponseXml({
+      conditionsNotOnOrAfter: '2099-01-01T00:00:00.000Z',
+      subjectConfirmationNotOnOrAfter: '2098-01-01T00:00:00.000Z',
+    }))
 
     expect(extractSamlResponseIdentifiers(response)).toEqual({
       responseId: '_response-1',
       inResponseTo: '_request-1',
       assertionId: '_assertion-1',
+      samlAssertionExpiresAt: Date.parse('2098-01-01T00:00:00.000Z'),
     })
   })
 
@@ -68,6 +72,7 @@ describe('SAML response correlation identifiers', () => {
         responseId: '_response-1',
         inResponseTo: '_request-1',
         assertionId: '_assertion-1',
+        samlAssertionExpiresAt: expect.any(Number),
       })
       expect(warning).toHaveBeenCalledWith(
         expect.stringContaining('SAML response Destination is absent')
@@ -102,6 +107,7 @@ describe('SAML response correlation identifiers', () => {
       responseId: '_response-1',
       inResponseTo: '_request-1',
       assertionId: '_assertion-1',
+      samlAssertionExpiresAt: expect.any(Number),
     })
   })
 

@@ -9,6 +9,7 @@ describe('publicSessionUser', () => {
       name: 'User Name',
       authType: 'sso',
       affiliation: 'uned.es',
+      samlAssertionExpiresAt: 1785061740000,
       entitlements: ['urn:decentralabs:entitlement:institution-admin'],
       personalUniqueCode: 'urn:mace:terena.org:schac:personalUniqueCode:es:abc',
       samlAssertion: 'BASE64_ASSERTION',
@@ -26,6 +27,7 @@ describe('publicSessionUser', () => {
         authType: user.authType,
         affiliation: user.affiliation,
         personalUniqueCode: user.personalUniqueCode,
+        samlAssertionExpiresAt: user.samlAssertionExpiresAt,
       })
     )
 

@@ -40,4 +40,14 @@ describe('GET /api/auth/sso/saml2/complete', () => {
       { id: 'user-2', email: 'user-2@example.com' },
     )
   })
+
+  test('returns to the original same-origin path after SSO refresh', async () => {
+    const response = await GET(new Request(
+      'https://market.example/api/auth/sso/saml2/complete?returnTo=%2Freservation%2F123%3Fstep%3Dconfirm',
+    ))
+
+    expect(response.headers.get('location')).toBe(
+      'https://market.example/reservation/123?step=confirm&sso_login=1',
+    )
+  })
 })

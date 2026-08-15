@@ -19,6 +19,7 @@ const PUBLIC_SESSION_FIELDS = [
   'organizationName',
   'institutionName',
   'country',
+  'samlAssertionExpiresAt',
 ];
 
 export function sanitizeSessionUserForClient(sessionUser) {

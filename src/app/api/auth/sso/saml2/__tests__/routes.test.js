@@ -12,6 +12,7 @@ jest.mock('@/utils/auth/samlTransactionStore', () => ({
   consumeSamlLoginTransaction: jest.fn(),
   consumeSamlResponseId: jest.fn(),
   consumeSamlAssertionId: jest.fn(),
+  normalizeSamlReturnTo: jest.fn((value) => value || null),
 }))
 
 jest.mock('next/headers', () => ({
@@ -83,7 +84,7 @@ describe('SAML routes', () => {
     createIdentityProvider.mockResolvedValue({})
     createSamlLoginTransaction.mockResolvedValue({})
 
-    const response = await GET()
+    const response = await GET(new Request('https://market.example/api/auth/sso/saml2/login'))
 
     expect(response.status).toBe(307)
     expect(createSamlLoginTransaction).toHaveBeenCalledWith({
@@ -92,7 +93,10 @@ describe('SAML routes', () => {
     })
     expect(serviceProvider.create_login_request_url).toHaveBeenCalledWith(
       {},
-      { relay_state: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
+      {
+        relay_state: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+        force_authn: false,
+      },
       expect.any(Function),
     )
   })
@@ -116,14 +120,42 @@ describe('SAML routes', () => {
     })
     expect(consumeSamlAssertionId).toHaveBeenCalledWith('_assertion-1')
     expect(consumeSamlResponseId).toHaveBeenCalledWith('_response-1')
-    expect(createSession).toHaveBeenCalledWith(response, { id: 'user-1', email: 'user@example.com' })
+    expect(createSession).toHaveBeenCalledWith(response, {
+      id: 'user-1',
+      email: 'user@example.com',
+      samlAssertionExpiresAt: Date.parse('2099-01-01T00:00:00.000Z'),
+    })
     expect(response.headers.get('location')).toBe(
       'https://market.example/api/auth/sso/saml2/complete',
     )
     expect(reconcileFmuContextsForSession).toHaveBeenCalledWith(
       response,
       cookieStore,
-      { id: 'user-1', email: 'user@example.com' },
+      {
+        id: 'user-1',
+        email: 'user@example.com',
+        samlAssertionExpiresAt: Date.parse('2099-01-01T00:00:00.000Z'),
+      },
+    )
+  })
+
+  test('preserves a safe return path through the SAML callback', async () => {
+    const samlResponse = encodeResponse(validResponseXml)
+    consumeSamlLoginTransaction.mockResolvedValue({
+      requestId: '_request-1',
+      returnTo: '/reservation/123?step=confirm',
+    })
+    parseSAMLResponse.mockResolvedValue({ id: 'user-1', email: 'user@example.com' })
+    consumeSamlAssertionId.mockResolvedValue(true)
+
+    const response = await POST({
+      headers: new Headers(),
+      nextUrl: new URL('https://market.example/api/auth/sso/saml2/callback'),
+      text: async () => new URLSearchParams({ SAMLResponse: samlResponse, RelayState: 'relay-1' }).toString(),
+    })
+
+    expect(response.headers.get('location')).toBe(
+      'https://market.example/api/auth/sso/saml2/complete?returnTo=%2Freservation%2F123%3Fstep%3Dconfirm',
     )
   })
 

@@ -48,17 +48,19 @@ describe('server-side session store', () => {
     expect(storedRecord.encryptedSession).not.toContain('user@example.com')
   })
 
-  test('does not shorten the Marketplace session to the SAML assertion lifetime', async () => {
+  test('caps the Marketplace session before the SAML assertion expires', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-15T10:00:00.000Z'))
     const { createServerSession } = await import('../sessionStore')
 
     await createServerSession({
       id: 'user-1',
       email: 'user@example.com',
-      samlExpiresAt: Date.now() + 60 * 1000,
+      samlAssertionExpiresAt: Date.now() + 30 * 60 * 1000,
     })
 
     const command = JSON.parse(global.fetch.mock.calls[0][1].body)
-    expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
+    expect(command.slice(3)).toEqual(['EX', String(29 * 60)])
+    jest.useRealTimers()
   })
 
   test('does not use SESSION_SECRET as the encryption key in production', async () => {
@@ -119,6 +121,25 @@ describe('server-side session store', () => {
     const command = JSON.parse(global.fetch.mock.calls[0][1].body)
     expect(command.slice(0, 2)).toEqual(['SET', expect.stringContaining(session.sessionId)])
     expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
+  })
+
+  test('caps sliding renewal at the SAML assertion expiry', async () => {
+    const { renewServerSession } = await import('../sessionStore')
+    const now = Date.now()
+    const session = {
+      id: 'user-1',
+      email: 'user@example.com',
+      sessionId: 'a'.repeat(43),
+      createdAt: now - (59 * 60 * 1000),
+      expiresAt: now + (14 * 60 * 1000),
+      samlAssertionExpiresAt: now + (20 * 60 * 1000),
+    }
+
+    const renewed = await renewServerSession(session.sessionId, session, now)
+
+    expect(renewed.expiresAt).toBe(now + (19 * 60 * 1000))
+    const command = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(command.slice(3)).toEqual(['EX', String(19 * 60)])
   })
 
   test('does not renew a session while more than 15 minutes remain', async () => {

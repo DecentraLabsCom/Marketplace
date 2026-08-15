@@ -129,6 +129,33 @@ describe('sessionCookie', () => {
     }
   });
 
+  it('caps the sliding cookie and SAML binding before the assertion expires', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
+    const sessionData = {
+      id: 'user123',
+      email: 'test@example.com',
+      samlNameId: 'name-id-1',
+      samlSessionIndex: 'session-index-1',
+      samlAssertionExpiresAt: Date.now() + (90 * 60 * 1000),
+    };
+    const createdCookies = await sessionCookie.createSessionCookie(sessionData);
+    const cookieStore = {
+      get: () => ({ value: createdCookies[0].value }),
+      set: jest.fn(),
+    };
+
+    jest.advanceTimersByTime(46 * 60 * 1000);
+    const session = await sessionCookie.getSessionFromCookies(cookieStore);
+
+    expect(session.expiresAt).toBe(new Date('2026-07-26T11:29:00.000Z').getTime());
+    expect(cookieStore.set).toHaveBeenCalledWith(
+      '__Host-user_session',
+      createdCookies[0].value,
+      expect.objectContaining({ maxAge: 43 * 60 }),
+    );
+    jest.useRealTimers();
+  });
+
   it('does not refresh the browser cookie while more than 15 minutes remain', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
     const createdCookies = await sessionCookie.createSessionCookie({ id: 'user123' });

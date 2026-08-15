@@ -5,6 +5,7 @@ const LOGIN_PREFIX = 'marketplace:saml:login:'
 const RESPONSE_PREFIX = 'marketplace:saml:response:'
 const ASSERTION_PREFIX = 'marketplace:saml:assertion:'
 const DEFAULT_TTL_SECONDS = 10 * 60
+const MAX_RETURN_TO_LENGTH = 2_048
 const memoryRecords = new Map()
 
 const hashKeyPart = (value) => createHash('sha256').update(value).digest('hex')
@@ -15,6 +16,19 @@ const normalizeValue = (value, maxLength = 512) => {
   if (typeof value !== 'string') return null
   const normalized = value.trim()
   return normalized && normalized.length <= maxLength ? normalized : null
+}
+
+export function normalizeSamlReturnTo(value) {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  if (
+    !normalized ||
+    normalized.length > MAX_RETURN_TO_LENGTH ||
+    !normalized.startsWith('/') ||
+    normalized.startsWith('//') ||
+    normalized.includes('\\')
+  ) return null
+  return normalized
 }
 
 const resolveTtlSeconds = () => {
@@ -37,14 +51,18 @@ const sweepMemoryRecords = (now = Date.now()) => {
   }
 }
 
-export async function createSamlLoginTransaction({ requestId, relayState }) {
+export async function createSamlLoginTransaction({ requestId, relayState, returnTo }) {
   const normalizedRequestId = normalizeValue(requestId)
   const normalizedRelayState = normalizeValue(relayState)
+  const normalizedReturnTo = normalizeSamlReturnTo(returnTo)
   if (!normalizedRequestId || !normalizedRelayState) throw new Error('Invalid SAML login transaction')
 
   requireRemoteStoreInProduction()
   const ttl = resolveTtlSeconds()
-  const record = JSON.stringify({ requestId: normalizedRequestId })
+  const record = JSON.stringify({
+    requestId: normalizedRequestId,
+    ...(normalizedReturnTo ? { returnTo: normalizedReturnTo } : {}),
+  })
   const key = loginKeyFor(normalizedRequestId, normalizedRelayState)
   if (shouldUseRemoteStore()) {
     const result = await redisCommand(['SET', key, record, 'NX', 'EX', String(ttl)])
@@ -53,7 +71,12 @@ export async function createSamlLoginTransaction({ requestId, relayState }) {
     sweepMemoryRecords()
     memoryRecords.set(key, { value: record, expiresAt: Date.now() + ttl * 1000 })
   }
-  return { requestId: normalizedRequestId, relayState: normalizedRelayState, expiresAt: Date.now() + ttl * 1000 }
+  return {
+    requestId: normalizedRequestId,
+    relayState: normalizedRelayState,
+    returnTo: normalizedReturnTo,
+    expiresAt: Date.now() + ttl * 1000,
+  }
 }
 
 export async function consumeSamlLoginTransaction({ requestId, relayState }) {

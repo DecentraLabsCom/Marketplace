@@ -22,6 +22,7 @@ import {
     markBrowserCredentialAdvisoryDismissed,
     markBrowserCredentialVerified,
 } from '@/utils/onboarding/browserCredentialMarker'
+import { MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS } from '@/utils/auth/sessionConfig'
 
 // Create optimized context with automatic memoization
 const { Context: UserContextInternal, Provider: OptimizedUserProvider, useContext: useUserContext } =
@@ -68,6 +69,7 @@ function UserDataCore({ children }) {
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
     const onboardingStableUserIdRef = useRef(null);
+    const samlReauthenticationStartedRef = useRef(false);
 
     // React Query hooks for data fetching
     const { 
@@ -223,6 +225,37 @@ function UserDataCore({ children }) {
             cancelled = true;
         };
     }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl, institutionDomain]);
+
+    // Obtain a fresh SAML assertion before the current one reaches its
+    // absolute expiry. The IdP can usually satisfy this from its own SSO
+    // session, so this does not force the user to enter credentials again.
+    useEffect(() => {
+        if (isLoggingOut || !isSSO || !user?.samlAssertionExpiresAt) {
+            samlReauthenticationStartedRef.current = false;
+            return undefined;
+        }
+
+        const expiresAt = Number(user.samlAssertionExpiresAt);
+        if (!Number.isFinite(expiresAt)) return undefined;
+
+        const startReauthentication = () => {
+            if (samlReauthenticationStartedRef.current) return;
+            samlReauthenticationStartedRef.current = true;
+            devLog.log('[SAML] Refreshing the assertion before expiry');
+            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            const loginUrl = new URL('/api/auth/sso/saml2/login', window.location.origin);
+            loginUrl.searchParams.set('returnTo', currentPath);
+            window.location.assign(loginUrl.toString());
+        };
+        const delay = expiresAt - Date.now() - MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS * 1000;
+        if (delay <= 0) {
+            startReauthentication();
+            return undefined;
+        }
+
+        const timer = window.setTimeout(startReauthentication, delay);
+        return () => window.clearTimeout(timer);
+    }, [isLoggingOut, isSSO, user?.samlAssertionExpiresAt]);
 
     // Reset institutional onboarding status on logout
     useEffect(() => {

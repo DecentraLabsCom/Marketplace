@@ -11,6 +11,7 @@ import {
   consumeSamlAssertionId,
   consumeSamlLoginTransaction,
   consumeSamlResponseId,
+  normalizeSamlReturnTo,
 } from '@/utils/auth/samlTransactionStore'
 
 const invalidSamlResponse = () => NextResponse.json({ error: 'Invalid SAML response' }, { status: 400 })
@@ -42,8 +43,9 @@ export async function POST(request) {
       return invalidSamlResponse()
     }
 
+    let transaction
     try {
-      const transaction = await consumeSamlLoginTransaction({
+      transaction = await consumeSamlLoginTransaction({
         requestId: identifiers.inResponseTo,
         relayState,
       })
@@ -62,6 +64,10 @@ export async function POST(request) {
     if (!userData) {
       return invalidSamlResponse()
     }
+    userData = {
+      ...userData,
+      samlAssertionExpiresAt: identifiers.samlAssertionExpiresAt,
+    }
 
     try {
       const isFirstResponseUse = await consumeSamlResponseId(identifiers.responseId)
@@ -74,7 +80,10 @@ export async function POST(request) {
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
-      const response = NextResponse.redirect(`${baseUrl}/api/auth/sso/saml2/complete`, 303)
+      const completeUrl = new URL('/api/auth/sso/saml2/complete', baseUrl)
+      const returnTo = normalizeSamlReturnTo(transaction.returnTo)
+      if (returnTo) completeUrl.searchParams.set('returnTo', returnTo)
+      const response = NextResponse.redirect(completeUrl, 303)
       const cookieStore = await cookies()
       await reconcileFmuContextsForSession(response, cookieStore, userData)
       await createSession(response, userData)

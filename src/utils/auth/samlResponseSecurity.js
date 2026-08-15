@@ -84,6 +84,8 @@ function validateSamlTimeWindow(element, fieldName, now) {
   if (now >= notOnOrAfter + CLOCK_SKEW_MS) {
     throw new Error(`${fieldName}.NotOnOrAfter has expired`)
   }
+
+  return notOnOrAfter
 }
 
 function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId }) {
@@ -123,7 +125,7 @@ function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId 
   const now = Date.now()
   const conditions = directChildren(assertion, SAML_ASSERTION_NAMESPACE, 'Conditions')
   if (conditions.length !== 1) throw new Error('SAML Conditions is required')
-  validateSamlTimeWindow(conditions[0], 'SAML Conditions', now)
+  const conditionsExpiresAt = validateSamlTimeWindow(conditions[0], 'SAML Conditions', now)
 
   const restrictions = directChildren(conditions[0], SAML_ASSERTION_NAMESPACE, 'AudienceRestriction')
   if (restrictions.length === 0) throw new Error('SAML AudienceRestriction is required')
@@ -152,7 +154,7 @@ function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId 
       const confirmationData = directChildren(confirmation, SAML_ASSERTION_NAMESPACE, 'SubjectConfirmationData')
       if (confirmationData.length !== 1) throw new Error('SAML SubjectConfirmationData is required')
       const data = confirmationData[0]
-      validateSamlTimeWindow(data, 'SAML SubjectConfirmationData', now)
+      const confirmationExpiresAt = validateSamlTimeWindow(data, 'SAML SubjectConfirmationData', now)
       if (readAttribute(data, 'Recipient') !== expectedRecipient) {
         throw new Error('SAML SubjectConfirmationData Recipient does not match the configured callback')
       }
@@ -162,7 +164,7 @@ function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId 
       if (!destination) {
         console.warn('SAML response Destination is absent; relying on Recipient and request correlation')
       }
-      return
+      return Math.min(conditionsExpiresAt, confirmationExpiresAt)
     } catch (error) {
       lastConfirmationError = error
     }
@@ -192,8 +194,12 @@ export function extractSamlResponseIdentifiers(samlResponse) {
   if (responseNodes.length !== 1 || assertionNodes.length !== 1) {
     throw new Error('SAML response must contain exactly one response and assertion')
   }
-  validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId })
-  return { responseId, inResponseTo, assertionId }
+  const samlAssertionExpiresAt = validateSamlWebSsoProfile(xml, {
+    responseId,
+    inResponseTo,
+    assertionId,
+  })
+  return { responseId, inResponseTo, assertionId, samlAssertionExpiresAt }
 }
 
 export const MAX_SAML_FORM_BYTES = 256 * 1024
