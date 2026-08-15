@@ -499,7 +499,7 @@ function buildReservationReview({
       ? `${formatPrice(selectedLab?.price, selectedLab?.priceUnit)} credits/${selectedLab?.priceUnit || 'hour'}`
       : 'Not available',
     totalCost: `${safeFormatTokenAmount(reservationCost)} credits`,
-    cancellationPolicy: 'Eligible cancellations before the access period return applicable credits to the institutional credit account. Completed, expired, or lab-specific restrictions can prevent a return.',
+    cancellationPolicy: 'Eligible cancellations before the access period return applicable credits to the institutional credit account.',
     termsUrl: selectedLab?.termsOfUse?.url || null,
   }
 }
