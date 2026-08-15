@@ -37,6 +37,7 @@ import {
 import {
   notifyReservationDenied,
   notifyReservationOnChainRequested,
+  notifyReservationStatusError,
 } from '@/utils/notifications/reservationToasts'
 import {
   isReservationConfirmedStatus,
@@ -268,10 +269,40 @@ export const useReservationRequestSSO = (options = {}) => {
 
         if (intentId) {
           (async () => {
+            let result;
             try {
-              const result = await pollIntentStatus(intentId, { 
-                backendUrl: data?.backendUrl || variables.backendUrl 
+              result = await pollIntentStatus(intentId, {
+                backendUrl: data?.backendUrl || variables.backendUrl
               });
+            } catch (err) {
+              devLog.error('Æ’?O Polling reservation intent failed:', err);
+              try {
+                removeOptimisticBooking([reservationKey].filter(Boolean));
+              } catch (cleanupError) {
+                devLog.warn('Failed to remove optimistic booking after polling failure:', cleanupError);
+              }
+              try {
+                clearOptimisticBookingState(reservationKey);
+              } catch (cleanupError) {
+                devLog.warn('Failed to clear optimistic booking state after polling failure:', cleanupError);
+              }
+              notifyReservationStatusError(addTemporaryNotification, reservationKey);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('reservation-request-status-error', {
+                  detail: {
+                    requestId: intentId,
+                    reservationKey,
+                    labId: variables.tokenId,
+                    start: variables.start,
+                  },
+                }));
+              }
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              invalidateAllBookings();
+              return;
+            }
+
+            try {
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;

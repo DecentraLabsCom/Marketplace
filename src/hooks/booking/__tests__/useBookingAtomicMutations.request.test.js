@@ -19,6 +19,7 @@ import {
 const mockSetOptimisticBookingState = jest.fn();
 const mockCompleteOptimisticBookingState = jest.fn();
 const mockClearOptimisticBookingState = jest.fn();
+const mockAddTemporaryNotification = jest.fn();
 
 jest.mock('@/context/OptimisticUIContext', () => ({
   useOptimisticUI: () => ({
@@ -30,7 +31,7 @@ jest.mock('@/context/OptimisticUIContext', () => ({
 
 jest.mock('@/context/NotificationContext', () => ({
   useNotifications: () => ({
-    addTemporaryNotification: jest.fn(),
+    addTemporaryNotification: mockAddTemporaryNotification,
   }),
 }));
 
@@ -327,6 +328,44 @@ describe('institutional reservation request mutations', () => {
         'rk-denied-initial',
       ]);
       expect(mockClearOptimisticBookingState).toHaveBeenCalledWith('rk-denied-final');
+    });
+  });
+
+  test('cleans optimistic booking and reports a technical error when intent polling fails', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-poll-error-1' });
+    pollIntentStatus.mockRejectedValueOnce(new Error('Intent polling timed out'));
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-poll-error',
+          authorizationSessionId: 'session-poll-error',
+          backendUrl: 'https://institution.example',
+          intent: {
+            meta: { requestId: 'req-poll-error-1' },
+            payload: { reservationKey: 'rk-poll-error' },
+          },
+        }),
+    });
+
+    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.mutateAsync({ tokenId: 'tk-poll-error', start: 111, end: 222, userAddress: '0xpoll' });
+    });
+
+    await waitFor(() => {
+      expect(bookingMocks.removeOptimisticBooking).toHaveBeenCalledWith(['rk-poll-error']);
+      expect(mockClearOptimisticBookingState).toHaveBeenCalledWith('rk-poll-error');
+      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        'error',
+        'Could not confirm reservation status. Please try again.',
+        null,
+        expect.objectContaining({ dedupeKey: 'reservation-status-error:rk-poll-error' })
+      );
     });
   });
 

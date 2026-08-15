@@ -81,12 +81,16 @@ export function useSsoReservationFlow({
   useEffect(() => {
     if (!isSSO || typeof window === 'undefined') return undefined
 
-    const handleDenied = () => {
+    const handleRequestReset = () => {
       resetSsoReservationFlow()
     }
 
-    window.addEventListener('reservation-request-denied', handleDenied)
-    return () => window.removeEventListener('reservation-request-denied', handleDenied)
+    window.addEventListener('reservation-request-denied', handleRequestReset)
+    window.addEventListener('reservation-request-status-error', handleRequestReset)
+    return () => {
+      window.removeEventListener('reservation-request-denied', handleRequestReset)
+      window.removeEventListener('reservation-request-status-error', handleRequestReset)
+    }
   }, [isSSO, resetSsoReservationFlow])
 
   const isSSOFlowLocked = isSSO && ssoBookingStage !== SSO_BOOKING_STAGE.IDLE

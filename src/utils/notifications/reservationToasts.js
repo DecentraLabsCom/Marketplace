@@ -17,6 +17,7 @@ export const reservationToastIds = {
   confirmed: (reservationKey) => `reservation-confirmed:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   denied: (reservationKey) => `reservation-denied:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   txReverted: () => 'reservation-tx-reverted',
+  statusError: (reservationKey) => `reservation-status-error:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   onchainRequested: (reservationKey) => `reservation-onchain-requested:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   onchainPending: (reservationKey) => `reservation-onchain-pending:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   progressPrepare: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:prepare`,
@@ -79,6 +80,15 @@ export const notifyReservationDenied = (addTemporaryNotification, reservationKey
 
 export const notifyReservationTxReverted = (addTemporaryNotification) => {
   notify(addTemporaryNotification, 'error', 'Transaction reverted. Reservation was not created.', reservationToastIds.txReverted())
+}
+
+export const notifyReservationStatusError = (addTemporaryNotification, reservationKey) => {
+  notify(
+    addTemporaryNotification,
+    'error',
+    'Could not confirm reservation status. Please try again.',
+    reservationToastIds.statusError(reservationKey)
+  )
 }
 
 export const notifyReservationOnChainRequested = (addTemporaryNotification, reservationKey) => {

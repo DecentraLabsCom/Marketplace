@@ -637,7 +637,7 @@ export function useLabReservationState({
       ])
       invalidateTrackedQueries(detail)
     }
-    const handleDenied = (event) => {
+    const handleRequestCleanup = (event) => {
       const detail = event?.detail || {}
       const eventReservationKey = normalizeReservationKey(detail?.reservationKey)
       const pendingReservationKey = normalizeReservationKey(pendingData?.reservationKey || pendingData?.optimisticId)
@@ -679,11 +679,13 @@ export function useLabReservationState({
     }
 
     window.addEventListener('reservation-request-onchain', handleOnChainRegistered)
-    window.addEventListener('reservation-request-denied', handleDenied)
+    window.addEventListener('reservation-request-denied', handleRequestCleanup)
+    window.addEventListener('reservation-request-status-error', handleRequestCleanup)
 
     return () => {
       window.removeEventListener('reservation-request-onchain', handleOnChainRegistered)
-      window.removeEventListener('reservation-request-denied', handleDenied)
+      window.removeEventListener('reservation-request-denied', handleRequestCleanup)
+      window.removeEventListener('reservation-request-status-error', handleRequestCleanup)
     }
   }, [
     isSSO,

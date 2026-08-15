@@ -294,4 +294,29 @@ describe("useSsoReservationFlow", () => {
     expect(result.current.ssoBookingStage).toBe("idle");
     expect(result.current.isSSOFlowLocked).toBe(false);
   });
+
+  test("resets flow when reservation status polling fails", () => {
+    const { result } = renderHook(() =>
+      useSsoReservationFlow({
+        isSSO: true,
+        userBookingsForLab: [],
+        labBookings: [],
+      })
+    );
+
+    act(() => {
+      result.current.markSsoRequestSent({
+        reservationKey: "res-poll-error",
+        labId: "1",
+        start: "1700002000",
+      });
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("reservation-request-status-error"));
+    });
+
+    expect(result.current.ssoBookingStage).toBe("idle");
+    expect(result.current.isSSOFlowLocked).toBe(false);
+  });
 });

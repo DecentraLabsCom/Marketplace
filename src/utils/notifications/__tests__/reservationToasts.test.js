@@ -11,6 +11,7 @@ import {
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
+  notifyReservationStatusError,
   notifyReservationTxReverted,
   RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS,
   RESERVATION_DENY_REASON,
@@ -228,6 +229,17 @@ describe('reservationToasts', () => {
         dedupeWindowMs: 120000,
         duration: RESERVATION_ONCHAIN_PENDING_TOAST_DURATION_MS,
       })
+    )
+  })
+
+  test('emits a technical error when reservation status polling fails', () => {
+    notifyReservationStatusError(addTemporaryNotification, 'reservation-timeout')
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      'error',
+      'Could not confirm reservation status. Please try again.',
+      null,
+      expect.objectContaining({ dedupeKey: 'reservation-status-error:reservation-timeout' })
     )
   })
 
