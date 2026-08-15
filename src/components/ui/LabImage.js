@@ -5,12 +5,12 @@
  * Uses Next.js Image component with built-in caching and optimization
  * Simpler alternative to React Query-based image caching
  */
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import Image from 'next/image'
 import { Spinner } from '@/components/ui'
 import devLog from '@/utils/dev/logger'
-import { resolveLabImageUrl } from '@/utils/media/resolveMediaUrl'
+import { resolveLabImageUrl, resolveStoredAssetUrl } from '@/utils/media/resolveMediaUrl'
 
 const isGatewayLabContentImage = (url) => (
   typeof url === 'string' && url.includes('/lab-content/')
@@ -55,11 +55,31 @@ const LabImage = ({
   labId = null,
   ...props
 }) => {
-  const [imageFailed, setImageFailed] = useState(false)
+  const [imageAttempt, setImageAttempt] = useState('primary')
   const [imageLoaded, setImageLoaded] = useState(priority)
+  const hasReportedError = useRef(false)
+
+  const resolvedImageUrl = resolveLabImageUrl(src, labId)
+  const originalImageUrl = resolveStoredAssetUrl(src)
+  const canRetryOriginal = (
+    isMetadataImageProxyPath(resolvedImageUrl) &&
+    originalImageUrl !== resolvedImageUrl
+  )
+
+  // A card can receive its metadata image after the initial render. Do not
+  // carry a previous source's failed/fallback state into the new image.
+  useEffect(() => {
+    setImageAttempt('primary')
+    setImageLoaded(priority)
+    hasReportedError.current = false
+  }, [fallbackSrc, labId, priority, src])
 
   // Determine which image to show
-  const displayImageUrl = imageFailed ? fallbackSrc : resolveLabImageUrl(src, labId)
+  const displayImageUrl = imageAttempt === 'fallback'
+    ? fallbackSrc
+    : imageAttempt === 'original'
+      ? originalImageUrl
+      : resolvedImageUrl
   const useNativeImage = isMetadataImageProxyPath(displayImageUrl) || isGatewayLabContentImage(displayImageUrl)
 
   // Handle image load success
@@ -74,11 +94,21 @@ const LabImage = ({
 
   // Handle image load error
   const handleError = (event) => {
-    if (!imageFailed) {
-      setImageFailed(true)
-      if (process.env.NODE_ENV === 'development') {
-        devLog.warn(`🖼️ [LabImage] Image failed, using fallback: ${src} → ${fallbackSrc}`)
-      }
+    if (imageAttempt === 'primary' && canRetryOriginal) {
+      setImageAttempt('original')
+    } else if (imageAttempt !== 'fallback') {
+      setImageAttempt('fallback')
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      const nextUrl = imageAttempt === 'primary' && canRetryOriginal
+        ? originalImageUrl
+        : fallbackSrc
+      devLog.warn(`🖼️ [LabImage] Image failed, trying: ${displayImageUrl} → ${nextUrl}`)
+    }
+
+    if (!hasReportedError.current) {
+      hasReportedError.current = true
       if (onError) onError(event)
     }
   }

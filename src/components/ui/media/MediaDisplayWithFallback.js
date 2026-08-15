@@ -44,6 +44,8 @@ const isMetadataImageProxyPath = (path) => (
   typeof path === 'string' && path.startsWith('/api/metadata/image?')
 )
 
+const LAB_PLACEHOLDER_PATH = '/labs/lab_placeholder.png'
+
 /**
  * Universal media display component with fallback handling
  * Supports images, documents, and links with automatic error recovery
@@ -245,6 +247,10 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
+      // The placeholder is a static Marketplace asset, not a provider upload.
+      // Keep it local so missing lab images never flash a failed Blob URL first.
+      if (mediaPath === LAB_PLACEHOLDER_PATH) return LAB_PLACEHOLDER_PATH
+
       if (isExternalUrl(mediaPath)) {
         const proxiedUrl = resolveLabImageUrl(mediaPath, labId);
         if (isMetadataImageProxyPath(proxiedUrl) && !hasMetadataProxyFailed) {

@@ -147,6 +147,24 @@ describe('MediaDisplayWithFallback', () => {
    * Validates that fallback mechanisms work correctly for each media type.
    */
   describe('Fallback logic', () => {
+    test('renders the local lab placeholder immediately on Vercel deployments', () => {
+      process.env.NEXT_PUBLIC_VERCEL = 'true';
+      process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
+
+      render(
+        <MediaDisplayWithFallback
+          mediaPath="/labs/lab_placeholder.png"
+          mediaType="image"
+          alt="Lab placeholder"
+        />
+      );
+
+      expect(screen.getByAltText('Lab placeholder')).toHaveAttribute(
+        'src',
+        '/labs/lab_placeholder.png'
+      );
+    });
+
     test('skips the Blob phase outside Vercel and uses local storage', async () => {
       delete process.env.NEXT_PUBLIC_VERCEL;
       delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;

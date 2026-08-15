@@ -98,6 +98,38 @@ describe('LabImage', () => {
     expect(img.getAttribute('src')).toContain('labId=123')
   })
 
+  test('tries the original Blob URL before using the fallback when the proxy fails', async () => {
+    render(<LabImage src={SRC} alt={ALT} labId={123} fallbackSrc={FALLBACK} />)
+
+    fireEvent.error(screen.getByTestId('native-lab-image'))
+
+    await waitFor(() => {
+      expect(screen.getByAltText(ALT)).toHaveAttribute('src', SRC)
+    })
+
+    fireEvent.error(screen.getByAltText(ALT))
+
+    await waitFor(() => {
+      expect(screen.getByAltText(ALT)).toHaveAttribute('src', FALLBACK)
+    })
+  })
+
+  test('resets the failed-image state when the source changes', async () => {
+    const { rerender } = render(
+      <LabImage src={SRC} alt={ALT} fallbackSrc={FALLBACK} />
+    )
+
+    fireEvent.error(screen.getByAltText(ALT))
+    expect(screen.getByAltText(ALT)).toHaveAttribute('src', FALLBACK)
+
+    const nextSource = 'https://example.com/next-image.jpg'
+    rerender(<LabImage src={nextSource} alt={ALT} fallbackSrc={FALLBACK} />)
+
+    await waitFor(() => {
+      expect(screen.getByAltText(ALT)).toHaveAttribute('src', nextSource)
+    })
+  })
+
   test('keeps placeholder images on Next image with optimization disabled', () => {
     render(<LabImage src="/labs/lab_placeholder.png" alt={ALT} />)
 
