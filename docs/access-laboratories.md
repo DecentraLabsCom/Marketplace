@@ -68,6 +68,10 @@ does not prevent browsing or booking. Marketplace only shows a warning when the
 last valid catalogue snapshot is significantly old; repeated warnings for the
 same snapshot are suppressed during the browser session.
 
+If a provider's metadata is temporarily unreachable during a refresh, the
+catalogue retries the read and keeps the last complete snapshot instead of
+replacing a lab's name or image with a generated fallback.
+
 ---
 
 ### 3. Reserve a Time Slot

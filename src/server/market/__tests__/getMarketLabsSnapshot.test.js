@@ -68,10 +68,10 @@ describe('getMarketLabsSnapshot', () => {
     })
     buildEnrichedLab.mockImplementation(({ lab, metadata, isListed, reputation }) => ({
       id: lab.labId,
-      name: metadata.name,
+      name: metadata?.name,
       provider: 'Public Provider',
       providerInfo: { name: 'Public Provider', email: 'private@example.edu' },
-      image: metadata.image,
+      image: metadata?.image,
       price: lab.base.price,
       resourceType: lab.base.resourceType,
       isListed,
@@ -106,6 +106,46 @@ describe('getMarketLabsSnapshot', () => {
     expect(loadMetadataDocument).toHaveBeenCalledWith('Lab-Provider-7.json', {
       additionalAllowedOrigins: [],
     })
+  })
+
+  test('retries a transient metadata failure before using catalogue fallbacks', async () => {
+    loadMetadataDocument
+      .mockRejectedValueOnce(new Error('temporary metadata failure'))
+      .mockResolvedValueOnce({
+        name: 'Public Lab',
+        image: 'https://images.example/lab.png',
+      })
+
+    const snapshot = await getMarketLabsSnapshot()
+
+    expect(snapshot.labs[0]).toEqual(expect.objectContaining({
+      name: 'Public Lab',
+      image: 'https://images.example/lab.png',
+    }))
+    expect(loadMetadataDocument).toHaveBeenCalledTimes(2)
+  })
+
+  test('does not persist a degraded snapshot when metadata remains unavailable', async () => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2026-07-15T10:42:00.000Z'))
+
+    try {
+      const freshSnapshot = await getMarketLabsSnapshot()
+      loadMetadataDocument.mockRejectedValue(new Error('metadata unavailable'))
+
+      jest.advanceTimersByTime(MARKET_SNAPSHOT_FRESHNESS_MS + 1)
+      const staleSnapshot = await getMarketLabsSnapshot()
+      await jest.advanceTimersByTimeAsync(0)
+      const afterFailedRevalidation = await getMarketLabsSnapshot()
+
+      expect(staleSnapshot.labs).toEqual(freshSnapshot.labs)
+      expect(afterFailedRevalidation).toMatchObject({
+        labs: freshSnapshot.labs,
+        catalogueStatus: MARKET_CATALOGUE_STATUS.STALE,
+      })
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   test('requests the requested cursor page and exposes a next cursor', async () => {

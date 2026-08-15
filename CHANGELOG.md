@@ -14,6 +14,8 @@ browser behavior.
   prolonged catalogue degradation; repeated warnings are hidden for the same
   snapshot during a browser session.
 - Added server-side diagnostics for catalogue snapshot revalidation failures.
+- Retried transient laboratory metadata failures and stopped degraded snapshot
+  data from replacing the last complete catalogue presentation.
 
 ### Simulation
 

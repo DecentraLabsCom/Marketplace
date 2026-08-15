@@ -1,8 +1,8 @@
 import { hasRedisConfig, redisCommand } from '@/utils/redis/restClient'
 
-// Metadata enrichment now follows the canonical on-chain tokenURI. Avoid
-// serving source pages persisted by the previous enrichment path.
-const MARKET_SNAPSHOT_KEY_PREFIX = 'marketplace:market-snapshot:v2:'
+// Metadata enrichment now follows the canonical on-chain tokenURI. Version
+// changes also discard pages that may have been persisted without metadata.
+const MARKET_SNAPSHOT_KEY_PREFIX = 'marketplace:market-snapshot:v3:'
 const MARKET_SNAPSHOT_REFRESH_LOCK_PREFIX = 'marketplace:market-snapshot-refresh:v1:'
 const memorySnapshots = new Map()
 const revalidations = new Map()

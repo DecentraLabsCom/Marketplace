@@ -20,6 +20,8 @@ import {
 } from './marketSnapshotStore';
 
 const DETAIL_CONCURRENCY = 8;
+const METADATA_FETCH_ATTEMPTS = 2;
+const METADATA_UNAVAILABLE_ERROR_CODE = 'MARKET_SNAPSHOT_METADATA_UNAVAILABLE';
 const MEASURED_CONTRACT_METHODS = new Set([
   'getLabsPaginated',
   'getLabProvidersPaginated',
@@ -145,6 +147,20 @@ const mapWithConcurrency = async (items, concurrency, mapper) => {
   return results;
 };
 
+const loadMetadataWithRetry = async (metadataUri, options) => {
+  let lastError;
+
+  for (let attempt = 0; attempt < METADATA_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      return await loadMetadataDocument(metadataUri, options);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+};
+
 const createMeasuredContract = (contract, metrics) => new Proxy(contract, {
   get(target, property, receiver) {
     const value = Reflect.get(target, property, receiver);
@@ -179,7 +195,10 @@ const serializeRevalidationError = (error) => ({
 });
 
 const logRevalidationFailure = (error, page) => {
-  if (error?.code === 'MARKET_SNAPSHOT_REVALIDATING') return;
+  if (
+    error?.code === 'MARKET_SNAPSHOT_REVALIDATING'
+    || error?.code === METADATA_UNAVAILABLE_ERROR_CODE
+  ) return;
 
   console.error('[market-catalogue] Snapshot revalidation failed', {
     includeUnlisted: Boolean(page?.includeUnlisted),
@@ -225,6 +244,7 @@ const getMarketLabsSnapshotUncached = async ({
   const providers = providersResult.status === 'fulfilled' ? parseProviders(providersResult.value) : [];
   const providerMapping = createProviderLookup(providers);
   const providerMetadataOriginCache = new Map();
+  const metadataUnavailableLabIds = [];
 
   const getProviderMetadataOrigins = async (ownerAddress, labId) => {
     const cacheKey = ownerAddress ? String(ownerAddress).toLowerCase() : `lab:${labId}`;
@@ -266,17 +286,22 @@ const getMarketLabsSnapshotUncached = async ({
       : null;
     // getLab returns the canonical on-chain URI. Reuse it for the metadata
     // document so the catalogue does not issue a second tokenURI RPC per lab.
-    const metadata = lab?.base?.uri
-      ? await (async () => {
-        metrics.metadataFetches += 1;
-        return loadMetadataDocument(lab.base.uri, {
+    let metadata = null;
+    let metadataUnavailable = false;
+    if (lab?.base?.uri) {
+      metrics.metadataFetches += 1;
+      try {
+        metadata = await loadMetadataWithRetry(lab.base.uri, {
           additionalAllowedOrigins: isLocalMetadataUri(lab.base.uri)
             ? []
             : await getProviderMetadataOrigins(ownerAddress, labId),
-        })
-          .catch(() => null);
-      })()
-      : null;
+        });
+        metadataUnavailable = !metadata;
+      } catch {
+        metadataUnavailable = true;
+      }
+    }
+    if (metadataUnavailable) metadataUnavailableLabIds.push(labId);
     const imageUrls = collectMetadataImages(metadata);
 
     const enrichedLab = buildEnrichedLab({
@@ -314,6 +339,7 @@ const getMarketLabsSnapshotUncached = async ({
     }),
     snapshotAt: new Date().toISOString(),
     metrics,
+    ...(metadataUnavailableLabIds.length > 0 ? { metadataUnavailableLabIds } : {}),
   };
 };
 
@@ -374,6 +400,17 @@ export async function getMarketLabsSnapshot({ includeUnlisted = false, cursor, l
 
   const refreshSnapshot = () => revalidateMarketSnapshot(snapshotPage, async () => {
     const freshSnapshot = await getMarketLabsSnapshotUncached(snapshotPage);
+    if (freshSnapshot.metadataUnavailableLabIds?.length > 0) {
+      // A transient metadata failure must not replace a known-good catalogue
+      // with cards that only contain generated names and the image fallback.
+      // Keep the last complete source page and retry on the next refresh.
+      if (staleSnapshot) {
+        const error = new Error('Market catalogue metadata is temporarily unavailable');
+        error.code = METADATA_UNAVAILABLE_ERROR_CODE;
+        throw error;
+      }
+      return { ...freshSnapshot, catalogueStatus: MARKET_CATALOGUE_STATUS.STALE };
+    }
     const storedSnapshot = { ...freshSnapshot };
     delete storedSnapshot.metrics;
     await writeMarketSnapshot(snapshotPage, storedSnapshot);

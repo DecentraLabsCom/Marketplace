@@ -41,7 +41,7 @@ describe('market snapshot store', () => {
 
     expect(redisCommand).toHaveBeenCalledWith([
       'SET',
-      'marketplace:market-snapshot:v2:listed:0:24',
+      'marketplace:market-snapshot:v3:listed:0:24',
       JSON.stringify(snapshot),
       'EX',
       '86400',
@@ -61,7 +61,7 @@ describe('market snapshot store', () => {
 
     expect(redisCommand).toHaveBeenCalledWith([
       'SET',
-      'marketplace:market-snapshot-refresh:v1:marketplace:market-snapshot:v2:listed:0:24',
+      'marketplace:market-snapshot-refresh:v1:marketplace:market-snapshot:v3:listed:0:24',
       '1',
       'NX',
       'EX',
@@ -87,8 +87,8 @@ describe('market snapshot store', () => {
     redisCommand.mockReset()
     redisCommand
       .mockResolvedValueOnce(['0', [
-        'marketplace:market-snapshot:v2:listed:0:24',
-        'marketplace:market-snapshot:v2:unlisted:0:100',
+        'marketplace:market-snapshot:v3:listed:0:24',
+        'marketplace:market-snapshot:v3:unlisted:0:100',
       ]])
       .mockResolvedValueOnce(2)
     await invalidateMarketSnapshots()
@@ -97,14 +97,14 @@ describe('market snapshot store', () => {
       'SCAN',
       '0',
       'MATCH',
-      'marketplace:market-snapshot:v2:*',
+      'marketplace:market-snapshot:v3:*',
       'COUNT',
       '100',
     ])
     expect(redisCommand).toHaveBeenCalledWith([
       'DEL',
-      'marketplace:market-snapshot:v2:listed:0:24',
-      'marketplace:market-snapshot:v2:unlisted:0:100',
+      'marketplace:market-snapshot:v3:listed:0:24',
+      'marketplace:market-snapshot:v3:unlisted:0:100',
     ])
 
     redisCommand.mockResolvedValueOnce(null)
