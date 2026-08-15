@@ -99,6 +99,23 @@ describe('getMarketCatalogueSnapshot', () => {
     })
   })
 
+  test('recovers listed labs from the inclusive source when the listed source is empty', async () => {
+    getMarketLabsSnapshot.mockImplementation(({ includeUnlisted }) => Promise.resolve(snapshot({
+      cursor: 0,
+      totalLabs: 2,
+      labs: includeUnlisted ? [lab(1), lab(2)] : [],
+    })))
+
+    const result = await getMarketCatalogueSnapshot({ includeUnlisted: false, cursor: 0, limit: 24 })
+
+    expect(getMarketLabsSnapshot).toHaveBeenNthCalledWith(2, {
+      includeUnlisted: true,
+      cursor: 0,
+      limit: 100,
+    })
+    expect(result.labs.map(({ id }) => id)).toEqual([1, 2])
+  })
+
   test('propagates a stale source snapshot instead of pretending filtered results are fresh', async () => {
     getMarketLabsSnapshot.mockResolvedValue(snapshot({
       cursor: 0,

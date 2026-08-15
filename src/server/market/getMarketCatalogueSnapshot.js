@@ -82,7 +82,25 @@ export async function getMarketCatalogueSnapshot({
     return unavailableCatalogue({ cursor, limit })
   }
 
-  const totalSourceLabs = Math.max(0, Number(firstPage?.totalLabs) || 0)
+  const firstPageLabCount = Array.isArray(firstPage?.labs) ? firstPage.labs.length : 0
+  const firstPageTotalLabs = Math.max(0, Number(firstPage?.totalLabs) || 0)
+  const shouldRecoverListedSource = !includeUnlisted
+    && firstPageLabCount === 0
+    && firstPageTotalLabs > 0
+  const sourceIncludeUnlisted = shouldRecoverListedSource ? true : includeUnlisted
+  const sourceFirstPage = shouldRecoverListedSource
+    ? await getMarketLabsSnapshot({
+      includeUnlisted: true,
+      cursor: 0,
+      limit: MARKET_SOURCE_PAGE_SIZE,
+    })
+    : firstPage
+
+  if (sourceFirstPage?.catalogueStatus === MARKET_CATALOGUE_STATUS.UNAVAILABLE) {
+    return unavailableCatalogue({ cursor, limit })
+  }
+
+  const totalSourceLabs = Math.max(0, Number(sourceFirstPage?.totalLabs) || 0)
   const remainingSourceCursors = []
   for (let sourceCursor = MARKET_SOURCE_PAGE_SIZE; sourceCursor < totalSourceLabs; sourceCursor += MARKET_SOURCE_PAGE_SIZE) {
     remainingSourceCursors.push(sourceCursor)
@@ -95,7 +113,7 @@ export async function getMarketCatalogueSnapshot({
     remainingSourceCursors,
     MARKET_SOURCE_PAGE_CONCURRENCY,
     (sourceCursor) => getMarketLabsSnapshot({
-      includeUnlisted,
+      includeUnlisted: sourceIncludeUnlisted,
       cursor: sourceCursor,
       limit: MARKET_SOURCE_PAGE_SIZE,
     }),
@@ -105,7 +123,7 @@ export async function getMarketCatalogueSnapshot({
   )) {
     return unavailableCatalogue({ cursor, limit })
   }
-  const sourceSnapshots = [firstPage, ...remainingSourceSnapshots]
+  const sourceSnapshots = [sourceFirstPage, ...remainingSourceSnapshots]
 
   const labsById = new Map()
   sourceSnapshots.forEach((sourcePage) => {
@@ -115,7 +133,10 @@ export async function getMarketCatalogueSnapshot({
   })
 
   const allLabs = [...labsById.values()]
-  const filteredLabs = filterMarketLabs(allLabs, filters)
+  const catalogueFilters = !includeUnlisted && !filters.listing
+    ? { ...filters, listing: 'listed' }
+    : filters
+  const filteredLabs = filterMarketLabs(allLabs, catalogueFilters)
   const earliestSnapshotTimestamp = snapshotTimestamp(sourceSnapshots)
   const hasStaleSource = sourceSnapshots.some(
     (sourcePage) => sourcePage?.catalogueStatus === MARKET_CATALOGUE_STATUS.STALE,
