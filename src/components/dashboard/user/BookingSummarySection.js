@@ -95,7 +95,7 @@ export default function BookingSummarySection({ options = {} }) {
             <span className="font-semibold text-yellow-300">{pendingBookings || 0}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-300">Completed:</span>
+            <span className="text-gray-300">Completed/expired:</span>
             <span className="font-semibold text-gray-300">{completedBookings || 0}</span>
           </div>
         </div>
