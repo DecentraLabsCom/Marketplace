@@ -26,6 +26,10 @@ async function reconcileTrackedIntentsUnlocked({ limit = 20, nowSec = Math.floor
       }
 
       const lifecycle = await getIntentOnChain(requestId)
+      if (lifecycle.state === INTENT_STATE.NONE && record.txHash && Number(record.expiresAt) > nowSec) {
+        results.push({ requestId, status: 'registration_pending' })
+        continue
+      }
       if (lifecycle.state !== INTENT_STATE.PENDING && Number(record.expiresAt) > nowSec) {
         await removeRegisteredIntent(requestId)
         results.push({ requestId, status: lifecycle.stateName })

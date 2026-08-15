@@ -89,4 +89,27 @@ describe('POST /api/backend/intents/:requestId/cancel', () => {
     expect(response.status).toBe(403)
     expect(cancelIntentOnChain).not.toHaveBeenCalled()
   })
+
+  test('keeps lifecycle tracking when cancellation races a submitted registration', async () => {
+    getRegisteredIntent.mockResolvedValueOnce({
+      requestId: 'req-1',
+      authorizationSessionId: 'session-1',
+      institutionDomain: 'uni.example',
+      txHash: '0xregistration',
+    })
+    cancelIntentOnChain.mockResolvedValueOnce({ state: 0, stateName: 'NONE' })
+
+    const response = await POST(
+      new Request('https://marketplace.example/api/backend/intents/req-1/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ authorizationSessionId: 'session-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      { params: Promise.resolve({ requestId: 'req-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    expect(cancelIntentOnChain).toHaveBeenCalledWith('req-1', { submittedTxHash: '0xregistration' })
+    expect(removeRegisteredIntent).not.toHaveBeenCalled()
+  })
 })

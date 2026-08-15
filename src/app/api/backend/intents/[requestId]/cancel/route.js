@@ -76,11 +76,16 @@ export async function POST(request, { params }) {
 
     const result = await withIntentSignerLock(
       getServerSignerAddress(),
-      () => cancelIntentOnChain(requestId),
+      () => lifecycle?.txHash
+        ? cancelIntentOnChain(requestId, { submittedTxHash: lifecycle.txHash })
+        : cancelIntentOnChain(requestId),
     )
-    await Promise.resolve(removeRegisteredIntent(requestId)).catch((error) => {
-      devLog.warn('[API] Intent lifecycle record cleanup failed', sanitizeErrorForLog(error))
-    })
+    const stateName = String(result?.stateName || '').toLowerCase()
+    if (stateName !== 'none') {
+      await Promise.resolve(removeRegisteredIntent(requestId)).catch((error) => {
+        devLog.warn('[API] Intent lifecycle record cleanup failed', sanitizeErrorForLog(error))
+      })
+    }
 
     return NextResponse.json({ requestId, ...result }, { status: 200 })
   } catch (error) {

@@ -63,6 +63,26 @@ describe('intent lifecycle reconciler', () => {
     expect(result).toEqual([])
   })
 
+  test('keeps a submitted registration tracked while its transaction is not mined', async () => {
+    getRegisteredIntent.mockReset()
+    getIntentOnChain.mockReset()
+    expireIntentOnChain.mockReset()
+    listRegisteredIntentIds.mockResolvedValue(['req-submitted'])
+    getRegisteredIntent.mockResolvedValue({
+      requestId: 'req-submitted',
+      txHash: '0xregistration',
+      expiresAt: '500',
+    })
+    getIntentOnChain.mockResolvedValue({ state: INTENT_STATE.NONE, stateName: 'none' })
+
+    const result = await reconcileTrackedIntents({ nowSec: 100 })
+
+    expect(result).toEqual([
+      { requestId: 'req-submitted', status: 'registration_pending' },
+    ])
+    expect(removeRegisteredIntent).not.toHaveBeenCalled()
+  })
+
   test('coalesces concurrent reconciliation runs for the same process', async () => {
     getRegisteredIntent.mockReset()
     getIntentOnChain.mockReset()

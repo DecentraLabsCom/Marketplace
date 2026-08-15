@@ -35,7 +35,6 @@ import { serializeIntent } from '@/utils/intents/serialize'
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
-  notifyIntentRegistrationMined,
   mapAuthorizationErrorCode,
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
@@ -57,6 +56,7 @@ import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconcil
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
 
 const ZERO_ADDRESS = ethers.ZeroAddress.toLowerCase()
+const SUBMITTED_REGISTRATION_CLEANUP_TIMEOUT_MS = 15_000
 
 function isZeroAddress(value) {
   return typeof value !== 'string' || value.toLowerCase() === ZERO_ADDRESS
@@ -240,6 +240,30 @@ async function cancelRegisteredIntent(requestId, context) {
   }
 }
 
+async function cancelSubmittedIntent(requestId, registrationSubmission, context) {
+  if (typeof registrationSubmission?.wait === 'function') {
+    let timeoutId
+    try {
+      const receipt = await Promise.race([
+        registrationSubmission.wait(),
+        new Promise((resolve) => {
+          timeoutId = setTimeout(() => resolve(null), SUBMITTED_REGISTRATION_CLEANUP_TIMEOUT_MS)
+        }),
+      ])
+      if (receipt && (receipt.status === 0 || receipt.status === '0x0' || receipt.status === false)) {
+        return { status: 'registration_failed', stateName: 'none' }
+      }
+    } catch (error) {
+      // A reverted or dropped transaction leaves no registered intent to cancel.
+      devLog.warn('[API] Submitted intent transaction did not settle', error)
+      return null
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }
+  return cancelRegisteredIntent(requestId, context)
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth()
@@ -366,6 +390,7 @@ export async function POST(request) {
     let authorization
     let onChain
     let authorizationPromise
+    let registrationSubmission
 
     try {
       const coordinated = await withIntentSignerLock(getServerSignerAddress(), async () => {
@@ -419,12 +444,12 @@ export async function POST(request) {
         // Keep a rejection handler attached while the on-chain submission is in flight.
         authorizationRequest.catch(() => {})
 
-        const registrationReceipt = await registerIntentOnChain(
+        const registrationSubmission = await registerIntentOnChain(
           kind,
           packageValue.meta,
           packageValue.payload,
           signature,
-          { waitForReceipt: true },
+          { waitForReceipt: false },
         )
 
         return {
@@ -432,41 +457,33 @@ export async function POST(request) {
           signature,
           authToken,
           authorizationRequest,
-          registrationSubmission: registrationReceipt,
-          receipt: registrationReceipt,
+          registrationSubmission,
         }
       })
 
       intentPackage = coordinated.packageValue
       adminSignature = coordinated.signature
       authorizationPromise = coordinated.authorizationRequest
-      const registrationSubmission = coordinated.registrationSubmission || {}
+      registrationSubmission = coordinated.registrationSubmission || {}
       onChain = {
         txHash: registrationSubmission.txHash || null,
-        blockNumber: coordinated.receipt?.blockNumber || registrationSubmission.blockNumber || null,
-        status: coordinated.receipt ? 'confirmed' : 'submitted',
+        blockNumber: registrationSubmission.blockNumber || null,
+        status: 'submitted',
       }
 
-      if (coordinated.receipt) {
-        try {
-          const minedAuthToken = await getIntentBackendAuthToken({
-            backendUrl,
-            institutionId: schacHomeOrganization,
-            scope: 'intents:registration-mined',
-          })
-          const signalResult = await notifyIntentRegistrationMined({
-            backendUrl,
-            backendAuthToken: minedAuthToken.token,
-            requestId: intentPackage.meta.requestId,
-            txHash: registrationSubmission.txHash || null,
-            blockNumber: coordinated.receipt.blockNumber || null,
-          })
-          if (signalResult && !signalResult.ok) {
-            devLog.warn('[API] Intent registration mined signal was not accepted', signalResult)
-          }
-        } catch (error) {
-          devLog.warn('[API] Intent registration mined signal skipped', error)
-        }
+      // The institutional backend reconciles the submitted transaction itself.
+      // Its registration gate treats a not-yet-mined intent as retryable, so the
+      // browser can start WebAuthn without making the receipt a prerequisite.
+      try {
+        await recordRegisteredIntent({
+          requestId: intentPackage.meta.requestId,
+          authorizationSessionId: null,
+          institutionDomain: schacHomeOrganization,
+          expiresAt: intentPackage.meta.expiresAt.toString(),
+          txHash: registrationSubmission.txHash || null,
+        })
+      } catch (error) {
+        devLog.warn('[API] Provisional intent lifecycle record skipped', error)
       }
     } catch (err) {
       if (err instanceof IntentSignerBusyError) {
@@ -503,8 +520,9 @@ export async function POST(request) {
       const authResponse = await authorizationPromise
       authorization = authResponse.data
       if (!authResponse.ok) {
-        const cleanupResult = await cancelRegisteredIntent(
+        const cleanupResult = await cancelSubmittedIntent(
           intentPackage?.meta?.requestId,
+          registrationSubmission,
           `${kind}-authorization-response`,
         )
         return authorizationErrorResponse(
@@ -518,7 +536,11 @@ export async function POST(request) {
       const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
       if (!hasUsableAuthorizationSession(normalizedAuthorization)) {
         devLog.error('[API] Authorization response missing session/url', { authorization })
-        await cancelRegisteredIntent(intentPackage?.meta?.requestId, `${kind}-authorization-invalid`)
+        await cancelSubmittedIntent(
+          intentPackage?.meta?.requestId,
+          registrationSubmission,
+          `${kind}-authorization-invalid`,
+        )
         return NextResponse.json(
           {
             error: 'Invalid authorization response from institutional backend',
@@ -534,9 +556,14 @@ export async function POST(request) {
           authorizationSessionId: authorization.sessionId,
           institutionDomain: schacHomeOrganization,
           expiresAt: intentPackage.meta.expiresAt.toString(),
+          txHash: registrationSubmission.txHash || null,
         })
       } catch (error) {
-        await cancelRegisteredIntent(intentPackage.meta.requestId, `${kind}-lifecycle-record`)
+        await cancelSubmittedIntent(
+          intentPackage.meta.requestId,
+          registrationSubmission,
+          `${kind}-lifecycle-record`,
+        )
         return publicErrorResponse({
           status: 503,
           code: 'INTENT_LIFECYCLE_UNAVAILABLE',
@@ -546,8 +573,9 @@ export async function POST(request) {
         })
       }
     } catch (err) {
-      const cleanupResult = await cancelRegisteredIntent(
+      const cleanupResult = await cancelSubmittedIntent(
         intentPackage?.meta?.requestId,
+        registrationSubmission,
         `${kind}-authorization-error`,
       )
       return publicErrorResponse({

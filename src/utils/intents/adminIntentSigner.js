@@ -10,6 +10,7 @@ import { INTENT_STATE, getIntentStateName } from '@/utils/intents/intentState'
 
 const ACTION_ALLOWED = new Set([1, 2, 3, 4, 5, 6, 7, 10])
 const RESERVATION_ALLOWED = new Set([8, 9, 11])
+const SUBMITTED_TRANSACTION_TIMEOUT_MS = 15_000
 
 export function isReservationIntentActionAllowed(action) {
   return RESERVATION_ALLOWED.has(Number(action))
@@ -264,12 +265,32 @@ async function settleIntentLifecycleTransaction(contract, method, requestId, wai
 
 export async function cancelIntentOnChain(requestId, options = {}) {
   const waitForReceipt = options?.waitForReceipt !== false
+  const submittedTxHash = options?.submittedTxHash || null
   const wallet = await getAdminWallet()
   const contract = getIntentContract(wallet)
-  const intent = await contract.getIntent(requestId)
-  const lifecycle = resolveIntentState(intent)
+  let lifecycle = resolveIntentState(await contract.getIntent(requestId))
+  if (lifecycle.state === INTENT_STATE.NONE && submittedTxHash && wallet.provider?.waitForTransaction) {
+    try {
+      const registrationReceipt = await wallet.provider.waitForTransaction(
+        submittedTxHash,
+        1,
+        SUBMITTED_TRANSACTION_TIMEOUT_MS,
+      )
+      if (!registrationReceipt || registrationReceipt.status === 0 || registrationReceipt.status === '0x0') {
+        return lifecycle
+      }
+      lifecycle = resolveIntentState(await contract.getIntent(requestId))
+    } catch (error) {
+      devLog.warn('[Intent] Submitted registration did not settle before cancellation', {
+        requestId: shortHex(requestId),
+        error: error?.message || String(error),
+      })
+      return lifecycle
+    }
+  }
   if (lifecycle.state !== INTENT_STATE.PENDING) return lifecycle
 
+  const intent = await contract.getIntent(requestId)
   const signer = intent?.signer
   if (!signer || signer.toLowerCase() !== wallet.address.toLowerCase()) {
     throw new Error('Only the registered intent signer can cancel this intent')

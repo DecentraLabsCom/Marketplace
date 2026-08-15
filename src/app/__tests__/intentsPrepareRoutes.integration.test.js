@@ -72,7 +72,6 @@ jest.mock('@/utils/intents/serialize', () => ({
 jest.mock('@/utils/intents/backendClient', () => ({
   getIntentBackendAuthToken: jest.fn(),
   requestIntentAuthorizationSession: jest.fn(),
-  notifyIntentRegistrationMined: jest.fn(),
   mapAuthorizationErrorCode: jest.fn(),
   normalizeAuthorizationResponse: jest.fn(),
   hasUsableAuthorizationSession: jest.fn(),
@@ -124,7 +123,6 @@ import { serializeIntent } from '@/utils/intents/serialize'
 import {
   getIntentBackendAuthToken,
   requestIntentAuthorizationSession,
-  notifyIntentRegistrationMined,
   mapAuthorizationErrorCode,
   normalizeAuthorizationResponse,
   hasUsableAuthorizationSession,
@@ -191,8 +189,11 @@ describe('Unified intent prepare route', () => {
       typedData: { domain: {}, types: {}, message: {} },
     })
     signIntentMeta.mockResolvedValue('0xadminsignature')
-    registerIntentOnChain.mockResolvedValue({ txHash: '0xontx' })
-    notifyIntentRegistrationMined.mockResolvedValue({ ok: true, status: 202 })
+    registerIntentOnChain.mockResolvedValue({
+      txHash: '0xontx',
+      blockNumber: null,
+      wait: jest.fn().mockResolvedValue({ status: 1, blockNumber: null }),
+    })
     getContractInstance.mockResolvedValue({
       getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
       getReservation: jest.fn().mockResolvedValue({
@@ -246,7 +247,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: true },
+      { waitForReceipt: false },
     )
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'actionPayload',
@@ -269,7 +270,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: true },
+      { waitForReceipt: false },
     )
   })
 
@@ -332,7 +333,7 @@ describe('Unified intent prepare route', () => {
       expect.any(Object),
       expect.any(Object),
       '0xadminsignature',
-      { waitForReceipt: true },
+      { waitForReceipt: false },
     )
   })
 
@@ -382,32 +383,39 @@ describe('Unified intent prepare route', () => {
     }))
   })
 
-  test('starts institutional authorization before waiting for the registration receipt', async () => {
-    let releaseAuthorization
-    requestIntentAuthorizationSession.mockImplementationOnce(() => new Promise((resolve) => {
-      releaseAuthorization = resolve
-    }))
-    registerIntentOnChain.mockResolvedValueOnce({
-      txHash: '0xparallel',
-      blockNumber: 777,
+  test('returns the authorization session before the registration receipt settles', async () => {
+    let resolveRegistration
+    const registrationReceipt = new Promise((resolve) => {
+      resolveRegistration = resolve
+    })
+    registerIntentOnChain.mockImplementationOnce((...args) => {
+      if (args[4]?.waitForReceipt !== false) return registrationReceipt
+      return Promise.resolve({
+        txHash: '0xparallel',
+        blockNumber: null,
+        wait: () => registrationReceipt,
+      })
     })
 
-    const responsePromise = prepareIntentPOST(buildRequest({
+    const response = await prepareIntentPOST(buildRequest({
       action: ACTION_CODES.LAB_ADD,
       payload: validLabPayload,
     }))
-    await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(requestIntentAuthorizationSession).toHaveBeenCalled()
-    expect(registerIntentOnChain).toHaveBeenCalled()
-    releaseAuthorization({ ok: true, status: 200, data: authorization })
-    const res = await responsePromise
-
-    expect(res.status).toBe(200)
-    expect(notifyIntentRegistrationMined).toHaveBeenCalledWith(expect.objectContaining({
+    expect(response.status).toBe(200)
+    expect((await response.json()).onChain).toMatchObject({
       txHash: '0xparallel',
-      blockNumber: 777,
-    }))
+      blockNumber: null,
+      status: 'submitted',
+    })
+    expect(registerIntentOnChain).toHaveBeenCalledWith(
+      'action',
+      expect.any(Object),
+      expect.any(Object),
+      '0xadminsignature',
+      { waitForReceipt: false },
+    )
+    resolveRegistration({ status: 1, blockNumber: 777 })
   })
 
   test('reports confirmed cleanup when authorization creation fails after registration', async () => {

@@ -24,6 +24,7 @@ export async function recordRegisteredIntent({
   authorizationSessionId,
   institutionDomain,
   expiresAt,
+  txHash,
 } = {}) {
   const normalizedRequestId = normalizeRequestId(requestId)
   if (!normalizedRequestId || !hasRedisConfig()) return false
@@ -33,6 +34,7 @@ export async function recordRegisteredIntent({
     authorizationSessionId: authorizationSessionId || null,
     institutionDomain: institutionDomain || null,
     expiresAt: expiresAt || null,
+    txHash: txHash || null,
     recordedAt: new Date().toISOString(),
   }
 

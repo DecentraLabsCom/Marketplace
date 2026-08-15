@@ -29,6 +29,7 @@ describe('intentLifecycleStore', () => {
       authorizationSessionId: 'session-1',
       institutionDomain: 'example.edu',
       expiresAt: 1_900_000_000,
+      txHash: '0xregistration',
     })).resolves.toBe(true)
 
     expect(redisCommand).toHaveBeenNthCalledWith(1, expect.arrayContaining([
@@ -46,6 +47,7 @@ describe('intentLifecycleStore', () => {
       authorizationSessionId: 'session-1',
       institutionDomain: 'example.edu',
       expiresAt: 1_900_000_000,
+      txHash: '0xregistration',
     }
     redisCommand.mockResolvedValueOnce(JSON.stringify(storedRecord))
 
