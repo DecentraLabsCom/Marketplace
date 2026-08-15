@@ -51,6 +51,15 @@ describe("LabFilters - unit tests", () => {
       expect(screen.queryByRole("region", { name: /filter options/i })).not.toBeInTheDocument();
     });
 
+    test("sizes the sort selector to its content with balanced horizontal padding", () => {
+      render(<LabFilters {...defaultProps} />);
+
+      const sortSelect = screen.getByLabelText(/sort labs/i);
+
+      expect(sortSelect).toHaveClass("w-max", "px-4");
+      expect(sortSelect.parentElement).toHaveClass("w-max");
+    });
+
     test("places the keyword/name search in the centered desktop toolbar column", () => {
       render(<LabFilters {...defaultProps} />);
 

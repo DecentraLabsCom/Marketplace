@@ -8,6 +8,7 @@ import { MARKET_LISTING_OPTIONS } from '@/utils/market/marketListings'
 import { MARKET_SORT_OPTIONS } from '@/utils/market/marketSorts'
 
 const selectClassName = 'w-full rounded border border-slate-200 bg-white px-4 py-2 text-gray-800 shadow-md hover:bg-header-bg cursor-pointer'
+const sortSelectClassName = 'w-max rounded border border-slate-200 bg-white px-4 py-2 text-gray-800 shadow-md hover:bg-header-bg cursor-pointer'
 
 /**
  * Lab filters component for marketplace search and filtering
@@ -156,7 +157,7 @@ export default function LabFilters({
           </button>
 
           {/* Sorting */}
-          <div className="min-w-0 sm:min-w-52">
+          <div className="w-max min-w-0">
             <label htmlFor="sort-labs" className="sr-only">
               Sort labs
             </label>
@@ -164,7 +165,7 @@ export default function LabFilters({
               id="sort-labs"
               value={selectedSort}
               onChange={(event) => onSortChange(event.target.value)}
-              className={selectClassName}
+              className={sortSelectClassName}
               disabled={effectiveLoading}
             >
               {MARKET_SORT_OPTIONS.map(({ value, label }) => (
