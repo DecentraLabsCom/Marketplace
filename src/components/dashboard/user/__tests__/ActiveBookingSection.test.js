@@ -8,6 +8,7 @@ jest.mock('../ActiveLabCard', () => ({
     <div
       data-testid="active-lab-card"
       data-is-active={String(Boolean(props.isActive))}
+      data-is-static={String(Boolean(props.isStaticCard))}
       data-action-label={props.actionLabel || ''}
       data-has-action={String(typeof props.onBookingAction === 'function')}
     >
@@ -46,6 +47,7 @@ describe('ActiveBookingSection', () => {
 
     const card = screen.getByTestId('active-lab-card');
     expect(card).toHaveAttribute('data-is-active', 'true');
+    expect(card).toHaveAttribute('data-is-static', 'true');
     expect(card).toHaveAttribute('data-has-action', 'false');
     expect(card).toHaveAttribute('data-action-label', '');
   });
@@ -72,6 +74,7 @@ describe('ActiveBookingSection', () => {
 
     const card = screen.getByTestId('active-lab-card');
     expect(card).toHaveAttribute('data-is-active', 'false');
+    expect(card).toHaveAttribute('data-is-static', 'true');
     expect(card).toHaveAttribute('data-has-action', 'true');
     expect(card).toHaveAttribute('data-action-label', 'Cancel Booking');
   });
@@ -98,7 +101,33 @@ describe('ActiveBookingSection', () => {
 
     const card = screen.getByTestId('active-lab-card');
     expect(card).toHaveAttribute('data-is-active', 'false');
+    expect(card).toHaveAttribute('data-is-static', 'true');
     expect(card).toHaveAttribute('data-has-action', 'false');
     expect(card).toHaveAttribute('data-action-label', 'Cancel Booking');
+  });
+
+  test('keeps the most recent expired booking static beside its documents', () => {
+    const lastBooking = {
+      reservationKey: 'rk-last-1',
+      status: '1',
+      start: 1710589600,
+      end: 1710596800,
+      labDetails: baseLab,
+    };
+
+    render(
+      <ActiveBookingSection
+        activeBooking={null}
+        nextBooking={null}
+        lastBooking={lastBooking}
+        userAddress="0xabc"
+        cancellationStates={new Map()}
+      />
+    );
+
+    const card = screen.getByTestId('active-lab-card');
+    expect(card).toHaveAttribute('data-is-active', 'false');
+    expect(card).toHaveAttribute('data-is-static', 'true');
+    expect(card).toHaveAttribute('data-has-action', 'false');
   });
 });

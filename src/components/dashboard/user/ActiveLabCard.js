@@ -20,6 +20,7 @@ import ReservationCancellationDialog from '@/components/dashboard/user/Reservati
  * @param {Object|null} props.booking - Associated booking object
  * @param {string} props.userAddress - User's wallet address
  * @param {boolean} props.isActive - Whether this is an active booking or upcoming
+ * @param {boolean} props.isStaticCard - Whether this card should remain static and match its document panel
  * @param {Object} props.bookingTimes - Booking start/end times
  * @param {string} props.bookingTimes.start - Start time formatted as HH:MM
  * @param {string} props.bookingTimes.end - End time formatted as HH:MM
@@ -31,6 +32,7 @@ export default function ActiveLabCard({
   userAddress = null, 
   institutionName = null,
   isActive = false, 
+  isStaticCard = false,
   bookingTimes = { start: null, end: null },
   actionLabel = null,
   onBookingAction = null,
@@ -69,6 +71,9 @@ export default function ActiveLabCard({
   const formattedDate = formatBookingDate(booking);
   const statusText = isActive ? "Available today" : `Available: ${formattedDate}`;
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
+  const shouldMatchDocumentPanelHeight = isStaticCard && Array.isArray(lab.docs) && lab.docs.length > 0;
+  const cardHeightClass = shouldMatchDocumentPanelHeight ? "h-full" : "h-90";
+  const cardHoverClass = isStaticCard ? "" : "hover:scale-105";
   const isActionBusy = Boolean(actionState?.isBusy);
   const effectiveActionLabel = actionState?.label || actionLabel;
   const parseUnixTime = (value) => {
@@ -95,12 +100,12 @@ export default function ActiveLabCard({
   const statusTextIcon = !shouldRenderIcon && statusIcon === "AccessWindowOpen" ? "OK" : statusIcon;
 
   return (
-    <div className='flex xl:flex-row flex-wrap justify-center xl:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
-      <div className='flex flex-col items-center'>
+    <div className='flex xl:flex-row flex-wrap items-stretch justify-center xl:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
+      <div className='mb-4 flex flex-col items-center'>
           <div className={`xl:w-90 w-82.5 group relative 
           shadow-md bg-gray-200 
           transition-transform duration-300 
-          hover:scale-105 mx-auto xl:mx-0 xl:mr-3 mb-4 h-90 rounded-lg ${borderClass}`}> 
+          ${cardHoverClass} mx-auto xl:mx-0 xl:mr-3 ${cardHeightClass} rounded-lg ${borderClass}`}>
           
           <div className='relative h-3/4 overflow-hidden rounded-t-lg'>
             <Carrousel lab={lab} maxHeight={240} />
@@ -216,6 +221,7 @@ ActiveLabCard.propTypes = {
   userAddress: PropTypes.string,
   institutionName: PropTypes.string,
   isActive: PropTypes.bool,
+  isStaticCard: PropTypes.bool,
   bookingTimes: PropTypes.shape({
     start: PropTypes.string,
     end: PropTypes.string

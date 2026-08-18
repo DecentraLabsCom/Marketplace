@@ -86,6 +86,7 @@ export default function ActiveBookingSection({
               userAddress={userAddress}
               institutionName={institutionName}
               isActive={true}
+              isStaticCard={true}
               bookingTimes={getBookingTimes(activeBooking)}
               onBookingAction={null}
               actionState={cancellationState || null}
@@ -97,6 +98,7 @@ export default function ActiveBookingSection({
               userAddress={userAddress}
               institutionName={institutionName}
               isActive={false}
+              isStaticCard={true}
               bookingTimes={getBookingTimes(nextBooking)}
               actionLabel="Cancel Booking"
               onBookingAction={canTriggerBookingAction ? onBookingAction : null}
@@ -109,6 +111,7 @@ export default function ActiveBookingSection({
               userAddress={userAddress}
               institutionName={institutionName}
               isActive={false}
+              isStaticCard={true}
               bookingTimes={getBookingTimes(lastBooking)}
               onBookingAction={null}
               actionState={null}

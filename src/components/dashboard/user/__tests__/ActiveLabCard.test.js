@@ -220,6 +220,14 @@ describe("ActiveLabCard", () => {
       expect(card).not.toHaveClass("border-4");
       expect(card).not.toHaveClass("animate-glow");
     });
+
+    test("keeps dashboard side cards static and stretches them to the document panel", () => {
+      const { container } = renderCard({ isStaticCard: true });
+
+      const card = container.querySelector(".border-2");
+      expect(card).toHaveClass("h-full");
+      expect(card).not.toHaveClass("hover:scale-105");
+    });
   });
 
   describe("Documents Display", () => {
