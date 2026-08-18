@@ -443,7 +443,8 @@ describe('InstitutionalOnboardingModal', () => {
   })
 
   describe('modal behavior', () => {
-    it('prevents closing when loading', () => {
+    it('allows closing when loading so navigation is not blocked', () => {
+      const mockReset = jest.fn()
       mockUseInstitutionalOnboarding.mockReturnValue({
         state: OnboardingState.INITIATING,
         error: null,
@@ -455,13 +456,15 @@ describe('InstitutionalOnboardingModal', () => {
         startOnboarding: jest.fn(),
         initiateOnboarding: jest.fn(),
         redirectToCeremony: jest.fn(),
-        reset: jest.fn(),
+        reset: mockReset,
       })
 
       render(<InstitutionalOnboardingModal {...defaultProps} />)
 
-      // Modal close button should not be rendered when loading
-      expect(screen.queryByTestId('modal-close')).not.toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('modal-close'))
+
+      expect(mockReset).toHaveBeenCalled()
+      expect(defaultProps.onClose).toHaveBeenCalled()
     })
 
     it('allows closing when not loading', () => {

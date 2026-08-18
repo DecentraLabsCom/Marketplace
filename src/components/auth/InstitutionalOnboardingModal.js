@@ -356,7 +356,9 @@ export function InstitutionalOnboardingModal({
       onClose={handleClose}
       title={state === OnboardingState.COMPLETED ? undefined : 'Account Setup'}
       size="md"
-      showCloseButton={!isLoading}
+      // The status check and ceremony preparation are recoverable. Keep the
+      // modal dismissible so a slow backend cannot block site navigation.
+      showCloseButton
     >
       {renderContent()}
     </Modal>
