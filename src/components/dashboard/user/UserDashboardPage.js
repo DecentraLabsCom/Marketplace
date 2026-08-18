@@ -111,6 +111,11 @@ export default function UserDashboard() {
   const [failedCancellations, setFailedCancellations] = useState(new Set());
   const [cancellationStates, setCancellationStates] = useState(new Map());
   const cancellingKeysRef = useRef(new Set());
+  const bookingKeysSignature = userBookings
+    .map((booking) => booking?.reservationKey)
+    .filter(Boolean)
+    .sort()
+    .join('|');
 
   const setCancellationStage = (reservationKey, stage) => {
     if (!reservationKey) return;
@@ -134,15 +139,7 @@ export default function UserDashboard() {
   };
 
   useEffect(() => {
-    if (!Array.isArray(userBookings) || userBookings.length === 0) {
-      setCancellationStates(new Map());
-      cancellingKeysRef.current.clear();
-      return;
-    }
-
-    const existingKeys = new Set(
-      userBookings.map((booking) => booking?.reservationKey).filter(Boolean)
-    );
+    const existingKeys = new Set(bookingKeysSignature ? bookingKeysSignature.split('|') : []);
     cancellingKeysRef.current.forEach((key) => {
       if (!existingKeys.has(key)) cancellingKeysRef.current.delete(key);
     });
@@ -153,9 +150,12 @@ export default function UserDashboard() {
           next.set(key, value);
         }
       });
+      if (next.size === prev.size && [...prev.keys()].every((key) => next.has(key))) {
+        return prev;
+      }
       return next;
     });
-  }, [userBookings]);
+  }, [bookingKeysSignature]);
 
   const bookingInfo = useMemo(() => {
     return mapBookingsForCalendar(userBookings, {

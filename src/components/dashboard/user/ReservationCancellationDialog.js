@@ -82,6 +82,7 @@ export default function ReservationCancellationDialog({
       onClose={onClose}
       title="Cancel reservation?"
       size="md"
+      portal
     >
       <div className="space-y-4 text-gray-700">
         <p>This action cannot be undone.</p>

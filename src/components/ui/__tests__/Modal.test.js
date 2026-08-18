@@ -57,10 +57,25 @@ describe('Modal accessibility', () => {
     expect(second).toHaveFocus()
   })
 
-  test('renders the dialog at the document body level', () => {
+  test('keeps regular dialogs in their owner tree', () => {
     const { container } = render(
       <div className="transformed-parent">
         <Modal isOpen onClose={jest.fn()} title="Example modal">
+          <p>Dialog content</p>
+        </Modal>
+      </div>,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: 'Example modal' })
+
+    expect(container).toContainElement(dialog)
+    expect(dialog.parentElement).not.toBe(document.body)
+  })
+
+  test('renders opt-in dialogs at the document body level', () => {
+    const { container } = render(
+      <div className="transformed-parent">
+        <Modal portal isOpen onClose={jest.fn()} title="Example modal">
           <p>Dialog content</p>
         </Modal>
       </div>,

@@ -286,6 +286,23 @@ describe('UserDashboard - Unit Tests', () => {
             expect(screen.getByTestId('bookings-list-past')).toBeInTheDocument();
         });
 
+        test('does not loop when the bookings hook returns a new array on each render', () => {
+            mockUseUserBookingsDashboard.mockImplementation(() => ({
+                ...mockBookingsData,
+                data: {
+                    ...mockBookingsData.data,
+                    bookings: mockBookingsData.data.bookings.map((booking) => ({ ...booking })),
+                },
+            }));
+
+            try {
+                render(<UserDashboard />);
+                expect(screen.getByText('User Dashboard')).toBeInTheDocument();
+            } finally {
+                mockUseUserBookingsDashboard.mockImplementation(() => mockBookingsData);
+            }
+        });
+
         test('opens the service credit account from the button below the booking lists', async () => {
             render(<UserDashboard />);
 

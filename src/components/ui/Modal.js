@@ -59,6 +59,7 @@ const THEMES = {
  * @param {React.ReactNode} props.children - Modal content
  * @param {boolean} [props.showCloseButton=true] - Whether to show the X close button
  * @param {string} [props.className] - Additional CSS classes for the content container
+ * @param {boolean} [props.portal=false] - Whether to render the modal directly under document.body
  * @returns {JSX.Element|null} Modal dialog or null when closed
  */
 export default function Modal({ 
@@ -70,6 +71,7 @@ export default function Modal({
   children,
   showCloseButton = true,
   className = '',
+  portal = false,
 }) {
   const modalRef = useRef(null)
   const previousFocusRef = useRef(null)
@@ -217,10 +219,15 @@ export default function Modal({
     </div>
   )
 
-  // Render outside the trigger's DOM subtree so fixed positioning is relative
-  // to the viewport even when an ancestor applies transforms or overflow.
-  if (typeof document === 'undefined' || !document.body) return null
-  return createPortal(modalContent, document.body)
+  // Only dialogs that need to escape an ancestor's layout constraints should
+  // be portaled. Keeping this opt-in preserves the existing interaction model
+  // for global/app modals such as onboarding and credit-account dialogs.
+  if (portal) {
+    if (typeof document === 'undefined' || !document.body) return null
+    return createPortal(modalContent, document.body)
+  }
+
+  return modalContent
 }
 
 Modal.propTypes = {
@@ -232,4 +239,5 @@ Modal.propTypes = {
   children: PropTypes.node.isRequired,
   showCloseButton: PropTypes.bool,
   className: PropTypes.string,
+  portal: PropTypes.bool,
 }
