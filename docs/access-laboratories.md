@@ -41,7 +41,7 @@ Navigate to the [DecentraLabs Marketplace](https://marketplace-decentralabs.verc
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
-The Marketplace session uses a sliding 60-minute inactivity window, capped by the expiry of the SAML assertion issued by your institution. Authenticated Marketplace requests refresh that window, including its SAML single-logout binding, when it is close to expiring; a periodic status check by itself does not keep an otherwise idle session alive. Before the SAML assertion expires, Marketplace requests a fresh assertion through institutional SSO. If the IdP session is still active, this normally does not require entering credentials again.
+The Marketplace session uses a sliding 60-minute inactivity window, bounded by the absolute expiry of the backend-owned institutional session credential. The raw SAML assertion is validated once during sign-in to create that credential; reservations, cancellations and laboratory access use the credential rather than forwarding the assertion. Authenticated Marketplace activity refreshes the inactivity window, while a periodic status check by itself does not keep an otherwise idle session alive. When the credential is within five minutes of its absolute expiry, the next user activity starts a fresh institutional SSO exchange and creates a new credential and 60-minute session horizon. If the IdP session is still active, this normally does not require entering credentials again.
 
 ---
 

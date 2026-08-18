@@ -22,7 +22,23 @@ import {
     markBrowserCredentialAdvisoryDismissed,
     markBrowserCredentialVerified,
 } from '@/utils/onboarding/browserCredentialMarker'
-import { MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS } from '@/utils/auth/sessionConfig'
+import {
+    MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS,
+    resolveSessionReauthenticationAt,
+} from '@/utils/auth/sessionConfig'
+
+export function isSessionReauthenticationDue(sessionData, now = Date.now()) {
+    const reauthenticationAt = resolveSessionReauthenticationAt(sessionData)
+    return reauthenticationAt !== null
+        && reauthenticationAt - now <= MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS * 1000
+}
+
+export function buildSamlReauthenticationUrl(locationLike) {
+    const currentPath = `${locationLike.pathname}${locationLike.search}${locationLike.hash}`
+    const loginUrl = new URL('/api/auth/sso/saml2/login', locationLike.origin)
+    loginUrl.searchParams.set('returnTo', currentPath)
+    return loginUrl.toString()
+}
 
 // Create optimized context with automatic memoization
 const { Context: UserContextInternal, Provider: OptimizedUserProvider, useContext: useUserContext } =
@@ -226,36 +242,36 @@ function UserDataCore({ children }) {
         };
     }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl, institutionDomain]);
 
-    // Obtain a fresh SAML assertion before the current one reaches its
-    // absolute expiry. The IdP can usually satisfy this from its own SSO
-    // session, so this does not force the user to enter credentials again.
+    // Reauthenticate against the backend credential horizon. Activity triggers
+    // the redirect so an idle user is not interrupted by a timer.
     useEffect(() => {
-        if (isLoggingOut || !isSSO || !user?.samlAssertionExpiresAt) {
+        const reauthenticationAt = resolveSessionReauthenticationAt(user)
+        if (isLoggingOut || !isSSO || !reauthenticationAt) {
             samlReauthenticationStartedRef.current = false;
             return undefined;
         }
 
-        const expiresAt = Number(user.samlAssertionExpiresAt);
-        if (!Number.isFinite(expiresAt)) return undefined;
-
         const startReauthentication = () => {
             if (samlReauthenticationStartedRef.current) return;
             samlReauthenticationStartedRef.current = true;
-            devLog.log('[SAML] Refreshing the assertion before expiry');
-            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-            const loginUrl = new URL('/api/auth/sso/saml2/login', window.location.origin);
-            loginUrl.searchParams.set('returnTo', currentPath);
-            window.location.assign(loginUrl.toString());
+            devLog.log('[SAML] Reauthentication required before SSO session expiry');
+            window.location.assign(buildSamlReauthenticationUrl(window.location));
         };
-        const delay = expiresAt - Date.now() - MARKETPLACE_SAML_REAUTH_MARGIN_SECONDS * 1000;
-        if (delay <= 0) {
-            startReauthentication();
-            return undefined;
-        }
-
-        const timer = window.setTimeout(startReauthentication, delay);
-        return () => window.clearTimeout(timer);
-    }, [isLoggingOut, isSSO, user?.samlAssertionExpiresAt]);
+        const handleActivity = () => {
+            if (isSessionReauthenticationDue(user)) {
+                startReauthentication();
+            }
+        };
+        const events = ['pointerdown', 'keydown', 'touchstart'];
+        events.forEach((eventName) => window.addEventListener(eventName, handleActivity, { passive: true }));
+        return () => events.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+    }, [
+        isLoggingOut,
+        isSSO,
+        user?.institutionalReauthenticationAt,
+        user?.institutionalBackendSessionExpiresAt,
+        user?.samlAssertionExpiresAt,
+    ]);
 
     // Reset institutional onboarding status on logout
     useEffect(() => {

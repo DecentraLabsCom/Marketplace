@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
-import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
+import { ACTION_CODES, buildActionIntent } from '@/utils/intents/signInstitutionalActionIntent'
+import { buildReservationIntent } from '@/utils/intents/signInstitutionalReservationIntent'
 import {
   DIRECT_BOOKING_ACTION,
   IntentPrepareValidationError,
@@ -52,6 +52,7 @@ import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimi
 import { cancellationStateError, hasCancellationOwnership } from '@/utils/intents/cancellationOwnership'
 import { recordRegisteredIntent } from '@/utils/intents/intentLifecycleStore'
 import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconciler'
+import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
 
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
 
@@ -108,6 +109,8 @@ function resolveAuthorizationMessage(error) {
     ? 'No registered passkey was found for this account.'
     : code === 'MISSING_PUC_FOR_WEBAUTHN'
       ? 'The institutional identity could not be verified.'
+      : code === 'SAML_REAUTH_REQUIRED'
+        ? 'Institutional reauthentication is required.'
       : 'The institutional authorization request could not be created.'
   return { code: code || 'INTENT_AUTHORIZATION_FAILED', message }
 }
@@ -134,7 +137,7 @@ function resolveActionPayloadInput(payloadInput, action, cancellationSnapshot) {
   }
 }
 
-async function prepareReservationData({ action, payloadInput, session, contract, pucHash, cancellationSnapshot: existingSnapshot }) {
+async function prepareReservationData({ action, payloadInput, session, contract, pucHash, assertionHash, cancellationSnapshot: existingSnapshot }) {
   if (action === ACTION_CODES.CANCEL_REQUEST_BOOKING) {
     validateCancellationReservationKey(payloadInput.reservationKey)
     const snapshot = existingSnapshot || await resolveCancellationReservationSnapshot(payloadInput.reservationKey)
@@ -156,7 +159,7 @@ async function prepareReservationData({ action, payloadInput, session, contract,
       end,
       price: parseUint(snapshot.price, 'price', { max: INTENT_UINT_LIMITS.UINT96_MAX }),
       reservationKey: payloadInput.reservationKey,
-      assertionHash: computeReservationAssertionHash(session.samlAssertion),
+      assertionHash,
     }
   }
 
@@ -201,7 +204,7 @@ async function prepareReservationData({ action, payloadInput, session, contract,
       ['uint256', 'uint32', 'bytes32'],
       [window.labId, window.start, pucHash],
     ),
-    assertionHash: computeReservationAssertionHash(session.samlAssertion),
+    assertionHash,
   }
 }
 
@@ -282,8 +285,19 @@ export async function POST(request) {
     if (action === null) return NextResponse.json({ error: 'Invalid action code' }, { status: 400 })
 
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
-    const samlAssertion = session.samlAssertion
-    if (!samlAssertion) return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
+    const institutionalSessionToken = session.institutionalBackendSessionToken
+    if (!institutionalSessionToken || !session.samlAssertionHash) {
+      return NextResponse.json(
+        { error: 'Institutional session renewal required', code: 'INSTITUTIONAL_SESSION_REQUIRED' },
+        { status: 401 },
+      )
+    }
+    if (isInstitutionalReauthenticationDue(session)) {
+      return NextResponse.json(
+        { error: 'Institutional SAML reauthentication required', code: 'SAML_REAUTH_REQUIRED' },
+        { status: 401 },
+      )
+    }
 
     const puc = normalizePuc(getPucFromSession(session))
     if (!puc) return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
@@ -343,6 +357,7 @@ export async function POST(request) {
         session,
         contract,
         pucHash,
+        assertionHash: session.samlAssertionHash,
         cancellationSnapshot,
       })
       if (preparedReservation.error) return preparedReservation.error
@@ -383,7 +398,7 @@ export async function POST(request) {
     const chainNowSec = preparedReservation.chainNowSec || await chainNowPromise
     const assertionHash = isReservationIntentAction(action)
       ? preparedReservation.assertionHash
-      : computeAssertionHash(samlAssertion)
+      : session.samlAssertionHash
 
     let intentPackage
     let adminSignature
@@ -437,7 +452,7 @@ export async function POST(request) {
           meta: serializedMeta,
           payload: serializedPayload,
           signature,
-          samlAssertion,
+          institutionalSessionToken,
           stableUserIdMode: getStableUserIdModeFromSession(session),
           returnUrl,
         })

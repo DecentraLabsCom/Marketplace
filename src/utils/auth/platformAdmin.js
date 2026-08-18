@@ -18,7 +18,7 @@ export function resolveSessionEmail(session) {
 }
 
 export function isPlatformAdminSession(session) {
-  if (!session?.samlAssertion) {
+  if (!(session?.authType === 'sso' || session?.isSSO)) {
     return false;
   }
 
@@ -29,7 +29,7 @@ export function isPlatformAdminSession(session) {
 }
 
 export function requirePlatformAdminSession(session) {
-  if (!session?.samlAssertion) {
+  if (!(session?.authType === 'sso' || session?.isSSO)) {
     throw new ForbiddenError('Platform provider token requires SSO session');
   }
 

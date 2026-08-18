@@ -23,9 +23,19 @@ jest.mock('@/utils/auth/reconcileFmuContexts', () => ({
   reconcileFmuContextsForSession: jest.fn(),
 }))
 
+jest.mock('@/utils/onboarding/institutionalBackend', () => ({
+  resolveInstitutionalBackendUrl: jest.fn(),
+}))
+
+jest.mock('@/utils/auth/institutionalSessionClient', () => ({
+  createInstitutionalSessionCredential: jest.fn(),
+}))
+
 import { createIdentityProvider, createServiceProvider, createSession, parseSAMLResponse } from '@/utils/auth/sso'
 import { cookies } from 'next/headers'
 import { reconcileFmuContextsForSession } from '@/utils/auth/reconcileFmuContexts'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import { createInstitutionalSessionCredential } from '@/utils/auth/institutionalSessionClient'
 import {
   consumeSamlAssertionId,
   consumeSamlLoginTransaction,
@@ -157,6 +167,68 @@ describe('SAML routes', () => {
     expect(response.headers.get('location')).toBe(
       'https://market.example/api/auth/sso/saml2/complete?returnTo=%2Freservation%2F123%3Fstep%3Dconfirm',
     )
+  })
+
+  test('exchanges a fresh SAML assertion for an institutional session before persisting Marketplace session data', async () => {
+    const samlResponse = encodeResponse(validResponseXml)
+    consumeSamlLoginTransaction.mockResolvedValue({ requestId: '_request-1' })
+    parseSAMLResponse.mockResolvedValue({
+      id: 'alice@uned.es',
+      email: 'alice@uned.es',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'alice@uned.es',
+      authType: 'sso',
+      isSSO: true,
+    })
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://backend.example')
+    createInstitutionalSessionCredential.mockResolvedValue({
+      institutionalBackendSessionToken: 'backend-session-token',
+      institutionalBackendSessionExpiresAt: Date.parse('2099-01-01T01:00:00.000Z'),
+      institutionalReauthenticationAt: Date.parse('2099-01-01T00:55:00.000Z'),
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
+    })
+
+    const response = await POST({
+      headers: new Headers(),
+      nextUrl: new URL('https://market.example/api/auth/sso/saml2/callback'),
+      text: async () => new URLSearchParams({ SAMLResponse: samlResponse, RelayState: 'relay-1' }).toString(),
+    })
+
+    expect(response.status).toBe(303)
+    expect(createInstitutionalSessionCredential).toHaveBeenCalledWith(expect.objectContaining({
+      backendUrl: 'https://backend.example',
+      institutionId: 'uned.es',
+      samlAssertion: samlResponse,
+    }))
+    expect(createSession).toHaveBeenCalledWith(response, expect.objectContaining({
+      institutionalBackendSessionToken: 'backend-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
+    }))
+    expect(createSession.mock.calls[0][1]).not.toHaveProperty('samlAssertion')
+  })
+
+  test('does not create a Marketplace session when the backend assertion exchange fails', async () => {
+    const samlResponse = encodeResponse(validResponseXml)
+    consumeSamlLoginTransaction.mockResolvedValue({ requestId: '_request-1' })
+    parseSAMLResponse.mockResolvedValue({
+      id: 'alice@uned.es',
+      email: 'alice@uned.es',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'alice@uned.es',
+      authType: 'sso',
+      isSSO: true,
+    })
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://backend.example')
+    createInstitutionalSessionCredential.mockRejectedValue(new Error('exchange failed'))
+
+    const response = await POST({
+      headers: new Headers(),
+      nextUrl: new URL('https://market.example/api/auth/sso/saml2/callback'),
+      text: async () => new URLSearchParams({ SAMLResponse: samlResponse, RelayState: 'relay-1' }).toString(),
+    })
+
+    expect(response.status).toBe(503)
+    expect(createSession).not.toHaveBeenCalled()
   })
 
   test('rejects a replayed or uncorrelated SAML response before parsing identity claims', async () => {

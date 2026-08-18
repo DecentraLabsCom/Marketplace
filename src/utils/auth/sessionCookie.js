@@ -1,8 +1,10 @@
 /**
  * Opaque browser session cookie management.
  *
- * The cookie contains only a high-entropy server-session identifier. The SAML
- * assertion and identity claims are kept in the server-side session store.
+ * The cookie contains only a high-entropy server-session identifier. Validated
+ * identity metadata and the institutional session credential are kept in the
+ * server-side session store; the raw SAML assertion is discarded after the
+ * session exchange.
  */
 import {
   createServerSession,

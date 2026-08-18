@@ -134,7 +134,7 @@ describe('/api/admin/institutions/provisionProvider route', () => {
 
   test('returns 403 when SSO email is not platform allowlisted', async () => {
     requireAuth.mockResolvedValue({
-      samlAssertion: 'valid-assertion',
+      isSSO: true,
       email: 'other.admin@example.edu',
     });
 
@@ -161,7 +161,7 @@ describe('/api/admin/institutions/provisionProvider route', () => {
 
   test('successfully generates manual-review provider token for allowlisted platform admin', async () => {
     requireAuth.mockResolvedValue({
-      samlAssertion: 'valid-assertion',
+      isSSO: true,
       email: 'LDelatorre@dia.uned.es',
       name: 'Luis de la Torre',
       schacHomeOrganization: 'dia.uned.es',
@@ -250,7 +250,7 @@ describe('/api/admin/institutions/provisionProvider route', () => {
 
   test('successfully generates a consumer token without provider-only claims', async () => {
     requireAuth.mockResolvedValue({
-      samlAssertion: 'valid-assertion',
+      isSSO: true,
       email: 'LDelatorre@dia.uned.es',
     });
 

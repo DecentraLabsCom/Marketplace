@@ -1,6 +1,11 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { UserData, useUser } from "../UserContext";
+import {
+  buildSamlReauthenticationUrl,
+  isSessionReauthenticationDue,
+  UserData,
+  useUser,
+} from "../UserContext";
 import * as userHooks from "@/hooks/user/useUsers";
 import * as errorBoundaries from "@/utils/errorBoundaries";
 
@@ -171,5 +176,28 @@ describe("UserData Context", () => {
       expect(result.current.isProvider).toBe(true);
       expect(result.current.isLoggedIn).toBe(true);
     });
+  });
+
+  test("detects the backend credential margin and preserves the current route", () => {
+    const now = Date.now();
+    const session = {
+      institutionalBackendSessionToken: "session-token",
+      institutionalBackendSessionExpiresAt: now + 60 * 60 * 1000,
+      institutionalReauthenticationAt: now + 60 * 1000,
+    };
+
+    expect(isSessionReauthenticationDue(session, now)).toBe(true);
+    expect(isSessionReauthenticationDue({
+      ...session,
+      institutionalReauthenticationAt: now + 6 * 60 * 1000,
+    }, now)).toBe(false);
+    expect(buildSamlReauthenticationUrl({
+      origin: "https://marketplace.example",
+      pathname: "/dashboard",
+      search: "?tab=reservations",
+      hash: "#upcoming",
+    })).toBe(
+      "https://marketplace.example/api/auth/sso/saml2/login?returnTo=%2Fdashboard%3Ftab%3Dreservations%23upcoming",
+    );
   });
 });

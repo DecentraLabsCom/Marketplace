@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
-import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
@@ -50,8 +49,8 @@ export async function getOnboardingContext({ includeBackend = true } = {}) {
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
     }),
   }
-  if (session.samlAssertion) {
-    payload.assertionReference = `sha256:${computeAssertionHash(session.samlAssertion)}`
+  if (typeof session.samlAssertionHash === 'string' && /^0x[0-9a-f]{64}$/i.test(session.samlAssertionHash)) {
+    payload.assertionReference = `keccak256:${session.samlAssertionHash.toLowerCase()}`
   }
 
   const backendUrl = includeBackend

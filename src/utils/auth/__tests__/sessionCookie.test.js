@@ -129,14 +129,14 @@ describe('sessionCookie', () => {
     }
   });
 
-  it('caps the sliding cookie and SAML binding before the assertion expires', async () => {
+  it('caps the sliding cookie and SAML binding at the backend session expiry', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-26T10:00:00.000Z'));
     const sessionData = {
       id: 'user123',
       email: 'test@example.com',
       samlNameId: 'name-id-1',
       samlSessionIndex: 'session-index-1',
-      samlAssertionExpiresAt: Date.now() + (90 * 60 * 1000),
+      institutionalBackendSessionExpiresAt: Date.now() + (90 * 60 * 1000),
     };
     const createdCookies = await sessionCookie.createSessionCookie(sessionData);
     const cookieStore = {
@@ -147,11 +147,11 @@ describe('sessionCookie', () => {
     jest.advanceTimersByTime(46 * 60 * 1000);
     const session = await sessionCookie.getSessionFromCookies(cookieStore);
 
-    expect(session.expiresAt).toBe(new Date('2026-07-26T11:29:00.000Z').getTime());
+    expect(session.expiresAt).toBe(new Date('2026-07-26T11:30:00.000Z').getTime());
     expect(cookieStore.set).toHaveBeenCalledWith(
       '__Host-user_session',
       createdCookies[0].value,
-      expect.objectContaining({ maxAge: 43 * 60 }),
+      expect.objectContaining({ maxAge: 44 * 60 }),
     );
     jest.useRealTimers();
   });

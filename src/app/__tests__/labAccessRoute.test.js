@@ -85,7 +85,7 @@ describe('/api/auth/lab-access route', () => {
     })
   })
 
-  test('returns 400 when SSO session is missing', async () => {
+  test('returns 401 when institutional session is missing', async () => {
     requireAuth.mockResolvedValue({ puc: 'user' })
 
     const { POST } = await import('../api/auth/lab-access/route.js')
@@ -97,15 +97,39 @@ describe('/api/auth/lab-access route', () => {
     })
 
     const res = await POST(req)
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(401)
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Missing SSO session',
-      code: 'BAD_REQUEST',
+      error: 'Institutional session is missing. Please log in again.',
+      code: 'UNAUTHORIZED',
+    })
+  })
+
+  test('returns 401 when the institutional credential is at its reauthentication horizon', async () => {
+    requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      institutionalReauthenticationAt: Date.now() - 1,
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
+    })
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '1' }),
+    }))
+
+    expect(res.status).toBe(401)
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Institutional session requires reauthentication.',
+      code: 'UNAUTHORIZED',
     })
   })
 
   test('returns 400 when institution wallet is not registered', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user@uned.es',
@@ -136,6 +160,8 @@ describe('/api/auth/lab-access route', () => {
   test('authorizes access with consumer backend before requesting provider credential', async () => {
     requireAuth.mockResolvedValue({
       id: 'user-1@uned.es|targeted-user-1',
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -202,7 +228,13 @@ describe('/api/auth/lab-access route', () => {
       expect.objectContaining({ method: 'POST' })
     )
     expect(JSON.parse(global.fetch.mock.calls[0][1].body).marketplaceToken).toBe('consumer-marketplace-token')
-    expect(JSON.parse(global.fetch.mock.calls[1][1].body).marketplaceToken).toBe('provider-marketplace-token')
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).institutionalSessionToken)
+      .toBe('institutional-session-token')
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).not.toHaveProperty('samlAssertion')
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toMatchObject({
+      marketplaceToken: 'provider-marketplace-token',
+      consumerMarketplaceToken: 'consumer-marketplace-token',
+    })
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ audience: 'https://consumer.example.com' })
@@ -264,6 +296,8 @@ describe('/api/auth/lab-access route', () => {
     },
   ])('preserves the structured consumer check-in error for $category', async ({ status, body, retryAfter }) => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -310,6 +344,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('uses authorize-and-issue once when consumer and provider share a backend', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -338,14 +374,17 @@ describe('/api/auth/lab-access route', () => {
     )
     expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({
       marketplaceToken: 'marketplace-token',
-      samlAssertion: 'assert',
+      institutionalSessionToken: 'institutional-session-token',
       reservationKey: '0xabc',
       labId: '10',
     })
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).not.toHaveProperty('samlAssertion')
   })
 
   test('preserves safe structured errors returned by the combined backend flow', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -387,6 +426,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('keeps FMU credentials as JWTs and does not invoke the Guacamole handoff', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -421,6 +462,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('uses eduPersonPrincipalName as puc when targeted id is missing', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-2@uned.es',
@@ -471,6 +514,8 @@ describe('/api/auth/lab-access route', () => {
   test('uses only SAML-derived puc and ignores stale session id', async () => {
     requireAuth.mockResolvedValue({
       id: 'fixture-user-id',
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-3@uned.es',
@@ -519,6 +564,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('authenticates via the provider access credential endpoint with labId only', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -573,6 +620,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('requests provider credential with reservationKey and labId', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -622,6 +671,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('honors Retry-After and retries only provider credential issuance', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -660,7 +711,10 @@ describe('/api/auth/lab-access route', () => {
     expect(global.fetch).toHaveBeenCalledTimes(3)
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/checkin-institutional'))).toHaveLength(1)
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(2)
-    expect(JSON.parse(global.fetch.mock.calls[1][1].body).reservationKey).toBe('0xcanonical')
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toMatchObject({
+      consumerMarketplaceToken: 'consumer-marketplace-token',
+      reservationKey: '0xcanonical',
+    })
     expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ reservationKey: '0xcanonical' })
@@ -669,6 +723,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('does not repeat combined check-in when credential delivery is pending', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -714,6 +770,7 @@ describe('/api/auth/lab-access route', () => {
     const retryPayload = JSON.parse(global.fetch.mock.calls[1][1].body)
     expect(retryPayload).toMatchObject({
       marketplaceToken: 'provider-marketplace-token',
+      consumerMarketplaceToken: 'provider-marketplace-token',
       reservationKey: '0xcanonical',
       accessAuthorizationTxHash: '0xtx',
     })
@@ -725,6 +782,8 @@ describe('/api/auth/lab-access route', () => {
 
   test('continues combined access authorization when pending check-in has no transaction hash', async () => {
     requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',

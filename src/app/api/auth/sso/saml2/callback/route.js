@@ -6,6 +6,9 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
 import { reconcileFmuContextsForSession } from '@/utils/auth/reconcileFmuContexts'
+import { getNormalizedPucFromSession, getStableUserIdModeFromSession } from '@/utils/auth/puc'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
+import { createInstitutionalSessionCredential } from '@/utils/auth/institutionalSessionClient'
 import { MAX_SAML_FORM_BYTES, extractSamlResponseIdentifiers } from '@/utils/auth/samlResponseSecurity'
 import {
   consumeSamlAssertionId,
@@ -74,6 +77,23 @@ export async function POST(request) {
       if (!isFirstResponseUse) return invalidSamlResponse()
       const isFirstUse = await consumeSamlAssertionId(identifiers.assertionId)
       if (!isFirstUse) return invalidSamlResponse()
+    } catch {
+      return unavailable()
+    }
+
+    try {
+      const institutionId = String(userData.affiliation || userData.schacHomeOrganization || '').trim()
+      const backendUrl = await resolveInstitutionalBackendUrl(institutionId)
+      if (backendUrl) {
+        const institutionalSession = await createInstitutionalSessionCredential({
+          backendUrl,
+          institutionId,
+          samlAssertion: samlResponse,
+          stableUserIdMode: getStableUserIdModeFromSession(userData),
+          puc: getNormalizedPucFromSession(userData),
+        })
+        userData = { ...userData, ...institutionalSession }
+      }
     } catch {
       return unavailable()
     }

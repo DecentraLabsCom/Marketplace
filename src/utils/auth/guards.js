@@ -221,7 +221,7 @@ export async function requireLabOwner(session, labId) {
     throw new BadRequestError('Invalid lab ID format');
   }
 
-  const isSsoSession = Boolean(session?.authType === 'sso' || session?.isSSO || session?.samlAssertion);
+  const isSsoSession = Boolean(session?.authType === 'sso' || session?.isSSO);
   let userWallet = session?.wallet;
   if ((!userWallet || !isValidAddress(userWallet)) && isSsoSession) {
     const institutionalWallet = await resolveInstitutionWalletFromSession(session);

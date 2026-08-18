@@ -676,7 +676,6 @@ describe("SSO Utilities", () => {
         organizationName: "Test University",
         samlNameId: "saml-name-id-1",
         samlSessionIndex: "saml-session-index-1",
-        samlAssertion: "saml-response-data",
       });
     });
 

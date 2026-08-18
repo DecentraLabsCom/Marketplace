@@ -43,6 +43,15 @@ describe('clientFlowShared', () => {
     expect(error.intentCleanupStatus).toBe('confirmed')
   })
 
+  test('createIntentMutationError marks institutional reauthentication as user-actionable', () => {
+    const error = createIntentMutationError({
+      error: 'institutional session expired',
+      code: 'SAML_REAUTH_REQUIRED',
+    }, 'fallback')
+
+    expect(error.userMessage).toBe('Your institutional session needs to be renewed')
+  })
+
   test('createAuthorization errors set stable codes', () => {
     expect(createAuthorizationCancelledError().code).toBe('INTENT_AUTH_CANCELLED')
     expect(createAuthorizationNotConfirmedError().code).toBe('INTENT_AUTH_NOT_CONFIRMED')

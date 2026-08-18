@@ -26,6 +26,8 @@ export const createIntentMutationError = (payload, fallbackMessage) => {
     err.userMessage = 'Insufficient credit balance'
   } else if (code === 'provider_rejected') {
     err.userMessage = 'Request rejected by provider'
+  } else if (code === 'saml_reauth_required' || code === 'institutional_session_required') {
+    err.userMessage = 'Your institutional session needs to be renewed'
   }
   return err
 }

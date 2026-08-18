@@ -48,18 +48,18 @@ describe('server-side session store', () => {
     expect(storedRecord.encryptedSession).not.toContain('user@example.com')
   })
 
-  test('caps the Marketplace session before the SAML assertion expires', async () => {
+  test('caps the Marketplace session at the backend institutional session horizon', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-08-15T10:00:00.000Z'))
     const { createServerSession } = await import('../sessionStore')
 
     await createServerSession({
       id: 'user-1',
       email: 'user@example.com',
-      samlAssertionExpiresAt: Date.now() + 30 * 60 * 1000,
+      institutionalBackendSessionExpiresAt: Date.now() + 30 * 60 * 1000,
     })
 
     const command = JSON.parse(global.fetch.mock.calls[0][1].body)
-    expect(command.slice(3)).toEqual(['EX', String(29 * 60)])
+    expect(command.slice(3)).toEqual(['EX', String(30 * 60)])
     jest.useRealTimers()
   })
 
@@ -123,7 +123,7 @@ describe('server-side session store', () => {
     expect(command.slice(3)).toEqual(['EX', String(60 * 60)])
   })
 
-  test('caps sliding renewal at the SAML assertion expiry', async () => {
+  test('caps sliding renewal at the backend institutional session expiry', async () => {
     const { renewServerSession } = await import('../sessionStore')
     const now = Date.now()
     const session = {
@@ -132,14 +132,14 @@ describe('server-side session store', () => {
       sessionId: 'a'.repeat(43),
       createdAt: now - (59 * 60 * 1000),
       expiresAt: now + (14 * 60 * 1000),
-      samlAssertionExpiresAt: now + (20 * 60 * 1000),
+      institutionalBackendSessionExpiresAt: now + (20 * 60 * 1000),
     }
 
     const renewed = await renewServerSession(session.sessionId, session, now)
 
-    expect(renewed.expiresAt).toBe(now + (19 * 60 * 1000))
+    expect(renewed.expiresAt).toBe(now + (20 * 60 * 1000))
     const command = JSON.parse(global.fetch.mock.calls[0][1].body)
-    expect(command.slice(3)).toEqual(['EX', String(19 * 60)])
+    expect(command.slice(3)).toEqual(['EX', String(20 * 60)])
   })
 
   test('does not renew a session while more than 15 minutes remain', async () => {

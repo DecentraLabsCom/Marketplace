@@ -30,6 +30,11 @@ export function mapAuthorizationErrorCode(message) {
   if (normalized === 'missing_puc_for_webauthn') {
     return 'MISSING_PUC_FOR_WEBAUTHN'
   }
+  if (normalized === 'institutional_session_reauthentication_required'
+    || normalized === 'missing_institutional_session'
+    || normalized === 'invalid_institutional_session') {
+    return 'SAML_REAUTH_REQUIRED'
+  }
   return null
 }
 
@@ -74,7 +79,7 @@ export async function requestIntentAuthorizationSession({
   meta,
   payload,
   signature,
-  samlAssertion,
+  institutionalSessionToken,
   stableUserIdMode = null,
   returnUrl = null,
 }) {
@@ -82,7 +87,7 @@ export async function requestIntentAuthorizationSession({
   const body = {
     meta,
     signature,
-    samlAssertion,
+    institutionalSessionToken,
     stableUserIdMode,
     returnUrl,
     [payloadKey]: payload,
@@ -143,7 +148,7 @@ export async function submitIntentExecutionToBackend({
   meta,
   payload,
   signature,
-  samlAssertion,
+  institutionalSessionToken,
   webauthnCredentialId,
   webauthnClientDataJSON,
   webauthnAuthenticatorData,
@@ -153,7 +158,7 @@ export async function submitIntentExecutionToBackend({
   const body = {
     meta,
     signature,
-    samlAssertion,
+    institutionalSessionToken,
     webauthnCredentialId,
     webauthnClientDataJSON,
     webauthnAuthenticatorData,

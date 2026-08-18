@@ -167,8 +167,11 @@ describe('Unified intent prepare route', () => {
       id: 'alice@uned.es|targeted-alice',
       eduPersonPrincipalName: 'alice@uned.es',
       eduPersonTargetedID: 'targeted-alice',
-      samlAssertion: '<Assertion>test</Assertion>',
       schacHomeOrganization: 'uni.example',
+      institutionalBackendSessionToken: 'institutional-session-token',
+      institutionalBackendSessionExpiresAt: Date.now() + 60 * 60 * 1000,
+      institutionalReauthenticationAt: Date.now() + 60 * 60 * 1000,
+      samlAssertionHash: '0x' + 'a'.repeat(64),
     })
     getPucFromSession.mockImplementation(
       jest.requireActual('@/utils/webauthn/service').getPucFromSession,
@@ -240,7 +243,7 @@ describe('Unified intent prepare route', () => {
       action: ACTION_CODES.LAB_ADD,
       labId: 0n,
       price: 7n,
-      assertionHash: '0xassertionhash',
+      assertionHash: '0x' + 'a'.repeat(64),
     }))
     expect(registerIntentOnChain).toHaveBeenCalledWith(
       'action',
@@ -252,6 +255,7 @@ describe('Unified intent prepare route', () => {
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'actionPayload',
       backendUrl: 'https://ib.example',
+      institutionalSessionToken: 'institutional-session-token',
     }))
   })
 

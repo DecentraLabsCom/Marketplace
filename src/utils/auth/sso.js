@@ -444,7 +444,6 @@ export async function parseSAMLResponse(samlResponse) {
           scopedAffiliation ||
           eduPersonAffiliation,
         organizationName: getFirstAttribute(attrs, ['organizationName', 'o', 'urn:oid:2.5.4.10']),
-        samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
       };
 
       if (eduPersonTargetedID) {

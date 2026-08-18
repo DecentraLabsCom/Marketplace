@@ -8,11 +8,11 @@ import {
 } from '@/utils/onboarding/institutionalBackend'
 import { getStableUserIdModeFromSession } from '@/utils/auth/puc'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import { keccak256, toUtf8Bytes } from 'ethers'
 import {
   BadRequestError,
   handleGuardError,
   requireAuth,
+  UnauthorizedError,
 } from '@/utils/auth/guards'
 import {
   GatewayValidationError,
@@ -23,6 +23,7 @@ import {
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { normalizeInstitutionalServiceAudience } from '@/utils/auth/institutionalServiceCredential'
+import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
 
 const checkRate = createRateLimiter({ operation: 'auth-lab-access', windowMs: 60_000, maxRequests: 20 })
 
@@ -90,10 +91,6 @@ async function resolveInstitutionWallet(domain) {
     return null
   }
   return wallet.toLowerCase()
-}
-
-function computeSamlAssertionHash(samlAssertion) {
-  return keccak256(toUtf8Bytes(samlAssertion))
 }
 
 function buildBackendAudiences(targetAudience) {
@@ -275,8 +272,14 @@ export async function POST(req) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
 
-    if (!session?.samlAssertion) {
-      throw new BadRequestError('Missing SSO session')
+    const institutionalSessionToken = session?.institutionalBackendSessionToken
+    const samlAssertionHash = session?.samlAssertionHash
+    if (typeof institutionalSessionToken !== 'string' || !institutionalSessionToken.trim()
+      || typeof samlAssertionHash !== 'string' || !/^0x[0-9a-f]{64}$/i.test(samlAssertionHash)) {
+      throw new UnauthorizedError('Institutional session is missing. Please log in again.')
+    }
+    if (isInstitutionalReauthenticationDue(session)) {
+      throw new UnauthorizedError('Institutional session requires reauthentication.')
     }
 
     const { authBase, audience: providerAudience } = await resolveAuthContext(labId)
@@ -316,8 +319,6 @@ export async function POST(req) {
       throw new BadRequestError('Institution wallet not registered')
     }
 
-    const samlAssertionHash = computeSamlAssertionHash(session.samlAssertion)
-
     const commonTokenClaims = {
       puc,
       affiliation,
@@ -346,7 +347,7 @@ export async function POST(req) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           marketplaceToken,
-          samlAssertion: session.samlAssertion,
+          institutionalSessionToken,
           reservationKey,
           labId,
           timestamp: Math.floor(Date.now() / 1000),
@@ -373,6 +374,7 @@ export async function POST(req) {
           authBase,
           {
             marketplaceToken: providerMarketplaceToken,
+            consumerMarketplaceToken: providerMarketplaceToken,
             reservationKey: canonicalReservationKey,
             labId,
             accessAuthorizationTxHash: pending.txHash,
@@ -398,7 +400,7 @@ export async function POST(req) {
 
     const checkInPayload = {
       marketplaceToken: consumerMarketplaceToken,
-      samlAssertion: session.samlAssertion,
+      institutionalSessionToken,
       reservationKey,
       labId,
       payerInstitutionWallet,
@@ -428,6 +430,7 @@ export async function POST(req) {
 
     const providerPayload = {
       marketplaceToken: providerMarketplaceToken,
+      consumerMarketplaceToken,
       reservationKey: canonicalReservationKey,
       labId,
       accessAuthorizationTxHash: checkInData.txHash,

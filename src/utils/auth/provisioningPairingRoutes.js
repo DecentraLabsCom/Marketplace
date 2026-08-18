@@ -13,7 +13,9 @@ import {
 
 export async function requireProvisioningPairingSession() {
   const session = await requireAuth();
-  if (!session?.samlAssertion) throw new ForbiddenError('Provisioning pairing requires SSO session');
+  if (!(session?.authType === 'sso' || session?.isSSO)) {
+    throw new ForbiddenError('Provisioning pairing requires SSO session');
+  }
   if (!hasInstitutionRegistrationPrivilege(session)) {
     throw new ForbiddenError(
       'Provisioning pairing requires an institutional administrator entitlement or a faculty, staff, or employee SSO affiliation',
