@@ -78,6 +78,16 @@ const emitReservationProgress = (requestData, stage, details = {}) => {
   }
 };
 
+const emitCancellationStatus = (reservationInput, status, details = {}) => {
+  const onCancellationStatus = reservationInput?.onCancellationStatus;
+  if (typeof onCancellationStatus !== 'function') return;
+  try {
+    onCancellationStatus({ status, ...details });
+  } catch (error) {
+    devLog.warn('Cancellation status callback failed:', error);
+  }
+};
+
 const awaitBackendAuthorization = async (prepareData, { backendUrl, popup, presenceFn } = {}) => {
   return awaitIntentAuthorization(prepareData, {
     backendUrl,
@@ -572,6 +582,8 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                     reservationKey,
                   }),
                 });
+
+                emitCancellationStatus(reservationInput, 'executed', { txHash, result });
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(reservationKey, {
                   reservationKey,
@@ -594,6 +606,8 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 } catch (err) {
                   devLog.warn('Failed to clear optimistic booking state after cancel failed:', err);
                 }
+
+                emitCancellationStatus(reservationInput, status, { reason, result });
               }
             } catch (err) {
               if (abortController?.signal.aborted) return;
@@ -603,6 +617,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 reservationKey,
               });
               invalidateAllBookings();
+              emitCancellationStatus(reservationInput, 'error', { error: err });
             }
           })();
         }
@@ -744,6 +759,8 @@ export const useCancelBookingSSO = (options = {}) => {
                     reservationKey,
                   }),
                 });
+
+                emitCancellationStatus(reservationInput, 'executed', { txHash, result });
               } else if (status === 'failed' || status === 'rejected') {
                 queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
                   if (!oldData) return oldData;
@@ -764,6 +781,8 @@ export const useCancelBookingSSO = (options = {}) => {
                 } catch (err) {
                   devLog.warn('Failed to clear optimistic booking state after cancel booking failed:', err);
                 }
+
+                emitCancellationStatus(reservationInput, status, { reason, result });
               }
             } catch (err) {
               devLog.error('Polling cancel booking intent failed:', err);
@@ -773,6 +792,7 @@ export const useCancelBookingSSO = (options = {}) => {
                 reservationKey,
               });
               invalidateAllBookings();
+              emitCancellationStatus(reservationInput, 'error', { error: err });
             }
           })();
         }

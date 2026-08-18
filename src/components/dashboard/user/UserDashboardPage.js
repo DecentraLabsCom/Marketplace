@@ -136,12 +136,16 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!Array.isArray(userBookings) || userBookings.length === 0) {
       setCancellationStates(new Map());
+      cancellingKeysRef.current.clear();
       return;
     }
 
     const existingKeys = new Set(
       userBookings.map((booking) => booking?.reservationKey).filter(Boolean)
     );
+    cancellingKeysRef.current.forEach((key) => {
+      if (!existingKeys.has(key)) cancellingKeysRef.current.delete(key);
+    });
     setCancellationStates((prev) => {
       const next = new Map();
       prev.forEach((value, key) => {
@@ -151,7 +155,7 @@ export default function UserDashboard() {
       });
       return next;
     });
-  }, [userBookings.length]);
+  }, [userBookings]);
 
   const bookingInfo = useMemo(() => {
     return mapBookingsForCalendar(userBookings, {
@@ -276,16 +280,39 @@ export default function UserDashboard() {
       booking.reservationKey,
       { isRequest: isPending }
     );
+
+    let reachedTerminalState = false;
+    const onCancellationStatus = ({ status, reason, error } = {}) => {
+      if (!['executed', 'failed', 'rejected', 'error'].includes(status)) return;
+
+      reachedTerminalState = true;
+      cancellingKeysRef.current.delete(booking.reservationKey);
+      setCancellationStage(booking.reservationKey, null);
+
+      if (status === 'rejected') {
+        notifyUserDashboardCancellationRejected(addTemporaryNotification);
+      } else if (status === 'failed' || status === 'error') {
+        devLog.error('Cancellation reached a terminal failure state:', reason || error);
+        notifyUserDashboardCancellationFailed(addTemporaryNotification, booking.reservationKey);
+      }
+    };
+
+    const mutationInput = {
+      ...booking,
+      onCancellationStatus,
+    };
     
     try {
       // 🚀 Route by status: pending -> cancel reservation request; booked -> cancel booking
       if (isPending) {
         // Fire transaction but do NOT remove from UI yet; wait for chain event
-        await cancelReservationUnified.mutateAsync(booking);
+        await cancelReservationUnified.mutateAsync(mutationInput);
       } else {
         // Fire transaction but do NOT remove from UI yet; wait for chain event
-        await cancelBookingUnified.mutateAsync(booking);
+        await cancelBookingUnified.mutateAsync(mutationInput);
       }
+
+      if (reachedTerminalState) return;
 
       setCancellationStage(booking.reservationKey, 'submitted');
       notifyUserDashboardCancellationSubmitted(

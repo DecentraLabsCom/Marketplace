@@ -188,6 +188,37 @@ describe('institutional cancellation mutations', () => {
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-booking-3', expect.objectContaining({ status: 'cancel-requested' }));
   });
 
+  test('notifies the caller when confirmed cancellation reaches a terminal state', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-terminal',
+          authorizationSessionId: 'session-terminal',
+          backendUrl: 'https://institution.example',
+          intent: { meta: { requestId: 'req-terminal' }, payload: {} },
+        }),
+    });
+
+    const onCancellationStatus = jest.fn();
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCancelBooking(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        reservationKey: 'rk-terminal',
+        labId: '12',
+        onCancellationStatus,
+      });
+    });
+
+    await waitFor(() => {
+      expect(onCancellationStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'executed', txHash: undefined })
+      );
+    });
+  });
+
   test('uses the input labId when the reservation detail is not cached', async () => {
     const updateBooking = jest.fn();
     const invalidateAllBookings = jest.fn();
