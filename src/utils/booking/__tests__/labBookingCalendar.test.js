@@ -10,14 +10,23 @@
  * - Day content rendering
  */
 
-import { generateTimeOptions, renderDayContents, isDayFullyUnavailable } from "../labBookingCalendar";
+import {
+  generateTimeOptions,
+  getBookingTooltipItems,
+  renderDayContents,
+  isDayFullyUnavailable,
+} from "../labBookingCalendar";
 import * as dateFns from "date-fns";
 import { getBookingStatusText } from "../bookingStatus";
 import { isSameCalendarDay } from "@/utils/dates/parseDateSafe";
 
 // Mock external dependencies to isolate unit tests
 jest.mock("date-fns", () => ({
-  format: jest.fn((date) => {
+  format: jest.fn((date, formatString) => {
+    if (formatString === "yyyy-MM-dd") {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
     const h = date.getHours();
     const m = date.getMinutes();
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -31,6 +40,11 @@ jest.mock("../bookingStatus", () => ({
 
 jest.mock("@/utils/dates/parseDateSafe", () => ({
   isSameCalendarDay: jest.fn(() => false),
+  parseDateSafe: jest.fn((value) => {
+    if (value instanceof Date) return value;
+    const [, year, month, day] = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/) || [];
+    return year ? new Date(Number(year), Number(month) - 1, Number(day)) : null;
+  }),
 }));
 
 jest.mock("@/utils/dev/logger", () => ({
@@ -821,39 +835,23 @@ describe("generateTimeOptions", () => {
   });
 });
 
-describe("renderDayContents", () => {
+describe("getBookingTooltipItems", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("Without bookings", () => {
-    test("renders day without tooltip when no bookings", () => {
-      isSameCalendarDay.mockReturnValue(false);
-
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [],
-      });
-
-      expect(result.props.title).toBeUndefined();
-      expect(result.props.children).toBe(15);
+    test("returns no tooltip items when there are no bookings", () => {
+      expect(getBookingTooltipItems([])).toEqual([]);
     });
 
     test("handles undefined bookingInfo", () => {
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: undefined,
-      });
-
-      expect(result.props.title).toBeUndefined();
+      expect(getBookingTooltipItems(undefined)).toEqual([]);
     });
   });
 
   describe("With bookings", () => {
     test("renders tooltip with booking time range", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Active");
 
       const startTimestamp = Math.floor(
@@ -863,24 +861,20 @@ describe("renderDayContents", () => {
         new Date("2025-06-15T12:00:00").getTime() / 1000
       );
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            start: startTimestamp,
-            end: endTimestamp,
-            status: 1,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([{
+        dateString: "2025-06-15",
+        start: startTimestamp,
+        end: endTimestamp,
+        status: 1,
+      }]);
 
-      expect(result.props.title).toBe("10:00 - 12:00");
+      expect(result).toEqual([{
+        date: "2025-06-15",
+        holidayName: "10:00 - 12:00",
+      }]);
     });
 
     test("includes lab name when available", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Active");
 
       const startTimestamp = Math.floor(
@@ -890,25 +884,18 @@ describe("renderDayContents", () => {
         new Date("2025-06-15T12:00:00").getTime() / 1000
       );
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            start: startTimestamp,
-            end: endTimestamp,
-            labName: "Chemistry Lab",
-            status: 1,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([{
+        dateString: "2025-06-15",
+        start: startTimestamp,
+        end: endTimestamp,
+        labName: "Chemistry Lab",
+        status: 1,
+      }]);
 
-      expect(result.props.title).toBe("Chemistry Lab: 10:00 - 12:00");
+      expect(result[0].holidayName).toBe("Chemistry Lab: 10:00 - 12:00");
     });
 
     test("includes status for non-active bookings", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Cancelled");
 
       const startTimestamp = Math.floor(
@@ -918,63 +905,42 @@ describe("renderDayContents", () => {
         new Date("2025-06-15T12:00:00").getTime() / 1000
       );
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            start: startTimestamp,
-            end: endTimestamp,
-            status: 0,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([{
+        dateString: "2025-06-15",
+        start: startTimestamp,
+        end: endTimestamp,
+        status: 0,
+      }]);
 
-      expect(result.props.title).toBe("10:00 - 12:00 (Cancelled)");
+      expect(result[0].holidayName).toBe("10:00 - 12:00 (Cancelled)");
     });
 
     test("handles bookings without timestamps", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Active");
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            labName: "Biology Lab",
-            status: 1,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([{
+        dateString: "2025-06-15",
+        labName: "Biology Lab",
+        status: 1,
+      }]);
 
-      expect(result.props.title).toBe("Booked: Biology Lab");
+      expect(result[0].holidayName).toBe("Booked: Biology Lab");
     });
 
     test("handles invalid timestamps", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Active");
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            start: "invalid",
-            end: "invalid",
-            status: 1,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([{
+        dateString: "2025-06-15",
+        start: "invalid",
+        end: "invalid",
+        status: 1,
+      }]);
 
-      expect(result.props.title).toBe("Booked");
+      expect(result[0].holidayName).toBe("Booked");
     });
 
     test("handles multiple bookings on same day", () => {
-      isSameCalendarDay.mockReturnValue(true);
       getBookingStatusText.mockReturnValue("Active");
 
       const booking1Start = Math.floor(
@@ -990,30 +956,35 @@ describe("renderDayContents", () => {
         new Date("2025-06-15T16:00:00").getTime() / 1000
       );
 
-      const result = renderDayContents({
-        day: 15,
-        currentDateRender: new Date("2025-06-15"),
-        bookingInfo: [
-          {
-            dateString: "2025-06-15",
-            start: booking1Start,
-            end: booking1End,
-            status: 1,
-          },
-          {
-            dateString: "2025-06-15",
-            start: booking2Start,
-            end: booking2End,
-            labName: "Physics Lab",
-            status: 1,
-          },
-        ],
-      });
+      const result = getBookingTooltipItems([
+        {
+          dateString: "2025-06-15",
+          start: booking1Start,
+          end: booking1End,
+          status: 1,
+        },
+        {
+          dateString: "2025-06-15",
+          start: booking2Start,
+          end: booking2End,
+          labName: "Physics Lab",
+          status: 1,
+        },
+      ]);
 
-      expect(result.props.title).toBe(
+      expect(result[0].holidayName).toBe(
         "09:00 - 10:00\nPhysics Lab: 14:00 - 16:00"
       );
     });
+  });
+});
+
+describe("renderDayContents", () => {
+  test("renders the day number without a nested tooltip target", () => {
+    const result = renderDayContents({ day: 15 });
+
+    expect(result.props.children).toBe(15);
+    expect(result.props.title).toBeUndefined();
   });
 });
 

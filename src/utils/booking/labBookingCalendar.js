@@ -1,7 +1,7 @@
 import { format, isToday } from 'date-fns'
 import { getMinimumReservationStartUnix } from '@/utils/booking/reservationLeadTime'
 import { getBookingStatusText } from './bookingStatus'
-import { isSameCalendarDay } from '@/utils/dates/parseDateSafe'
+import { isSameCalendarDay, parseDateSafe } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
 import { getMaxConcurrentUsers } from '@/utils/resourceType'
 
@@ -417,45 +417,57 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
 }
 
 /**
- * Renders day contents for calendar with booking information tooltips
- * Shows booking details when hovering over days that have reservations
+ * Renders day contents for the calendar.
  * @param {Object} params - Parameters for day content rendering
- * @param {Date} params.day - Calendar day being rendered
- * @param {Date} params.currentDateRender - Current date being processed for rendering
- * @param {Array} params.bookingInfo - Array of booking objects with date and time information
- * @returns {JSX.Element} Rendered day content with booking tooltips
+ * @param {number} params.day - Day number being rendered
+ * @returns {JSX.Element} Rendered day content
  */
-// Returns the content of the day for the calendar (tooltip with reserved hours)
-export function renderDayContents({ day, currentDateRender, bookingInfo }) {
-    const bookingsOnDay = (bookingInfo || [])
-        .filter(b => {
-            const dateStr = b.dateString || b.date;
-            return isSameCalendarDay(dateStr, currentDateRender);
-        });
+const formatBookingTooltip = (booking) => {
+    if (booking?.start && booking?.end) {
+        // Convert Unix timestamps to Date objects
+        const startDate = new Date(parseInt(booking.start) * 1000);
+        const endDate = new Date(parseInt(booking.end) * 1000);
 
-    let title = undefined;
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 'Booked';
 
-    if (bookingsOnDay.length > 0) {
-        title = bookingsOnDay.map((booking) => {
-            if (booking?.start && booking?.end) {
-                // Convert Unix timestamps to Date objects
-                const startDate = new Date(parseInt(booking.start) * 1000);
-                const endDate = new Date(parseInt(booking.end) * 1000);
-                
-                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 'Booked';
-                
-                // Format time strings
-                const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-                const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                
-                // Add status indicator to the booking text
-                const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
-                return `${booking.labName ? booking.labName + ': ' : ''}${startTime} - ${endTime}${statusText}`;
-            }
-            const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
-            return booking.labName ? `Booked: ${booking.labName}${statusText}` : `Booked${statusText}`;
-        }).join('\n');
+        // Format time strings
+        const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+        const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+
+        // Add status indicator to the booking text
+        const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
+        return `${booking.labName ? booking.labName + ': ' : ''}${startTime} - ${endTime}${statusText}`;
     }
 
-    return <div title={title}>{day}</div>;
+    const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
+    return booking.labName ? `Booked: ${booking.labName}${statusText}` : `Booked${statusText}`;
+};
+
+/**
+ * Builds the items consumed by react-datepicker's `holidays` prop. The library
+ * puts holidayNames on the outer day element, which keeps the native tooltip
+ * active across the whole calendar day instead of only the rendered content.
+ */
+export function getBookingTooltipItems(bookingInfo = []) {
+    const tooltipNamesByDate = new Map();
+
+    (bookingInfo || []).forEach((booking) => {
+        const bookingDate = parseDateSafe(booking?.dateString || booking?.date);
+        if (!bookingDate) return;
+
+        const date = format(bookingDate, 'yyyy-MM-dd');
+        const names = tooltipNamesByDate.get(date) || [];
+        tooltipNamesByDate.set(date, [...names, formatBookingTooltip(booking)]);
+    });
+
+    return Array.from(tooltipNamesByDate, ([date, names]) => ({
+        date,
+        holidayName: names.join('\n')
+    }));
+}
+
+// Returns the content of the day for the calendar. Booking titles are attached
+// to react-datepicker's outer day element through `getBookingTooltipItems`.
+export function renderDayContents({ day }) {
+    return <div>{day}</div>;
 }

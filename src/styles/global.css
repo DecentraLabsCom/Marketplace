@@ -436,6 +436,16 @@ body {
   background-color: oklch(0.8943 0.0512 262.12); /* Header background color */
   color: white !important;
 }
+/* react-datepicker uses its holiday class to place booking titles on the
+   outer day element. Keep that implementation detail from replacing the
+   calendar's booking highlight palette. */
+.custom-datepicker .react-datepicker__day--holidays {
+  background-color: #9fc6f5;
+  color: white;
+}
+.custom-datepicker .react-datepicker__day--holidays .overlay {
+  display: none;
+}
 .custom-datepicker .react-datepicker__day--selected {
   background-color: oklch(0.5147 0.0779 303.87); /* For selected day */
   color: white;

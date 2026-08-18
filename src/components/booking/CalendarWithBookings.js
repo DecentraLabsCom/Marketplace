@@ -3,7 +3,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { useBookingFilter } from '@/hooks/booking/useBookings'
-import { renderDayContents } from '@/utils/booking/labBookingCalendar'
+import { getBookingTooltipItems, renderDayContents } from '@/utils/booking/labBookingCalendar'
 
 /**
  * Reusable calendar component that shows bookings with tooltips and highlighting
@@ -44,13 +44,13 @@ export default function CalendarWithBookings({
     highlightClassName
   )
 
-  // Render days with reservation tooltips
-  const dayContents = (day, currentDateRender) =>
-    renderDayContents({
-      day,
-      currentDateRender,
-      bookingInfo: filteredBookings
-    })
+  const bookingTooltipItems = React.useMemo(
+    () => getBookingTooltipItems(filteredBookings),
+    [filteredBookings]
+  )
+
+  // Render the day number; booking titles live on the outer day element.
+  const dayContents = (day) => renderDayContents({ day })
 
   const combinedDayClassName = (day) => {
     const baseClass = dayClassName(day)
@@ -75,6 +75,7 @@ export default function CalendarWithBookings({
         inline={inline}
         filterDate={filterDate}
         dayClassName={combinedDayClassName}
+        holidays={bookingTooltipItems}
         renderDayContents={dayContents}
       />
     </>

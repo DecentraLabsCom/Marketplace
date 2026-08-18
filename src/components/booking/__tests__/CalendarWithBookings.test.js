@@ -22,9 +22,14 @@ jest.mock("@/hooks/booking/useBookings", () => ({
   useBookingFilter: jest.fn(),
 }));
 
-jest.mock("@/utils/booking/labBookingCalendar", () => ({
-  renderDayContents: jest.fn(),
-}));
+jest.mock("@/utils/booking/labBookingCalendar", () => {
+  const actual = jest.requireActual("@/utils/booking/labBookingCalendar");
+
+  return {
+    ...actual,
+    renderDayContents: jest.fn(),
+  };
+});
 
 jest.mock("react-datepicker", () => {
   return function MockDatePicker(props) {
@@ -35,6 +40,12 @@ jest.mock("react-datepicker", () => {
         <div data-testid="calendar-class">{props.calendarClassName}</div>
         <div data-testid="inline">{props.inline ? "true" : "false"}</div>
         <div data-testid="day-class">{dayClassName}</div>
+        <div data-testid="day-tooltip">
+          {props.holidays
+            ?.filter(({ date }) => date === "2024-06-15")
+            .map(({ holidayName }) => holidayName)
+            .join("\n")}
+        </div>
         {props.selected && (
           <div data-testid="selected-date">{props.selected.toISOString()}</div>
         )}
@@ -128,6 +139,26 @@ describe("CalendarWithBookings - unit tests", () => {
 
       expect(screen.getByTestId("calendar-class")).toHaveTextContent(
         "my-custom-calendar"
+      );
+    });
+
+    test("attaches booking tooltip to the calendar day surface", () => {
+      const start = Math.floor(new Date(2024, 5, 15, 10, 0).getTime() / 1000);
+      const end = Math.floor(new Date(2024, 5, 15, 12, 0).getTime() / 1000);
+      useBookingFilter.mockReturnValueOnce({
+        filteredBookings: [{
+          date: "2024-06-15",
+          start,
+          end,
+          status: 1,
+        }],
+        dayClassName: mockDayClassName,
+      });
+
+      render(<CalendarWithBookings {...defaultProps} />);
+
+      expect(screen.getByTestId("day-tooltip")).toHaveTextContent(
+        "10:00 - 12:00"
       );
     });
   });
