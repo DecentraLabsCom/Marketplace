@@ -157,7 +157,14 @@ describe('LabBookingItem', () => {
       },
     });
 
-    render(<LabBookingItem lab={mockLab} booking={booking} onCancel={onCancel} />);
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={booking}
+        institutionName="Test University"
+        onCancel={onCancel}
+      />
+    );
 
     const cancelButton = screen.getByRole('button', { name: /Cancel Booking/i });
     await user.click(cancelButton);
@@ -168,11 +175,12 @@ describe('LabBookingItem', () => {
     expect(screen.getByText(/Credits to return:/i).parentElement).toHaveTextContent('0.9 credits');
     expect(screen.getByText(/Cancellation fee:/i).parentElement).toHaveTextContent('0.1 credits');
     expect(screen.getByText(/Cancellation cutoff:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Refund source expiry:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Allocation count:/i).parentElement).toHaveTextContent('1');
     expect(screen.getByText(/Policy:/i).parentElement).toHaveTextContent(/on-chain policy v2/i);
     expect(screen.getByText(/Preview source:/i).parentElement).toHaveTextContent(/on-chain policy v2/i);
-    expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent(/0x3333/i);
+    expect(screen.getByText(/Destination:/i).parentElement).toHaveTextContent('Test University');
+    expect(screen.queryByText(/Spending period:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Allocation count:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Refund source expiry:/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Access will no longer be available/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /^cancel reservation$/i }));
@@ -246,7 +254,7 @@ describe('LabBookingItem', () => {
     expect(screen.getByRole('button', { name: /^cancel reservation$/i })).toBeDisabled();
   });
 
-  test('allows confirmation and warns when the refund source has expired', async () => {
+  test('allows confirmation when the refund source has expired', async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
     const booking = createBooking({
@@ -273,7 +281,7 @@ describe('LabBookingItem', () => {
 
     await user.click(screen.getByRole('button', { name: /Cancel Booking/i }));
 
-    expect(screen.getByText(/source credits may be partially or fully expired/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Refund source expiry:/i)).not.toBeInTheDocument();
     const confirmButton = screen.getByRole('button', { name: /^cancel reservation$/i });
     expect(confirmButton).not.toBeDisabled();
 

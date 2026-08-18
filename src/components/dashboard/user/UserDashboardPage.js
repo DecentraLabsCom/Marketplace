@@ -41,6 +41,7 @@ export default function UserDashboard() {
     isSSO,
     address,
   } = useUser();
+  const institutionName = user?.institutionName || user?.organizationName || user?.affiliation || null;
   
   // Institutional bookings are resolved through backend/API queries only.
   const canFetchBookings = canFetchUserBookings({
@@ -467,6 +468,7 @@ export default function UserDashboard() {
                   nextBooking={nextBookingForDashboard}
                   lastBooking={lastBookingForDashboard}
                   userAddress={effectiveUserAddress}
+                  institutionName={institutionName}
                   onBookingAction={handleCancellation}
                   cancellationStates={cancellationStates}
                 />
@@ -511,6 +513,7 @@ export default function UserDashboard() {
                 isLoading={false}
                 type="upcoming"
                 onCancel={handleCancellation}
+                institutionName={institutionName}
                 onClearError={handleClearCancellationError}
                 failedCancellations={failedCancellations}
                 cancellationStates={cancellationStates}

@@ -64,6 +64,34 @@ describe('cancellationSummary', () => {
     expect(getCancellationRefundExpiryStatus(preview, 1900000000)).toBe('active')
   })
 
+  test('accepts an on-chain preview for a confirmed zero-price reservation without credit ledger metadata', () => {
+    const preview = getCancellationPreview({
+      status: 1,
+      price: '0',
+      cancellationPreview: {
+        status: '1',
+        cancellable: true,
+        refundDestination: '0x3333333333333333333333333333333333333333',
+        price: '0',
+        totalFee: '0',
+        providerFee: '0',
+        refundAmount: '0',
+        cancellationCutoff: '1905000000',
+        spendingPeriodStart: '0',
+        spendingPeriodEnd: '0',
+        sourceCreditExpiry: '0',
+        allocations: [],
+        allocationCount: '0',
+        policyVersion: '2',
+      },
+    })
+
+    expect(preview.source).toBe('on-chain')
+    expect(preview.cancellable).toBe(true)
+    expect(preview.spendingPeriodStart).toBeNull()
+    expect(preview.sourceCreditExpiryKnown).toBe(true)
+  })
+
   test('provides the exact local policy fallback when legacy data lacks a preview', () => {
     const preview = getCancellationPreview({
       status: 1,

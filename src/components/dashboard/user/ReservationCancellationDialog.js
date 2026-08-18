@@ -32,18 +32,13 @@ const formatTimestamp = (timestamp) => {
   return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleString()
 }
 
-const formatRefundDestination = (address) => address || 'Unavailable'
-
-const formatSourceExpiry = (preview) => {
-  if (!preview?.sourceCreditExpiryKnown) return 'Unavailable'
-  if (preview.sourceCreditExpiry === null) return 'No expiry recorded'
-  return formatTimestamp(preview.sourceCreditExpiry)
-}
+const formatRefundDestination = (institutionName) => institutionName || 'Institution unavailable'
 
 export default function ReservationCancellationDialog({
   isOpen,
   lab,
   booking,
+  institutionName = null,
   isProcessing = false,
   onClose,
   onConfirm,
@@ -134,35 +129,17 @@ export default function ReservationCancellationDialog({
                 <dt className="font-semibold">Cancellation cutoff:</dt>
                 <dd>{formatTimestamp(preview.cancellationCutoff)}</dd>
               </div>
-              {preview.spendingPeriodStart && preview.spendingPeriodEnd && (
-                <div>
-                  <dt className="font-semibold">Spending period:</dt>
-                  <dd>
-                    {formatTimestamp(preview.spendingPeriodStart)} – {formatTimestamp(preview.spendingPeriodEnd)}
-                  </dd>
-                </div>
-              )}
-              {(!preview.spendingPeriodStart || !preview.spendingPeriodEnd) && (
-                <div>
-                  <dt className="font-semibold">Spending period:</dt>
-                  <dd>Unavailable</dd>
-                </div>
-              )}
-              <div>
-                <dt className="font-semibold">Allocation count:</dt>
-                <dd>{preview.allocationCount ?? 'Unavailable'}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Refund source expiry:</dt>
-                <dd>{formatSourceExpiry(preview)}</dd>
-              </div>
             </>
           )}
           <div>
             <dt className="font-semibold">Destination:</dt>
             <dd>
               {hasChargedReservation
-                ? formatRefundDestination(preview?.refundDestination)
+                ? formatRefundDestination(
+                    institutionName
+                    || policyBooking?.institutionName
+                    || lab?.institutionName
+                  )
                 : 'No credit refund'}
             </dd>
           </div>
@@ -206,6 +183,7 @@ ReservationCancellationDialog.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   lab: PropTypes.object,
   booking: PropTypes.object,
+  institutionName: PropTypes.string,
   isProcessing: PropTypes.bool,
   onClose: PropTypes.func.isRequired,
   onConfirm: PropTypes.func.isRequired,

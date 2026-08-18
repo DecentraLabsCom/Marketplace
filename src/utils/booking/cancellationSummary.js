@@ -80,7 +80,8 @@ const isCompleteOnChainPreview = (preview, status) => {
   if (!Number.isInteger(Number(preview.status)) || Number(preview.status) !== status) return false
   if (typeof preview.cancellable !== 'boolean') return false
   if (!isNonZeroAddress(preview.refundDestination)) return false
-  if (parseRawCreditAmount(preview.price) === null) return false
+  const price = parseRawCreditAmount(preview.price)
+  if (price === null) return false
   if (parseRawCreditAmount(preview.refundAmount) === null) return false
   if (parseRawCreditAmount(preview.totalFee) === null) return false
   if (parseRawCreditAmount(preview.providerFee) === null) return false
@@ -91,9 +92,10 @@ const isCompleteOnChainPreview = (preview, status) => {
   const expiry = normalizeSourceCreditExpiry(preview.sourceCreditExpiry)
   if (!hasOwn(preview, 'sourceCreditExpiry') || !expiry.known) return false
 
-  // Confirmed reservations must expose the captured spending period in the
-  // consent screen. Pending requests do not have a financial period yet.
-  if (Number(preview.status) === 1 && (
+  // A zero-price reservation does not consume service credits and therefore
+  // legitimately has no captured spending-period sidecar. Charged confirmed
+  // reservations still require that accounting metadata before confirmation.
+  if (Number(preview.status) === 1 && price > 0n && (
     toTimestamp(preview.spendingPeriodStart) === null
     || toTimestamp(preview.spendingPeriodEnd) === null
   )) return false

@@ -28,6 +28,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
     booking = {},
     startTime = null,
     endTime = null,
+    institutionName = null,
     onCancel = null,
     onClearError = null,
     cancelState = null
@@ -146,6 +147,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 isOpen={isCancellationDialogOpen}
                 lab={lab}
                 booking={booking}
+                institutionName={institutionName}
                 isProcessing={isCancelling}
                 onClose={() => setCancellationDialogOpen(false)}
                 onConfirm={() => {
@@ -173,6 +175,7 @@ LabBookingItem.propTypes = {
     }),
     startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    institutionName: PropTypes.string,
     onCancel: PropTypes.func,
     onClearError: PropTypes.func,
     cancelState: PropTypes.shape({

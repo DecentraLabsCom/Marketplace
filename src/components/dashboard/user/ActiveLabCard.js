@@ -26,9 +26,10 @@ import ReservationCancellationDialog from '@/components/dashboard/user/Reservati
  * @returns {JSX.Element|null} Active lab card component or null if no lab
  */
 export default function ActiveLabCard({ 
-  lab, 
-  booking, 
+  lab,
+  booking,
   userAddress = null, 
+  institutionName = null,
   isActive = false, 
   bookingTimes = { start: null, end: null },
   actionLabel = null,
@@ -187,6 +188,7 @@ export default function ActiveLabCard({
         isOpen={isCancellationDialogOpen}
         lab={lab}
         booking={booking}
+        institutionName={institutionName}
         isProcessing={isActionBusy}
         onClose={() => setCancellationDialogOpen(false)}
         onConfirm={() => {
@@ -212,6 +214,7 @@ ActiveLabCard.propTypes = {
     end: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
   userAddress: PropTypes.string,
+  institutionName: PropTypes.string,
   isActive: PropTypes.bool,
   bookingTimes: PropTypes.shape({
     start: PropTypes.string,

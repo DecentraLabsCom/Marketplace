@@ -26,6 +26,7 @@ export default function BookingsList({
   isLoading, 
   type = 'upcoming',
   onCancel,
+  institutionName = null,
   onClearError,
   failedCancellations = new Set(),
   cancellationStates = new Map(),
@@ -220,6 +221,7 @@ export default function BookingsList({
                 booking: booking,
                 startTime,
                 endTime,
+                institutionName,
               };
 
               // Add type-specific props
@@ -261,6 +263,7 @@ BookingsList.propTypes = {
   isLoading: PropTypes.bool.isRequired,
   type: PropTypes.oneOf(['upcoming', 'past']).isRequired,
   onCancel: PropTypes.func,
+  institutionName: PropTypes.string,
   onClearError: PropTypes.func,
   failedCancellations: PropTypes.instanceOf(Set),
   cancellationStates: PropTypes.instanceOf(Map),

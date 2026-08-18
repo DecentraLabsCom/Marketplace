@@ -19,6 +19,7 @@ export default function ActiveBookingSection({
   nextBooking = null,
   lastBooking = null,
   userAddress,
+  institutionName = null,
   onBookingAction = null,
   cancellationStates = new Map()
 }) {
@@ -83,6 +84,7 @@ export default function ActiveBookingSection({
               lab={labData}
               booking={activeBooking}
               userAddress={userAddress}
+              institutionName={institutionName}
               isActive={true}
               bookingTimes={getBookingTimes(activeBooking)}
               onBookingAction={null}
@@ -93,6 +95,7 @@ export default function ActiveBookingSection({
               lab={labData}
               booking={nextBooking}
               userAddress={userAddress}
+              institutionName={institutionName}
               isActive={false}
               bookingTimes={getBookingTimes(nextBooking)}
               actionLabel="Cancel Booking"
@@ -104,6 +107,7 @@ export default function ActiveBookingSection({
               lab={labData}
               booking={lastBooking}
               userAddress={userAddress}
+              institutionName={institutionName}
               isActive={false}
               bookingTimes={getBookingTimes(lastBooking)}
               onBookingAction={null}
@@ -125,6 +129,7 @@ ActiveBookingSection.propTypes = {
   nextBooking: PropTypes.object,
   lastBooking: PropTypes.object,
   userAddress: PropTypes.string,
+  institutionName: PropTypes.string,
   onBookingAction: PropTypes.func,
   cancellationStates: PropTypes.instanceOf(Map)
 };
