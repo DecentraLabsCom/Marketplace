@@ -311,7 +311,9 @@ describe("ActiveLabCard", () => {
 
       await user.click(screen.getByRole("button", { name: "Cancel Booking" }));
       expect(onBookingAction).not.toHaveBeenCalled();
-      expect(screen.getByRole("dialog", { name: /cancel reservation/i })).toBeInTheDocument();
+      const dialog = screen.getByRole("dialog", { name: /cancel reservation/i });
+      expect(dialog).toBeInTheDocument();
+      expect(dialog.parentElement).toBe(document.body);
 
       await user.click(screen.getByRole("button", { name: /^cancel reservation$/i }));
       expect(onBookingAction).toHaveBeenCalledWith(expect.objectContaining({ reservationKey: "abc123xyz" }));

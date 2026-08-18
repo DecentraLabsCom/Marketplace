@@ -10,6 +10,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 
 /**
@@ -152,7 +153,7 @@ export default function Modal({
   const sizeClass = SIZES[size] || SIZES.md
   const themeStyles = THEMES[theme] || THEMES.light
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100 sm:items-center sm:p-4"
       onClick={onClose}
@@ -215,6 +216,11 @@ export default function Modal({
       </div>
     </div>
   )
+
+  // Render outside the trigger's DOM subtree so fixed positioning is relative
+  // to the viewport even when an ancestor applies transforms or overflow.
+  if (typeof document === 'undefined' || !document.body) return null
+  return createPortal(modalContent, document.body)
 }
 
 Modal.propTypes = {
