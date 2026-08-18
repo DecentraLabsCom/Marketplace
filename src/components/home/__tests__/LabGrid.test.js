@@ -23,7 +23,7 @@
  */
 
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LabGrid from "../LabGrid";
 
@@ -152,6 +152,39 @@ describe("LabGrid", () => {
       expect(screen.getByText(/Last update:/)).toBeInTheDocument();
       expect(screen.getByTestId("lab-card-1")).toBeInTheDocument();
       nowSpy.mockRestore();
+    });
+
+    test("fades the stale catalogue notice after five seconds and then removes it", () => {
+      jest.useFakeTimers();
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-07-15T11:00:00.000Z"));
+
+      try {
+        render(
+          <LabGrid
+            labs={mockLabs}
+            catalogueStatus="stale"
+            snapshotAt="2026-07-15T10:00:00.000Z"
+          />
+        );
+
+        act(() => jest.advanceTimersByTime(0));
+
+        const notice = screen.getByRole("status");
+        expect(notice).toHaveClass("w-fit", "max-w-full", "text-center", "opacity-100");
+        expect(notice.parentElement).toHaveClass("flex", "justify-center");
+
+        act(() => jest.advanceTimersByTime(4_999));
+        expect(notice).toHaveClass("opacity-100");
+
+        act(() => jest.advanceTimersByTime(1));
+        expect(notice).toHaveClass("opacity-0", "transition-opacity", "duration-1000");
+
+        act(() => jest.advanceTimersByTime(1_000));
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      } finally {
+        nowSpy.mockRestore();
+        jest.useRealTimers();
+      }
     });
 
     test("does not show a notice for a recently stale catalogue", async () => {

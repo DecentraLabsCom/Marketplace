@@ -8,6 +8,8 @@ import LabCard from '@/components/home/LabCard'
 import { LabCardGridSkeleton } from '@/components/skeletons'
 
 const STALE_NOTICE_AFTER_MS = 15 * 60 * 1_000
+const STALE_NOTICE_VISIBLE_MS = 5_000
+const STALE_NOTICE_FADE_MS = 1_000
 const STALE_NOTICE_STORAGE_PREFIX = 'decentralabs:catalogue-stale-notice:'
 
 /**
@@ -37,6 +39,7 @@ export default function LabGrid({
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
   const [showStaleNotice, setShowStaleNotice] = useState(false)
+  const [isFadingStaleNotice, setIsFadingStaleNotice] = useState(false)
   
   useEffect(() => {
     setIsHydrated(true)
@@ -44,6 +47,7 @@ export default function LabGrid({
 
   useEffect(() => {
     setShowStaleNotice(false)
+    setIsFadingStaleNotice(false)
     if (!isHydrated || catalogueStatus !== 'stale') return undefined
 
     const snapshotTimestamp = Date.parse(snapshotAt)
@@ -64,6 +68,24 @@ export default function LabGrid({
     const timer = window.setTimeout(showNoticeOnce, delay)
     return () => window.clearTimeout(timer)
   }, [catalogueStatus, isHydrated, snapshotAt])
+
+  useEffect(() => {
+    if (!showStaleNotice) return undefined
+
+    const fadeTimer = window.setTimeout(
+      () => setIsFadingStaleNotice(true),
+      STALE_NOTICE_VISIBLE_MS,
+    )
+    const hideTimer = window.setTimeout(
+      () => setShowStaleNotice(false),
+      STALE_NOTICE_VISIBLE_MS + STALE_NOTICE_FADE_MS,
+    )
+
+    return () => {
+      window.clearTimeout(fadeTimer)
+      window.clearTimeout(hideTimer)
+    }
+  }, [showStaleNotice])
   
   const shouldDeferUntilHydrated = !isHydrated && labs.length === 0
 
@@ -102,15 +124,19 @@ export default function LabGrid({
   return (
     <section>
       {showStaleNotice && (
-        <div
-          className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="status"
-          aria-live="polite"
-        >
-          Catalogue data may be outdated. Last update:{' '}
-          <time dateTime={snapshotAt || undefined}>
-            {formatSnapshotTimestamp(snapshotAt)}
-          </time>
+        <div className="mb-4 flex justify-center px-4">
+          <div
+            className={`w-fit max-w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950 transition-opacity duration-1000 ease-in-out ${
+              isFadingStaleNotice ? 'opacity-0' : 'opacity-100'
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            Catalogue data may be outdated. Last update:{' '}
+            <time dateTime={snapshotAt || undefined}>
+              {formatSnapshotTimestamp(snapshotAt)}
+            </time>
+          </div>
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
