@@ -51,10 +51,11 @@ function readAttribute(element, attributeName) {
 function parseSamlDocument(xml) {
   let parseError = null
   const document = new DOMParser({
-    errorHandler: {
-      warning: () => {},
-      error: (message) => { parseError = message },
-      fatalError: (message) => { parseError = message },
+    // xmldom 0.8 accepts an errorHandler callback; 0.9 also supports that
+    // callback while rejecting the legacy handler object. Ignore warnings so
+    // the deprecation notice emitted by 0.9 does not invalidate valid SAML.
+    errorHandler: (level, message) => {
+      if (level !== 'warning') parseError = message
     },
   }).parseFromString(xml, 'text/xml')
 

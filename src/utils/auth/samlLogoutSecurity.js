@@ -15,10 +15,11 @@ const ALLOWED_SIGNATURE_ALGORITHMS = new Set([
 function parseXml(xml) {
   let parserError = null
   const document = new DOMParser({
-    errorHandler: {
-      warning: () => {},
-      error: (message) => { parserError = message },
-      fatalError: (message) => { parserError = message },
+    // xmldom 0.8 accepts an errorHandler callback; 0.9 also supports that
+    // callback while rejecting the legacy handler object. Ignore warnings so
+    // the deprecation notice emitted by 0.9 does not invalidate valid SAML.
+    errorHandler: (level, message) => {
+      if (level !== 'warning') parserError = message
     },
   }).parseFromString(xml, 'application/xml')
 
