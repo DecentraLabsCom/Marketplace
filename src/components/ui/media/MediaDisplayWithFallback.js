@@ -249,7 +249,7 @@ export default function MediaDisplayWithFallback({
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
       // The placeholder is a static Marketplace asset, not a provider upload.
       // Keep it local so missing lab images never flash a failed Blob URL first.
-      if (mediaPath === LAB_PLACEHOLDER_PATH) return LAB_PLACEHOLDER_PATH
+      if (mediaPath === LAB_PLACEHOLDER_PATH) return LAB_PLACEHOLDER_PATH;
 
       if (isExternalUrl(mediaPath)) {
         const proxiedUrl = resolveLabImageUrl(mediaPath, labId);
