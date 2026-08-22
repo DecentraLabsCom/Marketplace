@@ -218,15 +218,19 @@ function retryAfterMilliseconds(response) {
   return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, retryAt - Date.now()))
 }
 
-async function issueProviderCredential(authBase, providerPayload) {
-  for (let attempt = 1; attempt <= PROVIDER_CREDENTIAL_ATTEMPTS; attempt += 1) {
+async function issueProviderCredential(
+  authBase,
+  providerPayload,
+  maxAttempts = PROVIDER_CREDENTIAL_ATTEMPTS,
+) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const response = await gatewayFetch(`${authBase}/access-credential`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(providerPayload),
     })
     const responseText = await response.text()
-    if (!isRetryableProviderPending(response, responseText) || attempt === PROVIDER_CREDENTIAL_ATTEMPTS) {
+    if (!isRetryableProviderPending(response, responseText) || attempt === maxAttempts) {
       return { response, responseText }
     }
     await new Promise((resolve) => setTimeout(resolve, retryAfterMilliseconds(response)))
@@ -237,6 +241,9 @@ async function issueProviderCredential(authBase, providerPayload) {
 function providerFailureResponse(response, responseText, message) {
   const upstreamData = parseResponseJson(responseText)
   const reason = resolvePublicCheckInReason(upstreamData)
+    || (response.status === 503 && upstreamData?.retryable === true
+      ? 'ACCESS_AUTHORIZATION_PENDING'
+      : null)
   const fields = publicCheckInFields(upstreamData, reason)
   if (typeof upstreamData?.retryable === 'boolean') fields.retryable = upstreamData.retryable
 
@@ -271,7 +278,12 @@ export async function POST(req) {
     const rateLimitResponse = createRateLimitResponse(await checkRate(req, session))
     if (rateLimitResponse) return rateLimitResponse
     const body = await req.json().catch(() => ({}))
-    const { labId, reservationKey } = body || {}
+    const {
+      labId,
+      reservationKey,
+      retryPendingAuthorization = false,
+      accessAuthorizationTxHash = null,
+    } = body || {}
     if (!labId && !reservationKey) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
@@ -339,6 +351,41 @@ export async function POST(req) {
     const consumerBackendBase = await resolveInstitutionalBackendUrl(affiliation)
     if (!consumerBackendBase) {
       throw new BadRequestError('Institution backend not registered')
+    }
+
+    if (retryPendingAuthorization === true) {
+      const canonicalReservationKey = reservationKey
+      const providerMarketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
+        ...commonTokenClaims,
+        reservationKey: canonicalReservationKey,
+        audience: buildBackendAudiences(providerAudience),
+      })
+      const consumerMarketplaceToken = isSameBackend(consumerBackendBase, authBase)
+        ? providerMarketplaceToken
+        : await marketplaceJwtService.generateSamlAuthToken({
+          ...commonTokenClaims,
+          reservationKey: canonicalReservationKey,
+          audience: buildBackendAudiences(consumerBackendBase),
+        })
+      const providerPayload = {
+        marketplaceToken: providerMarketplaceToken,
+        consumerMarketplaceToken,
+        reservationKey: canonicalReservationKey,
+        labId,
+      }
+      if (accessAuthorizationTxHash) {
+        providerPayload.accessAuthorizationTxHash = accessAuthorizationTxHash
+      }
+
+      const { response, responseText } = await issueProviderCredential(
+        authBase,
+        providerPayload,
+        1,
+      )
+      if (!response.ok) {
+        return providerFailureResponse(response, responseText, 'Provider access credential issuance failed')
+      }
+      return NextResponse.json(withGatewayOrigin(responseText, gatewayOrigin), { status: 200 })
     }
 
     if (isSameBackend(consumerBackendBase, authBase)) {

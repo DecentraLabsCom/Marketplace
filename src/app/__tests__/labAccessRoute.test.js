@@ -10,6 +10,7 @@ import {
   resolveInstitutionalBackendUrl,
 } from '@/utils/onboarding/institutionalBackend'
 import { resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
+import { clearRateLimitStoresForTests } from '@/utils/api/rateLimit'
 
 jest.mock('@/utils/auth/guards', () => {
   const actual = jest.requireActual('@/utils/auth/guards')
@@ -69,6 +70,7 @@ describe('/api/auth/lab-access route', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    clearRateLimitStoresForTests()
     resolveLabAccessGateway.mockResolvedValue('https://lab.example.com')
     global.fetch = jest.fn()
   })
@@ -437,6 +439,50 @@ describe('/api/auth/lab-access route', () => {
     expect(res.status).toBe(200)
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/authorize-and-issue'))).toHaveLength(1)
     expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(5)
+  })
+
+  test('retries pending authorization through provider credential issuance only', async () => {
+    requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('provider-marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+    global.fetch.mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labId: '10',
+        reservationKey: '0xabc',
+        retryPendingAuthorization: true,
+        accessAuthorizationTxHash: '0xtx',
+      }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gateway.example.com/auth/access-credential',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({
+      marketplaceToken: 'provider-marketplace-token',
+      consumerMarketplaceToken: 'provider-marketplace-token',
+      reservationKey: '0xabc',
+      labId: '10',
+      accessAuthorizationTxHash: '0xtx',
+    })
   })
 
   test('preserves safe structured errors returned by the combined backend flow', async () => {

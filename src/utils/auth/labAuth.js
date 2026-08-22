@@ -4,6 +4,66 @@
  */
 import devLog from '@/utils/dev/logger'
 
+const MAX_PENDING_AUTHORIZATION_RETRIES = 8
+const DEFAULT_PENDING_AUTHORIZATION_RETRY_MS = 1_000
+const MAX_PENDING_AUTHORIZATION_RETRY_MS = 5_000
+
+function parseRetryAfterMilliseconds(response) {
+  const raw = response?.headers?.get?.('retry-after')
+  if (!raw) return DEFAULT_PENDING_AUTHORIZATION_RETRY_MS
+
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(MAX_PENDING_AUTHORIZATION_RETRY_MS, Math.ceil(seconds * 1_000))
+  }
+
+  const retryAt = Date.parse(raw)
+  if (!Number.isFinite(retryAt)) return DEFAULT_PENDING_AUTHORIZATION_RETRY_MS
+  return Math.min(MAX_PENDING_AUTHORIZATION_RETRY_MS, Math.max(0, retryAt - Date.now()))
+}
+
+async function requestLabAccess({
+  labId,
+  reservationKey,
+  retryPendingAuthorization = false,
+  accessAuthorizationTxHash = null,
+}) {
+  const requestBody = { labId, reservationKey }
+  if (retryPendingAuthorization) {
+    requestBody.retryPendingAuthorization = true
+    if (accessAuthorizationTxHash) {
+      requestBody.accessAuthorizationTxHash = accessAuthorizationTxHash
+    }
+  }
+
+  const response = await fetch('/api/auth/lab-access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(requestBody),
+  })
+
+  if (response.ok) return response.json()
+
+  let payload = {}
+  if (typeof response.text === 'function') {
+    const text = await response.text()
+    try {
+      payload = text ? JSON.parse(text) : {}
+    } catch {
+      payload = {}
+    }
+  }
+  const error = new Error(payload.error || `SSO authentication failed. Status: ${response.status}`)
+  if (payload.code) error.code = payload.code
+  if (payload.correlationId) error.correlationId = payload.correlationId
+  if (typeof payload.retryable === 'boolean') error.retryable = payload.retryable
+  if (payload.reservationKey) error.reservationKey = payload.reservationKey
+  if (payload.txHash) error.txHash = payload.txHash
+  error.retryAfterMs = parseRetryAfterMilliseconds(response)
+  throw error
+}
+
 /**
  * Authenticates SSO user for lab access using marketplace-backed flow.
  * @param {Object} params
@@ -21,31 +81,30 @@ export const authenticateLabAccessSSO = async ({
       throw new Error('Missing labId or reservationKey for SSO access');
     }
 
-    const response = await fetch('/api/auth/lab-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ labId, reservationKey }),
-    });
+    let currentReservationKey = reservationKey
+    let retryPendingAuthorization = false
+    let accessAuthorizationTxHash = null
 
-    if (!response.ok) {
-      let payload = {}
-      if (typeof response.text === 'function') {
-        const text = await response.text()
-        try {
-          payload = text ? JSON.parse(text) : {}
-        } catch {
-          payload = {}
-        }
+    for (let attempt = 0; attempt <= MAX_PENDING_AUTHORIZATION_RETRIES; attempt += 1) {
+      try {
+        return await requestLabAccess({
+          labId,
+          reservationKey: currentReservationKey,
+          retryPendingAuthorization,
+          accessAuthorizationTxHash,
+        })
+      } catch (error) {
+        const canRetry = error?.code === 'ACCESS_AUTHORIZATION_PENDING'
+          && error.retryable === true
+          && attempt < MAX_PENDING_AUTHORIZATION_RETRIES
+        if (!canRetry) throw error
+
+        currentReservationKey = error.reservationKey || currentReservationKey
+        accessAuthorizationTxHash = error.txHash || null
+        await new Promise((resolve) => setTimeout(resolve, error.retryAfterMs))
+        retryPendingAuthorization = true
       }
-      const error = new Error(payload.error || `SSO authentication failed. Status: ${response.status}`)
-      if (payload.code) error.code = payload.code
-      if (payload.correlationId) error.correlationId = payload.correlationId
-      if (typeof payload.retryable === 'boolean') error.retryable = payload.retryable
-      throw error
     }
-
-    return response.json();
   } catch (error) {
     devLog.error('ERROR: SSO lab authentication failed:', error);
     throw error;

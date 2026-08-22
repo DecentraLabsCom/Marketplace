@@ -93,6 +93,41 @@ describe("Lab Authentication Utilities", () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(global.fetch.mock.calls[0][0]).toBe("/api/auth/lab-access");
     });
+
+    test("continues a retryable pending authorization without repeating the check-in", async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          headers: new Headers({ "Retry-After": "0" }),
+          text: async () => JSON.stringify({
+            error: "Access authorization is still pending.",
+            code: "ACCESS_AUTHORIZATION_PENDING",
+            retryable: true,
+            reservationKey: "rk-canonical",
+            txHash: `0x${"a".repeat(64)}`,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ accessCode: "opaque-code", labURL: "https://lab.example.com" }),
+        });
+
+      const result = await authenticateLabAccessSSO({ labId, reservationKey: "rk-1" });
+
+      expect(result).toEqual({ accessCode: "opaque-code", labURL: "https://lab.example.com" });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+        labId,
+        reservationKey: "rk-1",
+      });
+      expect(JSON.parse(global.fetch.mock.calls[1][1].body)).toEqual({
+        labId,
+        reservationKey: "rk-canonical",
+        retryPendingAuthorization: true,
+        accessAuthorizationTxHash: `0x${"a".repeat(64)}`,
+      });
+    });
   });
 
   describe("getAuthErrorMessage", () => {
