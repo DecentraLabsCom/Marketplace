@@ -117,7 +117,11 @@ function resolveAffiliation(session) {
   return session?.affiliation || session?.schacHomeOrganization || null
 }
 
-const PROVIDER_CREDENTIAL_ATTEMPTS = 3
+// The institutional check-in is submitted asynchronously. The backend's
+// outbox and receipt monitors normally converge within a few seconds, so keep
+// retrying credential issuance long enough for that first access request to
+// observe ACCESS_AUTHORIZED without repeating the check-in transaction.
+const PROVIDER_CREDENTIAL_ATTEMPTS = 8
 const MAX_RETRY_AFTER_MS = 5_000
 
 function parseResponseJson(responseText) {

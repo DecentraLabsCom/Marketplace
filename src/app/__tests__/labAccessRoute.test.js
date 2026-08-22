@@ -56,6 +56,17 @@ describe('/api/auth/lab-access route', () => {
     }),
   })
 
+  const buildPendingCredentialResponse = () => ({
+    ok: false,
+    status: 503,
+    headers: new Headers({ 'Retry-After': '0' }),
+    text: async () => JSON.stringify({
+      retryable: true,
+      txHash: '0xtx',
+      reservationKey: '0xabc',
+    }),
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
     resolveLabAccessGateway.mockResolvedValue('https://lab.example.com')
@@ -379,6 +390,53 @@ describe('/api/auth/lab-access route', () => {
       labId: '10',
     })
     expect(JSON.parse(global.fetch.mock.calls[0][1].body)).not.toHaveProperty('samlAssertion')
+  })
+
+  test('keeps the first click pending until provider authorization becomes visible', async () => {
+    requireAuth.mockResolvedValue({
+      institutionalBackendSessionToken: 'institutional-session-token',
+      samlAssertionHash: `0x${'a'.repeat(64)}`,
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-1@uned.es',
+    })
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken
+      .mockResolvedValueOnce('combined-marketplace-token')
+      .mockResolvedValueOnce('provider-marketplace-token')
+    resolveInstitutionalBackendUrl.mockResolvedValue('https://gateway.example.com')
+    getContractInstance.mockResolvedValue({
+      getLabAuthURI: jest.fn().mockResolvedValue('https://gateway.example.com/auth'),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'Retry-After': '0' }),
+        text: async () => JSON.stringify({
+          retryable: true,
+          txHash: '0xtx',
+          reservationKey: '0xabc',
+        }),
+      })
+      .mockResolvedValueOnce(buildPendingCredentialResponse())
+      .mockResolvedValueOnce(buildPendingCredentialResponse())
+      .mockResolvedValueOnce(buildPendingCredentialResponse())
+      .mockResolvedValueOnce(buildPendingCredentialResponse())
+      .mockResolvedValueOnce(buildAccessCodeResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+    const res = await POST(new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId: '10', reservationKey: '0xabc' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/authorize-and-issue'))).toHaveLength(1)
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/access-credential'))).toHaveLength(5)
   })
 
   test('preserves safe structured errors returned by the combined backend flow', async () => {
