@@ -100,6 +100,32 @@ describe('LabAccess', () => {
 
   })
 
+  test('shows a spinner and animates verification dots while access is pending', async () => {
+    useUser.mockReturnValue({ isSSO: true })
+    let rejectAuthentication
+    mockAuthenticateLabAccessSSO.mockReturnValue(new Promise((resolve, reject) => {
+      rejectAuthentication = reject
+    }))
+
+    render(<LabAccess id="123" hasActiveBooking reservationKey="rk-1" />)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/contract/lab/getLabAuthURI?labId=123')
+    })
+    const button = await screen.findByRole('button', { name: /access/i })
+    fireEvent.click(button)
+
+    await waitFor(() => expect(button).toHaveTextContent(/^Verifying\.$/))
+    expect(button.querySelector('.spinner')).toHaveAttribute('aria-hidden', 'true')
+
+    await waitFor(() => expect(button).toHaveTextContent(/^Verifying\.\.$/), { timeout: 1_000 })
+    await waitFor(() => expect(button).toHaveTextContent(/^Verifying\.\.\.$/), { timeout: 1_000 })
+    await waitFor(() => expect(button).toHaveTextContent(/^Verifying\.$/), { timeout: 1_000 })
+
+    rejectAuthentication(new Error('stop'))
+    expect(await screen.findByText('Connection failed. Please try again.')).toBeInTheDocument()
+  })
+
   test('shows friendly authentication errors from the institutional path', async () => {
     const error = new Error('network')
     useUser.mockReturnValue({ isSSO: true })

@@ -9,6 +9,7 @@ import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
+const VERIFICATION_DOT_INTERVAL_MS = 500
 
 export function submitLabAccessCode(labId, accessCode) {
   if ((labId === undefined || labId === null || labId === '') || !accessCode) {
@@ -83,6 +84,21 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
   });
 
   const waitingReservationState = !!reservationKey && !!hasActiveBooking && !!isFetchingReservation;
+  const isVerifying = loading || waitingReservationState
+  const [verificationDots, setVerificationDots] = useState('.')
+
+  useEffect(() => {
+    if (!isVerifying) {
+      setVerificationDots('.')
+      return undefined
+    }
+
+    const intervalId = setInterval(() => {
+      setVerificationDots((currentDots) => (currentDots.length >= 3 ? '.' : `${currentDots}.`))
+    }, VERIFICATION_DOT_INTERVAL_MS)
+
+    return () => clearInterval(intervalId)
+  }, [isVerifying])
 
   // Fetch authURI when component mounts or lab ID changes
   useEffect(() => {
@@ -211,8 +227,8 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
       <button
         type="button"
         onClick={handleAccess}
-        disabled={loading || fetchingAuth || waitingReservationState}
-        aria-busy={loading || fetchingAuth || waitingReservationState}
+        disabled={isVerifying || fetchingAuth}
+        aria-busy={isVerifying || fetchingAuth}
         className="absolute bottom-0 inset-x-0 h-1/3 bg-brand/75 
           opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-300 text-white text-lg 
           font-bold cursor-pointer z-10 disabled:cursor-not-allowed disabled:opacity-70"
@@ -223,7 +239,13 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null,
           style={{ bottom: '-15%' }}
         >
             <span className="text-white px-4 py-2 rounded mt-3">
-            {(loading || waitingReservationState) ? "Verifying..." : "Access"}
+            <span className="inline-flex items-center justify-center gap-2">
+              {isVerifying && <span className="spinner spinner-sm border-white" aria-hidden="true" />}
+              <span aria-label={isVerifying ? 'Verifying' : 'Access'}>
+                {isVerifying ? 'Verifying' : 'Access'}
+                {isVerifying && <span className="inline-block w-3 text-left" aria-hidden="true">{verificationDots}</span>}
+              </span>
+            </span>
           </span>
         </span>
       </button>
