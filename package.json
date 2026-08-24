@@ -41,7 +41,7 @@
     "reconcile:institution-provisioning": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/reconcile-institution-provisioning.js"
   },
   "dependencies": {
-    "@base-org/account": "~2.5.4",
+    "@base-org/account": "~2.5.10",
     "@coinbase/wallet-sdk": "~4.3.7",
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
