@@ -46,6 +46,7 @@ const persistedMetadataSchema = z.object({
   name: z.string().max(200),
   description: z.string().max(20_000),
   image: z.string().max(4_096),
+  demoEnabled: z.boolean(),
   attributes: z.array(z.object({
     trait_type: z.string().max(64),
     value: z.unknown(),
@@ -323,8 +324,14 @@ export async function POST(req) {
       modelVariables,
       defaultStartTime,
       defaultStopTime,
-      defaultStepSize
+      defaultStepSize,
+      demoEnabled,
     } = labData;
+
+    if (demoEnabled !== undefined && typeof demoEnabled !== 'boolean') {
+      throw new BadRequestError('demoEnabled must be a boolean')
+    }
+    const normalizedDemoEnabled = demoEnabled === true
 
     // Validate required fields
     if (!uri) {
@@ -505,6 +512,7 @@ export async function POST(req) {
       name: name || "",
       description: description || "",
       image: normalizedImages.length > 0 ? normalizedImages[0] : "",
+      demoEnabled: normalizedDemoEnabled,
       attributes: [
         { trait_type: "classification", value: normalizedClassification },
         { trait_type: "classificationPrimaryScheme", value: CLASSIFICATION_SCHEMES.FORD },

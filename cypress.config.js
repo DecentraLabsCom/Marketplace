@@ -18,6 +18,10 @@ export default defineConfig({
     env: {
       liveIntegration: process.env.CYPRESS_LIVE_INTEGRATION === 'true',
       liveSessionId: process.env.CYPRESS_LIVE_SESSION_ID || '',
+      demoLive: process.env.CYPRESS_DEMO_LIVE === 'true',
+      demoGatewayUrl: process.env.CYPRESS_DEMO_GATEWAY_URL || '',
+      demoLabId: process.env.CYPRESS_DEMO_LAB_ID || '',
+      demoConnectionId: process.env.CYPRESS_DEMO_CONNECTION_ID || '',
       releaseGate: process.env.CYPRESS_RELEASE_GATE === 'true',
       releaseGateConsumerUrl: process.env.CYPRESS_RELEASE_GATE_CONSUMER_URL || '',
       releaseGateProviderUrl: process.env.CYPRESS_RELEASE_GATE_PROVIDER_URL || '',

@@ -1058,7 +1058,10 @@ export default function LabFormFullSetup({
             role="switch"
             aria-checked={!!localLab?.demoEnabled}
             disabled={disabled}
-            onClick={() => setLocalLab({ demoEnabled: !localLab?.demoEnabled })}
+            onClick={() => setLocalLab({
+              ...latestLabRef.current,
+              demoEnabled: !latestLabRef.current?.demoEnabled,
+            })}
             className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#7875a8] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
               localLab?.demoEnabled ? 'bg-[#7875a8] cursor-pointer' : 'bg-gray-300 cursor-pointer'
             }`}

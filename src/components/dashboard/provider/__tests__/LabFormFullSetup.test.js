@@ -229,6 +229,17 @@ describe("LabFormFullSetup", () => {
       renderForm({ localLab: mockLab });
       expect(screen.getByText("Save Changes")).toBeInTheDocument();
     });
+
+    test("toggles demo access without dropping the rest of the lab draft", () => {
+      renderForm({ localLab: { ...mockLab, demoEnabled: false } });
+
+      fireEvent.click(screen.getByRole("switch"));
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        demoEnabled: true,
+      });
+    });
   });
 
   describe("Form Input Updates", () => {

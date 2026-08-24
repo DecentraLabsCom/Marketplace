@@ -19,7 +19,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import LabDetail from "../LabDetail";
+import LabDetail, { DEMO_WINDOW_SECONDS } from "../LabDetail";
 import { useLabById } from "@/hooks/lab/useLabs";
 import { useCheckAvailable } from "@/hooks/booking/useBookingAtomicQueries";
 import { useLabCredit } from "@/context/LabCreditContext";
@@ -90,7 +90,7 @@ describe("LabDetail", () => {
       formatPrice: jest.fn((price) => price),
     });
     useLabById.mockReturnValue(defaultMockResponse);
-    useCheckAvailable.mockReturnValue({ data: undefined });
+    useCheckAvailable.mockReturnValue({ data: undefined, isLoading: false, isError: false });
     // Suppress jsdom navigation warnings
     console.error = (...args) => {
       if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
@@ -377,7 +377,7 @@ describe("LabDetail", () => {
   });
 
   describe("Demo Access", () => {
-    const demoLab = { ...mockLabData, demoEnabled: true, accessURI: "https://demo.example.com/guacamole" };
+    const demoLab = { ...mockLabData, id: "42", demoEnabled: true, accessURI: "https://demo.example.com/guacamole" };
 
     test("shows Try Demo button when demoEnabled is true and lab is available", () => {
       useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
@@ -387,8 +387,19 @@ describe("LabDetail", () => {
 
       const demoLink = screen.getByRole("link", { name: /Try.*demo/i });
       expect(demoLink).toBeInTheDocument();
-      expect(demoLink).toHaveAttribute("href", "https://demo.example.com/auth/demo");
+      expect(demoLink).toHaveAttribute("href", "https://demo.example.com/auth/demo?labId=42");
       expect(demoLink).toHaveAttribute("target", "_blank");
+    });
+
+    test("checks a future full demo window", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: { isAvailable: true } });
+
+      render(<LabDetail id="lab-123" />);
+
+      const [, start, duration] = useCheckAvailable.mock.calls.at(-1);
+      expect(start).toBeGreaterThan(Math.floor(Date.now() / 1000));
+      expect(duration).toBe(DEMO_WINDOW_SECONDS);
     });
 
     test("shows 'Lab currently reserved' when demoEnabled is true but lab is unavailable", () => {
@@ -408,14 +419,36 @@ describe("LabDetail", () => {
       expect(screen.queryByText(/Lab currently reserved/i)).not.toBeInTheDocument();
     });
 
-    test("shows Try Demo button when availability data is not yet loaded", () => {
-      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
-      useCheckAvailable.mockReturnValue({ data: undefined });
+    test("does not show Try Demo for an unlisted lab", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...demoLab, isListed: false },
+      });
+      useCheckAvailable.mockReturnValue({ data: { isAvailable: true } });
 
       render(<LabDetail id="lab-123" />);
 
-      // When data is undefined (loading), isAvailable is not false → show button
-      expect(screen.getByRole("link", { name: /Try.*demo/i })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+    });
+
+    test("does not show Try Demo while availability data is loading", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/checking demo availability/i)).toBeInTheDocument();
+    });
+
+    test("does not show Try Demo when availability cannot be verified", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/demo availability is currently unavailable/i)).toBeInTheDocument();
     });
 
     test("does not render an unsafe demo URL as a link", () => {

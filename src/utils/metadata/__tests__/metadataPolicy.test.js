@@ -357,6 +357,19 @@ describe('metadata egress policy', () => {
     })
   })
 
+  test('preserves the canonical demoEnabled flag and rejects non-boolean values', () => {
+    expect(policy.validateMetadataDocument({
+      name: 'Demo lab',
+      demoEnabled: true,
+    })).toEqual({
+      name: 'Demo lab',
+      demoEnabled: true,
+    })
+
+    expect(() => policy.validateMetadataDocument({ demoEnabled: 'true' }))
+      .toThrow('Metadata document does not match the expected schema')
+  })
+
   test('preserves the bounded FMU variable shape metadata used by simulation inputs', () => {
     const metadata = policy.validateMetadataDocument({
       attributes: [{

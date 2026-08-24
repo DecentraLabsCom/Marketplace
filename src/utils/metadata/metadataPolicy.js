@@ -85,6 +85,7 @@ const metadataDocumentSchema = z.object({
   name: z.string().max(200).optional(),
   description: z.string().max(20_000).optional(),
   image: z.string().max(4_096).optional(),
+  demoEnabled: z.boolean().optional(),
   images: z.array(z.string().max(4_096)).max(64).optional(),
   attributes: z.array(z.unknown()).max(128).optional(),
 }).strip().transform((metadata) => ({

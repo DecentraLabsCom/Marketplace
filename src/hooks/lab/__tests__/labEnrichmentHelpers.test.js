@@ -27,6 +27,7 @@ describe('labEnrichmentHelpers', () => {
       keywords: ['circuits', 'remote'],
       docs: ['https://lab.example.edu/lab-content/content/demo/docs/manual.pdf'],
       image: 'https://lab.example.edu/lab-content/content/demo/images/cover.png',
+      demoEnabled: true,
       images: [
         'https://lab.example.edu/lab-content/content/demo/images/cover.png',
         'https://lab.example.edu/lab-content/content/demo/images/side.png'
@@ -39,6 +40,7 @@ describe('labEnrichmentHelpers', () => {
       keywords: ['circuits', 'remote'],
       docs: ['https://lab.example.edu/lab-content/content/demo/docs/manual.pdf'],
       image: 'https://lab.example.edu/lab-content/content/demo/images/cover.png',
+      demoEnabled: true,
       images: [
         'https://lab.example.edu/lab-content/content/demo/images/cover.png',
         'https://lab.example.edu/lab-content/content/demo/images/side.png'

@@ -28,6 +28,20 @@ import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUr
 
 let countryLocaleRegistered = false
 
+export const DEMO_WINDOW_SECONDS = 600
+const DEMO_START_BUFFER_SECONDS = 5
+const DEMO_AVAILABILITY_REFRESH_MS = 30_000
+
+const getDemoCheckStart = () => Math.floor(Date.now() / 1000) + DEMO_START_BUFFER_SECONDS
+
+const resolveDemoAvailabilityState = ({ isLoading, isPending, isFetching, isError, isAvailable }) => {
+  if (isLoading || isPending || isFetching) return 'loading'
+  if (isError) return 'error'
+  if (isAvailable === true) return 'available'
+  if (isAvailable === false) return 'reserved'
+  return 'unavailable'
+}
+
 const ensureCountryLocale = () => {
   if (countryLocaleRegistered) return
   countries.registerLocale(enLocale)
@@ -63,17 +77,33 @@ export default function LabDetail({ id }) {
   const router = useRouter();
   const labIsFmu = isFmu(lab);
 
-  // Demo availability check — stable minute-aligned start time so the query key
-  // doesn't change on every render; refetchInterval handles periodic refresh.
-  const demoCheckStart = useMemo(() => Math.floor(Date.now() / 60000) * 60, []);
-  const { data: demoAvailData } = useCheckAvailable(
+  const [demoCheckStart, setDemoCheckStart] = useState(null);
+  const demoAvailabilityEnabled = !!(lab?.id && lab?.isListed === true && lab?.demoEnabled && !labIsFmu);
+
+  useEffect(() => {
+    if (!demoAvailabilityEnabled) return undefined;
+
+    const refreshDemoWindow = () => setDemoCheckStart(getDemoCheckStart());
+    refreshDemoWindow();
+    const refreshInterval = window.setInterval(refreshDemoWindow, DEMO_AVAILABILITY_REFRESH_MS);
+
+    return () => window.clearInterval(refreshInterval);
+  }, [demoAvailabilityEnabled]);
+
+  const {
+    data: demoAvailData,
+    isLoading: demoAvailabilityLoading,
+    isPending: demoAvailabilityPending,
+    isFetching: demoAvailabilityFetching,
+    isError: demoAvailabilityError,
+  } = useCheckAvailable(
     lab?.id,
     demoCheckStart,
-    60,
+    DEMO_WINDOW_SECONDS,
     {
-      enabled: !!(lab?.id && lab?.demoEnabled && !labIsFmu),
-      refetchInterval: 60000,
-      staleTime: 30000,
+      enabled: demoAvailabilityEnabled && demoCheckStart !== null,
+      refetchInterval: false,
+      staleTime: DEMO_AVAILABILITY_REFRESH_MS,
     }
   );
 
@@ -212,7 +242,14 @@ export default function LabDetail({ id }) {
   const hasFmuModelVariables = Array.isArray(fmuMeta?.modelVariables) && fmuMeta.modelVariables.length > 0;
   const hasFmuDimensionDescriptions = fmuDimensionLegend.some((dimension) => dimension.description);
   const safeAccessUri = safeExternalHttpUrl(lab?.accessURI)
-  const demoAccessUri = buildDemoAccessUrl(safeAccessUri)
+  const demoAccessUri = buildDemoAccessUrl(safeAccessUri, lab?.id)
+  const demoAvailabilityState = resolveDemoAvailabilityState({
+    isLoading: demoAvailabilityLoading,
+    isPending: demoAvailabilityPending,
+    isFetching: demoAvailabilityFetching,
+    isError: demoAvailabilityError,
+    isAvailable: demoAvailData?.isAvailable,
+  })
 
   return (
     <Container padding="sm">
@@ -290,9 +327,17 @@ export default function LabDetail({ id }) {
             </button>
 
             {/* Demo Access */}
-            {lab?.demoEnabled && !labIsFmu && demoAccessUri && (
+            {lab?.isListed === true && lab?.demoEnabled && !labIsFmu && demoAccessUri && (
               <div className="mt-3 w-2/3 mx-auto">
-                {demoAvailData?.isAvailable === false ? (
+                {demoAvailabilityState === 'loading' ? (
+                  <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
+                    Checking demo availability…
+                  </p>
+                ) : demoAvailabilityState === 'error' || demoAvailabilityState === 'unavailable' ? (
+                  <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
+                    Demo availability is currently unavailable
+                  </p>
+                ) : demoAvailabilityState === 'reserved' ? (
                   <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
                     Lab currently reserved
                   </p>
@@ -513,4 +558,3 @@ export default function LabDetail({ id }) {
 LabDetail.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }
-

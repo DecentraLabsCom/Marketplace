@@ -111,6 +111,7 @@ describe('/api/provider/saveLabData route', () => {
           uri,
           name: 'Long booking lab',
           description: 'A lab with weekly booking periods',
+          demoEnabled: true,
           images: ['https://example.edu/lab.png', 'https://example.edu/side.png'],
           category: ['1.3'],
           keywords: ['remote', 'weekly'],
@@ -136,6 +137,7 @@ describe('/api/provider/saveLabData route', () => {
       name: 'Long booking lab',
       description: 'A lab with weekly booking periods',
       image: 'https://example.edu/lab.png',
+      demoEnabled: true,
     }))
     expect(body.metadata).not.toHaveProperty('category')
     expect(body.metadata).not.toHaveProperty('keywords')
@@ -174,6 +176,28 @@ describe('/api/provider/saveLabData route', () => {
       maxDurationDays: 14,
     }))
     expect(attributes.resourceType).toBe('lab')
+  })
+
+  test('rejects a non-boolean demoEnabled flag', async () => {
+    const { POST } = await import('../api/provider/saveLabData/route.js')
+
+    const response = await POST(new Request('http://localhost/api/provider/saveLabData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labData: {
+          id: 8,
+          uri: 'Lab-provider-8.json',
+          category: ['1.3'],
+          demoEnabled: 'true',
+        },
+      }),
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'BAD_REQUEST',
+    })
   })
 
   test('persists a local URI when its generated filename does not predict the minted lab id', async () => {
