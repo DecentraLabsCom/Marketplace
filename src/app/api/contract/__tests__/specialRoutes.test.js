@@ -297,16 +297,27 @@ describe('special contract adapters', () => {
   })
 
   test('returns a generic error when the lab index cannot be read', async () => {
-    contract.getLabsPaginated.mockRejectedValue(new Error('provider unavailable'))
+    const previousCi = process.env.CI
+    delete process.env.CI
 
-    const response = await getAllLabs()
-    const body = await json(response)
+    try {
+      contract.getLabsPaginated.mockRejectedValue(new Error('provider unavailable'))
 
-    expect(response.status).toBe(500)
-    expect(body).toEqual(expect.objectContaining({
-      code: 'LAB_LIST_FAILED',
-      error: 'The laboratory list could not be loaded.',
-    }))
+      const response = await getAllLabs()
+      const body = await json(response)
+
+      expect(response.status).toBe(500)
+      expect(body).toEqual(expect.objectContaining({
+        code: 'LAB_LIST_FAILED',
+        error: 'The laboratory list could not be loaded.',
+      }))
+    } finally {
+      if (previousCi === undefined) {
+        delete process.env.CI
+      } else {
+        process.env.CI = previousCi
+      }
+    }
   })
 
   test('maps provider pages to the public provider projection', async () => {
