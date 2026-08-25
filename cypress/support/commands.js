@@ -335,3 +335,66 @@ Cypress.Commands.add(
 
   }
 );
+
+/**
+ * Install a Chrome virtual authenticator for opt-in live WebAuthn tests.
+ *
+ * The credential must already be registered in the institutional backend and
+ * its ID/private key must be supplied as base64-encoded CDP values. No secret
+ * is logged or returned to the test output.
+ */
+Cypress.Commands.add("enableLiveVirtualWebAuthn", ({ rpId, credentialId, privateKey }) => {
+  if (!rpId || !credentialId || !privateKey) {
+    throw new Error(
+      "CYPRESS_LIVE_BOOKING_RP_ID, _CREDENTIAL_ID and _CREDENTIAL_PRIVATE_KEY are required",
+    );
+  }
+
+  return cy.then(() => Cypress.automation("remote:debugger:protocol", {
+    command: "WebAuthn.enable",
+    params: {},
+  })).then(() => Cypress.automation("remote:debugger:protocol", {
+    command: "WebAuthn.addVirtualAuthenticator",
+    params: {
+      options: {
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: false,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    },
+  })).then(({ result }) => {
+    const authenticatorId = result?.authenticatorId;
+    if (!authenticatorId) {
+      throw new Error("Chrome did not create the live WebAuthn authenticator");
+    }
+
+    return Cypress.automation("remote:debugger:protocol", {
+      command: "WebAuthn.addCredential",
+      params: {
+        authenticatorId,
+        credential: {
+          credentialId,
+          isResidentCredential: false,
+          rpId,
+          privateKey,
+          signCount: 0,
+        },
+      },
+    }).then(() => authenticatorId);
+  });
+});
+
+Cypress.Commands.add("disableLiveVirtualWebAuthn", (authenticatorId) => {
+  if (!authenticatorId) return;
+
+  return cy.then(() => Cypress.automation("remote:debugger:protocol", {
+    command: "WebAuthn.removeVirtualAuthenticator",
+    params: { authenticatorId },
+  })).then(() => Cypress.automation("remote:debugger:protocol", {
+    command: "WebAuthn.disable",
+    params: {},
+  }));
+});

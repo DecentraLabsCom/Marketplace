@@ -1,12 +1,16 @@
 /**
  * Booking Flow E2E Tests
  *
- * Lightweight coverage to ensure reservation UI loads for authenticated users.
+ * Covers the institutional booking boundary and the browser-to-gateway access
+ * handoff. The live, non-intercepted variant lives in live-integration.cy.js.
  */
 describe("Lab Booking Flow", () => {
   const onboardingStableUserId = "test-user@institution.edu";
   const onboardingInstitutionId = "institution.edu";
   const onboardingMarkerKey = `institutional_browser_passkey:${onboardingInstitutionId}:${onboardingStableUserId}`;
+  const intentRequestId = `0x${"a".repeat(64)}`;
+  const authorizationSessionId = "authorization-session-booking-1";
+  const reservationKey = `0x${"b".repeat(64)}`;
 
   const createBookingLab = () => {
     const opens = new Date();
@@ -125,4 +129,159 @@ describe("Lab Booking Flow", () => {
     cy.contains("h2", "Review reservation").should("be.visible");
     cy.contains("button", "Confirm reservation").should("be.visible");
   });
+
+  it("executes prepare → WebAuthn → intent → reservation → access handoff", () => {
+    const start = Math.floor(Date.now() / 1000) + 3600;
+    const end = start + 3600;
+
+    // Keep the popup contract intact while making the authorization result
+    // deterministic. The production flow still has to open the authorization
+    // window and poll its same-origin proxy endpoints.
+    cy.intercept("POST", "/api/backend/intents/actions/prepare", (req) => {
+      expect(req.body).to.deep.include({ action: 8 });
+      expect(req.body.payload).to.include.keys("labId", "start", "end", "timeslot");
+
+      req.reply({
+        statusCode: 200,
+        body: {
+          kind: "reservation",
+          requestId: intentRequestId,
+          backendUrl: "https://institution.example.test",
+          authorizationUrl: `https://institution.example.test/intents/authorize/ceremony/${authorizationSessionId}`,
+          authorizationSessionId,
+          intent: {
+            meta: { action: 8, requestId: intentRequestId },
+            payload: {
+              labId: 1,
+              reservationKey,
+              start,
+              end,
+            },
+          },
+        },
+      });
+    }).as("prepareIntent");
+
+    cy.intercept(
+      "GET",
+      `/api/backend/intents/authorize/status/${authorizationSessionId}*`,
+      {
+        statusCode: 200,
+        body: { status: "SUCCESS", requestId: intentRequestId },
+      },
+    ).as("authorizationStatus");
+
+    cy.intercept("GET", `/api/backend/intents/${intentRequestId}*`, {
+      statusCode: 200,
+      body: {
+        status: "executed",
+        requestId: intentRequestId,
+        reservationKey,
+        reservationStatus: "confirmed",
+      },
+    }).as("intentStatus");
+
+    cy.intercept("GET", `/api/backend/intents/${intentRequestId}/onchain*`, {
+      statusCode: 200,
+      body: { state: 2, stateName: "executed", requestId: intentRequestId },
+    }).as("onchainIntentStatus");
+
+    visitReservationWithAuthorizationPopupStub();
+    cy.wait("@getSession");
+    cy.wait("@resolveInstitution");
+    cy.wait("@keyStatus");
+    cy.wait("@getAllLabs");
+    cy.wait("@getLab");
+    cy.wait("@getMetadata");
+
+    cy.get("#time-select").should("not.be.disabled");
+    cy.contains("button", /book now/i).click();
+    cy.contains("button", "Confirm reservation").click();
+
+    cy.wait("@prepareIntent").its("request.body.payload").should("include", {
+      labId: 1,
+    });
+    cy.wait("@authorizationStatus");
+    cy.wait("@intentStatus");
+    cy.wait("@onchainIntentStatus");
+
+    // The confirmed reservation is now handed to the real Marketplace access
+    // boundary. The UI component is covered separately; this assertion keeps
+    // the booking-to-access contract in one browser-level scenario.
+    cy.intercept("POST", "/api/auth/lab-access", (req) => {
+      expect(req.body).to.deep.include({ labId: 1, reservationKey });
+      expect(req.body).not.to.have.any.keys("samlAssertion", "institutionalBackendSessionToken", "jwt");
+      req.reply({
+        statusCode: 200,
+        body: {
+          accessCode: "opaque-gateway-code",
+          labURL: "https://gateway.example.test/guacamole/",
+          gatewayOrigin: "https://gateway.example.test",
+          resourceType: "lab",
+          reservationKey,
+        },
+      });
+    }).as("requestLabAccess");
+    cy.intercept("POST", "/api/auth/lab-access/handoff", (req) => {
+      expect(req.headers["content-type"]).to.match(/application\/x-www-form-urlencoded/);
+      expect(req.body).to.include("lab_id=1");
+      expect(req.body).to.include("access_code=opaque-gateway-code");
+      expect(req.body).not.to.match(/saml|jwt|bearer|assertion/i);
+      req.reply({ statusCode: 204, body: "" });
+    }).as("accessHandoff");
+
+    cy.window().then(async (win) => {
+      const accessResponse = await win.fetch("/api/auth/lab-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ labId: 1, reservationKey }),
+      });
+      expect(accessResponse.ok).to.equal(true);
+
+      const accessBody = await accessResponse.json();
+      expect(accessBody.accessCode).to.equal("opaque-gateway-code");
+
+      const handoffResponse = await win.fetch("/api/auth/lab-access/handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          lab_id: "1",
+          access_code: accessBody.accessCode,
+        }),
+      });
+      expect(handoffResponse.status).to.equal(204);
+    });
+    cy.wait("@requestLabAccess");
+    cy.wait("@accessHandoff");
+  });
+
+  function visitReservationWithAuthorizationPopupStub() {
+    cy.visit("/reservation/1", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem(
+          onboardingMarkerKey,
+          JSON.stringify({ verifiedAt: Date.now(), advisoryDismissedAt: null }),
+        );
+
+        let popupClosed = false;
+        const popup = {
+          document: {
+            open() {},
+            write() {},
+            close() {},
+          },
+          focus() {},
+          location: { href: "" },
+          close() {
+            popupClosed = true;
+          },
+        };
+        Object.defineProperty(popup, "closed", {
+          get: () => popupClosed,
+        });
+        win.open = () => popup;
+      },
+    });
+  }
 });
