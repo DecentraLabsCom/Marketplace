@@ -52,7 +52,6 @@ jest.mock('@/utils/auth/roleValidation', () => ({
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   BadRequestError,
-  ForbiddenError,
   handleGuardError,
   requireAuth,
 } from '@/utils/auth/guards'

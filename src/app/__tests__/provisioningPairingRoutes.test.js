@@ -52,13 +52,11 @@ import {
 
 const {
   createPairingForSession: mockCreatePairingForSession,
-  pairingErrorResponse: mockPairingErrorResponse,
   requireProvisioningPairingSession: mockRequireProvisioningPairingSession,
 } = jest.requireMock('@/utils/auth/provisioningPairingRoutes')
 const {
   getProvisioningPairingByChallenge: mockGetProvisioningPairingByChallenge,
   isProvisioningPairingExpired: mockIsProvisioningPairingExpired,
-  publicProvisioningPairing: mockPublicProvisioningPairing,
   redeemProvisioningPairingToken: mockRedeemProvisioningPairingToken,
   transitionProvisioningPairing: mockTransitionProvisioningPairing,
 } = jest.requireMock('@/utils/auth/provisioningPairingStore')
