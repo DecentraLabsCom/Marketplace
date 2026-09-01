@@ -21,6 +21,14 @@ const classificationEntrySchema = z.object({
   code: z.string().max(32),
   label: z.string().max(256),
 }).strip()
+const periodRulesSchema = z.object({
+  startGranularity: z.string().max(16),
+  minimumNoticeHours: z.number().int().nonnegative().optional(),
+  allowCustomDateRange: z.boolean(),
+  minDurationDays: z.number().positive(),
+  maxDurationDays: z.number().positive(),
+  enforceDailyWindow: z.boolean().optional(),
+}).strip()
 const modelVariableDimensionSchema = z.object({
   start: z.number().int().positive().optional(),
   valueReference: z.number().int().nonnegative().optional(),
@@ -32,6 +40,22 @@ const modelVariableValueSchema = z.union([
   z.boolean(),
   z.array(z.union([z.string().max(4_096), z.number().finite(), z.boolean()])).max(4_096),
 ])
+const normalizeTermsEffectiveDate = (value) => {
+  if (typeof value === 'number') return value
+  if (typeof value !== 'string') return value
+
+  const text = value.trim()
+  if (/^\d+$/.test(text)) {
+    const epoch = Number(text)
+    return Number.isSafeInteger(epoch) && epoch > 0 ? epoch : value
+  }
+
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(text)
+    ? new Date(`${text}T00:00:00Z`)
+    : new Date(text)
+  return Number.isFinite(parsed.getTime()) ? Math.floor(parsed.getTime() / 1000) : value
+}
+const unixSecondsSchema = z.number().int().positive().refine(Number.isSafeInteger)
 const modelVariableSchema = z.object({
   name: z.string().max(256),
   description: z.string().max(1_024).optional(),
@@ -57,14 +81,14 @@ const attributeValueSchemas = {
   bookingMode: z.string().max(64),
   allowedDurationRange: z.object({ unit: z.string().max(16), min: z.number().int().positive(), max: z.number().int().positive() }).strip(),
   allowedDurations: z.array(z.object({ unit: z.string().max(16), value: z.number().int().positive() }).strip()).max(128),
-  periodRules: z.object({ startGranularity: z.string().max(16), allowCustomDateRange: z.boolean(), minDurationDays: z.number().positive(), maxDurationDays: z.number().positive() }).strip(),
+  periodRules: periodRulesSchema,
   opens: z.number().int().nullable(), closes: z.number().int().nullable(),
   additionalImages: boundedStringList, docs: boundedStringList,
   availableDays: z.array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])).max(7),
   availableHours: z.object({ start: z.string().max(5), end: z.string().max(5) }).strip(),
   maxConcurrentUsers: z.number().int().positive().max(10_000),
   unavailableWindows: z.array(z.object({ startUnix: z.number().int().positive(), endUnix: z.number().int().positive(), reason: z.string().max(512) }).strip()).max(128),
-  termsOfUse: z.object({ url: boundedString.optional(), version: z.string().max(128).optional(), effectiveDate: z.string().max(64).optional(), sha256: z.string().max(128).optional() }).strip(),
+  termsOfUse: z.object({ url: boundedString.optional(), version: z.string().max(128).optional(), effectiveDate: z.preprocess(normalizeTermsEffectiveDate, unixSecondsSchema.optional()), sha256: z.string().max(128).optional() }).strip(),
   timezone: z.string().max(128), resourceType: z.enum(['lab', 'fmu']), fmuFileName: z.string().max(512),
   fmiVersion: z.string().max(64), simulationType: z.string().max(64),
   modelVariables: z.array(modelVariableSchema).max(512),
@@ -81,17 +105,84 @@ const sanitizeMetadataAttributes = (attributes) => (Array.isArray(attributes) ? 
     return parsed.success ? [{ trait_type: traitType, value: parsed.data }] : []
   })
 
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key)
+
+const normalizedStringList = (value) => [...new Set((Array.isArray(value) ? value : [value])
+  .filter((item) => typeof item === 'string' && item.trim())
+  .map((item) => item.trim()))]
+
+const findAttribute = (attributes, traitType) => attributes.find((attribute) => attribute.trait_type === traitType)
+
+const upsertListAttribute = (attributes, traitType, value) => {
+  const existing = findAttribute(attributes, traitType)
+  if (existing) {
+    existing.value = value
+  } else {
+    attributes.push({ trait_type: traitType, value })
+  }
+}
+
+const normalizeMetadataAliases = (metadata) => {
+  const attributes = sanitizeMetadataAttributes(metadata.attributes)
+  const existingAdditionalImages = findAttribute(attributes, 'additionalImages')
+  const existingDocs = findAttribute(attributes, 'docs')
+  const existingPeriodRules = findAttribute(attributes, 'periodRules')
+  const imageValues = normalizedStringList([
+    metadata.image,
+    ...(Array.isArray(metadata.images) ? metadata.images : []),
+    ...(existingAdditionalImages ? existingAdditionalImages.value : []),
+  ])
+  const canonical = { ...metadata }
+  delete canonical.images
+  delete canonical.docs
+
+  if (imageValues.length > 0) {
+    canonical.image = imageValues[0]
+  }
+  if (hasOwn(metadata, 'images') || existingAdditionalImages) {
+    upsertListAttribute(attributes, 'additionalImages', imageValues.slice(1))
+  }
+
+  const docs = normalizedStringList([
+    ...(Array.isArray(metadata.docs) ? metadata.docs : []),
+    ...(existingDocs ? existingDocs.value : []),
+  ])
+  if (hasOwn(metadata, 'docs') || existingDocs) {
+    upsertListAttribute(attributes, 'docs', docs)
+  }
+
+  if (hasOwn(metadata, 'periodRules') || existingPeriodRules) {
+    upsertListAttribute(
+      attributes,
+      'periodRules',
+      existingPeriodRules ? existingPeriodRules.value : metadata.periodRules,
+    )
+  }
+  delete canonical.periodRules
+
+  if (
+    hasOwn(metadata, 'attributes') ||
+    hasOwn(metadata, 'images') ||
+    hasOwn(metadata, 'docs') ||
+    hasOwn(metadata, 'periodRules')
+  ) {
+    canonical.attributes = attributes
+  } else {
+    delete canonical.attributes
+  }
+  return canonical
+}
+
 const metadataDocumentSchema = z.object({
   name: z.string().max(200).optional(),
   description: z.string().max(20_000).optional(),
   image: z.string().max(4_096).optional(),
   demoEnabled: z.boolean().optional(),
   images: z.array(z.string().max(4_096)).max(64).optional(),
+  docs: z.array(z.string().max(4_096)).max(64).optional(),
+  periodRules: periodRulesSchema.optional(),
   attributes: z.array(z.unknown()).max(128).optional(),
-}).strip().transform((metadata) => ({
-  ...metadata,
-  ...(metadata.attributes ? { attributes: sanitizeMetadataAttributes(metadata.attributes) } : {}),
-}))
+}).strip().transform(normalizeMetadataAliases)
 
 export class MetadataFetchError extends Error {
   constructor(message, status = 502, code = 'METADATA_FETCH_ERROR') {

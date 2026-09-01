@@ -138,7 +138,8 @@ const sanitizeTermsOfUse = (terms) => {
   const sanitized = {}
   if (safeTerms.url) sanitized.url = safeTerms.url
   if (safeTerms.version) sanitized.version = safeTerms.version
-  if (safeTerms.effectiveDate) sanitized.effectiveDate = safeTerms.effectiveDate
+  const effectiveDate = sanitizeUnixDate(safeTerms.effectiveDate)
+  if (effectiveDate !== null && effectiveDate > 0) sanitized.effectiveDate = effectiveDate
   if (safeTerms.sha256) sanitized.sha256 = safeTerms.sha256.toLowerCase()
   return sanitized
 }

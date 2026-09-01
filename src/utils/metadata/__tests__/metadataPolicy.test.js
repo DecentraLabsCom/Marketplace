@@ -370,6 +370,121 @@ describe('metadata egress policy', () => {
       .toThrow('Metadata document does not match the expected schema')
   })
 
+  test.each([1767225600, '1767225600', '2026-01-01'])('canonicalizes terms effective date %p to Unix seconds', (effectiveDate) => {
+    expect(policy.validateMetadataDocument({
+      attributes: [{
+        trait_type: 'termsOfUse',
+        value: {
+          url: 'https://metadata.example/terms.pdf',
+          version: '1.0',
+          effectiveDate,
+        },
+      }],
+    })).toEqual({
+      attributes: [{
+        trait_type: 'termsOfUse',
+        value: {
+          url: 'https://metadata.example/terms.pdf',
+          version: '1.0',
+          effectiveDate: 1767225600,
+        },
+      }],
+    })
+  })
+
+  test('normalizes root media and documentation aliases into canonical attributes', () => {
+    expect(policy.validateMetadataDocument({
+      name: 'Aliased lab',
+      description: 'A lab with root media aliases',
+      image: 'https://metadata.example/cover.png',
+      images: ['https://metadata.example/side.png'],
+      docs: ['https://metadata.example/root-guide.pdf'],
+      demoEnabled: true,
+      attributes: [
+        { trait_type: 'additionalImages', value: ['https://metadata.example/detail.png'] },
+        { trait_type: 'docs', value: ['https://metadata.example/attribute-guide.pdf'] },
+      ],
+    })).toEqual({
+      name: 'Aliased lab',
+      description: 'A lab with root media aliases',
+      image: 'https://metadata.example/cover.png',
+      demoEnabled: true,
+      attributes: [
+        {
+          trait_type: 'additionalImages',
+          value: [
+            'https://metadata.example/side.png',
+            'https://metadata.example/detail.png',
+          ],
+        },
+        {
+          trait_type: 'docs',
+          value: [
+            'https://metadata.example/root-guide.pdf',
+            'https://metadata.example/attribute-guide.pdf',
+          ],
+        },
+      ],
+    })
+  })
+
+  test('preserves periodRules policy fields supported by the Gateway backend', () => {
+    expect(policy.validateMetadataDocument({
+      attributes: [{
+        trait_type: 'periodRules',
+        value: {
+          startGranularity: 'day',
+          minimumNoticeHours: 12,
+          allowCustomDateRange: true,
+          minDurationDays: 1,
+          maxDurationDays: 14,
+          enforceDailyWindow: true,
+        },
+      }],
+    })).toEqual({
+      attributes: [{
+        trait_type: 'periodRules',
+        value: {
+          startGranularity: 'day',
+          minimumNoticeHours: 12,
+          allowCustomDateRange: true,
+          minDurationDays: 1,
+          maxDurationDays: 14,
+          enforceDailyWindow: true,
+        },
+      }],
+    })
+  })
+
+  test('normalizes a root periodRules alias into the canonical attribute', () => {
+    expect(policy.validateMetadataDocument({
+      name: 'Root policy lab',
+      description: 'A lab with a root period policy alias',
+      periodRules: {
+        startGranularity: 'day',
+        minimumNoticeHours: 6,
+        allowCustomDateRange: true,
+        minDurationDays: 1,
+        maxDurationDays: 7,
+        enforceDailyWindow: true,
+      },
+    })).toEqual({
+      name: 'Root policy lab',
+      description: 'A lab with a root period policy alias',
+      attributes: [{
+        trait_type: 'periodRules',
+        value: {
+          startGranularity: 'day',
+          minimumNoticeHours: 6,
+          allowCustomDateRange: true,
+          minDurationDays: 1,
+          maxDurationDays: 7,
+          enforceDailyWindow: true,
+        },
+      }],
+    })
+  })
+
   test('preserves the bounded FMU variable shape metadata used by simulation inputs', () => {
     const metadata = policy.validateMetadataDocument({
       attributes: [{
