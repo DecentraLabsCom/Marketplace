@@ -14,10 +14,13 @@ updates:
     open-pull-requests-limit: 5
     # Add valid `assignees` or `labels` here if you want Dependabot to set them on PRs.
     versioning-strategy: increase
-    # TypeScript is constrained by typescript-eslint and the Solana toolchain;
-    # review major upgrades manually after those peers add support.
+    # TypeScript and ESLint are constrained by the current toolchain;
+    # review major upgrades manually after their peers add support.
     ignore:
       - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "eslint"
         update-types:
           - "version-update:semver-major"
     # Group non-major updates together
