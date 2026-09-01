@@ -79,7 +79,7 @@
     "xml-crypto": "^6.1.2",
     "xml2js": "^0.6.2",
     "xpath": "^0.0.34",
-    "zod": "^3.25.76"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
     "@cypress/code-coverage": "^4.0.3",
