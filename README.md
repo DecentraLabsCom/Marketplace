@@ -59,7 +59,3 @@ npm run build
 ```
 
 Additional test, Cypress, live-integration and provisioning-audit commands are documented in the private `dev/` notes.
-
-## Documentation maintenance
-
-When changing authentication, provisioning, institutional intents, reservations, credits, metadata, catalogue behaviour or lab access, update the affected audience guide and its technical reference in the same change. Do not document an endpoint, environment variable or protocol field until it exists in this repository and, when applicable, in the canonical `Lab Gateway/blockchain-services` backend.
