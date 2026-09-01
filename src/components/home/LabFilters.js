@@ -89,7 +89,7 @@ export default function LabFilters({
 
   return (
     <section className="mb-6 w-full">
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,42rem)_minmax(0,1fr)] lg:items-end">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,33.6rem)_minmax(0,1fr)] lg:items-end lg:gap-6">
         {/* Search Bar */}
         <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <div className="relative">

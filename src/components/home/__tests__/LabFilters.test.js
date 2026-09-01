@@ -64,7 +64,13 @@ describe("LabFilters - unit tests", () => {
       render(<LabFilters {...defaultProps} />);
 
       const searchWrapper = screen.getByPlaceholderText(/type here/i).parentElement.parentElement;
+      const toolbar = searchWrapper.parentElement;
+
       expect(searchWrapper).toHaveClass("lg:col-start-2", "lg:row-start-1");
+      expect(toolbar).toHaveClass(
+        "lg:grid-cols-[minmax(0,1fr)_minmax(0,33.6rem)_minmax(0,1fr)]",
+        "lg:gap-6",
+      );
     });
 
     test("renders all category options inside the filter panel", async () => {
