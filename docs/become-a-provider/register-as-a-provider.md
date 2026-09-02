@@ -28,4 +28,6 @@ The registered origin is a root of trust for institutional calls and provider me
 
 Provider lab changes are authorized through the institution's backend and recorded on-chain. Provider settlement uses the institution's internal service-credit account; it is not `$LAB`, a browser ERC-20 payment or a cash-redeemable balance.
 
-Follow [Configure and publish your lab](tokenize-and-list-your-lab.md) after onboarding. The pairing protocol and operational recovery are maintained in the private developer documentation for backend operators.
+Follow [Configure and publish your lab](tokenize-and-list-your-lab.md) after onboarding. If the offer, origin or registration does not complete, use the public [troubleshooting guide](../troubleshooting.md) and contact the institution's backend operator.
+
+Last reviewed: 2026-09-02

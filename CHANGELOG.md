@@ -47,6 +47,10 @@ browser behavior.
 - Corrected the active intent contract to the single prepare route and the
   backend-owned WebAuthn ceremony; removed obsolete finalize-route guidance.
 - Updated provider, access, cancellation and credential-handling guidance.
+- Added public consumer credit/funding, reservation/cancellation, provider
+  metadata, Gateway readiness, laboratory operations and troubleshooting guides.
+- Linked the normative metadata contract to the separate Lab-Metadata repository
+  instead of duplicating its schema in Marketplace.
 
 ### Verification
 

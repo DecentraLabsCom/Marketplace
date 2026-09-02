@@ -14,3 +14,27 @@ To be eligible for listing on DecentraLabs, a laboratory must meet the following
    A Linux OS is recommended, but is not required. The most critical requirement is that a proxy system is needed to enable secure remote access, connecting public and private networks while managing routing.
 6. **Lab Computer(s)**\
    A Windows 10 or Windows 11 OS is required. Each lab computer must control just one lab setup.
+
+## Provider readiness evidence
+
+Before asking to publish a laboratory, prepare evidence that the setup can be
+operated without on-site intervention:
+
+- a documented reset and recovery procedure for the experiment;
+- a test showing that the Gateway can reach the intended resource and that the
+  session closes at the end of a reservation;
+- the Lab Station, control application and required Windows permissions tested
+  together when the lab is physical;
+- the real booking duration, availability days, daily hours, time zone,
+  concurrency limit and maintenance windows that will be published;
+- user-facing instructions, safety notes, experiment limitations and the data
+  handling policy relevant to the laboratory; and
+- an institutional operator and escalation contact for access, equipment or
+  availability incidents.
+
+These checks complement the technical installation steps in [Enable your lab
+for online access](enable-your-lab-for-online-access.md). Marketplace may show
+the laboratory while the provider is performing maintenance, so providers must
+keep the listing state and published availability current.
+
+Last reviewed: 2026-09-02

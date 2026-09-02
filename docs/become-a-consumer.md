@@ -28,8 +28,10 @@ of `faculty`, `staff` or `employee`. A student, alumni or guest account cannot
 register an institution by itself.
 
 The institution should also arrange its service-credit funding and spending
-policy with its backend operator. Service credits are internal settlement units:
-they are not personal wallet funds, cash or a transferable ERC-20 balance.
+policy with its backend operator. See [Credits and funding](consumer/credits-and-funding.md)
+for the account, funding-order and expiry concepts visible in Marketplace.
+Service credits are internal settlement units: they are not personal wallet
+funds, cash or a transferable ERC-20 balance.
 
 ## Register the institution
 
@@ -107,6 +109,8 @@ Once the backend reports the institution as registered:
 
 See [Access Laboratories](access-laboratories.md) for the user reservation,
 cancellation and access journey.
+For reservation states and timing rules, see
+[Reservations and cancellations](reservations-and-cancellations.md).
 
 ## Security rules
 
@@ -143,3 +147,5 @@ these values.
 
 Consumer registration is intentionally insufficient for that purpose. Follow
 [Become a Provider](become-a-provider.md) and its provider onboarding guides.
+
+Last reviewed: 2026-09-02

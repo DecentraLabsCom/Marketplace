@@ -29,7 +29,8 @@ Before you can reserve and access a laboratory, you need:
    Your institution or provider configuration must allow the reservation you want to make.
 
 3. **Browser requirements**\
-   A modern browser with JavaScript enabled.
+   A modern browser with JavaScript enabled. If a new window is used for
+   institutional authorization, allow pop-ups for the Marketplace origin.
 
 ---
 
@@ -41,7 +42,9 @@ Navigate to the [DecentraLabs Marketplace](https://marketplace-decentralabs.verc
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
-The Marketplace session uses a sliding 60-minute inactivity window, bounded by the absolute expiry of the backend-owned institutional session credential. The raw SAML assertion is validated once during sign-in to create that credential; reservations, cancellations and laboratory access use the credential rather than forwarding the assertion. Authenticated Marketplace activity refreshes the inactivity window, while a periodic status check by itself does not keep an otherwise idle session alive. When the credential is within five minutes of its absolute expiry, the next user activity starts a fresh institutional SSO exchange and creates a new credential and 60-minute session horizon. If the IdP session is still active, this normally does not require entering credentials again.
+The session may expire after a period of inactivity or when the institution's
+SSO session ends. If Marketplace asks you to sign in again, complete
+Institutional Login before retrying the reservation or access request.
 
 ---
 
@@ -90,6 +93,17 @@ The marketplace shows:
 
 Submit the reservation request to continue. The marketplace requests institutional authorization and records the reservation only after the backend and contract checks succeed.
 
+Important booking rules:
+
+- an external-provider reservation must start at least **10 minutes from now**;
+- the laboratory's time zone is shown alongside your local time;
+- available durations and booking periods are laboratory-specific; and
+- concurrent FMU laboratories may show their current occupancy and maximum
+  concurrent users.
+
+See [Reservations and cancellations](reservations-and-cancellations.md) for
+the complete lifecycle and cancellation rules.
+
 ---
 
 ### 4. Wait for Reservation Confirmation
@@ -101,6 +115,9 @@ Once the reservation request is submitted:
 3. the booking appears in your **User Dashboard** with its current status.
 
 When confirmation succeeds, the reservation status changes to **Confirmed**.
+Pending means that provider confirmation is still outstanding. If an external
+provider does not confirm within the decision window, the request can expire
+without capturing credits.
 
 ---
 
@@ -182,3 +199,6 @@ The customer laboratory-access flow is:
 5. use the session until the reservation ends.
 
 This keeps customer authentication and access aligned with the institutional and managed-custody model used by the current marketplace.
+
+For common login, credit, metadata and Gateway failures, see
+[Troubleshooting](troubleshooting.md). Last reviewed: 2026-09-02

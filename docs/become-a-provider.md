@@ -11,8 +11,9 @@ Providers join Marketplace through their institution. The active model combines 
 1. Check the [lab requirements](become-a-provider/lab-requirements.md).
 2. Make the resource reachable through [Lab Gateway / Lab Station](become-a-provider/enable-your-lab-for-online-access.md).
 3. Complete [institutional provider onboarding](become-a-provider/register-as-a-provider.md).
-4. [Configure and publish the laboratory](become-a-provider/tokenize-and-list-your-lab.md).
-5. Keep the gateway, backend, metadata and availability information operational.
+4. Prepare the [Marketplace metadata integration](provider/metadata-integration.md).
+5. [Configure and publish the laboratory](become-a-provider/tokenize-and-list-your-lab.md).
+6. [Operate the published laboratory](provider/operate-your-lab.md).
 
 ```mermaid
 flowchart LR
@@ -31,4 +32,6 @@ flowchart LR
 - A listed lab must still have a healthy gateway and backend. Listing is catalogue visibility, not an uptime check.
 - Marketplace does not host FMU artifacts. Provision them in provider-controlled Lab Gateway/Lab Station infrastructure and refer to them through the configured access key.
 
-For a visual overview, see [the provider flow](become-a-provider/graphical-overview.md). Detailed pairing and recovery guidance is maintained in the private developer documentation.
+For a visual overview, see [the provider flow](become-a-provider/graphical-overview.md). For failures during setup or operation, use the public [troubleshooting guide](troubleshooting.md).
+
+Last reviewed: 2026-09-02

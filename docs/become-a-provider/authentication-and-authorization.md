@@ -1,35 +1,43 @@
-# Authentication & authorization
+# Access security for providers
 
-The provider-side Lab Gateway and the canonical `blockchain-services` backend decide whether a user with an institutional Marketplace session may enter a laboratory. Marketplace does not forward a personal wallet credential or provider secret to the browser.
+The provider-side Lab Gateway and the institutional backend decide whether a
+user with a valid Marketplace session may enter a laboratory. Marketplace does
+not forward a personal wallet credential or provider secret to the browser.
 
-Endpoint ownership and the cross-project two-phase access-code invariant are
-defined by `Lab Gateway/docs/documentation-contract.md` and the canonical
-check-in/access workflow; this guide describes Marketplace's audience-facing
-responsibilities only.
+## What happens when a user selects Access
 
-## What is checked
+1. Marketplace checks the institutional session, reservation ownership and
+   active reservation window.
+2. The consuming institution's backend performs institutional check-in when it
+   is separate from the provider backend.
+3. The provider backend and Gateway issue and validate a short-lived access
+   credential for the requested laboratory.
+4. The Gateway creates the remote desktop or FMU session and closes it when the
+   valid access window ends.
 
-When a user requests access during a reservation window, the backend verifies the institutional context and reservation state recorded on-chain. Marketplace then asks the provider gateway for an access credential.
+When consumer and provider use the same backend, the authorization and issue
+steps may be combined. When they use different backends, the consumer check-in
+must complete before the provider credential is issued.
 
-- If consumer and provider use the same backend, Marketplace calls the combined authorization-and-issue path.
-- If they use different backends, the consumer backend completes institutional check-in first and the provider backend issues the access credential second.
-- The provider gateway validates the credential and creates the resource session only after those checks succeed.
-
-## Credential handling
-
-The browser receives a short-lived opaque access code, not a reusable signed lab-access JWT in a URL. The gateway reserves a short-lived redemption handle, validates the JWT and local destination/state, and commits the handle only after those checks succeed; it then creates its secure session cookie and redirects to the resource without exposing the credential in query parameters. A failed local check releases the handle.
-
-For FMU access, Marketplace exchanges the access code server-side, binds the resulting capability to the Marketplace session and returns only the gateway origin required by the client flow.
-
-When logout or SAML Single Logout cannot reach the Lab Gateway, Marketplace clears the browser cookie but retains the server-side capability snapshot in an encrypted revocation outbox. The record is removed only after the Gateway returns `204` (including an already-absent capability) or after the capability's natural expiry. The scheduled authentication revocation workflow drains that outbox; production deployments must configure the matching `FMU_REVOCATION_RECONCILIATION_TOKEN` in Marketplace and GitHub Actions.
-
-SAML Single Logout requests are also accepted into an encrypted, idempotent outbox keyed by `requestId` before server-side revocation starts. A transient failure leaves the request pending so the IdP retry or the scheduled reconciliation can continue it; only completed requests are treated as replayed.
+The browser receives an opaque, short-lived access code. A reusable signed
+credential is not placed in a URL; the Gateway redeems it server-side, creates
+its own secure session and redirects the user to the resource.
 
 ## Provider responsibilities
 
-1. Keep the Lab Gateway, backend and on-chain configuration aligned.
-2. Configure the lab `accessKey` or FMU identifier only in provider-controlled infrastructure.
-3. Do not place gateway credentials, private access URLs or user attributes in laboratory metadata.
-4. Treat a Marketplace listing as catalogue visibility, not evidence that your remote endpoint is healthy.
+1. Keep the Gateway, institutional backend and on-chain provider/lab
+   configuration aligned.
+2. Keep the Gateway's public origin, TLS certificate and access route healthy.
+3. Configure the physical lab access key or FMU filename only in
+   provider-controlled infrastructure.
+4. Do not place Gateway credentials, private access URLs, tokens or user
+   attributes in laboratory metadata.
+5. Test a complete user session after changes to the backend, Gateway, Station,
+   access route or FMU configuration.
+6. Treat a Marketplace listing as catalogue visibility, not evidence that the
+   remote endpoint is healthy.
 
-See [Enable your lab for online access](enable-your-lab-for-online-access.md) for deployment prerequisites. The complete access sequence is maintained in the private developer documentation.
+For deployment prerequisites, see [Enable your lab for online access](enable-your-lab-for-online-access.md).
+For ongoing responsibilities, see [Operate your laboratory](../provider/operate-your-lab.md).
+
+Last reviewed: 2026-09-02

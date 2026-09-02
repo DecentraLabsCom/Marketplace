@@ -27,6 +27,9 @@ jobs:
       - name: 🔍 Run linting
         run: npm run lint
 
+      - name: Check public documentation
+        run: npm run docs:check
+
       - name: Audit production dependencies
         run: npm run audit:production
 

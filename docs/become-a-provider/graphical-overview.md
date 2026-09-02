@@ -29,4 +29,8 @@ flowchart TD
 
 The image below illustrates the infrastructure required at the institution:
 
-<figure><img src="../.gitbook/assets/image.png" alt="Institutional laboratory infrastructure"><figcaption></figcaption></figure>
+<figure><img src="../../.gitbook/assets/image.png" alt="Institutional laboratory infrastructure"><figcaption></figcaption></figure>
+
+For the operational deployment choices behind this overview, see [Enable your lab for online access](enable-your-lab-for-online-access.md).
+
+Last reviewed: 2026-09-02

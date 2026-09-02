@@ -29,6 +29,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "docs:check": "node scripts/check-public-docs.mjs",
     "test:lint:cypress": "jest src/__tests__/lint.cypress.test.js --runInBand",
     "generate-jwt-keys": "node scripts/generate-jwt-keys.js",
     "rotate-jwt-keys": "node scripts/rotate-jwt-keys.js",
