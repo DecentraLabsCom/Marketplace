@@ -54,4 +54,11 @@ describe('CI and dependency reproducibility configuration', () => {
     );
     expect(fs.existsSync(path.join(repositoryRoot, 'scripts/reconcile-institution-provisioning.js'))).toBe(true);
   });
+
+  test('ships the public documentation checker used by the test workflow', () => {
+    const packageJson = JSON.parse(readRepositoryFile('package.json'));
+
+    expect(packageJson.scripts['docs:check']).toBe('node scripts/check-public-docs.mjs');
+    expect(fs.existsSync(path.join(repositoryRoot, 'scripts/check-public-docs.mjs'))).toBe(true);
+  });
 });
