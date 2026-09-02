@@ -4,6 +4,9 @@ The provider-side Lab Gateway and the institutional backend decide whether a
 user with a valid Marketplace session may enter a laboratory. Marketplace does
 not forward a personal wallet credential or provider secret to the browser.
 
+For cross-project ownership and conflict resolution, consult the [Lab Gateway
+documentation contract](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/documentation-contract.md).
+
 ## What happens when a user selects Access
 
 1. Marketplace checks the institutional session, reservation ownership and
