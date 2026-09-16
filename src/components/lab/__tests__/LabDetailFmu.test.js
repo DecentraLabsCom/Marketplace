@@ -41,6 +41,11 @@ jest.mock("@/components/ui/DocsCarrousel", () => {
 jest.mock("@/components/skeletons", () => ({
   LabHeroSkeleton: () => <div data-testid="skeleton" />,
 }));
+jest.mock("@/components/lab/AasPanel", () => {
+  return function MockAasPanel() {
+    return <div data-testid="aas-panel" />;
+  };
+});
 
 const mockPush = jest.fn();
 
@@ -136,6 +141,42 @@ describe("LabDetail - FMU Resource", () => {
   test("shows FMU Simulation Details section", () => {
     render(<LabDetail id="42" />);
     expect(screen.getByText("FMU Simulation Details")).toBeInTheDocument();
+  });
+
+  test("places FMU details below documentation and booking in a full-width section", () => {
+    render(<LabDetail id="42" />);
+
+    const columns = screen.getByTestId("lab-content-columns");
+    const fullWidthSections = screen.getByTestId("lab-full-width-sections");
+    const fmuHeading = screen.getByText("FMU Simulation Details");
+    const documentationHeading = screen.getByText("Documentation");
+    const bookingButton = screen.getByRole("button", { name: /Book Spring-Damper FMU simulation/i });
+
+    expect(columns).not.toContainElement(fmuHeading);
+    expect(fullWidthSections).toContainElement(fmuHeading);
+    expect(documentationHeading.compareDocumentPosition(fmuHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(bookingButton.compareDocumentPosition(fmuHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  test("places Digital Twin Metadata in the same full-width section", () => {
+    useLabById.mockReturnValue({
+      data: { ...fmuLab, accessURI: "https://gateway.example/fmu" },
+      isLoading: false,
+      isError: false,
+      error: null,
+      metadataError: false,
+    });
+
+    render(<LabDetail id="42" />);
+
+    const columns = screen.getByTestId("lab-content-columns");
+    const fullWidthSections = screen.getByTestId("lab-full-width-sections");
+    const aasPanel = screen.getByTestId("aas-panel");
+    const documentationHeading = screen.getByText("Documentation");
+
+    expect(columns).not.toContainElement(aasPanel);
+    expect(fullWidthSections).toContainElement(aasPanel);
+    expect(documentationHeading.compareDocumentPosition(aasPanel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   test("shows FMI version and simulation type", () => {

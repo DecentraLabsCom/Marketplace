@@ -105,7 +105,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
   })()
 
   return (
-    <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
+    <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-header-bg text-lg font-semibold">Digital Twin Metadata</h3>
         <div className="flex items-center gap-3">

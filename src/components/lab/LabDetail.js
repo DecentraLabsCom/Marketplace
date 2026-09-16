@@ -422,118 +422,6 @@ export default function LabDetail({ id }) {
               ))}
             </div>
 
-            {/* FMU Metadata Section */}
-            {labIsFmu && fmuMeta && (
-              <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
-                <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
-                <div
-                  ref={fmuSummaryGridRef}
-                  data-testid="fmu-summary-grid"
-                  className={`grid grid-cols-2 gap-3 text-sm ${
-                    fmuSummaryFitsSingleRow ? 'md:grid-cols-[repeat(4,minmax(max-content,1fr))]' : ''
-                  }`}
-                >
-                  {fmuSummaryItems.map(({ label, value }) => (
-                    <div key={label} className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
-                      <div className="text-xs uppercase tracking-wide text-text-secondary">
-                        {label}
-                      </div>
-                      <p className={`text-neutral-200 font-medium ${fmuSummaryFitsSingleRow ? 'md:whitespace-nowrap' : ''}`}>
-                        {value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Model variables and dimension legend share one scroll region so the FMU panel keeps its height. */}
-                {(hasFmuModelVariables || fmuDimensionLegend.length > 0) && (
-                  <div className="mt-4">
-                    {hasFmuModelVariables && (
-                      <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
-                    )}
-                    <div
-                      data-testid="fmu-variables-scroll"
-                      className="max-h-48 overflow-x-auto overflow-y-auto rounded border border-[#2a2f33]"
-                    >
-                      {hasFmuModelVariables && (
-                        <table className="w-full text-xs">
-                          <thead className="bg-[#181b1d] sticky top-0">
-                            <tr>
-                              <th className="text-left px-2 py-1 text-text-secondary">Name</th>
-                              <th className="text-left px-2 py-1 text-text-secondary">Type</th>
-                              <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
-                              <th className="text-left px-2 py-1 text-text-secondary">Shape</th>
-                              <th className="text-left px-2 py-1 text-text-secondary">Start</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {fmuMeta.modelVariables.map((v, i) => (
-                              <tr key={v.name || i} className="border-t border-[#2a2f33]">
-                                <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
-                                <td className="px-2 py-1 text-neutral-200">{v.type || '—'}</td>
-                                <td className="px-2 py-1">
-                                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
-                                    v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
-                                    'bg-gray-700 text-gray-300'
-                                  }`}>
-                                    {v.causality || 'local'}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
-                                  {formatFmuVariableShape(v, fmuMeta.modelVariables)}
-                                </td>
-                                <td className="px-2 py-1 text-neutral-200 wrap-break-word max-w-48">
-                                  {formatFmuVariableStart(v.start)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-
-                      {fmuDimensionLegend.length > 0 && (
-                        <div className="mt-4 rounded border border-[#2a2f33] bg-[#181b1d] p-3">
-                          <h4 className="text-header-bg text-sm font-semibold mb-2">Dimension relationships</h4>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                              <thead className="bg-[#181b1d]">
-                                <tr>
-                                  <th className="text-left px-2 py-1 text-text-secondary">Dimension</th>
-                                  <th className="text-left px-2 py-1 text-text-secondary">Referenced by</th>
-                                  {hasFmuDimensionDescriptions && (
-                                    <th className="text-left px-2 py-1 text-text-secondary">Description</th>
-                                  )}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {fmuDimensionLegend.map((dimension) => (
-                                  <tr key={dimension.name} className="border-t border-[#2a2f33]">
-                                    <td className="px-2 py-1 font-mono text-neutral-200">{dimension.name}</td>
-                                    <td className="px-2 py-1 text-neutral-300">{dimension.usedBy.join(', ')}</td>
-                                    {hasFmuDimensionDescriptions && (
-                                      <td className="px-2 py-1 text-neutral-300">
-                                        {dimension.description || '—'}
-                                      </td>
-                                    )}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* AAS / Digital Twin Panel â€” shown only when provider has an AAS-capable gateway */}
-            {lab?.accessURI && (
-              <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
-            )}
-
             {/* Documentation */}
             <div className={`flex flex-col text-center mt-4 overflow-hidden`}>
               <h3 className="text-header-bg text-lg font-semibold">
@@ -550,6 +438,122 @@ export default function LabDetail({ id }) {
           </div>
         </article>
         </div>
+
+        {((labIsFmu && fmuMeta) || lab?.accessURI) && (
+          <div data-testid="lab-full-width-sections" className="mt-6 flex w-full flex-col gap-6">
+          {/* FMU Metadata Section */}
+          {labIsFmu && fmuMeta && (
+            <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
+              <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
+              <div
+                ref={fmuSummaryGridRef}
+                data-testid="fmu-summary-grid"
+                className={`grid grid-cols-2 gap-3 text-sm ${
+                  fmuSummaryFitsSingleRow ? 'md:grid-cols-[repeat(4,minmax(max-content,1fr))]' : ''
+                }`}
+              >
+                {fmuSummaryItems.map(({ label, value }) => (
+                  <div key={label} className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
+                    <div className="text-xs uppercase tracking-wide text-text-secondary">
+                      {label}
+                    </div>
+                    <p className={`text-neutral-200 font-medium ${fmuSummaryFitsSingleRow ? 'md:whitespace-nowrap' : ''}`}>
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Model variables and dimension legend share one scroll region so the FMU panel keeps its height. */}
+              {(hasFmuModelVariables || fmuDimensionLegend.length > 0) && (
+                <div className="mt-4">
+                  {hasFmuModelVariables && (
+                    <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
+                  )}
+                  <div
+                    data-testid="fmu-variables-scroll"
+                    className="max-h-48 overflow-x-auto overflow-y-auto rounded border border-[#2a2f33]"
+                  >
+                    {hasFmuModelVariables && (
+                      <table className="w-full text-xs">
+                        <thead className="bg-[#181b1d] sticky top-0">
+                          <tr>
+                            <th className="text-left px-2 py-1 text-text-secondary">Name</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Type</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Shape</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Start</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fmuMeta.modelVariables.map((v, i) => (
+                            <tr key={v.name || i} className="border-t border-[#2a2f33]">
+                              <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
+                              <td className="px-2 py-1 text-neutral-200">{v.type || '—'}</td>
+                              <td className="px-2 py-1">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
+                                  v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
+                                  'bg-gray-700 text-gray-300'
+                                }`}>
+                                  {v.causality || 'local'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1 text-neutral-200 whitespace-nowrap">
+                                {formatFmuVariableShape(v, fmuMeta.modelVariables)}
+                              </td>
+                              <td className="px-2 py-1 text-neutral-200 wrap-break-word max-w-48">
+                                {formatFmuVariableStart(v.start)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {fmuDimensionLegend.length > 0 && (
+                      <div className="mt-4 rounded border border-[#2a2f33] bg-[#181b1d] p-3">
+                        <h4 className="text-header-bg text-sm font-semibold mb-2">Dimension relationships</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-[#181b1d]">
+                              <tr>
+                                <th className="text-left px-2 py-1 text-text-secondary">Dimension</th>
+                                <th className="text-left px-2 py-1 text-text-secondary">Referenced by</th>
+                                {hasFmuDimensionDescriptions && (
+                                  <th className="text-left px-2 py-1 text-text-secondary">Description</th>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {fmuDimensionLegend.map((dimension) => (
+                                <tr key={dimension.name} className="border-t border-[#2a2f33]">
+                                  <td className="px-2 py-1 font-mono text-neutral-200">{dimension.name}</td>
+                                  <td className="px-2 py-1 text-neutral-300">{dimension.usedBy.join(', ')}</td>
+                                  {hasFmuDimensionDescriptions && (
+                                    <td className="px-2 py-1 text-neutral-300">
+                                      {dimension.description || '—'}
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AAS / Digital Twin Panel — shown only when provider has an AAS-capable gateway */}
+          {lab?.accessURI && (
+            <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
+          )}
+          </div>
+        )}
       </section>
     </Container>
   )
