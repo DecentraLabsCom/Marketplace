@@ -9,9 +9,9 @@ import {
 /**
  * AasPanel — shows Digital Twin (AAS) metadata for a lab resource in the Marketplace.
  *
- * Fetches the AAS shell and Nameplate submodel from the provider's Gateway via the
- * Marketplace proxy at /api/aas/shell. Renders nothing if the provider has not
- * deployed the AAS profile (404 response) or if required props are missing.
+ * Fetches the AAS shell and its published metadata from the provider's Gateway
+ * via the Marketplace proxy at /api/aas/shell. Renders nothing if the provider
+ * has not deployed the AAS profile (404 response) or if required props are missing.
  *
  * @param {Object} props
  * @param {string|number} props.labId      - Lab ID (used to build the AAS identifier)
@@ -59,7 +59,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
   // Silently omit on fetch errors — non-critical feature
   if (state.error) return null
 
-  const { shell, nameplate, simulationInfo } = state.data || {}
+  const { shell, nameplate, simulationInfo, operationalInfo } = state.data || {}
   if (!shell) return null
 
   const assetType = shell?.assetInformation?.assetType || 'Unknown'
@@ -80,15 +80,45 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const hostName = nameplate?.HostName || null
   const networkAddress = nameplate?.NetworkAddress || null
   const mappedLabIds = nameplate?.MappedLabIds || null
-  const syncTimestamp = nameplate?.SyncTimestamp || null
+  const syncTimestamp = operationalInfo?.lastSync || nameplate?.SyncTimestamp || null
+  const displayAasId = shell?.id || `urn:decentralabs:lab:${labId}`
 
   // Shell-level description (optional, set during FMU sync)
   const shellDescription = shell?.description?.[0]?.text || null
 
-  // FMU-specific fields from SimulationModels submodel (optional)
-  const simLicense = simulationInfo?.license || null
-  const simDocsUrl = safeExternalHttpsUrl(simulationInfo?.documentationUrl)
-  const simContactEmail = simulationInfo?.contactEmail || null
+  // Published licensing/documentation may come from SimulationModels (FMU) or
+  // Nameplate (physical laboratory).
+  // Physical-lab generators publish the same registered metadata in Nameplate;
+  // FMU generators publish it in SimulationModels. Keep the presentation
+  // resource-agnostic so both paths show the provider's documents and terms.
+  const simLicense = simulationInfo?.license || nameplate?.License || null
+  const simDocsUrls = [...new Set(
+    (Array.isArray(simulationInfo?.documentationUrls) && simulationInfo.documentationUrls.length > 0
+      ? simulationInfo.documentationUrls
+      : [simulationInfo?.documentationUrl, ...Object.entries(nameplate || {})
+        .filter(([key]) => /^documentationurl(?:_\d+)?$/i.test(key))
+        .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+        .map(([, value]) => value)]
+    ).map((url) => safeExternalHttpsUrl(url)).filter(Boolean),
+  )]
+  const contactEmail = simulationInfo?.contactEmail || nameplate?.ContactEmail || null
+  const simContactEmail = typeof contactEmail === 'string'
+    && contactEmail.length <= 320
+    && /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(contactEmail)
+    ? contactEmail
+    : null
+
+  const formatFlag = (value) => {
+    if (value === true) return 'Yes'
+    if (value === false) return 'No'
+    return 'Unknown'
+  }
+
+  const formatTimestamp = (value) => {
+    if (!value) return 'Unknown'
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  }
 
   // Build a direct link to the raw AAS JSON on the provider's gateway
   const aasShellViewUrl = (() => {
@@ -149,8 +179,8 @@ export default function AasPanel({ labId, gatewayUrl }) {
 
         <div>
           <span className="text-text-secondary text-xs uppercase tracking-wide">AAS Identifier</span>
-          <p className="text-neutral-200 font-mono text-xs truncate" title={`urn:decentralabs:lab:${labId}`}>
-            urn:decentralabs:lab:{labId}
+          <p className="text-neutral-200 font-mono text-xs truncate" title={displayAasId}>
+            {displayAasId}
           </p>
         </div>
 
@@ -182,14 +212,18 @@ export default function AasPanel({ labId, gatewayUrl }) {
           </div>
         )}
 
-        {simDocsUrl && (
+        {simDocsUrls.length > 0 && (
           <div>
             <span className="text-text-secondary text-xs uppercase tracking-wide">Documentation</span>
-            <p className="text-neutral-200 font-medium truncate">
-              <a href={simDocsUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
-                {simDocsUrl}
-              </a>
-            </p>
+            <div className="space-y-1">
+              {simDocsUrls.map((url) => (
+                <p key={url} className="text-neutral-200 font-medium truncate">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                    {url}
+                  </a>
+                </p>
+              ))}
+            </div>
           </div>
         )}
 
@@ -203,11 +237,68 @@ export default function AasPanel({ labId, gatewayUrl }) {
             </p>
           </div>
         )}
+
+        {operationalInfo && (
+          <div className="col-span-2 border-t border-[#2a2f33] pt-3 mt-1">
+            <h4 className="text-text-secondary text-xs uppercase tracking-wide mb-2">Operational Status</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-text-secondary text-xs uppercase tracking-wide">Status</span>
+                <p className="text-neutral-200 font-medium">{operationalInfo.status || 'Unknown'}</p>
+              </div>
+              <div>
+                <span className="text-text-secondary text-xs uppercase tracking-wide">Ready</span>
+                <p className="text-neutral-200 font-medium">{formatFlag(operationalInfo.ready)}</p>
+              </div>
+              {operationalInfo.backendMode && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Backend</span>
+                  <p className="text-neutral-200 font-medium">{operationalInfo.backendMode}</p>
+                </div>
+              )}
+              {operationalInfo.modelAvailable !== null && operationalInfo.modelAvailable !== undefined && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Model Available</span>
+                  <p className="text-neutral-200 font-medium">{formatFlag(operationalInfo.modelAvailable)}</p>
+                </div>
+              )}
+              {(operationalInfo.activeSessions !== null && operationalInfo.activeSessions !== undefined) && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Active Sessions</span>
+                  <p className="text-neutral-200 font-medium">
+                    {operationalInfo.activeSessions}
+                    {operationalInfo.maxConcurrentSessions !== null && operationalInfo.maxConcurrentSessions !== undefined
+                      ? ` / ${operationalInfo.maxConcurrentSessions}`
+                      : ''}
+                  </p>
+                </div>
+              )}
+              {operationalInfo.lastHeartbeat && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Last Heartbeat</span>
+                  <p className="text-neutral-200 font-medium">{formatTimestamp(operationalInfo.lastHeartbeat)}</p>
+                </div>
+              )}
+              {operationalInfo.localModeEnabled !== null && operationalInfo.localModeEnabled !== undefined && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Local Mode</span>
+                  <p className="text-neutral-200 font-medium">{formatFlag(operationalInfo.localModeEnabled)}</p>
+                </div>
+              )}
+              {operationalInfo.localSessionActive !== null && operationalInfo.localSessionActive !== undefined && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Local Session</span>
+                  <p className="text-neutral-200 font-medium">{formatFlag(operationalInfo.localSessionActive)}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {syncTimestamp && (
         <p className="mt-3 text-xs text-text-secondary">
-          Last synced: {new Date(syncTimestamp).toLocaleString()}
+          Last synced: {formatTimestamp(syncTimestamp)}
         </p>
       )}
     </div>

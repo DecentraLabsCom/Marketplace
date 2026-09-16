@@ -28,6 +28,7 @@ const GATEWAY_ORIGIN = 'https://gateway.example.com'
 const shellId = `urn:decentralabs:lab:${LAB_ID}`
 const nameplateId = `${shellId}:sm:nameplate`
 const simulationModelsId = `${shellId}:sm:simulationModels`
+const technicalDataId = `${shellId}:sm:technicalData`
 
 const request = (path) => new Request(`http://marketplace.example.com${path}`)
 const responseJson = (response) => response.json()
@@ -54,7 +55,15 @@ describe('GET /api/aas/shell', () => {
 
   test('fetches the shell and flattens optional Nameplate and SimulationModels properties', async () => {
     gatewayFetch
-      .mockResolvedValueOnce(new Response(JSON.stringify({ modelType: 'AssetAdministrationShell', id: shellId }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        modelType: 'AssetAdministrationShell',
+        id: shellId,
+        submodels: [
+          { keys: [{ type: 'Submodel', value: nameplateId }] },
+          { keys: [{ type: 'Submodel', value: simulationModelsId }] },
+          { keys: [{ type: 'Submodel', value: technicalDataId }] },
+        ],
+      }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         submodelElements: [
           { modelType: 'Property', idShort: 'ManufacturerName', value: 'DecentraLabs' },
@@ -72,17 +81,51 @@ describe('GET /api/aas/shell', () => {
           ],
         }],
       }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: technicalDataId,
+        idShort: 'TechnicalData',
+        submodelElements: [
+          { modelType: 'Property', idShort: 'ResourceStatus', value: 'Ready' },
+          { modelType: 'Property', idShort: 'ReadyFlag', value: 'true' },
+          { modelType: 'Property', idShort: 'ActiveSimulationCount', value: '2' },
+          { modelType: 'Property', idShort: 'MaxConcurrentSimulations', value: '10' },
+          { modelType: 'Property', idShort: 'LastSyncTimestamp', value: '2026-09-16T10:00:00Z' },
+        ],
+      }), { status: 200 }))
 
     const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
 
     expect(response.status).toBe(200)
     await expect(responseJson(response)).resolves.toEqual({
-      shell: { modelType: 'AssetAdministrationShell', id: shellId },
+      shell: {
+        modelType: 'AssetAdministrationShell',
+        id: shellId,
+        submodels: [
+          { keys: [{ type: 'Submodel', value: nameplateId }] },
+          { keys: [{ type: 'Submodel', value: simulationModelsId }] },
+          { keys: [{ type: 'Submodel', value: technicalDataId }] },
+        ],
+      },
       nameplate: { ManufacturerName: 'DecentraLabs', ModelNumber: 'FMU-42' },
       simulationInfo: {
         license: 'MIT',
         documentationUrl: 'https://docs.example.com/fmu-42',
+        documentationUrls: ['https://docs.example.com/fmu-42'],
         contactEmail: 'owner@example.com',
+      },
+      operationalInfo: {
+        submodelId: technicalDataId,
+        idShort: 'TechnicalData',
+        status: 'Ready',
+        ready: true,
+        backendMode: null,
+        modelAvailable: null,
+        activeSessions: 2,
+        maxConcurrentSessions: 10,
+        lastHeartbeat: null,
+        lastSync: '2026-09-16T10:00:00Z',
+        localModeEnabled: null,
+        localSessionActive: null,
       },
     })
     expect(resolveLabAccessGateway).toHaveBeenCalledWith({ labId: LAB_ID })
@@ -99,6 +142,65 @@ describe('GET /api/aas/shell', () => {
     expect(gatewayFetch).toHaveBeenNthCalledWith(
       3,
       `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(simulationModelsId)}`,
+      { cache: 'no-store' },
+    )
+    expect(gatewayFetch).toHaveBeenNthCalledWith(
+      4,
+      `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(technicalDataId)}`,
+      { cache: 'no-store' },
+    )
+  })
+
+  test('discovers arbitrary submodels from a linked external shell', async () => {
+    const externalShellId = 'https://aas.provider.example/shells/remote-42'
+    const externalNameplateId = 'https://aas.provider.example/submodels/nameplate-42'
+    const externalOperationalId = 'https://aas.provider.example/submodels/operational-42'
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: externalShellId,
+        submodels: [
+          { keys: [{ type: 'Submodel', value: externalNameplateId }] },
+          { keys: [{ type: 'Submodel', value: externalOperationalId }] },
+        ],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: externalNameplateId,
+        idShort: 'Nameplate',
+        submodelElements: [{ modelType: 'Property', idShort: 'LabType', value: 'PhysicalLab' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: externalOperationalId,
+        idShort: 'OperationalStatus',
+        submodelElements: [
+          { modelType: 'Property', idShort: 'Status', value: 'Available' },
+          { modelType: 'Property', idShort: 'Ready', value: 'true' },
+          { modelType: 'Property', idShort: 'HeartbeatTimestamp', value: '2026-09-16T11:00:00Z' },
+        ],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+
+    expect(response.status).toBe(200)
+    await expect(responseJson(response)).resolves.toEqual(expect.objectContaining({
+      shell: expect.objectContaining({ id: externalShellId }),
+      nameplate: { LabType: 'PhysicalLab' },
+      simulationInfo: null,
+      operationalInfo: expect.objectContaining({
+        submodelId: externalOperationalId,
+        idShort: 'OperationalStatus',
+        status: 'Available',
+        ready: true,
+        lastHeartbeat: '2026-09-16T11:00:00Z',
+      }),
+    }))
+    expect(gatewayFetch).toHaveBeenNthCalledWith(
+      2,
+      `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(externalNameplateId)}`,
+      { cache: 'no-store' },
+    )
+    expect(gatewayFetch).toHaveBeenNthCalledWith(
+      3,
+      `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(externalOperationalId)}`,
       { cache: 'no-store' },
     )
   })
@@ -134,6 +236,7 @@ describe('GET /api/aas/shell', () => {
       shell: { id: shellId },
       nameplate: null,
       simulationInfo: null,
+      operationalInfo: null,
     })
   })
 
@@ -215,6 +318,32 @@ describe('GET /api/aas/package', () => {
     )
     expect(gatewayFetch).toHaveBeenCalledWith(
       `${GATEWAY_ORIGIN}/aas/serialization?aasIds=${encodedAasId(shellId)}&includeConceptDescriptions=true&submodelIds=${encodedAasId(nameplateId)}&submodelIds=${encodedAasId(simulationModelsId)}`,
+      {
+        cache: 'no-store',
+        headers: { Accept: 'application/asset-administration-shell-package+xml' },
+      },
+    )
+  })
+
+  test('serializes a linked shell using the identifier returned by the provider', async () => {
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
+    const externalShellId = 'https://aas.provider.example/shells/remote-42'
+    const externalSubmodelId = 'https://aas.provider.example/submodels/remote-42'
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: externalShellId,
+        submodels: [{ keys: [{ type: 'Submodel', value: externalSubmodelId }] }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(bytes, {
+        status: 200,
+        headers: { 'Content-Type': 'application/asset-administration-shell-package+xml' },
+      }))
+
+    const response = await getPackage(request(`/api/aas/package?labId=${LAB_ID}`))
+
+    expect(response.status).toBe(200)
+    expect(gatewayFetch).toHaveBeenCalledWith(
+      `${GATEWAY_ORIGIN}/aas/serialization?aasIds=${encodedAasId(externalShellId)}&includeConceptDescriptions=true&submodelIds=${encodedAasId(externalSubmodelId)}`,
       {
         cache: 'no-store',
         headers: { Accept: 'application/asset-administration-shell-package+xml' },

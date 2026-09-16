@@ -10,55 +10,192 @@ import {
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ operation: 'aas-shell', windowMs: 60_000, maxRequests: 30 })
+const MAX_SUBMODEL_REFERENCES = 64
+const MAX_IDENTIFIER_LENGTH = 2048
+const MAX_PROPERTY_VALUE_LENGTH = 4096
+const FALLBACK_SUBMODEL_SUFFIXES = ['nameplate', 'simulationModels', 'technicalData']
 
-/**
- * Base64url-encode an AAS / submodel ID for BaSyx V2 REST path segments.
- * BaSyx V2 encodes identifiers as base64url without padding characters.
- */
 function encodeAasId(id) {
   return Buffer.from(id).toString('base64url')
 }
 
-/**
- * Extract a flat map of { idShort -> value } from a BaSyx V2 submodelElements array.
- * Only handles top-level Property elements (modelType === "Property").
- */
-function extractProperties(submodelElements) {
-  if (!Array.isArray(submodelElements)) return {}
-  return submodelElements.reduce((acc, el) => {
-    if (el?.modelType === 'Property' && el.idShort) {
-      acc[el.idShort] = el.value ?? ''
-    }
-    return acc
-  }, {})
+function safePropertyValue(value) {
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return null
+  const text = String(value)
+  return text.length <= MAX_PROPERTY_VALUE_LENGTH ? text : text.slice(0, MAX_PROPERTY_VALUE_LENGTH)
 }
 
-/**
- * Extract a flat map of { idShort -> value } from a named SubmodelElementCollection
- * within a BaSyx V2 submodelElements array. Falls back to scanning top-level Properties
- * if the named collection is not found.
- */
+/** Flatten bounded Property, MultiLanguageProperty and collection elements. */
+function extractProperties(submodelElements, options = {}) {
+  const maxElements = options.maxElements || 512
+  const properties = {}
+  let visited = 0
+
+  const visit = (elements, depth) => {
+    if (!Array.isArray(elements) || depth > 12 || visited >= maxElements) return
+    for (const element of elements) {
+      if (visited >= maxElements || !element || typeof element !== 'object') return
+      visited += 1
+
+      if (element.idShort && element.modelType === 'Property') {
+        const value = safePropertyValue(element.value)
+        if (value !== null) properties[element.idShort] = value
+      } else if (element.idShort && element.modelType === 'MultiLanguageProperty') {
+        const text = Array.isArray(element.value)
+          ? element.value.find((item) => typeof item?.text === 'string')?.text
+          : null
+        const value = safePropertyValue(text)
+        if (value !== null) properties[element.idShort] = value
+      }
+
+      if (Array.isArray(element.value) && (
+        element.modelType === 'SubmodelElementCollection'
+        || element.modelType === 'SubmodelElementList'
+      )) {
+        visit(element.value, depth + 1)
+      }
+    }
+  }
+
+  visit(submodelElements, 0)
+  return properties
+}
+
 function extractCollectionProperties(submodelElements, collectionIdShort) {
   if (!Array.isArray(submodelElements)) return {}
   const collection = submodelElements.find(
-    (el) => el?.modelType === 'SubmodelElementCollection' && el.idShort === collectionIdShort
+    (element) => element?.modelType === 'SubmodelElementCollection'
+      && element.idShort === collectionIdShort,
   )
-  const elements = collection ? (collection.value ?? []) : submodelElements
-  return extractProperties(elements)
+  return extractProperties(collection ? collection.value : submodelElements)
+}
+
+function extractSubmodelIds(shell) {
+  if (!Array.isArray(shell?.submodels)) return []
+
+  return [...new Set(shell.submodels
+    .map((reference) => {
+      if (!Array.isArray(reference?.keys)) return null
+      const key = reference.keys.find(
+        (candidate) => String(candidate?.type || '').toLowerCase() === 'submodel'
+          && typeof candidate.value === 'string',
+      )
+      const id = key?.value?.trim()
+      return id && id.length <= MAX_IDENTIFIER_LENGTH ? id : null
+    })
+    .filter(Boolean))].slice(0, MAX_SUBMODEL_REFERENCES)
+}
+
+function semanticIdText(submodel) {
+  const keys = submodel?.semanticId?.keys
+  return Array.isArray(keys)
+    ? keys.map((key) => String(key?.value || '')).join(' ')
+    : ''
+}
+
+function classifySubmodel(submodel, requestedId) {
+  const identity = [submodel?.idShort, submodel?.id, requestedId, semanticIdText(submodel)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+
+  if (identity.includes('nameplate')) return 'nameplate'
+  if (identity.includes('simulationmodels')) return 'simulation'
+  if (identity.includes('technicaldata') || identity.includes('operationalstatus') || identity.includes('operationaldata')) {
+    return 'operational'
+  }
+  return null
+}
+
+function firstProperty(properties, names) {
+  const wanted = new Set(names.map((name) => name.toLowerCase()))
+  const entry = Object.entries(properties || {}).find(([key]) => wanted.has(key.toLowerCase()))
+  return entry?.[1] ?? null
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (['true', '1', 'yes', 'ready', 'up'].includes(normalized)) return true
+  if (['false', '0', 'no', 'notready', 'unavailable', 'down'].includes(normalized)) return false
+  return null
+}
+
+function parseNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) && Number.isInteger(number) && number >= 0 ? number : null
+}
+
+function buildSimulationInfo(submodel) {
+  const props = extractCollectionProperties(submodel?.submodelElements, 'SimulationModel')
+  const documentationUrls = Object.entries(props)
+    .filter(([key]) => /^documentationurl(?:_\d+)?$/i.test(key))
+    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+    .map(([, value]) => value)
+    .filter(Boolean)
+
+  return {
+    license: firstProperty(props, ['License']),
+    documentationUrl: documentationUrls[0] || firstProperty(props, ['DocumentationUrl']),
+    documentationUrls: [...new Set(documentationUrls)],
+    contactEmail: firstProperty(props, ['ContactEmail']),
+  }
+}
+
+function buildOperationalInfo(submodel, submodelId) {
+  const props = extractProperties(submodel?.submodelElements)
+  return {
+    submodelId,
+    idShort: typeof submodel?.idShort === 'string' ? submodel.idShort : null,
+    status: firstProperty(props, ['ResourceStatus', 'LabStatus', 'RunnerStatus', 'Status']),
+    ready: parseBoolean(firstProperty(props, ['ReadyFlag', 'Ready'])),
+    backendMode: firstProperty(props, ['ExecutionBackend', 'BackendMode']),
+    modelAvailable: parseBoolean(firstProperty(props, ['ModelAvailable'])),
+    activeSessions: parseNumber(firstProperty(props, ['ActiveSimulationCount', 'ActiveSessionCount'])),
+    maxConcurrentSessions: parseNumber(firstProperty(props, ['MaxConcurrentSimulations', 'MaxConcurrentSessions'])),
+    lastHeartbeat: firstProperty(props, ['LastHeartbeatTimestamp', 'HeartbeatTimestamp']),
+    lastSync: firstProperty(props, ['LastSyncTimestamp', 'SyncTimestamp']),
+    localModeEnabled: parseBoolean(firstProperty(props, ['LocalModeEnabled'])),
+    localSessionActive: parseBoolean(firstProperty(props, ['LocalSessionActive'])),
+  }
+}
+
+async function fetchReferencedSubmodels(gatewayBaseUrl, shell, labId) {
+  const shellId = `urn:decentralabs:lab:${labId}`
+  const referencedIds = extractSubmodelIds(shell)
+  const submodelIds = referencedIds.length > 0
+    ? referencedIds
+    : FALLBACK_SUBMODEL_SUFFIXES.map((suffix) => `${shellId}:sm:${suffix}`)
+  const fetched = []
+
+  for (const submodelId of submodelIds) {
+    const submodelUrl = buildGatewayTargetUrl(
+      gatewayBaseUrl,
+      `/aas/submodels/${encodeAasId(submodelId)}`,
+    )
+    try {
+      devLog.log(`[aas/shell] Fetching referenced submodel from ${submodelUrl}`)
+      const response = await gatewayFetch(submodelUrl, { cache: 'no-store' })
+      if (response.ok) {
+        const submodel = await response.json()
+        fetched.push({ submodel, submodelId })
+      }
+    } catch (error) {
+      devLog.warn('[aas/shell] Referenced submodel fetch failed (non-fatal):', error?.message)
+    }
+  }
+
+  return fetched
 }
 
 /**
  * GET /api/aas/shell?labId=1
  *
- * Fetches the AAS shell and Nameplate submodel from the provider's Gateway BaSyx
- * instance. Both identifiers are derived deterministically from the labId:
- *   AAS shell:   urn:decentralabs:lab:{labId}
- *   Nameplate:   urn:decentralabs:lab:{labId}:sm:nameplate
- *
- * Returns 404 JSON { notFound: true } when the shell does not exist on the gateway
- * (e.g. provider has not deployed the AAS profile). Returns the combined payload:
- *   { shell, nameplate }
- * where `nameplate` is null if the provider has not yet synced the Nameplate submodel.
+ * Fetches the provider's shell and discovers the submodels referenced by that
+ * shell. This supports generated FMU/physical shells as well as arbitrary
+ * provider-managed external AAS identifiers.
  */
 export async function GET(request) {
   const rateLimitResponse = createRateLimitResponse(await checkRate(request))
@@ -73,27 +210,16 @@ export async function GET(request) {
     }
 
     const gatewayBaseUrl = await resolveLabAccessGateway({ labId })
-
     const shellId = `urn:decentralabs:lab:${labId}`
-    const nameplateId = `urn:decentralabs:lab:${labId}:sm:nameplate`
-    const simulationModelsId = `urn:decentralabs:lab:${labId}:sm:simulationModels`
-
-    const shellPath = `/aas/shells/${encodeAasId(shellId)}`
-    const nameplatePath = `/aas/submodels/${encodeAasId(nameplateId)}`
-    const simulationModelsPath = `/aas/submodels/${encodeAasId(simulationModelsId)}`
-
-    const shellUrl = buildGatewayTargetUrl(gatewayBaseUrl, shellPath)
-    const nameplateUrl = buildGatewayTargetUrl(gatewayBaseUrl, nameplatePath)
-    const simulationModelsUrl = buildGatewayTargetUrl(gatewayBaseUrl, simulationModelsPath)
+    const shellUrl = buildGatewayTargetUrl(
+      gatewayBaseUrl,
+      `/aas/shells/${encodeAasId(shellId)}`,
+    )
 
     devLog.log(`[aas/shell] Fetching shell from ${shellUrl}`)
-
-    // Fetch shell — if it returns 404, the lab has no AAS configured
     const shellRes = await gatewayFetch(shellUrl, { cache: 'no-store' })
 
-    if (shellRes.status === 404) {
-      return NextResponse.json({ notFound: true }, { status: 404 })
-    }
+    if (shellRes.status === 404) return NextResponse.json({ notFound: true }, { status: 404 })
     if (shellRes.status === 403) {
       return NextResponse.json(
         { notFound: true, reason: 'AAS is not available on this gateway (Lite mode)' },
@@ -113,39 +239,23 @@ export async function GET(request) {
     }
 
     const shell = await shellRes.json()
+    const referencedSubmodels = await fetchReferencedSubmodels(gatewayBaseUrl, shell, labId)
 
-    // Fetch nameplate — best-effort, null if not present
     let nameplate = null
-    try {
-      devLog.log(`[aas/shell] Fetching nameplate from ${nameplateUrl}`)
-      const npRes = await gatewayFetch(nameplateUrl, { cache: 'no-store' })
-      if (npRes.ok) {
-        const npData = await npRes.json()
-        nameplate = extractProperties(npData?.submodelElements)
-      }
-    } catch (npErr) {
-      devLog.warn('[aas/shell] Nameplate fetch failed (non-fatal):', npErr?.message)
-    }
-
-    // Fetch SimulationModels submodel — best-effort, null if not present (FMU resources only)
     let simulationInfo = null
-    try {
-      devLog.log(`[aas/shell] Fetching simulationModels from ${simulationModelsUrl}`)
-      const smRes = await gatewayFetch(simulationModelsUrl, { cache: 'no-store' })
-      if (smRes.ok) {
-        const smData = await smRes.json()
-        const props = extractCollectionProperties(smData?.submodelElements, 'SimulationModel')
-        simulationInfo = {
-          license: props.License || null,
-          documentationUrl: props.DocumentationUrl || null,
-          contactEmail: props.ContactEmail || null,
-        }
+    let operationalInfo = null
+    for (const { submodel, submodelId } of referencedSubmodels) {
+      const kind = classifySubmodel(submodel, submodelId)
+      if (kind === 'nameplate' && nameplate === null) {
+        nameplate = extractProperties(submodel?.submodelElements)
+      } else if (kind === 'simulation' && simulationInfo === null) {
+        simulationInfo = buildSimulationInfo(submodel)
+      } else if (kind === 'operational' && operationalInfo === null) {
+        operationalInfo = buildOperationalInfo(submodel, submodelId)
       }
-    } catch (smErr) {
-      devLog.warn('[aas/shell] SimulationModels fetch failed (non-fatal):', smErr?.message)
     }
 
-    return NextResponse.json({ shell, nameplate, simulationInfo }, { status: 200 })
+    return NextResponse.json({ shell, nameplate, simulationInfo, operationalInfo }, { status: 200 })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
       return publicErrorResponse({

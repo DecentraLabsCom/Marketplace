@@ -72,8 +72,9 @@ function isZipArchive(bytes) {
  * the AASX serialization from the server-side AAS data and streams the binary
  * back to the Marketplace client.
  *
- * The AAS identifier is derived deterministically from labId:
- *   urn:decentralabs:lab:{labId}
+ * The initial shell lookup uses the stable laboratory identifier. If the
+ * Gateway resolves that lookup to a linked external shell, serialization uses
+ * the identifier returned by that shell.
  *
  * Returns:
  *   200  application/asset-administration-shell-package+xml  (the .aasx binary)
@@ -139,8 +140,21 @@ export async function GET(request) {
       })
     }
 
+    const resolvedAasId = typeof shell?.id === 'string' && shell.id.trim()
+      ? shell.id.trim()
+      : aasId
+    if (resolvedAasId.length > MAX_IDENTIFIER_LENGTH) {
+      return publicErrorResponse({
+        status: 502,
+        code: 'AAS_GATEWAY_REQUEST_FAILED',
+        message: 'The laboratory package could not be downloaded.',
+        error: new Error('AAS shell identifier is too long'),
+        context: 'aas-package-shell-id',
+      })
+    }
+
     const submodelIds = extractSubmodelIds(shell)
-    const serializationUrl = buildSerializationUrl(gatewayBaseUrl, aasId, submodelIds)
+    const serializationUrl = buildSerializationUrl(gatewayBaseUrl, resolvedAasId, submodelIds)
     devLog.log(`[aas/package] Fetching AASX serialization from ${serializationUrl}`)
 
     const pkgRes = await gatewayFetch(serializationUrl, {

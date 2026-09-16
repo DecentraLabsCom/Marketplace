@@ -53,4 +53,51 @@ describe('AasPanel external links', () => {
       `https://gateway.example/aas/shells/${encodedId}`,
     )
   })
+
+  test('renders normalized operational metadata for any resource type', async () => {
+    global.fetch.mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        shell: {
+          id: 'https://aas.provider.example/shells/remote-7',
+          assetInformation: { assetType: 'PhysicalLab' },
+          submodels: [{}, {}],
+        },
+        nameplate: {
+          LabType: 'PhysicalLab',
+          License: 'https://provider.example/terms',
+          DocumentationUrl_0: 'https://provider.example/manual.pdf',
+          DocumentationUrl_1: 'https://provider.example/guide.pdf',
+        },
+        simulationInfo: null,
+        operationalInfo: {
+          status: 'Ready',
+          ready: true,
+          backendMode: 'station',
+          modelAvailable: null,
+          activeSessions: 1,
+          maxConcurrentSessions: 4,
+          lastHeartbeat: '2026-09-16T11:00:00Z',
+          lastSync: '2026-09-16T11:01:00Z',
+          localModeEnabled: false,
+          localSessionActive: false,
+        },
+      }),
+    })
+
+    render(<AasPanel labId="7" gatewayUrl="https://gateway.example/fmu" />)
+
+    await waitFor(() => expect(screen.getByText('Operational Status')).toBeInTheDocument())
+
+    expect(screen.getAllByText('Ready')).toHaveLength(2)
+    expect(screen.getByText('station')).toBeInTheDocument()
+    expect(screen.getByText('1 / 4')).toBeInTheDocument()
+    expect(screen.getByText('Yes')).toBeInTheDocument()
+    expect(screen.getAllByText('No')).toHaveLength(2)
+    expect(screen.getByText('https://provider.example/terms')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'https://provider.example/manual.pdf' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'https://provider.example/guide.pdf' })).toBeInTheDocument()
+    expect(screen.getByText('https://aas.provider.example/shells/remote-7')).toBeInTheDocument()
+  })
 })
