@@ -35,7 +35,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, labId = null, ma
     })
     .filter(Boolean), [docs, labId]);
   const currentDoc = normalizedDocs[currentIndex] || null;
-  const viewerHeight = maxHeight ? `${maxHeight}px` : '200px';
+  const viewerHeight = typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight || '200px';
 
   useEffect(() => {
     if (currentIndex >= normalizedDocs.length) {

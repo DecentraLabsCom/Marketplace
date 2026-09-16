@@ -39,8 +39,8 @@ jest.mock("@/components/ui/Carrousel", () => {
   };
 });
 jest.mock("@/components/ui/DocsCarrousel", () => {
-  return function MockDocsCarrousel({ docs, labId }) {
-    return <div data-testid="docs-carousel" data-lab-id={labId}>{docs?.length} documents</div>;
+  return function MockDocsCarrousel({ docs, labId, maxHeight }) {
+    return <div data-testid="docs-carousel" data-lab-id={labId} data-max-height={maxHeight}>{docs?.length} documents</div>;
   };
 });
 jest.mock("@/components/skeletons", () => ({
@@ -209,8 +209,11 @@ describe("LabDetail", () => {
       expect(title.compareDocumentPosition(carousel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(title).toHaveClass("text-center");
       expect(title.closest("header")).toHaveClass("w-full");
-      expect(screen.getByTestId("lab-content-columns")).toHaveClass("md:items-start");
-      expect(screen.getByTestId("lab-details-column")).toHaveClass("md:mt-0");
+      expect(screen.getByTestId("lab-content-columns")).toHaveClass("md:items-stretch");
+      expect(screen.getByTestId("lab-details-column")).toHaveClass("md:flex", "md:flex-col", "md:mt-0");
+      expect(screen.getByTestId("documentation-section")).toHaveClass("md:flex-1");
+      expect(screen.getByTestId("documentation-viewer")).toHaveClass("md:flex-1");
+      expect(screen.getByTestId("docs-carousel")).toHaveAttribute("data-max-height", "100%");
     });
   });
 

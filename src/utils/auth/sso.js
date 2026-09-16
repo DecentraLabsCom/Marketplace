@@ -1,6 +1,7 @@
 import { ServiceProvider, IdentityProvider } from 'saml2-js'
 import { X509Certificate } from 'node:crypto'
 import xml2js from 'xml2js'
+import './xmldomCompatibility'
 import countries from 'i18n-iso-countries'
 import enLocale from 'i18n-iso-countries/langs/en.json'
 import esLocale from 'i18n-iso-countries/langs/es.json'

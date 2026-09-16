@@ -1,6 +1,7 @@
 import { DOMParser } from '@xmldom/xmldom'
 import { SignedXml } from 'xml-crypto'
 import xpath from 'xpath'
+import './xmldomCompatibility'
 
 const SAML_PROTOCOL_NAMESPACE = 'urn:oasis:names:tc:SAML:2.0:protocol'
 const SAML_ASSERTION_NAMESPACE = 'urn:oasis:names:tc:SAML:2.0:assertion'

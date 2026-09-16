@@ -286,11 +286,11 @@ export default function LabDetail({ id }) {
 
         <div
           data-testid="lab-content-columns"
-          className="mt-4 flex flex-col md:flex-row md:items-start md:justify-center gap-6 md:gap-10"
+          className="mt-4 flex flex-col md:flex-row md:items-stretch md:justify-center gap-6 md:gap-10"
         >
         {/* Carousel Section */}
-        <article className="w-full md:w-1/2 flex flex-col p-4 md:pt-0">
-          <div className="size-full flex flex-col justify-center">
+        <article className="w-full md:w-1/2 flex flex-col p-4 md:pt-0 md:pb-0">
+          <div className="size-full flex flex-col justify-center md:justify-start">
             <Carrousel lab={lab} labId={labIdentifier} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
@@ -358,7 +358,7 @@ export default function LabDetail({ id }) {
         </article>
 
         {/* Lab Details Section */}
-        <article data-testid="lab-details-column" className="w-full md:w-2/5 md:mt-0">
+        <article data-testid="lab-details-column" className="w-full md:w-2/5 md:mt-0 md:flex md:flex-col">
           <div className="mt-0 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
@@ -421,19 +421,19 @@ export default function LabDetail({ id }) {
                 </span>
               ))}
             </div>
+          </div>
 
-            {/* Documentation */}
-            <div className={`flex flex-col text-center mt-4 overflow-hidden`}>
-              <h3 className="text-header-bg text-lg font-semibold">
-                Documentation
-              </h3>
-              <div className="transition-opacity duration-300 opacity-100 mt-2">
-                {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
-                  <DocsCarrousel docs={lab.docs} labId={labIdentifier} />
-                ) : (
-                  <span className="text-center text-neutral-300 p-2">No documents available</span>
-                )}
-              </div>
+          {/* Documentation */}
+          <div data-testid="documentation-section" className="mt-4 flex min-h-50 flex-col overflow-hidden text-center md:min-h-0 md:flex-1">
+            <h3 className="text-header-bg text-lg font-semibold">
+              Documentation
+            </h3>
+            <div data-testid="documentation-viewer" className="mt-2 h-50 min-h-50 transition-opacity duration-300 opacity-100 md:h-auto md:min-h-0 md:flex-1">
+              {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
+                <DocsCarrousel docs={lab.docs} labId={labIdentifier} maxHeight="100%" />
+              ) : (
+                <span className="text-center text-neutral-300 p-2">No documents available</span>
+              )}
             </div>
           </div>
         </article>

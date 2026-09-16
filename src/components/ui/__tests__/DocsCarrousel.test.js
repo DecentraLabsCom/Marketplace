@@ -80,6 +80,12 @@ describe('DocsCarrousel', () => {
       expect(container.firstChild).toHaveStyle({ height: '300px' });
     });
 
+    test('should support a percentage height for a flex-sized viewer', () => {
+      const { container } = render(<DocsCarrousel docs={multipleDocs} labId={7} maxHeight="100%" />);
+
+      expect(container.firstChild).toHaveStyle({ height: '100%' });
+    });
+
     test('should use default height of 200px when maxHeight is not provided', () => {
       const { container } = render(<DocsCarrousel docs={multipleDocs} labId={7} />);
       
