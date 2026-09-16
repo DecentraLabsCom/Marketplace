@@ -186,7 +186,20 @@ describe('GET /api/aas/package', () => {
 
   test('streams the AASX package with download headers and encoded shell id', async () => {
     const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
-    gatewayFetch.mockResolvedValueOnce(new Response(bytes, { status: 200 }))
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        modelType: 'AssetAdministrationShell',
+        id: shellId,
+        submodels: [{
+          keys: [{ type: 'Submodel', value: nameplateId }],
+        }, {
+          keys: [{ type: 'Submodel', value: simulationModelsId }],
+        }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(bytes, {
+        status: 200,
+        headers: { 'Content-Type': 'application/asset-administration-shell-package+xml' },
+      }))
 
     const response = await getPackage(request(`/api/aas/package?labId=${LAB_ID}`))
 
@@ -197,9 +210,34 @@ describe('GET /api/aas/package', () => {
     expect(response.headers.get('content-length')).toBe(String(bytes.byteLength))
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
     expect(gatewayFetch).toHaveBeenCalledWith(
-      `${GATEWAY_ORIGIN}/aas/shells/${encodedAasId(shellId)}/package`,
+      `${GATEWAY_ORIGIN}/aas/shells/${encodedAasId(shellId)}`,
       { cache: 'no-store' },
     )
+    expect(gatewayFetch).toHaveBeenCalledWith(
+      `${GATEWAY_ORIGIN}/aas/serialization?aasIds=${encodedAasId(shellId)}&includeConceptDescriptions=true&submodelIds=${encodedAasId(nameplateId)}&submodelIds=${encodedAasId(simulationModelsId)}`,
+      {
+        cache: 'no-store',
+        headers: { Accept: 'application/asset-administration-shell-package+xml' },
+      },
+    )
+  })
+
+  test('does not treat a JSON response as an AASX package', async () => {
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: shellId, submodels: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ notFound: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+
+    const response = await getPackage(request(`/api/aas/package?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(502)
+    expect(body).toEqual(expect.objectContaining({
+      error: 'The laboratory package could not be downloaded.',
+      code: 'AAS_GATEWAY_REQUEST_FAILED',
+    }))
   })
 
   test('maps missing and Lite-mode packages to notFound', async () => {

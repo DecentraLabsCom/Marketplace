@@ -38,4 +38,19 @@ describe('AasPanel external links', () => {
       'mailto:provider@example.edu',
     )
   })
+
+  test('links to the provider AAS endpoint at the gateway root', async () => {
+    render(<AasPanel labId="7" gatewayUrl="https://gateway.example/fmu" />)
+
+    await waitFor(() => expect(screen.getByText('Digital Twin Metadata')).toBeInTheDocument())
+
+    const encodedId = btoa('urn:decentralabs:lab:7')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+    expect(screen.getByRole('link', { name: 'View raw AAS shell JSON on provider gateway' })).toHaveAttribute(
+      'href',
+      `https://gateway.example/aas/shells/${encodedId}`,
+    )
+  })
 })

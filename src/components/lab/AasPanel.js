@@ -96,10 +96,9 @@ export default function AasPanel({ labId, gatewayUrl }) {
       const base = parseSafeExternalHttpUrl(gatewayUrl)
       if (!base || base.search || base.hash) return null
       const origin = `${base.protocol}//${base.host}`
-      const basePath = base.pathname.replace(/\/+$/, '').replace(/\/auth$/, '')
       const aasId = `urn:decentralabs:lab:${labId}`
       const encodedId = btoa(aasId).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-      return `${origin}${basePath}/aas/shells/${encodedId}`
+      return `${origin}/aas/shells/${encodedId}`
     } catch {
       return null
     }
