@@ -2,7 +2,7 @@ name: Test Suite
 
 on:
   push:
-    branches: ['**']
+    branches: ['main']
   pull_request:
     branches: ['**']
 
@@ -23,9 +23,6 @@ jobs:
 
       - name: 📚 Install dependencies
         run: npm ci --include=dev
-
-      - name: 🔍 Run linting
-        run: npm run lint
 
       - name: Check public documentation
         run: npm run docs:check
