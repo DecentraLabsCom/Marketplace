@@ -41,9 +41,9 @@ Creating a lab and publishing it are separate states. The default public catalog
 
 These operations are not interchangeable:
 
-- **Unlist** calls `unlistLab`. The lab token remains owned and editable, but
+- **Unlist** calls `unlistLab`. The on-chain lab record remains owned and editable, but
   new reservation intake stops; existing obligations remain in force.
-- **Delete** calls `deleteLab`. The contract unlists and burns the lab token,
+- **Delete** calls `deleteLab`. The contract removes the on-chain lab record,
   removes it from the active catalogue and cannot be reversed on-chain. It does
   not cancel historical reservations or erase settlement history.
 - **Metadata cleanup** is separate from either contract operation. Marketplace-

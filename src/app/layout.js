@@ -14,12 +14,11 @@ const marketplaceBaseUrl = getBaseUrl()
 export const metadata = {
     metadataBase: new URL(marketplaceBaseUrl),
     title: 'DecentraLabs Marketplace',
-    description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
-  tags: 'NFT blockchain decentralized remote labs online experimentation',
-    keywords: 'NFT blockchain decentralized remote labs online experimentation',
+    description: 'DecentraLabs Marketplace for institutionally managed online laboratories and service-credit reservations.',
+    keywords: 'remote laboratories, institutional access, service credits, online experimentation',
     openGraph: {
         title: 'DecentraLabs Marketplace',
-        description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
+        description: 'DecentraLabs Marketplace for institutionally managed online laboratories and service-credit reservations.',
         url: marketplaceBaseUrl,
         images: [
             {
@@ -32,7 +31,7 @@ export const metadata = {
     twitter: {
         card: 'summary_large_image',
         title: 'DecentraLabs Marketplace',
-        description: 'DecentraLabs Marketplace for institutionally managed online laboratories.',
+        description: 'DecentraLabs Marketplace for institutionally managed online laboratories and service-credit reservations.',
         images: [
             {
             url: '/favicon.svg',

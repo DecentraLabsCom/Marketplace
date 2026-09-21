@@ -5,8 +5,8 @@ description: Understand institutional service credits, funding orders and accoun
 # Credits and funding
 
 Service credits are internal units used by an institution to authorize
-laboratory reservations. They are not cash, a personal wallet balance or a
-transferable `$LAB` payment. The institution's backend and its administrators
+laboratory reservations. They are not cash or a personal wallet balance. The
+institution's backend and its administrators
 control how credits are funded and which users or activities may spend them.
 
 ## Who does what

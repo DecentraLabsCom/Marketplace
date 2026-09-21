@@ -15,7 +15,7 @@ implementation notes are intentionally kept out of the public navigation.
     * [Enable your lab for online access](docs/become-a-provider/enable-your-lab-for-online-access.md)
     * [Provider registration](docs/become-a-provider/register-as-a-provider.md)
     * [Metadata integration](docs/provider/metadata-integration.md)
-    * [Configure and publish your lab](docs/become-a-provider/tokenize-and-list-your-lab.md)
+    * [Configure and publish your lab](docs/become-a-provider/configure-and-publish-your-lab.md)
     * [Operate your laboratory](docs/provider/operate-your-lab.md)
     * [Access security for providers](docs/become-a-provider/authentication-and-authorization.md)
 * [Troubleshooting](docs/troubleshooting.md)

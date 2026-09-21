@@ -10,8 +10,8 @@ laboratories or run a provider gateway.
 
 The consumer model is institutional: the backend and managed institutional wallet
 authorize operations, while Marketplace provides the catalogue, reservation flow
-and access hand-off. A personal browser wallet, browser-side gas payment and
-transferable `$LAB` payment are not part of this flow.
+and access hand-off. A personal browser wallet and browser-side gas payment are
+not part of this flow.
 
 ## What you need
 
@@ -30,8 +30,8 @@ register an institution by itself.
 The institution should also arrange its service-credit funding and spending
 policy with its backend operator. See [Credits and funding](consumer/credits-and-funding.md)
 for the account, funding-order and expiry concepts visible in Marketplace.
-Service credits are internal settlement units: they are not personal wallet
-funds, cash or a transferable ERC-20 balance.
+Service credits are internal settlement units managed by the institution: they
+are not personal wallet funds or cash.
 
 ## Register the institution
 
@@ -120,7 +120,7 @@ For reservation states and timing rules, see
   sibling or subdomain origins automatically.
 - Never put the managed wallet private key, backend credentials or provisioning
   token in the browser, laboratory metadata or a public support ticket.
-- Do not describe service credits as `$LAB`, cash, personal wallet balance or
+- Do not describe service credits as cash, personal wallet funds or
   browser-side payment.
 
 ## Common issues

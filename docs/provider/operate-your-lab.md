@@ -46,7 +46,7 @@ consumer should not be asked to cancel that reservation from Marketplace.
 | Metadata-only update | Changes the catalogue document; it may not require an on-chain mutation. |
 | Price, access, availability or metadata URI update | Requires a new authorized provider operation and confirmation. |
 | **Unlist** | Stops new public reservation intake while keeping the lab owned and editable. Existing obligations remain. |
-| **Delete** | Unlists and burns the on-chain lab token. It is irreversible on-chain and does not erase historical settlement records. |
+| **Delete** | Unlists and permanently removes the on-chain lab record. It is irreversible on-chain and does not erase historical settlement records. |
 
 Use **Unlist** for maintenance or a temporary pause. Use **Delete** only when
 the institution intentionally wants the on-chain laboratory record removed.

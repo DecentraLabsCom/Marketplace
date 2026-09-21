@@ -36,7 +36,7 @@ export default function FAQ() {
     },
     {
       question: ' 8. What are service credits?',
-      answer: 'Service credits are prepaid internal units used to reserve and access labs. They are issued and managed for an institutional account, support eligible lifecycle returns, and cannot be converted into cash or treated as an external $LAB/ERC-20 payment.',
+      answer: 'Service credits are prepaid internal units used to reserve and access labs. They are issued and managed for an institutional account, support eligible lifecycle returns, and cannot be converted into cash.',
     },
     {
       question: ' 9. How is lab access secured?',

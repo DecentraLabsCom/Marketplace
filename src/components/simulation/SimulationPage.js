@@ -16,7 +16,7 @@ import { LabHeroSkeleton } from '@/components/skeletons'
  * Redirects to the lab detail page if the resource is not an FMU.
  *
  * @param {Object} props
- * @param {string|number} props.id - Resource / lab token ID
+ * @param {string|number} props.id - Resource / lab ID
  * @param {string} [props.reservationKey] - Active reservation key for authorisation
  */
 export default function SimulationPage({ id, reservationKey }) {

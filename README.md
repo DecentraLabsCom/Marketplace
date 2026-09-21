@@ -24,7 +24,7 @@ laboratory infrastructure and publish its availability through the platform.
 
 - Users authenticate with institutional SAML SSO.
 - An institution owns the backend and managed wallet that authorize and execute its operations.
-- Service credits are internal, non-cash-redeemable settlement units.
+- Service credits are internal units used to authorize reservations and are not redeemable for cash.
 - Reservations and provider changes are authorized through signed intents and a WebAuthn ceremony in the institutional backend.
 - The deployed contract and its ABI are the source of truth for on-chain state. Marketplace consumes the generated ABI in `src/contracts/diamondAbi.json`.
 - Marketplace does not custody a user's personal wallet or expose a private key in the browser.

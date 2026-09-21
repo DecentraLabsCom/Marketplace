@@ -44,6 +44,11 @@ export default function About() {
               accessible, transparent, and tamper-proof.
             </p>
             <p>
+              Access is organized through institutional identity and internal service credits. This keeps
+              reservations tied to each institution&apos;s policies without requiring users to manage a
+              personal payment asset or wallet in the browser.
+            </p>
+            <p>
               DecentraLabs aims to revolutionize the way remote labs are accessed and utilized, making it 
               easier for individuals and organizations to conduct experiments, research, and training 
               without the need for physical presence.

@@ -33,7 +33,7 @@ Follow [Become a provider](become-a-provider.md) in this order:
 2. [Enable online access](become-a-provider/enable-your-lab-for-online-access.md).
 3. [Register as a provider](become-a-provider/register-as-a-provider.md).
 4. [Prepare Marketplace metadata](provider/metadata-integration.md).
-5. [Configure and publish the lab](become-a-provider/tokenize-and-list-your-lab.md).
+5. [Configure and publish the lab](become-a-provider/configure-and-publish-your-lab.md).
 6. [Operate the published laboratory](provider/operate-your-lab.md).
 
 The provider path depends on a working Lab Gateway, institutional backend and,
@@ -43,8 +43,8 @@ where applicable, Lab Station. Marketplace does not replace those components.
 
 - Institutional SSO identifies the user and the user's institution.
 - The institution's backend and managed wallet authorize institutional actions.
-- Service credits are internal accounting units. They are not cash, a personal
-  wallet balance or a browser-side `$LAB` payment.
+- Service credits are internal accounting units used by institutions to authorize
+  reservations. They are not cash or a personal wallet balance.
 - The provider's Gateway is responsible for the remote session after the
   reservation and institutional checks succeed.
 - Public metadata describes the lab; it never grants access and must not contain

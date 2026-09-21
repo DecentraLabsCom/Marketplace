@@ -12,7 +12,7 @@ Providers join Marketplace through their institution. The active model combines 
 2. Make the resource reachable through [Lab Gateway / Lab Station](become-a-provider/enable-your-lab-for-online-access.md).
 3. Complete [institutional provider onboarding](become-a-provider/register-as-a-provider.md).
 4. Prepare the [Marketplace metadata integration](provider/metadata-integration.md).
-5. [Configure and publish the laboratory](become-a-provider/tokenize-and-list-your-lab.md).
+5. [Configure and publish the laboratory](become-a-provider/configure-and-publish-your-lab.md).
 6. [Operate the published laboratory](provider/operate-your-lab.md).
 
 ```mermaid
@@ -28,7 +28,8 @@ flowchart LR
 ## Key rules
 
 - The institution's canonical HTTPS backend origin is trusted exactly; it does not imply trust for other subdomains.
-- Service credits are internal settlement units. They are not `$LAB`, browser ERC-20 payments or cash-redeemable balances.
+- Service credits are internal settlement units used to authorize institutional
+  activity. They are not cash-redeemable balances or browser-side payments.
 - A listed lab must still have a healthy gateway and backend. Listing is catalogue visibility, not an uptime check.
 - Marketplace does not host FMU artifacts. Provision them in provider-controlled Lab Gateway/Lab Station infrastructure and refer to them through the configured access key.
 

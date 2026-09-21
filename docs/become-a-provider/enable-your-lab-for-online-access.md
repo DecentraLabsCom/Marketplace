@@ -67,7 +67,7 @@ Before publishing:
 4. Confirm that the public `accessURI` points to the tested access plane and that
    its TLS certificate, DNS and reverse proxy configuration are valid.
 5. Only then continue with [provider registration](register-as-a-provider.md)
-   and [lab publication](tokenize-and-list-your-lab.md).
+   and [lab publication](configure-and-publish-your-lab.md).
 
 ## What the Gateway must enforce
 
