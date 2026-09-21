@@ -13,6 +13,7 @@
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import devLog from '@/utils/dev/logger';
+import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from './assertionHashVersion';
 
 class MarketplaceJwtService {
   constructor() {
@@ -169,8 +170,9 @@ class MarketplaceJwtService {
    * @param {boolean} [params.bookingInfoAllowed] - Allow booking info claims
    * @param {string} [params.purpose] - Purpose binding for backend-side policy
    * @param {string} [params.reservationKey] - Reservation key bound to this token
-   * @param {string|number} [params.labId] - Lab id bound to this token
-   * @param {string} [params.samlAssertionHash] - Keccak256 hash of the SAML assertion
+  * @param {string|number} [params.labId] - Lab id bound to this token
+  * @param {string} [params.samlAssertionHash] - Keccak256 hash of the SAML assertion
+ * @param {string} [params.samlAssertionHashVersion] - Version of the SAML assertion hash
    * @param {string} [params.stableUserIdMode] - PUC derivation mode used by Marketplace
    * @returns {Promise<string>} Signed JWT token
    */
@@ -185,6 +187,7 @@ class MarketplaceJwtService {
     reservationKey,
     labId,
     samlAssertionHash,
+    samlAssertionHashVersion,
     stableUserIdMode,
   } = {}) {
     try {
@@ -247,7 +250,11 @@ class MarketplaceJwtService {
       }
 
       if (samlAssertionHash) {
+        if (samlAssertionHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
+          throw new Error('Unsupported samlAssertionHashVersion');
+        }
         payload.samlAssertionHash = samlAssertionHash;
+        payload.samlAssertionHashVersion = samlAssertionHashVersion;
       }
 
       if (stableUserIdMode) {

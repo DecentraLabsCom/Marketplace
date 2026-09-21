@@ -1,18 +1,11 @@
 import { ethers } from 'ethers'
 import {
-  computeReservationAssertionHash,
   buildReservationIntent,
 } from '../signInstitutionalReservationIntent'
 
 describe('signInstitutionalReservationIntent utilities', () => {
-  test('computeReservationAssertionHash returns zero hash when assertion is missing', () => {
-    expect(computeReservationAssertionHash('')).toBe(ethers.ZeroHash)
-    expect(computeReservationAssertionHash(null)).toBe(ethers.ZeroHash)
-  })
-
   test('buildReservationIntent includes the assertion hash', async () => {
-    const assertion = 'sso-assertion'
-    const hash = computeReservationAssertionHash(assertion)
+    const hash = `0x${'cd'.repeat(32)}`
     const intent = await buildReservationIntent({
       executor: '0x000000000000000000000000000000000000beef',
       signer: '0x000000000000000000000000000000000000beef',

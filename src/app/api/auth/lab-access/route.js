@@ -345,6 +345,9 @@ export async function POST(req) {
       reservationKey,
       labId,
       samlAssertionHash,
+      ...(session?.samlAssertionHashVersion
+        ? { samlAssertionHashVersion: session.samlAssertionHashVersion }
+        : {}),
       stableUserIdMode: getStableUserIdModeFromSession(session),
     }
 

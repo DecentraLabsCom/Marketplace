@@ -19,14 +19,6 @@ export const RESERVATION_TYPES = {
     { name: 'reservationKey', type: 'bytes32' },
   ],
 };
-
-
-
-export function computeReservationAssertionHash(assertion) {
-  if (!assertion) return ethers.ZeroHash;
-  return ethers.keccak256(ethers.toUtf8Bytes(assertion));
-}
-
 function normalizeReservationPayload(payload) {
   return {
     executor: payload.executor,
@@ -128,7 +120,6 @@ export default {
   ACTION_CODES,
   INTENT_META_TYPES,
   RESERVATION_TYPES,
-  computeReservationAssertionHash,
   hashReservationPayload,
   buildReservationIntent,
 };

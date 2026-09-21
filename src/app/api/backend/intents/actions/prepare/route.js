@@ -52,6 +52,7 @@ import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimi
 import { cancellationStateError, hasCancellationOwnership } from '@/utils/intents/cancellationOwnership'
 import { recordRegisteredIntent } from '@/utils/intents/intentLifecycleStore'
 import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconciler'
+import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from '@/utils/auth/assertionHashVersion'
 import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
 
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
@@ -286,7 +287,9 @@ export async function POST(request) {
 
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const institutionalSessionToken = session.institutionalBackendSessionToken
-    if (!institutionalSessionToken || !session.samlAssertionHash) {
+    if (!institutionalSessionToken
+      || !session.samlAssertionHash
+      || session.samlAssertionHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
       return NextResponse.json(
         { error: 'Institutional session renewal required', code: 'INSTITUTIONAL_SESSION_REQUIRED' },
         { status: 401 },

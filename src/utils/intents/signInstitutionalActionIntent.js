@@ -35,11 +35,6 @@ function normalizeResourceType(value) {
   return toBigIntOrZero(value);
 }
 
-export function computeAssertionHash(assertion) {
-  if (!assertion) return ethers.ZeroHash;
-  return ethers.keccak256(ethers.toUtf8Bytes(assertion));
-}
-
 function normalizeActionPayload(payload) {
   return {
     executor: payload.executor,
@@ -152,7 +147,6 @@ export default {
   ACTION_CODES,
   ACTION_PAYLOAD_TYPES,
   INTENT_META_TYPES,
-  computeAssertionHash,
   hashActionPayload,
   buildActionIntent,
 };

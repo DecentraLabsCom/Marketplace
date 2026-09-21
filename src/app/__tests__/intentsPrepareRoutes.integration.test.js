@@ -24,7 +24,6 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
     CANCEL_BOOKING: 10,
   },
   buildActionIntent: jest.fn(),
-  computeAssertionHash: jest.fn(),
 }))
 
 jest.mock('@/utils/intents/signInstitutionalReservationIntent', () => ({
@@ -34,7 +33,6 @@ jest.mock('@/utils/intents/signInstitutionalReservationIntent', () => ({
     DIRECT_BOOKING: 11,
   },
   buildReservationIntent: jest.fn(),
-  computeReservationAssertionHash: jest.fn(),
 }))
 
 jest.mock('@/utils/intents/resolveIntentExecutor', () => ({
@@ -106,8 +104,8 @@ jest.mock('@/utils/dev/logger', () => ({
 }))
 
 import { requireAuth } from '@/utils/auth/guards'
-import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
+import { ACTION_CODES, buildActionIntent } from '@/utils/intents/signInstitutionalActionIntent'
+import { buildReservationIntent } from '@/utils/intents/signInstitutionalReservationIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
@@ -172,6 +170,7 @@ describe('Unified intent prepare route', () => {
       institutionalBackendSessionExpiresAt: Date.now() + 60 * 60 * 1000,
       institutionalReauthenticationAt: Date.now() + 60 * 60 * 1000,
       samlAssertionHash: '0x' + 'a'.repeat(64),
+      samlAssertionHashVersion: 'saml-assertion-c14n-keccak-v2',
     })
     getPucFromSession.mockImplementation(
       jest.requireActual('@/utils/webauthn/service').getPucFromSession,
@@ -179,8 +178,6 @@ describe('Unified intent prepare route', () => {
     resolveIntentExecutorForInstitution.mockResolvedValue('0x00000000000000000000000000000000000000a1')
     getAdminAddress.mockResolvedValue('0x00000000000000000000000000000000000000a2')
     resolveChainNowSec.mockResolvedValue(1_700_000_000)
-    computeAssertionHash.mockReturnValue('0xassertionhash')
-    computeReservationAssertionHash.mockReturnValue('0xreservationassertionhash')
     buildActionIntent.mockResolvedValue({
       meta: { requestId: 'req-action-1', requestedAt: 1_700_000_000, expiresAt: 1_700_000_300 },
       payload: { reservationKey: validReservationKey },
@@ -221,6 +218,27 @@ describe('Unified intent prepare route', () => {
     normalizeAuthorizationResponse.mockImplementation((value) => value)
     hasUsableAuthorizationSession.mockReturnValue(true)
     resolveAuthorizationUrl.mockReturnValue(authorization.ceremonyUrl)
+  })
+
+  test('rejects intent preparation when the institutional assertion hash is not v2', async () => {
+    requireAuth.mockResolvedValueOnce({
+      id: 'alice@uned.es|targeted-alice',
+      eduPersonPrincipalName: 'alice@uned.es',
+      eduPersonTargetedID: 'targeted-alice',
+      schacHomeOrganization: 'uni.example',
+      institutionalBackendSessionToken: 'institutional-session-token',
+      institutionalReauthenticationAt: Date.now() + 60 * 60 * 1000,
+      samlAssertionHash: '0x' + 'a'.repeat(64),
+      samlAssertionHashVersion: 'saml-assertion-c14n-keccak-v1',
+    })
+
+    const res = await prepareIntentPOST(buildRequest({
+      action: ACTION_CODES.LAB_ADD,
+      payload: validLabPayload,
+    }))
+
+    expect(res.status).toBe(401)
+    await expect(res.json()).resolves.toMatchObject({ code: 'INSTITUTIONAL_SESSION_REQUIRED' })
   })
 
   test('prepares a lab action and creates WebAuthn authorization while registering on-chain', async () => {

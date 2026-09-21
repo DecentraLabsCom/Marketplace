@@ -426,6 +426,7 @@ describe("MarketplaceJwtService", () => {
         reservationKey: "0xabc",
         labId: 42,
         samlAssertionHash: "0x" + "a".repeat(64),
+        samlAssertionHashVersion: "saml-assertion-c14n-keccak-v2",
         stableUserIdMode: "principal",
       });
 
@@ -435,6 +436,7 @@ describe("MarketplaceJwtService", () => {
           reservationKey: "0xabc",
           labId: "42",
           samlAssertionHash: "0x" + "a".repeat(64),
+          samlAssertionHashVersion: "saml-assertion-c14n-keccak-v2",
           stableUserIdMode: "principal",
         }),
         validPrivateKey,

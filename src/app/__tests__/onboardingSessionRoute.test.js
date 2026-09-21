@@ -18,10 +18,6 @@ jest.mock('@/utils/onboarding', () => ({
   extractStableUserId: jest.fn(),
 }))
 
-jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
-  computeAssertionHash: jest.fn(() => 'assertion-hash'),
-}))
-
 jest.mock('@/utils/auth/institutionDomain', () => ({
   resolveInstitutionDomainFromSession: jest.fn(() => 'uned.es'),
 }))

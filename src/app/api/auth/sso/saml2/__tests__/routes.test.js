@@ -186,6 +186,7 @@ describe('SAML routes', () => {
       institutionalBackendSessionExpiresAt: Date.parse('2099-01-01T01:00:00.000Z'),
       institutionalReauthenticationAt: Date.parse('2099-01-01T00:55:00.000Z'),
       samlAssertionHash: `0x${'a'.repeat(64)}`,
+      samlAssertionHashVersion: 'saml-assertion-c14n-keccak-v2',
     })
 
     const response = await POST({

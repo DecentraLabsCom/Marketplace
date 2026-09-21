@@ -4,6 +4,9 @@ import {
   institutionalBackendFetch,
   normalizeInstitutionalBackendBaseUrl,
 } from '@/utils/api/gatewayProxy'
+import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from './assertionHashVersion'
+
+export { INSTITUTIONAL_ASSERTION_HASH_VERSION }
 
 function normalizeTimestamp(value, field) {
   const timestamp = typeof value === 'number' ? value : Date.parse(String(value || ''))
@@ -25,11 +28,16 @@ function normalizeSessionResponse(payload) {
   if (typeof samlAssertionHash !== 'string' || !/^0x[0-9a-f]{64}$/i.test(samlAssertionHash)) {
     throw new Error('Institutional backend assertion hash missing')
   }
+  const samlAssertionHashVersion = body?.samlAssertionHashVersion || body?.saml_assertion_hash_version
+  if (samlAssertionHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
+    throw new Error('Unsupported institutional backend assertion hash version')
+  }
   return {
     institutionalBackendSessionToken: token.trim(),
     institutionalBackendSessionExpiresAt: expiresAt,
     institutionalReauthenticationAt: reauthenticationAt,
     samlAssertionHash: samlAssertionHash.toLowerCase(),
+    samlAssertionHashVersion,
   }
 }
 
