@@ -102,6 +102,17 @@ const selectReputationData = (data) => {
   };
 };
 
+const selectFinalizationStatusData = (data) => {
+  if (!data) return null;
+  return {
+    activeReservationCount: normalizeNumber(data.activeReservationCount ?? data[0]),
+    payoutHeapLength: normalizeNumber(data.payoutHeapLength ?? data[1]),
+    payoutHeapInvalidCount: normalizeNumber(data.payoutHeapInvalidCount ?? data[2]),
+    oldestPayoutCandidateEnd: normalizeNumber(data.oldestPayoutCandidateEnd ?? data[3]),
+    lastFinalizationAt: normalizeNumber(data.lastFinalizationAt ?? data[4]),
+  };
+};
+
 // ===== useAllLabs Hook Family =====
 
 // Define queryFn first for reuse
@@ -571,6 +582,50 @@ useLabReputationSSO.queryFn = getLabReputationQueryFn;
  */
 export const useLabReputation = (labId, options = {}) => {
   return useLabReputationSSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
+};
+
+// ===== useLabFinalizationStatus Hook Family =====
+
+const getLabFinalizationStatusQueryFn = createSSRSafeQuery(async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+
+  const response = await fetch(`/api/contract/lab/getLabFinalizationStatus?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lab finalization status ${labId}: ${response.status}`);
+  }
+
+  const data = await response.json();
+  devLog.log('useLabFinalizationStatusSSO:', labId, data);
+  return data;
+}, null);
+
+/**
+ * Reads bounded on-chain signals for reservation finalization freshness.
+ * This hook intentionally exposes raw signals; policy classification belongs
+ * to the later evidence/reputation phase.
+ */
+export const useLabFinalizationStatusSSO = (labId, options = {}) => {
+  return useQuery({
+    queryKey: labQueryKeys.getLabFinalizationStatus(labId),
+    queryFn: () => getLabFinalizationStatusQueryFn(labId),
+    enabled: !!labId,
+    select: selectFinalizationStatusData,
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+useLabFinalizationStatusSSO.queryFn = getLabFinalizationStatusQueryFn;
+
+export const useLabFinalizationStatus = (labId, options = {}) => {
+  return useLabFinalizationStatusSSO(labId, {
     ...options,
     enabled: !!labId && options.enabled !== false,
   });

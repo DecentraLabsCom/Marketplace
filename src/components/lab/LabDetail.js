@@ -13,7 +13,12 @@ import { useLabCredit } from '@/context/LabCreditContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
-import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+import {
+  getLabAgeLabel,
+  getLabRatingValue,
+  REPUTATION_FRESHNESS_DESCRIPTIONS,
+  REPUTATION_FRESHNESS_LABELS,
+} from '@/utils/labStats'
 import {
   isFmu,
   getFmuMetadata,
@@ -229,6 +234,12 @@ export default function LabDetail({ id }) {
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const totalEvents = lab.reputation?.totalEvents ? Number(lab.reputation.totalEvents) : 0;
   const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
+  const reputationFreshnessLabel = lab.reputationFreshness
+    ? REPUTATION_FRESHNESS_LABELS[lab.reputationFreshness] || null
+    : null;
+  const reputationFreshnessDescription = lab.reputationFreshness
+    ? REPUTATION_FRESHNESS_DESCRIPTIONS[lab.reputationFreshness] || null
+    : null;
   const pricePresentation = formatPricePerUnit({
     price: lab.price,
     unit: getLabPricingUnit(lab),
@@ -362,7 +373,7 @@ export default function LabDetail({ id }) {
           <div className="mt-0 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
                 {ratingLabel ? (
                   <>
                     <FontAwesomeIcon icon={faStar} className="text-brand text-sm" />
@@ -371,6 +382,16 @@ export default function LabDetail({ id }) {
                   </>
                 ) : (
                   <span className="text-sm font-semibold text-header-bg">No ratings</span>
+                )}
+                {reputationFreshnessLabel && (
+                  <span
+                    className="text-sm text-text-secondary"
+                    role="status"
+                    aria-label="Reputation freshness"
+                    title={reputationFreshnessDescription || undefined}
+                  >
+                    -- {reputationFreshnessLabel}
+                  </span>
                 )}
               </div>
               <div className="text-xs text-text-secondary">{eventsLabel}</div>

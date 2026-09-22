@@ -264,6 +264,7 @@ describe("queryKeys", () => {
         ["labs", "ownerOf", "42"],
         ["labs", "getCreatorPucHash", "42"],
         ["labs", "getLabReputation", "42"],
+        ["labs", "getLabFinalizationStatus", "42"],
       ]);
     });
 

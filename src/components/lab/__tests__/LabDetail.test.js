@@ -194,6 +194,38 @@ describe("LabDetail", () => {
       expect(screen.getByText("No ratings")).toBeInTheDocument();
       expect(screen.queryByText("0.0")).not.toBeInTheDocument();
     });
+
+    test("keeps the rating and event count visible when freshness is pending", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...mockLabData, reputationFreshness: "pending" },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("5.0")).toBeInTheDocument();
+      expect(screen.getByText("4 events")).toBeInTheDocument();
+      expect(screen.getByText("-- Pending update")).toHaveAttribute(
+        "title",
+        expect.stringContaining("may change"),
+      );
+    });
+
+    test("keeps the rating and event count visible when freshness is unknown", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...mockLabData, reputationFreshness: "unknown" },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("5.0")).toBeInTheDocument();
+      expect(screen.getByText("4 events")).toBeInTheDocument();
+      expect(screen.getByText("-- Not verifiable")).toHaveAttribute(
+        "title",
+        expect.stringContaining("could not be verified"),
+      );
+    });
   });
 
   describe("Layout", () => {

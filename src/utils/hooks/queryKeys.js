@@ -102,6 +102,7 @@ export const labQueryKeys = {
   tokenURI: (labId) => ['labs', 'tokenURI', labId],
   isTokenListed: (labId) => ['labs', 'isTokenListed', labId],
   getLabReputation: (labId) => ['labs', 'getLabReputation', labId],
+  getLabFinalizationStatus: (labId) => ['labs', 'getLabFinalizationStatus', labId],
 
   /**
    * Derived query keys that depend on a specific labId.
@@ -114,6 +115,7 @@ export const labQueryKeys = {
     ['labs', 'ownerOf', labId],
     ['labs', 'getCreatorPucHash', labId],
     ['labs', 'getLabReputation', labId],
+    ['labs', 'getLabFinalizationStatus', labId],
   ],
   
   // Specialized query keys for composed hooks

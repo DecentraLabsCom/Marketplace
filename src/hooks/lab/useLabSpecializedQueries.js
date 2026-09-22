@@ -15,6 +15,7 @@ import {
   useIsTokenListedSSO,
   useLabReputation,
   useLabReputationSSO,
+  useLabFinalizationStatus,
   LAB_QUERY_CONFIG 
 } from './useLabAtomicQueries'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -26,6 +27,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
+import { getLabReputationFreshness } from '@/utils/labStats'
 
 const EMPTY_ARRAY = [];
 
@@ -414,6 +416,13 @@ export const useLabById = (labId, options = {}) => {
     enabled: !!normalizedLabId && (options.enabled !== false),
   });
 
+  // Freshness is a recoverable read: it must not prevent the lab detail or
+  // its historical rating from rendering when the new selector is unavailable.
+  const finalizationStatusResult = useLabFinalizationStatus(normalizedLabId, {
+    ...LAB_QUERY_CONFIG,
+    enabled: !!normalizedLabId && (options.enabled !== false),
+  });
+
   // Get metadata
   const metadataUri = labResult.data?.base?.uri;
   const metadataResult = useMetadata(metadataUri, {
@@ -467,7 +476,7 @@ export const useLabById = (labId, options = {}) => {
 
     const ownerData = ownerResult.data;
     const ownerAddress = ownerData?.owner || ownerData;
-    return buildEnrichedLab({
+    const enrichedLab = buildEnrichedLab({
       lab: labResult.data,
       metadata,
       isListed: effectiveListingState.isListed,
@@ -478,8 +487,24 @@ export const useLabById = (labId, options = {}) => {
       includeProviderInfo: true,
       includeProviderFallback: true
     });
+
+    const reputationFreshness = getLabReputationFreshness({
+      reputation: reputationResult.data,
+      finalizationStatus: finalizationStatusResult.data,
+      finalizationStatusReady: finalizationStatusResult.isSuccess,
+      finalizationStatusError: finalizationStatusResult.error,
+    });
+
+    if (reputationFreshness) {
+      enrichedLab.reputationFreshness = reputationFreshness;
+    }
+
+    return enrichedLab;
   }, [
     effectiveListingState.isListed,
+    finalizationStatusResult.data,
+    finalizationStatusResult.error,
+    finalizationStatusResult.isSuccess,
     imageUrlsToCache,
     labResult.data,
     metadata,
@@ -509,6 +534,7 @@ export const useLabById = (labId, options = {}) => {
       listingResult.refetch();
       metadataResult.refetch();
       reputationResult.refetch();
+      finalizationStatusResult.refetch();
       imageResults.forEach(r => r.refetch && r.refetch());
     }
   };

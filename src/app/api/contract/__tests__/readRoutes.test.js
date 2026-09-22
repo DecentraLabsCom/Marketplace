@@ -29,6 +29,7 @@ import { GET as getInstitutionSpendingData } from '../institution/getUserSpendin
 import { GET as getAllInstitutions } from '../institution/getAll/route'
 import { GET as getLabBalance } from '../lab/balanceOf/route'
 import { GET as getLab } from '../lab/getLab/route'
+import { GET as getLabFinalizationStatus } from '../lab/getLabFinalizationStatus/route'
 import { GET as getLabReputation } from '../lab/getLabReputation/route'
 import { GET as getLabOwner } from '../lab/ownerOf/route'
 import { GET as getOwnedLab } from '../lab/tokenOfOwnerByIndex/route'
@@ -62,6 +63,7 @@ describe('contract read adapters', () => {
       getInstitutionalUserSpendingData: jest.fn(),
       getInstitutionsPaginated: jest.fn(),
       getLab: jest.fn(),
+      getLabFinalizationStatus: jest.fn(),
       getLabReputation: jest.fn(),
       ownerOf: jest.fn(),
       tokenOfOwnerByIndex: jest.fn(),
@@ -145,13 +147,21 @@ describe('contract read adapters', () => {
       ownerCancellations: 1n,
       lastUpdated: 777n,
     })
+    contract.getLabFinalizationStatus.mockResolvedValue({
+      activeReservationCount: 3n,
+      payoutHeapLength: 5n,
+      payoutHeapInvalidCount: 1n,
+      oldestPayoutCandidateEnd: 1234n,
+      lastFinalizationAt: 1200n,
+    })
     contract.ownerOf.mockResolvedValue(ADDRESS)
     contract.tokenOfOwnerByIndex.mockResolvedValue(42n)
     contract.tokenURI.mockResolvedValue('ipfs://metadata/42')
 
-    const [balance, lab, reputation, owner, owned, uri] = await Promise.all([
+    const [balance, lab, finalizationStatus, reputation, owner, owned, uri] = await Promise.all([
       getLabBalance(request(`/api/contract/lab/balanceOf?wallet=${ADDRESS}`)),
       getLab(request('/api/contract/lab/getLab?labId=7')),
+      getLabFinalizationStatus(request('/api/contract/lab/getLabFinalizationStatus?labId=7')),
       getLabReputation(request('/api/contract/lab/getLabReputation?labId=7')),
       getLabOwner(request('/api/contract/lab/ownerOf?labId=7')),
       getOwnedLab(request(`/api/contract/lab/tokenOfOwnerByIndex?wallet=${ADDRESS}&index=0`)),
@@ -176,9 +186,32 @@ describe('contract read adapters', () => {
       ownerCancellations: 1,
       lastUpdated: 777,
     })
+    await expect(json(finalizationStatus)).resolves.toEqual({
+      activeReservationCount: 3,
+      payoutHeapLength: 5,
+      payoutHeapInvalidCount: 1,
+      oldestPayoutCandidateEnd: 1234,
+      lastFinalizationAt: 1200,
+    })
     await expect(json(owner)).resolves.toEqual({ labId: 7, owner: ADDRESS })
     await expect(json(owned)).resolves.toEqual({ labId: '42', index: 0, wallet: ADDRESS })
     await expect(json(uri)).resolves.toEqual({ labId: '42', tokenURI: 'ipfs://metadata/42' })
+  })
+
+  test('fails closed when finalization status is missing or not safely representable', async () => {
+    contract.getLabFinalizationStatus.mockResolvedValue({
+      activeReservationCount: 1n,
+      payoutHeapLength: 1n,
+      payoutHeapInvalidCount: 0n,
+      oldestPayoutCandidateEnd: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+    })
+
+    const response = await getLabFinalizationStatus(
+      request('/api/contract/lab/getLabFinalizationStatus?labId=7'),
+    )
+
+    expect(response.status).toBe(500)
+    await expect(json(response)).resolves.toMatchObject({ code: 'CONTRACT_CALL_FAILED' })
   })
 
   test('reads provider and reservation adapters with their parameter types', async () => {

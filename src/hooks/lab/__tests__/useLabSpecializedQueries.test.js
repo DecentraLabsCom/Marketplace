@@ -77,6 +77,7 @@ jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useIsTokenListed: jest.fn(),
   useIsTokenListedSSO: { queryFn: jest.fn() },
   useLabReputation: jest.fn(),
+  useLabFinalizationStatus: jest.fn(),
   useLabReputationSSO: { queryFn: jest.fn() },
   LAB_QUERY_CONFIG: {
     staleTime: 30000,
@@ -157,6 +158,7 @@ describe("useLabSpecializedQueries", () => {
   let mockUseLabOwner;
   let mockUseIsTokenListed;
   let mockUseLabReputation;
+  let mockUseLabFinalizationStatus;
   let mockUseMetadata;
   let mockUseProviderMapping;
   let mockUseOptimisticUI;
@@ -178,6 +180,7 @@ describe("useLabSpecializedQueries", () => {
     mockUseLabOwner = labAtomicQueries.useLabOwner;
     mockUseIsTokenListed = labAtomicQueries.useIsTokenListed;
     mockUseLabReputation = labAtomicQueries.useLabReputation;
+    mockUseLabFinalizationStatus = labAtomicQueries.useLabFinalizationStatus;
     mockUseMetadata = metadataModule.useMetadata;
     mockUseProviderMapping = providerMappingModule.useProviderMapping;
     mockUseOptimisticUI = optimisticUIModule.useOptimisticUI;
@@ -248,6 +251,20 @@ describe("useLabSpecializedQueries", () => {
         totalEvents: 4,
         ownerCancellations: 1,
         lastUpdated: 0,
+      },
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    mockUseLabFinalizationStatus.mockReturnValue({
+      data: {
+        activeReservationCount: 0,
+        payoutHeapLength: 0,
+        payoutHeapInvalidCount: 0,
+        oldestPayoutCandidateEnd: 0,
+        lastFinalizationAt: 0,
       },
       isLoading: false,
       isSuccess: true,
@@ -540,6 +557,16 @@ describe("useLabSpecializedQueries", () => {
   });
 
   describe("useLabById", () => {
+    test("includes reputation freshness derived from the finalization status", () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabById("1"), { wrapper });
+
+      expect(mockUseLabFinalizationStatus).toHaveBeenCalledWith("1", expect.objectContaining({
+        enabled: true,
+      }));
+      expect(result.current.data.reputationFreshness).toBe("current");
+    });
+
     test("fetches single lab by ID successfully", async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabById("1"), { wrapper });
