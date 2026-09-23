@@ -88,11 +88,23 @@ export const getLabStatusPresentation = (status = {}) => {
   return STATUS_PRESENTATIONS[state]
 }
 
-export default function LabStatusIndicator({ status = null, className = '', tooltipPlacement = 'below' }) {
+export default function LabStatusIndicator({
+  status = null,
+  className = '',
+  compact = false,
+  tooltipAlign = 'center',
+  tooltipPlacement = 'below',
+}) {
   const presentation = getLabStatusPresentation(status)
   const ageLabel = formatAge(status?.ageSeconds)
   const reasonLabel = REASON_LABELS[status?.reason] || 'latest Gateway signal'
-  const tooltip = `${presentation.label}: ${presentation.description} Signal: ${reasonLabel}.${ageLabel ? ` Last signal ${ageLabel}.` : ''}`
+  const tooltip = compact
+    ? `${presentation.label}${ageLabel ? `: ${ageLabel}` : ''}.`
+    : `${presentation.label}: ${presentation.description} Signal: ${reasonLabel}.${ageLabel ? ` Last signal ${ageLabel}.` : ''}`
+  const tooltipAlignment = tooltipAlign === 'start'
+    ? 'left-0 translate-x-0'
+    : 'left-1/2 -translate-x-1/2'
+  const tooltipWidth = compact ? 'w-40' : 'w-64'
   const tooltipPosition = tooltipPlacement === 'above'
     ? 'bottom-full mb-2'
     : 'top-full mt-2'
@@ -115,15 +127,24 @@ export default function LabStatusIndicator({ status = null, className = '', tool
       </span>
       <span
         aria-hidden="true"
-        className={joinClasses('pointer-events-none absolute left-1/2 w-64 -translate-x-1/2 rounded-md border border-white/15 bg-[#15191c]/95 px-3 py-2 text-left text-xs leading-4 text-white opacity-0 shadow-xl transition-opacity duration-150 group-hover/status:opacity-100 group-focus-within/status:opacity-100', tooltipPosition)}
+        className={joinClasses('pointer-events-none absolute rounded-md border border-white/15 bg-[#15191c]/95 px-3 py-2 text-left text-xs leading-4 text-white opacity-0 shadow-xl transition-opacity duration-150 group-hover/status:opacity-100 group-focus-within/status:opacity-100', tooltipAlignment, tooltipWidth, tooltipPosition)}
         data-testid="lab-status-tooltip"
       >
-        <span className="block font-semibold">{presentation.label}</span>
-        <span className="mt-1 block text-white/80">{presentation.description}</span>
-        <span className="mt-1 block text-white/70">Reason: {reasonLabel}.</span>
-        <span className="mt-1 block text-white/60">
-          {ageLabel ? `Last signal ${ageLabel}.` : 'No fresh signal.'}
-        </span>
+        {compact ? (
+          <>
+            <span className="block font-semibold">{presentation.label}</span>
+            {ageLabel && <span className="mt-1 block text-white/60">{ageLabel}</span>}
+          </>
+        ) : (
+          <>
+            <span className="block font-semibold">{presentation.label}</span>
+            <span className="mt-1 block text-white/80">{presentation.description}</span>
+            <span className="mt-1 block text-white/70">Reason: {reasonLabel}.</span>
+            <span className="mt-1 block text-white/60">
+              {ageLabel ? `Last signal ${ageLabel}.` : 'No fresh signal.'}
+            </span>
+          </>
+        )}
       </span>
     </span>
   )
@@ -133,9 +154,12 @@ LabStatusIndicator.propTypes = {
   status: PropTypes.shape({
     state: PropTypes.oneOf(['ready', 'reachable', 'busy', 'not_ready', 'unknown']),
     reason: PropTypes.string,
+    source: PropTypes.oneOf(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable']),
     severity: PropTypes.oneOf(['positive', 'warning', 'critical', 'neutral']),
     ageSeconds: PropTypes.number,
   }),
   className: PropTypes.string,
+  compact: PropTypes.bool,
+  tooltipAlign: PropTypes.oneOf(['center', 'start']),
   tooltipPlacement: PropTypes.oneOf(['above', 'below']),
 }

@@ -48,6 +48,24 @@ describe('LabStatusIndicator', () => {
     expect(dot).not.toHaveClass('border', 'border-white/50')
   })
 
+  test('supports a compact tooltip aligned to the indicator edge', () => {
+    render(
+      <LabStatusIndicator
+        compact
+        status={{ state: 'ready', reason: 'station_ready', ageSeconds: 24 }}
+        tooltipAlign="start"
+        tooltipPlacement="above"
+      />,
+    )
+
+    const tooltip = screen.getByTestId('lab-status-tooltip')
+    expect(tooltip).toHaveClass('left-0', 'translate-x-0', 'w-40')
+    expect(tooltip).not.toHaveClass('left-1/2', '-translate-x-1/2', 'w-64')
+    expect(tooltip).toHaveTextContent('Ready')
+    expect(tooltip).toHaveTextContent('24s ago')
+    expect(tooltip).not.toHaveTextContent('latest Lab Station heartbeat')
+  })
+
   test('renders Guacamole reachability as a green glow with a qualified tooltip', () => {
     render(<LabStatusIndicator status={{
       state: 'reachable',

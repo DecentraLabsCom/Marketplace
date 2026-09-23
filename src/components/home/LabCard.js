@@ -139,6 +139,8 @@ const LabCard = React.memo(function LabCard({
         <span className="absolute bottom-2 left-2 z-30 inline-flex">
           <LabStatusIndicator
             status={operationalStatus}
+            compact
+            tooltipAlign="start"
             tooltipPlacement="above"
           />
         </span>
@@ -227,6 +229,7 @@ LabCard.propTypes = {
   operationalStatus: PropTypes.shape({
     state: PropTypes.oneOf(['ready', 'reachable', 'busy', 'not_ready', 'unknown']),
     reason: PropTypes.string,
+    source: PropTypes.oneOf(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable']),
     severity: PropTypes.oneOf(['positive', 'warning', 'critical', 'neutral']),
     ageSeconds: PropTypes.number,
   })

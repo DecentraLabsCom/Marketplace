@@ -379,6 +379,15 @@ describe("LabCard - Rating and Age", () => {
     );
   });
 
+  test("uses a compact tooltip aligned inside the lower-left corner", () => {
+    renderLabCard();
+
+    const tooltip = screen.getByTestId("lab-status-tooltip");
+    expect(tooltip).toHaveClass("left-0", "translate-x-0", "w-40");
+    expect(tooltip).not.toHaveClass("left-1/2", "-translate-x-1/2", "w-64");
+    expect(tooltip).not.toHaveTextContent("No sufficiently fresh operational signal");
+  });
+
   test("hides rating and age badge when data is missing", () => {
     renderLabCard({ reputation: null, createdAt: null });
 
