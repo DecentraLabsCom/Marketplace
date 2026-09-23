@@ -16,6 +16,62 @@ const normalizeLabIds = (labIds) => {
   return normalized.sort((left, right) => Number(left) - Number(right))
 }
 
+const STATUS_SOURCE_PRIORITY = Object.freeze({
+  status_unavailable: 0,
+  guacamole_tcp_probe: 1,
+  lab_station_heartbeat: 2,
+})
+
+const parseStatusTimestamp = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+const parseStatusAge = (value) => {
+  const age = Number(value)
+  return Number.isFinite(age) && age >= 0 ? age : null
+}
+
+const shouldReplaceStatus = (currentStatus, incomingStatus) => {
+  if (!currentStatus || typeof currentStatus !== 'object') return true
+  if (!incomingStatus || typeof incomingStatus !== 'object') return false
+
+  const currentObservedAt = parseStatusTimestamp(currentStatus.observedAt)
+  const incomingObservedAt = parseStatusTimestamp(incomingStatus.observedAt)
+  if (currentObservedAt !== incomingObservedAt) {
+    // An actual lab observation is stronger evidence than a response that
+    // contains no observation at all, regardless of the projected state.
+    if (currentObservedAt !== null && incomingObservedAt === null) return false
+    if (currentObservedAt === null && incomingObservedAt !== null) return true
+    return incomingObservedAt > currentObservedAt
+  }
+
+  const currentGeneratedAt = parseStatusTimestamp(currentStatus.generatedAt)
+  const incomingGeneratedAt = parseStatusTimestamp(incomingStatus.generatedAt)
+  if (currentGeneratedAt !== incomingGeneratedAt) {
+    if (currentGeneratedAt === null) return true
+    if (incomingGeneratedAt === null) return false
+    return incomingGeneratedAt > currentGeneratedAt
+  }
+
+  const currentAge = parseStatusAge(currentStatus.ageSeconds)
+  const incomingAge = parseStatusAge(incomingStatus.ageSeconds)
+  if (currentAge !== null && incomingAge !== null && currentAge !== incomingAge) {
+    return incomingAge < currentAge
+  }
+
+  const currentSourcePriority = STATUS_SOURCE_PRIORITY[currentStatus.source] ?? 0
+  const incomingSourcePriority = STATUS_SOURCE_PRIORITY[incomingStatus.source] ?? 0
+  if (currentSourcePriority !== incomingSourcePriority) {
+    return incomingSourcePriority > currentSourcePriority
+  }
+
+  // If the Gateway provides no ordering metadata, accept the latest response
+  // rather than coupling freshness rules to particular state combinations.
+  return true
+}
+
 export const fetchLabOperationalStatuses = async (labIds) => {
   const normalizedLabIds = normalizeLabIds(labIds)
   if (normalizedLabIds.length === 0) return {}
@@ -42,7 +98,13 @@ export const useLabOperationalStatuses = (labIds, options = {}) => {
   ), [normalizedLabIds])
   const query = useQuery({
     queryKey,
-    queryFn: () => fetchLabOperationalStatuses(normalizedLabIds),
+    queryFn: async () => {
+      const fetchedStatuses = await fetchLabOperationalStatuses(normalizedLabIds)
+      return Object.fromEntries(Object.entries(fetchedStatuses).map(([labId, value]) => {
+        const cachedStatus = queryClient.getQueryData(marketQueryKeys.labStatus(labId))
+        return [labId, shouldReplaceStatus(cachedStatus, value) ? value : cachedStatus]
+      }))
+    },
     enabled: normalizedLabIds.length > 0 && options.enabled !== false,
     ...STATUS_QUERY_CONFIG,
     ...options.queryOptions,
@@ -59,11 +121,12 @@ export const useLabOperationalStatuses = (labIds, options = {}) => {
     if (!statuses || typeof statuses !== 'object') return
 
     Object.entries(statuses).forEach(([labId, value]) => {
-      queryClient.setQueryData(
-        marketQueryKeys.labStatus(labId),
-        value,
-        value?.state === 'unknown' ? { updatedAt: 0 } : undefined,
-      )
+      const singleStatusKey = marketQueryKeys.labStatus(labId)
+      const cachedStatus = queryClient.getQueryData(singleStatusKey)
+      if (!shouldReplaceStatus(cachedStatus, value)) return
+      queryClient.setQueryData(singleStatusKey, value, value?.state === 'unknown'
+        ? { updatedAt: 0 }
+        : undefined)
     })
     queryClient.setQueriesData(
       { queryKey: marketQueryKeys.labStatusesPrefix() },
@@ -74,6 +137,7 @@ export const useLabOperationalStatuses = (labIds, options = {}) => {
         let changed = false
         const nextStatuses = { ...cachedStatuses }
         Object.entries(statuses).forEach(([labId, value]) => {
+          if (!shouldReplaceStatus(nextStatuses[labId], value)) return
           if (nextStatuses[labId] === value) return
           nextStatuses[labId] = value
           changed = true

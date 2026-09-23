@@ -53,6 +53,7 @@ describe('useLabOperationalStatuses', () => {
     )
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
     expect(result.current.data['7'].state).toBe('busy')
     await waitFor(() => expect(
       queryClient.getQueryData(marketQueryKeys.labStatuses(['7', '8']))['7'].state,
@@ -71,6 +72,7 @@ describe('useLabOperationalStatuses', () => {
     )
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
     expect(result.current.data['7'].state).toBe('busy')
     expect(queryClient.getQueryData(marketQueryKeys.labStatus('7')).state).toBe('busy')
   })
@@ -100,5 +102,68 @@ describe('useLabOperationalStatuses', () => {
 
     await waitFor(() => expect(detail.result.current.data['7'].state).toBe('busy'))
     expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('keeps a known status when a later catalogue response is transiently unknown', async () => {
+    const queryClient = createQueryClient()
+    const busy = status('7', 'busy', 'local_session_active')
+    queryClient.setQueryData(
+      marketQueryKeys.labStatus('7'),
+      busy,
+    )
+    queryClient.setQueryData(
+      marketQueryKeys.labStatuses(['7', '8']),
+      { '7': busy, '8': status('8', 'ready') },
+    )
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({
+      statuses: [{
+        ...status('7', 'unknown', 'gateway_unavailable'),
+        source: 'status_unavailable',
+        observedAt: null,
+        ageSeconds: null,
+      }],
+    }))
+
+    const { result } = renderHook(
+      () => useLabOperationalStatuses(['7', '8'], {
+        queryOptions: { staleTime: 0 },
+      }),
+      { wrapper: createWrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+    expect(result.current.data['7'].state).toBe('busy')
+    expect(queryClient.getQueryData(marketQueryKeys.labStatus('7')).state).toBe('busy')
+  })
+
+  test('does not replace a fresher status with another state that has weaker evidence', async () => {
+    const queryClient = createQueryClient()
+    const ready = status('7', 'ready', 'station_ready')
+    queryClient.setQueryData(marketQueryKeys.labStatus('7'), ready)
+    queryClient.setQueryData(
+      marketQueryKeys.labStatuses(['7', '8']),
+      { '7': ready, '8': status('8', 'ready') },
+    )
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({
+      statuses: [{
+        ...status('7', 'reachable', 'target_reachable'),
+        source: 'guacamole_tcp_probe',
+        observedAt: null,
+        ageSeconds: null,
+      }],
+    }))
+
+    const { result } = renderHook(
+      () => useLabOperationalStatuses(['7', '8'], {
+        queryOptions: { staleTime: 0 },
+      }),
+      { wrapper: createWrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+    expect(result.current.data['7'].state).toBe('ready')
+    expect(queryClient.getQueryData(marketQueryKeys.labStatus('7')).state).toBe('ready')
   })
 })
