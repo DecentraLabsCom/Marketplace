@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
 import { marketQueryKeys } from '@/utils/hooks/queryKeys'
 
 const STATUS_QUERY_CONFIG = Object.freeze({
@@ -33,17 +33,59 @@ export const fetchLabOperationalStatuses = async (labIds) => {
 
 export const useLabOperationalStatuses = (labIds, options = {}) => {
   const normalizedLabIds = useMemo(() => normalizeLabIds(labIds), [labIds])
+  const queryClient = useQueryClient()
+  const singleLabId = normalizedLabIds.length === 1 ? normalizedLabIds[0] : null
+  const queryKey = useMemo(() => (
+    normalizedLabIds.length === 1
+      ? marketQueryKeys.labStatus(normalizedLabIds[0])
+      : marketQueryKeys.labStatuses(normalizedLabIds)
+  ), [normalizedLabIds])
   const query = useQuery({
-    queryKey: marketQueryKeys.labStatuses(normalizedLabIds),
+    queryKey,
     queryFn: () => fetchLabOperationalStatuses(normalizedLabIds),
     enabled: normalizedLabIds.length > 0 && options.enabled !== false,
     ...STATUS_QUERY_CONFIG,
     ...options.queryOptions,
   })
 
+  const statuses = useMemo(() => {
+    if (!query.data || typeof query.data !== 'object') return {}
+    if (singleLabId === null) return query.data
+    if (query.data.labId !== undefined) return { [singleLabId]: query.data }
+    return query.data[singleLabId] ? { [singleLabId]: query.data[singleLabId] } : {}
+  }, [query.data, singleLabId])
+
+  useEffect(() => {
+    if (!statuses || typeof statuses !== 'object') return
+
+    Object.entries(statuses).forEach(([labId, value]) => {
+      queryClient.setQueryData(
+        marketQueryKeys.labStatus(labId),
+        value,
+        value?.state === 'unknown' ? { updatedAt: 0 } : undefined,
+      )
+    })
+    queryClient.setQueriesData(
+      { queryKey: marketQueryKeys.labStatusesPrefix() },
+      (cachedStatuses) => {
+        if (!cachedStatuses || typeof cachedStatuses !== 'object' || Array.isArray(cachedStatuses)) {
+          return cachedStatuses
+        }
+        let changed = false
+        const nextStatuses = { ...cachedStatuses }
+        Object.entries(statuses).forEach(([labId, value]) => {
+          if (nextStatuses[labId] === value) return
+          nextStatuses[labId] = value
+          changed = true
+        })
+        return changed ? nextStatuses : cachedStatuses
+      },
+    )
+  }, [queryClient, statuses])
+
   return {
     ...query,
-    data: query.data || {},
+    data: statuses,
   }
 }
 

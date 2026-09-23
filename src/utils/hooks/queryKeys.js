@@ -134,6 +134,8 @@ export const marketQueryKeys = {
     Boolean(includeUnlisted),
     filters,
   ],
+  labStatus: (labId) => ['market', 'lab-status', String(labId)],
+  labStatusesPrefix: () => ['market', 'lab-statuses'],
   labStatuses: (labIds = []) => [
     'market',
     'lab-statuses',
