@@ -74,6 +74,10 @@ jobs:
   cypress-e2e:
     name: Cypress E2E
     runs-on: ubuntu-latest
+    env:
+      # Cypress can need more than its 30s default to complete the Chromium
+      # smoke-test on a busy GitHub-hosted runner.
+      CYPRESS_VERIFY_TIMEOUT: 120000
 
     steps:
       - name: 📥 Checkout code
