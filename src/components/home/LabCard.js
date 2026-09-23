@@ -115,7 +115,7 @@ const LabCard = React.memo(function LabCard({
         {/* Rating + Age Badge */}
         {(ratingLabel || ageLabel) && (
           <div
-            className="absolute bottom-2 left-3 z-10 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm"
+            className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm"
             title={statsLabel || undefined}
           >
             {ratingLabel && (
@@ -136,11 +136,12 @@ const LabCard = React.memo(function LabCard({
           </div>
         )}
 
-        <LabStatusIndicator
-          status={operationalStatus}
-          className="absolute bottom-2 right-2"
-          tooltipPlacement="above"
-        />
+        <span className="absolute bottom-2 left-2 z-30 inline-flex">
+          <LabStatusIndicator
+            status={operationalStatus}
+            tooltipPlacement="above"
+          />
+        </span>
 
         {/* Unlisted Badge */}
         {!isListed && (
@@ -224,7 +225,7 @@ LabCard.propTypes = {
   resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   demoEnabled: PropTypes.bool,
   operationalStatus: PropTypes.shape({
-    state: PropTypes.oneOf(['ready', 'busy', 'not_ready', 'unknown']),
+    state: PropTypes.oneOf(['ready', 'reachable', 'busy', 'not_ready', 'unknown']),
     reason: PropTypes.string,
     severity: PropTypes.oneOf(['positive', 'warning', 'critical', 'neutral']),
     ageSeconds: PropTypes.number,

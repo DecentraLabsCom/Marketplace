@@ -38,6 +38,30 @@ describe('LabStatusIndicator', () => {
     expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('heartbeat is stale')
   })
 
+  test('keeps the LED glow free of a dark backdrop and circular border', () => {
+    render(<LabStatusIndicator status={{ state: 'unknown' }} />)
+
+    const indicator = screen.getByTestId('lab-status-indicator')
+    const dot = indicator.querySelector('[aria-hidden="true"]')
+
+    expect(indicator).not.toHaveClass('bg-black/45', 'backdrop-blur-sm', 'rounded-full')
+    expect(dot).not.toHaveClass('border', 'border-white/50')
+  })
+
+  test('renders Guacamole reachability as a green glow with a qualified tooltip', () => {
+    render(<LabStatusIndicator status={{
+      state: 'reachable',
+      reason: 'target_reachable',
+      source: 'guacamole_tcp_probe',
+      ageSeconds: 4,
+    }} />)
+
+    const dot = screen.getByTestId('lab-status-indicator').querySelector('[aria-hidden="true"]')
+    expect(dot).toHaveClass('animate-status-glow', 'bg-emerald-400')
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('TCP service')
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('does not independently verify')
+  })
+
   test('can place the tooltip above indicators anchored near the bottom of an image', () => {
     render(<LabStatusIndicator tooltipPlacement="above" />)
 

@@ -366,7 +366,17 @@ describe("LabCard - Rating and Age", () => {
 
     expect(screen.getByText("5.0")).toBeInTheDocument();
     expect(screen.getByText("0d")).toBeInTheDocument();
-    expect(screen.getByText("0d").parentElement).toHaveClass("bottom-2", "left-3");
+    expect(screen.getByText("0d").parentElement).toHaveClass("top-3", "left-3");
+  });
+
+  test("keeps the health indicator fully visible in the lower-left corner", () => {
+    renderLabCard();
+
+    expect(screen.getByTestId("lab-status-indicator").parentElement.parentElement).toHaveClass(
+      "absolute",
+      "bottom-2",
+      "left-2",
+    );
   });
 
   test("hides rating and age badge when data is missing", () => {

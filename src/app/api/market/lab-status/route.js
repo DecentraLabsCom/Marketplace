@@ -8,8 +8,9 @@ import {
 
 const checkRate = createRateLimiter({ operation: 'market-lab-status', windowMs: 60_000, maxRequests: 60 })
 const MAX_LAB_IDS = 50
-const STATUS_STATES = new Set(['ready', 'busy', 'not_ready', 'unknown'])
+const STATUS_STATES = new Set(['ready', 'reachable', 'busy', 'not_ready', 'unknown'])
 const STATUS_SEVERITIES = new Set(['positive', 'warning', 'critical', 'neutral'])
+const STATUS_SOURCES = new Set(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable'])
 const STATUS_REASONS = new Set([
   'station_ready',
   'local_session_active',
@@ -18,6 +19,10 @@ const STATUS_REASONS = new Set([
   'heartbeat_stale',
   'heartbeat_missing',
   'heartbeat_invalid',
+  'target_reachable',
+  'target_unreachable',
+  'target_invalid',
+  'target_probe_error',
   'lab_not_mapped',
   'gateway_unavailable',
   'status_unavailable',
@@ -49,7 +54,7 @@ const unknownStatus = (labId, reason = 'status_unavailable') => ({
   labId: String(labId),
   state: 'unknown',
   reason: STATUS_REASONS.has(reason) ? reason : 'status_unavailable',
-  source: 'lab_station_heartbeat',
+  source: 'status_unavailable',
   observedAt: null,
   ageSeconds: null,
   severity: 'neutral',
@@ -66,7 +71,7 @@ const normalizeStatus = (labId, value) => {
     labId: String(labId),
     state: STATUS_STATES.has(value.state) ? value.state : 'unknown',
     reason: STATUS_REASONS.has(value.reason) ? value.reason : 'status_unavailable',
-    source: 'lab_station_heartbeat',
+    source: STATUS_SOURCES.has(value.source) ? value.source : 'status_unavailable',
     observedAt,
     ageSeconds: Number.isInteger(ageSeconds) && ageSeconds >= 0 && ageSeconds <= 31_536_000
       ? ageSeconds

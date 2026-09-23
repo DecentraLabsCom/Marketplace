@@ -52,7 +52,7 @@ export const getLabOperationalStatus = (statuses, labId) => (
     labId: String(labId),
     state: 'unknown',
     reason: 'status_unavailable',
-    source: 'lab_station_heartbeat',
+    source: 'status_unavailable',
     observedAt: null,
     ageSeconds: null,
     severity: 'neutral',

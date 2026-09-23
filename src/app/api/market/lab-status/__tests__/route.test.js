@@ -52,6 +52,30 @@ describe('GET /api/market/lab-status', () => {
     )
   })
 
+  test('preserves a reachable Guacamole target signal as distinct from station readiness', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      statuses: [{
+        labId: '7',
+        state: 'reachable',
+        reason: 'target_reachable',
+        source: 'guacamole_tcp_probe',
+        severity: 'positive',
+        observedAt: '2026-09-23T10:00:00Z',
+        ageSeconds: 4,
+        generatedAt: '2026-09-23T10:00:04Z',
+      }],
+    }), { status: 200 }))
+
+    const response = await GET(request('/api/market/lab-status?labIds=7'))
+    const body = await response.json()
+
+    expect(body.statuses[0]).toMatchObject({
+      state: 'reachable',
+      source: 'guacamole_tcp_probe',
+      reason: 'target_reachable',
+    })
+  })
+
   test('returns unknown instead of a red signal when the gateway cannot be resolved', async () => {
     resolveLabAccessGateways.mockResolvedValue([['7', null]])
 
