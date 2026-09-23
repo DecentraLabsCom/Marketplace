@@ -10,6 +10,7 @@ import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { usePublicMarketLabs } from '@/hooks/lab/useLabs'
+import { getLabOperationalStatus, useLabOperationalStatuses } from '@/hooks/lab/useLabOperationalStatus'
 import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
@@ -76,6 +77,10 @@ export default function Market({ initialMarketSnapshot = null }) {
   } = labsQuery;
 
   const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
+  const operationalStatusQuery = useLabOperationalStatuses(
+    labsArray.map((lab) => lab.id),
+    { enabled: labsArray.length > 0 },
+  );
   const labsLoading = labsInitialLoading || (labsFetching && labsArray.length === 0);
   const catalogueStatus = labsData?.catalogueStatus || 'fresh';
 
@@ -131,7 +136,8 @@ export default function Market({ initialMarketSnapshot = null }) {
     activeBookingKey: isLoggedIn && !bookingsLoading
       ? userBookings?.getActiveBookingKey?.(lab.id) || null
       : null,
-  })), [labsArray, isLoggedIn, bookingsLoading, userBookings]);
+    operationalStatus: getLabOperationalStatus(operationalStatusQuery.data, lab.id),
+  })), [labsArray, isLoggedIn, bookingsLoading, userBookings, operationalStatusQuery.data]);
   const categories = labsData?.facets?.categories || [];
   const providers = labsData?.facets?.providers || [];
 

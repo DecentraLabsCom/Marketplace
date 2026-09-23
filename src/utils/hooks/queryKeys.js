@@ -134,6 +134,11 @@ export const marketQueryKeys = {
     Boolean(includeUnlisted),
     filters,
   ],
+  labStatuses: (labIds = []) => [
+    'market',
+    'lab-statuses',
+    Array.isArray(labIds) ? labIds.map(String).sort() : [],
+  ],
 };
 
 // User query keys

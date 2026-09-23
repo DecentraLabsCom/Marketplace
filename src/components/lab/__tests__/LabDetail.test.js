@@ -26,6 +26,15 @@ import { useLabCredit } from "@/context/LabCreditContext";
 import { useRouter } from "next/navigation";
 
 jest.mock("@/hooks/lab/useLabs");
+jest.mock("@/hooks/lab/useLabOperationalStatus", () => ({
+  useLabOperationalStatuses: jest.fn(() => ({ data: {} })),
+  getLabOperationalStatus: jest.fn((statuses, labId) => statuses?.[String(labId)] || {
+    labId: String(labId),
+    state: "unknown",
+    reason: "status_unavailable",
+    severity: "neutral",
+  }),
+}));
 jest.mock("@/hooks/booking/useBookingAtomicQueries");
 jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
@@ -167,6 +176,18 @@ describe("LabDetail", () => {
 
       expect(formatPrice).toHaveBeenCalledWith("150", "week");
       expect(screen.getByText("$150 credits / week")).toBeInTheDocument();
+    });
+
+    test("presents demo access as free even when the reservation price is non-zero", () => {
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: { ...mockLabData, demoEnabled: true },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("Free")).toBeInTheDocument();
+      expect(screen.queryByText("150 credits / hour")).not.toBeInTheDocument();
     });
   });
 

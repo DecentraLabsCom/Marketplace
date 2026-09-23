@@ -11,6 +11,7 @@ import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
+import LabStatusIndicator from '@/components/lab/LabStatusIndicator'
 
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
 
@@ -46,7 +47,8 @@ const LabCard = React.memo(function LabCard({
   createdAt = null,
   priceUnit = 'hour',
   resourceType = RESOURCE_TYPES.LAB,
-  demoEnabled = false
+  demoEnabled = false,
+  operationalStatus = null
 }) {
   const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
   const { isSSO } = useUser();
@@ -69,6 +71,7 @@ const LabCard = React.memo(function LabCard({
     price,
     unit: priceUnit,
     formatPrice,
+    isDemo: demoEnabled,
   });
  
   return (
@@ -112,7 +115,7 @@ const LabCard = React.memo(function LabCard({
         {/* Rating + Age Badge */}
         {(ratingLabel || ageLabel) && (
           <div
-            className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm"
+            className="absolute bottom-2 left-3 z-10 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm"
             title={statsLabel || undefined}
           >
             {ratingLabel && (
@@ -132,6 +135,12 @@ const LabCard = React.memo(function LabCard({
             <span className="text-xs font-semibold uppercase tracking-wide">Demo</span>
           </div>
         )}
+
+        <LabStatusIndicator
+          status={operationalStatus}
+          className="absolute bottom-2 right-2"
+          tooltipPlacement="above"
+        />
 
         {/* Unlisted Badge */}
         {!isListed && (
@@ -213,7 +222,13 @@ LabCard.propTypes = {
   }),
   createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  demoEnabled: PropTypes.bool
+  demoEnabled: PropTypes.bool,
+  operationalStatus: PropTypes.shape({
+    state: PropTypes.oneOf(['ready', 'busy', 'not_ready', 'unknown']),
+    reason: PropTypes.string,
+    severity: PropTypes.oneOf(['positive', 'warning', 'critical', 'neutral']),
+    ageSeconds: PropTypes.number,
+  })
 }
 
 export default LabCard;

@@ -640,3 +640,24 @@ export async function resolveLabAccessGateway({ labId } = {}) {
   })
   return new URL(accessUrl).origin
 }
+
+/**
+ * Resolve a bounded batch of public lab gateways with one contract instance.
+ * Each item is fail-closed independently so one malformed/unconfigured lab
+ * does not hide fresh status for the rest of the catalogue page.
+ */
+export async function resolveLabAccessGateways({ labIds = [] } = {}) {
+  const contract = await getContractInstance()
+  return Promise.all((Array.isArray(labIds) ? labIds : []).map(async (labId) => {
+    try {
+      const numericLabId = numericLabIdFrom(labId)
+      const onChainUri = await contract.getLabAccessURI(numericLabId)
+      if (!onChainUri) return [String(numericLabId), null]
+      const normalized = normalizeLabAccessUrl(String(onChainUri))
+      await assertGatewayUrlResolvesPublic(normalized)
+      return [String(numericLabId), new URL(normalized).origin]
+    } catch {
+      return [String(labId), null]
+    }
+  }))
+}

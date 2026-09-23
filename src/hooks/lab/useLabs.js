@@ -12,6 +12,7 @@ export * from './useLabAtomicMutations'
 // Export specialized query hooks
 export * from './useLabSpecializedQueries'
 export * from './usePublicMarketLabs'
+export * from './useLabOperationalStatus'
 
 // Export cache update utilities
 export * from './useLabCacheUpdates'

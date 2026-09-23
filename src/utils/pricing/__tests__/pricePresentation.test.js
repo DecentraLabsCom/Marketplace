@@ -52,4 +52,21 @@ describe('pricePresentation', () => {
     })
     expect(formatPrice).not.toHaveBeenCalled()
   })
+
+  test('presents demo access as free regardless of the reservation price', () => {
+    const formatPrice = jest.fn()
+
+    expect(formatPricePerUnit({
+      price: '100',
+      unit: 'hour',
+      isDemo: true,
+      formatPrice,
+    })).toEqual({
+      amount: 'Free',
+      unit: 'hour',
+      isFree: true,
+      text: 'Free',
+    })
+    expect(formatPrice).not.toHaveBeenCalled()
+  })
 })

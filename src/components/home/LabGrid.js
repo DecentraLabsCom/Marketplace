@@ -156,6 +156,7 @@ export default function LabGrid({
             priceUnit={lab.priceUnit}
             resourceType={lab.resourceType}
             demoEnabled={lab.demoEnabled}
+            operationalStatus={lab.operationalStatus}
           />
         ))}
       </div>
@@ -202,7 +203,8 @@ LabGrid.propTypes = {
         totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     }),
     priceUnit: PropTypes.string,
-    resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    operationalStatus: PropTypes.object,
   })),
   loading: PropTypes.bool,
   error: PropTypes.bool,

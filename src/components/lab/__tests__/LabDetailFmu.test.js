@@ -15,6 +15,15 @@ import LabDetail from "../LabDetail";
 
 // Mocks
 jest.mock("@/hooks/lab/useLabs");
+jest.mock("@/hooks/lab/useLabOperationalStatus", () => ({
+  useLabOperationalStatuses: jest.fn(() => ({ data: {} })),
+  getLabOperationalStatus: jest.fn((statuses, labId) => statuses?.[String(labId)] || {
+    labId: String(labId),
+    state: "unknown",
+    reason: "status_unavailable",
+    severity: "neutral",
+  }),
+}));
 jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
 jest.mock("@/hooks/booking/useBookingAtomicQueries");

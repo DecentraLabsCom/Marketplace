@@ -30,6 +30,8 @@ import {
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
 import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUrl'
+import { getLabOperationalStatus, useLabOperationalStatuses } from '@/hooks/lab/useLabOperationalStatus'
+import LabStatusIndicator from '@/components/lab/LabStatusIndicator'
 
 let countryLocaleRegistered = false
 
@@ -81,6 +83,12 @@ export default function LabDetail({ id }) {
   const { formatPrice } = useLabCredit();
   const router = useRouter();
   const labIsFmu = isFmu(lab);
+  const operationalLabId = lab?.id ?? lab?.labId ?? id;
+  const operationalStatusQuery = useLabOperationalStatuses(
+    operationalLabId !== undefined && operationalLabId !== null ? [operationalLabId] : [],
+    { enabled: operationalLabId !== undefined && operationalLabId !== null },
+  );
+  const operationalStatus = getLabOperationalStatus(operationalStatusQuery.data, operationalLabId);
 
   const [demoCheckStart, setDemoCheckStart] = useState(null);
   const demoAvailabilityEnabled = !!(lab?.id && lab?.isListed === true && lab?.demoEnabled && !labIsFmu);
@@ -244,6 +252,7 @@ export default function LabDetail({ id }) {
     price: lab.price,
     unit: getLabPricingUnit(lab),
     formatPrice,
+    isDemo: lab?.demoEnabled === true,
   });
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
@@ -266,8 +275,14 @@ export default function LabDetail({ id }) {
     <Container padding="sm">
       <section className={topSpacingClass}>
         <header className="w-full">
-          <h1 className="text-2xl text-header-bg font-bold pb-2 text-center">
-            {lab?.name}
+          <h1
+            aria-label={lab?.name}
+            className="text-2xl text-header-bg font-bold pb-2 text-center"
+          >
+            <span className="inline-flex items-center justify-center gap-3">
+              <LabStatusIndicator status={operationalStatus} />
+              {lab?.name}
+            </span>
           </h1>
 
           {/* Unlisted Lab Badge */}

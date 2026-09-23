@@ -366,6 +366,7 @@ describe("LabCard - Rating and Age", () => {
 
     expect(screen.getByText("5.0")).toBeInTheDocument();
     expect(screen.getByText("0d")).toBeInTheDocument();
+    expect(screen.getByText("0d").parentElement).toHaveClass("bottom-2", "left-3");
   });
 
   test("hides rating and age badge when data is missing", () => {
@@ -538,6 +539,13 @@ describe("LabCard - Price Formatting", () => {
     renderLabCard({ price: 0 });
 
     expect(screen.getByText("Free")).toBeInTheDocument();
+  });
+
+  test("presents demo access as free even when the reservation price is non-zero", () => {
+    renderLabCard({ price: 15.75, demoEnabled: true });
+
+    expect(screen.getByText("Free")).toBeInTheDocument();
+    expect(screen.queryByText("â‚¬15.75 credits / hour")).not.toBeInTheDocument();
   });
 
   test("shows the configured non-hourly price unit", () => {

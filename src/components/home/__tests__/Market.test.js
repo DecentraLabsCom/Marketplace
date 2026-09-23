@@ -35,6 +35,11 @@ jest.mock('@/hooks/lab/useLabs', () => ({
   })),
 }))
 
+jest.mock('@/hooks/lab/useLabOperationalStatus', () => ({
+  useLabOperationalStatuses: jest.fn(() => ({ data: {} })),
+  getLabOperationalStatus: jest.fn((statuses, labId) => statuses?.[String(labId)] || null),
+}))
+
 jest.mock('@/hooks/booking/useBookings', () => ({
   useUserBookingsForMarket: (...args) => mockUseUserBookingsForMarket(...args),
 }))

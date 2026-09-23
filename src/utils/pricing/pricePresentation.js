@@ -36,10 +36,10 @@ export const getLabPricingUnit = (labOrUnit) => {
  * Format the public-facing unit price in one place.
  * `price` is the on-chain raw-per-second price used by formatPrice.
  */
-export const formatPricePerUnit = ({ price, lab, unit, formatPrice }) => {
+export const formatPricePerUnit = ({ price, lab, unit, formatPrice, isDemo = false }) => {
   const normalizedUnit = getLabPricingUnit(unit || lab)
 
-  if (isZeroPrice(price)) {
+  if (isDemo || isZeroPrice(price)) {
     return {
       amount: 'Free',
       unit: normalizedUnit,
@@ -59,4 +59,3 @@ export const formatPricePerUnit = ({ price, lab, unit, formatPrice }) => {
     text: `${amount} credits / ${normalizedUnit}`,
   }
 }
-
