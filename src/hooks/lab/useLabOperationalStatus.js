@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { marketQueryKeys } from '@/utils/hooks/queryKeys'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const STATUS_QUERY_CONFIG = Object.freeze({
   staleTime: 15_000,
@@ -153,14 +154,22 @@ export const useLabOperationalStatuses = (labIds, options = {}) => {
   }
 }
 
-export const getLabOperationalStatus = (statuses, labId) => (
-  statuses?.[String(labId)] || {
-    labId: String(labId),
-    state: 'unknown',
-    reason: 'status_unavailable',
-    source: 'status_unavailable',
-    observedAt: null,
-    ageSeconds: null,
-    severity: 'neutral',
+export const getLabOperationalStatus = (statuses, labId, resourceType = RESOURCE_TYPES.LAB) => {
+  const status = statuses?.[String(labId)]
+  if (!status) {
+    return {
+      labId: String(labId),
+      state: 'unknown',
+      reason: 'status_unavailable',
+      source: 'status_unavailable',
+      observedAt: null,
+      ageSeconds: null,
+      severity: 'neutral',
+    }
   }
-)
+
+  const capability = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU
+    ? status.capabilities?.fmu
+    : status.capabilities?.physicalLab
+  return capability || status
+}

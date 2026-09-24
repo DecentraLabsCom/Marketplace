@@ -50,6 +50,8 @@ const STATUS_PRESENTATIONS = {
 
 const REASON_LABELS = {
   station_ready: 'station ready',
+  fmu_ready: 'FMU executor ready',
+  fmu_not_ready: 'FMU executor is not ready',
   local_session_active: 'local session active',
   local_mode_enabled: 'local mode enabled',
   station_not_ready: 'station reports not ready',

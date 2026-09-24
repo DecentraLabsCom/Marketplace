@@ -136,7 +136,7 @@ export default function Market({ initialMarketSnapshot = null }) {
     activeBookingKey: isLoggedIn && !bookingsLoading
       ? userBookings?.getActiveBookingKey?.(lab.id) || null
       : null,
-    operationalStatus: getLabOperationalStatus(operationalStatusQuery.data, lab.id),
+    operationalStatus: getLabOperationalStatus(operationalStatusQuery.data, lab.id, lab.resourceType),
   })), [labsArray, isLoggedIn, bookingsLoading, userBookings, operationalStatusQuery.data]);
   const categories = labsData?.facets?.categories || [];
   const providers = labsData?.facets?.providers || [];

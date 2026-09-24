@@ -2,6 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import {
+  getLabOperationalStatus,
   useLabOperationalStatuses,
 } from '../useLabOperationalStatus'
 import { marketQueryKeys } from '@/utils/hooks/queryKeys'
@@ -34,6 +35,19 @@ const jsonResponse = (payload) => ({
 describe('useLabOperationalStatuses', () => {
   afterEach(() => {
     jest.restoreAllMocks()
+  })
+
+  test('selects the resource capability instead of global station readiness', () => {
+    const statusWithCapabilities = {
+      ...status('7', 'not_ready', 'station_not_ready'),
+      capabilities: {
+        physicalLab: { ...status('7', 'ready'), reason: 'station_ready' },
+        fmu: { ...status('7', 'not_ready'), reason: 'fmu_not_ready', severity: 'critical' },
+      },
+    }
+
+    expect(getLabOperationalStatus({ '7': statusWithCapabilities }, '7', 'lab').state).toBe('ready')
+    expect(getLabOperationalStatus({ '7': statusWithCapabilities }, '7', 'fmu').state).toBe('not_ready')
   })
 
   test('synchronizes a LabDetail refresh into the cached catalogue batch', async () => {

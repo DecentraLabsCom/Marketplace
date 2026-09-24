@@ -88,7 +88,7 @@ export default function LabDetail({ id }) {
     operationalLabId !== undefined && operationalLabId !== null ? [operationalLabId] : [],
     { enabled: operationalLabId !== undefined && operationalLabId !== null },
   );
-  const operationalStatus = getLabOperationalStatus(operationalStatusQuery.data, operationalLabId);
+  const operationalStatus = getLabOperationalStatus(operationalStatusQuery.data, operationalLabId, lab?.resourceType);
 
   const [demoCheckStart, setDemoCheckStart] = useState(null);
   const demoAvailabilityEnabled = !!(lab?.id && lab?.isListed === true && lab?.demoEnabled && !labIsFmu);

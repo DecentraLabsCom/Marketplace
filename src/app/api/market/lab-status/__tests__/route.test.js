@@ -30,6 +30,24 @@ describe('GET /api/market/lab-status', () => {
           observedAt: '2026-09-23T10:00:00Z',
           ageSeconds: 30,
           generatedAt: '2026-09-23T10:00:30Z',
+          capabilities: {
+            physicalLab: {
+              state: 'ready',
+              reason: 'station_ready',
+              source: 'lab_station_heartbeat',
+              severity: 'positive',
+              observedAt: '2026-09-23T10:00:00Z',
+              ageSeconds: 30,
+            },
+            fmu: {
+              state: 'not_ready',
+              reason: 'fmu_not_ready',
+              source: 'lab_station_heartbeat',
+              severity: 'critical',
+              observedAt: '2026-09-23T10:00:00Z',
+              ageSeconds: 30,
+            },
+          },
         },
       ],
     }), { status: 200 }))
@@ -46,6 +64,10 @@ describe('GET /api/market/lab-status', () => {
       ageSeconds: 30,
     })
     expect(body.statuses[0]).not.toHaveProperty('accessURI')
+    expect(body.statuses[0].capabilities.fmu).toMatchObject({
+      state: 'not_ready',
+      reason: 'fmu_not_ready',
+    })
     expect(gatewayFetch).toHaveBeenCalledWith(
       expect.stringContaining('/public/labs/status?labIds=7'),
       expect.objectContaining({ headers: { Accept: 'application/json' } }),

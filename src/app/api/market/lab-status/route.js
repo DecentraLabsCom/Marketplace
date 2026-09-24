@@ -8,11 +8,14 @@ import {
 
 const checkRate = createRateLimiter({ operation: 'market-lab-status', windowMs: 60_000, maxRequests: 60 })
 const MAX_LAB_IDS = 50
+const STATUS_CAPABILITIES = ['physicalLab', 'fmu']
 const STATUS_STATES = new Set(['ready', 'reachable', 'busy', 'not_ready', 'unknown'])
 const STATUS_SEVERITIES = new Set(['positive', 'warning', 'critical', 'neutral'])
 const STATUS_SOURCES = new Set(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable'])
 const STATUS_REASONS = new Set([
   'station_ready',
+  'fmu_ready',
+  'fmu_not_ready',
   'local_session_active',
   'local_mode_enabled',
   'station_not_ready',
@@ -61,7 +64,7 @@ const unknownStatus = (labId, reason = 'status_unavailable') => ({
   generatedAt: new Date().toISOString(),
 })
 
-const normalizeStatus = (labId, value) => {
+const normalizeStatusProjection = (labId, value) => {
   if (!value || typeof value !== 'object') return unknownStatus(labId)
   const ageSeconds = Number(value.ageSeconds)
   const observedAt = typeof value.observedAt === 'string' && value.observedAt.length <= 64
@@ -81,6 +84,23 @@ const normalizeStatus = (labId, value) => {
       ? value.generatedAt
       : new Date().toISOString(),
   }
+}
+
+const normalizeStatus = (labId, value) => {
+  const normalized = normalizeStatusProjection(labId, value)
+  if (!value || typeof value !== 'object' || !value.capabilities || typeof value.capabilities !== 'object') {
+    return normalized
+  }
+
+  const capabilities = Object.fromEntries(STATUS_CAPABILITIES
+    .filter((capability) => Object.prototype.hasOwnProperty.call(value.capabilities, capability))
+    .map((capability) => [
+      capability,
+      normalizeStatusProjection(labId, value.capabilities[capability]),
+    ]))
+  return Object.keys(capabilities).length > 0
+    ? { ...normalized, capabilities }
+    : normalized
 }
 
 const readGatewayStatuses = async (gateway, labIds) => {
