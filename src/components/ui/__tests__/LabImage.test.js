@@ -64,6 +64,36 @@ describe('LabImage', () => {
     })
   })
 
+  test('hides spinner when the image completed before React attached onLoad', async () => {
+    const completeDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'complete')
+    const naturalWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'naturalWidth')
+    const gatewayImage = 'https://lab.example.edu/lab-content/content/lab-demo/images/cover.png'
+
+    try {
+      Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+        configurable: true,
+        get: () => true,
+      })
+      Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', {
+        configurable: true,
+        get: () => 640,
+      })
+
+      render(<LabImage src={gatewayImage} alt={ALT} fill />)
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Loading image/i)).not.toBeInTheDocument()
+      })
+    } finally {
+      if (completeDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'complete', completeDescriptor)
+      }
+      if (naturalWidthDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', naturalWidthDescriptor)
+      }
+    }
+  })
+
   // Verifies graceful degradation when primary image fails
   test('switches to fallback image on error', async () => {
     render(<LabImage src={SRC} alt={ALT} fallbackSrc={FALLBACK} />)

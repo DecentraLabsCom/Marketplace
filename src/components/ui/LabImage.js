@@ -57,6 +57,7 @@ const LabImage = ({
 }) => {
   const [imageAttempt, setImageAttempt] = useState('primary')
   const [imageLoaded, setImageLoaded] = useState(priority)
+  const imageRef = useRef(null)
   const hasReportedError = useRef(false)
 
   const resolvedImageUrl = resolveLabImageUrl(src, labId)
@@ -72,6 +73,14 @@ const LabImage = ({
     setImageAttempt('primary')
     setImageLoaded(priority)
     hasReportedError.current = false
+
+    // During SSR hydration the browser may finish a cached image before React
+    // attaches onLoad. Inspect the element so the loading state cannot remain
+    // stuck on the spinner when that event was missed.
+    const imageElement = imageRef.current
+    if (imageElement?.complete && imageElement.naturalWidth > 0) {
+      setImageLoaded(true)
+    }
   }, [fallbackSrc, labId, priority, src])
 
   // Determine which image to show
@@ -117,6 +126,7 @@ const LabImage = ({
   const imageProps = {
     src: displayImageUrl,
     alt,
+    ref: imageRef,
     className: `${className} ${priority ? 'opacity-100' : (!imageLoaded ? 'opacity-0' : 'opacity-100')} transition-opacity duration-300`,
     onLoad: handleLoad,
     onError: handleError,
