@@ -20,7 +20,7 @@ describe('LabStatusIndicator', () => {
 
     const dot = screen.getByTestId('lab-status-indicator').querySelector('[aria-hidden="true"]')
     expect(dot).toHaveClass('animate-status-pulse', 'bg-orange-400')
-    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('local session')
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent(/another user/i)
   })
 
   test('renders local-mode busy as a red pulse', () => {
@@ -35,7 +35,7 @@ describe('LabStatusIndicator', () => {
 
     const dot = screen.getByTestId('lab-status-indicator').querySelector('[aria-hidden="true"]')
     expect(dot).toHaveClass('animate-status-glow', 'bg-amber-400')
-    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('heartbeat is stale')
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent(/availability of this laboratory cannot be confirmed/i)
   })
 
   test('keeps the LED glow free of a dark backdrop and circular border', () => {
@@ -66,7 +66,7 @@ describe('LabStatusIndicator', () => {
     expect(tooltip).not.toHaveTextContent('latest Lab Station heartbeat')
   })
 
-  test('renders Guacamole reachability as a green glow with a qualified tooltip', () => {
+  test('renders an available laboratory with a concise consumer-facing tooltip', () => {
     render(<LabStatusIndicator status={{
       state: 'reachable',
       reason: 'target_reachable',
@@ -76,8 +76,21 @@ describe('LabStatusIndicator', () => {
 
     const dot = screen.getByTestId('lab-status-indicator').querySelector('[aria-hidden="true"]')
     expect(dot).toHaveClass('animate-status-glow', 'bg-emerald-400')
-    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('TCP service')
-    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('does not independently verify')
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('online and available')
+  })
+
+  test('does not expose internal reasons or technical components in the tooltip', () => {
+    render(<LabStatusIndicator status={{
+      state: 'not_ready',
+      reason: 'station_not_ready',
+      source: 'lab_station_heartbeat',
+      ageSeconds: 43,
+    }} />)
+
+    const tooltip = screen.getByTestId('lab-status-tooltip')
+    expect(tooltip).toHaveTextContent('not ready for use')
+    expect(tooltip).toHaveTextContent('Updated 43s ago')
+    expect(tooltip).not.toHaveTextContent(/Reason:|Gateway|Lab Station|heartbeat|Signal:|TCP|RDP|VNC|SSH/i)
   })
 
   test('can place the tooltip above indicators anchored near the bottom of an image', () => {
