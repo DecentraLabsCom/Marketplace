@@ -21,6 +21,7 @@ const STATUS_SOURCE_PRIORITY = Object.freeze({
   status_unavailable: 0,
   guacamole_tcp_probe: 1,
   lab_station_heartbeat: 2,
+  fmu_runner_health: 3,
 })
 
 const parseStatusTimestamp = (value) => {

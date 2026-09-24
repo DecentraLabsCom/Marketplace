@@ -98,6 +98,43 @@ describe('GET /api/market/lab-status', () => {
     })
   })
 
+  test('preserves local FMU runner readiness and its capability source', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      statuses: [{
+        labId: '7',
+        state: 'ready',
+        reason: 'fmu_ready',
+        source: 'fmu_runner_health',
+        severity: 'positive',
+        observedAt: '2026-09-25T10:00:00Z',
+        ageSeconds: 2,
+        capabilities: {
+          fmu: {
+            state: 'ready',
+            reason: 'fmu_ready',
+            source: 'fmu_runner_health',
+            severity: 'positive',
+            observedAt: '2026-09-25T10:00:00Z',
+            ageSeconds: 2,
+          },
+        },
+      }],
+    }), { status: 200 }))
+
+    const response = await GET(request('/api/market/lab-status?labIds=7'))
+    const body = await response.json()
+
+    expect(body.statuses[0]).toMatchObject({
+      state: 'ready',
+      source: 'fmu_runner_health',
+      reason: 'fmu_ready',
+    })
+    expect(body.statuses[0].capabilities.fmu).toMatchObject({
+      state: 'ready',
+      source: 'fmu_runner_health',
+    })
+  })
+
   test('returns unknown instead of a red signal when the gateway cannot be resolved', async () => {
     resolveLabAccessGateways.mockResolvedValue([['7', null]])
 

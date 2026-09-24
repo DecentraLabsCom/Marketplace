@@ -135,7 +135,12 @@ LabStatusIndicator.propTypes = {
   status: PropTypes.shape({
     state: PropTypes.oneOf(['ready', 'reachable', 'busy', 'not_ready', 'unknown']),
     reason: PropTypes.string,
-    source: PropTypes.oneOf(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable']),
+    source: PropTypes.oneOf([
+      'lab_station_heartbeat',
+      'guacamole_tcp_probe',
+      'fmu_runner_health',
+      'status_unavailable',
+    ]),
     severity: PropTypes.oneOf(['positive', 'warning', 'critical', 'neutral']),
     ageSeconds: PropTypes.number,
   }),

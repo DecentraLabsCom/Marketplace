@@ -11,11 +11,17 @@ const MAX_LAB_IDS = 50
 const STATUS_CAPABILITIES = ['physicalLab', 'fmu']
 const STATUS_STATES = new Set(['ready', 'reachable', 'busy', 'not_ready', 'unknown'])
 const STATUS_SEVERITIES = new Set(['positive', 'warning', 'critical', 'neutral'])
-const STATUS_SOURCES = new Set(['lab_station_heartbeat', 'guacamole_tcp_probe', 'status_unavailable'])
+const STATUS_SOURCES = new Set([
+  'lab_station_heartbeat',
+  'guacamole_tcp_probe',
+  'fmu_runner_health',
+  'status_unavailable',
+])
 const STATUS_REASONS = new Set([
   'station_ready',
   'fmu_ready',
   'fmu_not_ready',
+  'fmu_runner_unavailable',
   'local_session_active',
   'local_mode_enabled',
   'station_not_ready',
