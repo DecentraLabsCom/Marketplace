@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import {
-  parseSafeExternalHttpUrl,
   safeExternalHttpsUrl,
 } from '@/utils/security/safeUrl'
 
@@ -59,7 +58,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
   // Silently omit on fetch errors — non-critical feature
   if (state.error) return null
 
-  const { shell, nameplate, simulationInfo, operationalInfo } = state.data || {}
+  const { shell, nameplate, simulationInfo, operationalInfo, executionInfo } = state.data || {}
   if (!shell) return null
 
   const assetType = shell?.assetInformation?.assetType || 'Unknown'
@@ -120,15 +119,12 @@ export default function AasPanel({ labId, gatewayUrl }) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
   }
 
-  // Build a direct link to the raw AAS JSON on the provider's gateway
+  // Route the raw shell through Marketplace so the browser gets the same
+  // gateway resolution and cache policy as the panel data request.
   const aasShellViewUrl = (() => {
     try {
-      const base = parseSafeExternalHttpUrl(gatewayUrl)
-      if (!base || base.search || base.hash) return null
-      const origin = `${base.protocol}//${base.host}`
-      const aasId = `urn:decentralabs:lab:${labId}`
-      const encodedId = btoa(aasId).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-      return `${origin}/aas/shells/${encodedId}`
+      const params = new URLSearchParams({ labId: String(labId), raw: 'true' })
+      return `/api/aas/shell?${params.toString()}`
     } catch {
       return null
     }
@@ -145,7 +141,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-brand hover:underline"
-              aria-label="View raw AAS shell JSON on provider gateway"
+              aria-label="View raw AAS shell JSON through Marketplace proxy"
             >
               View AAS Shell ↗
             </a>
@@ -155,7 +151,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
               href={aasxPackageUrl}
               download
               className="text-xs text-brand hover:underline"
-              aria-label="Download AASX package from provider gateway"
+              aria-label="Download AASX package through Marketplace proxy"
             >
               Download AASX ↓
             </a>
@@ -238,17 +234,47 @@ export default function AasPanel({ labId, gatewayUrl }) {
           </div>
         )}
 
+        {executionInfo && (
+          <div className="col-span-2 border-t border-[#2a2f33] pt-3 mt-1">
+            <h4 className="text-text-secondary text-xs uppercase tracking-wide mb-2">Execution Capabilities</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {executionInfo.executionClass && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Execution Class</span>
+                  <p className="text-neutral-200 font-medium">{executionInfo.executionClass}</p>
+                </div>
+              )}
+              {executionInfo.accessProtocol && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Access Protocol</span>
+                  <p className="text-neutral-200 font-medium">{executionInfo.accessProtocol}</p>
+                </div>
+              )}
+              {executionInfo.reservationRequired !== null && executionInfo.reservationRequired !== undefined && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Reservation Required</span>
+                  <p className="text-neutral-200 font-medium">{formatFlag(executionInfo.reservationRequired)}</p>
+                </div>
+              )}
+              {Array.isArray(executionInfo.operations) && executionInfo.operations.length > 0 && (
+                <div className="col-span-2">
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">Described Operations</span>
+                  <p className="text-neutral-200 font-medium">
+                    {executionInfo.operations.map((operation) => operation.idShort).join(', ')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {operationalInfo && (
           <div className="col-span-2 border-t border-[#2a2f33] pt-3 mt-1">
-            <h4 className="text-text-secondary text-xs uppercase tracking-wide mb-2">Operational Status</h4>
+            <h4 className="text-text-secondary text-xs uppercase tracking-wide mb-2">Last known operational Status</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <span className="text-text-secondary text-xs uppercase tracking-wide">Status</span>
                 <p className="text-neutral-200 font-medium">{operationalInfo.status || 'Unknown'}</p>
-              </div>
-              <div>
-                <span className="text-text-secondary text-xs uppercase tracking-wide">Ready</span>
-                <p className="text-neutral-200 font-medium">{formatFlag(operationalInfo.ready)}</p>
               </div>
               {operationalInfo.backendMode && (
                 <div>
@@ -273,6 +299,12 @@ export default function AasPanel({ labId, gatewayUrl }) {
                   </p>
                 </div>
               )}
+              {syncTimestamp && (
+                <div>
+                  <span className="text-text-secondary text-xs uppercase tracking-wide">AAS snapshot synced at</span>
+                  <p className="text-neutral-200 font-medium">{formatTimestamp(syncTimestamp)}</p>
+                </div>
+              )}
               {operationalInfo.lastHeartbeat && (
                 <div>
                   <span className="text-text-secondary text-xs uppercase tracking-wide">Last Heartbeat</span>
@@ -295,12 +327,6 @@ export default function AasPanel({ labId, gatewayUrl }) {
           </div>
         )}
       </div>
-
-      {syncTimestamp && (
-        <p className="mt-3 text-xs text-text-secondary">
-          Last synced: {formatTimestamp(syncTimestamp)}
-        </p>
-      )}
     </div>
   )
 }

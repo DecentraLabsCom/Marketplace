@@ -10,6 +10,7 @@ import {
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const checkRate = createRateLimiter({ operation: 'aas-shell', windowMs: 60_000, maxRequests: 30 })
+const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' }
 const MAX_SUBMODEL_REFERENCES = 64
 const MAX_IDENTIFIER_LENGTH = 2048
 const MAX_PROPERTY_VALUE_LENGTH = 4096
@@ -93,6 +94,40 @@ function semanticIdText(submodel) {
     : ''
 }
 
+function extractOperationDescriptors(submodelElements, options = {}) {
+  const maxOperations = options.maxOperations || 64
+  const operations = []
+
+  const visit = (elements, depth) => {
+    if (!Array.isArray(elements) || depth > 12 || operations.length >= maxOperations) return
+    for (const element of elements) {
+      if (!element || typeof element !== 'object' || operations.length >= maxOperations) return
+      if (element.modelType === 'Operation' && typeof element.idShort === 'string') {
+        const variableNames = (key) => (Array.isArray(element[key])
+          ? element[key]
+            .map((variable) => variable?.value?.idShort)
+            .filter((value) => typeof value === 'string' && value.length <= 128)
+          : [])
+        operations.push({
+          idShort: element.idShort,
+          semanticId: semanticIdText(element),
+          inputVariables: variableNames('inputVariables'),
+          outputVariables: variableNames('outputVariables'),
+        })
+      }
+      if (Array.isArray(element.value) && (
+        element.modelType === 'SubmodelElementCollection'
+        || element.modelType === 'SubmodelElementList'
+      )) {
+        visit(element.value, depth + 1)
+      }
+    }
+  }
+
+  visit(submodelElements, 0)
+  return operations
+}
+
 function classifySubmodel(submodel, requestedId) {
   const identity = [submodel?.idShort, submodel?.id, requestedId, semanticIdText(submodel)]
     .filter(Boolean)
@@ -102,6 +137,7 @@ function classifySubmodel(submodel, requestedId) {
 
   if (identity.includes('nameplate')) return 'nameplate'
   if (identity.includes('simulationmodels')) return 'simulation'
+  if (identity.includes('executioncapabilities')) return 'execution'
   if (identity.includes('technicaldata') || identity.includes('operationalstatus') || identity.includes('operationaldata')) {
     return 'operational'
   }
@@ -162,6 +198,22 @@ function buildOperationalInfo(submodel, submodelId) {
   }
 }
 
+function buildExecutionInfo(submodel, submodelId) {
+  const props = extractProperties(submodel?.submodelElements)
+  return {
+    submodelId,
+    idShort: typeof submodel?.idShort === 'string' ? submodel.idShort : null,
+    executionClass: firstProperty(props, ['ExecutionClass']),
+    invocationModel: firstProperty(props, ['InvocationModel']),
+    operationExposure: firstProperty(props, ['OperationExposure']),
+    reservationRequired: parseBoolean(firstProperty(props, ['ReservationRequired'])),
+    authorizationScheme: firstProperty(props, ['AuthorizationScheme']),
+    accessProtocol: firstProperty(props, ['AccessProtocol']),
+    backendMode: firstProperty(props, ['BackendMode']),
+    operations: extractOperationDescriptors(submodel?.submodelElements),
+  }
+}
+
 async function fetchReferencedSubmodels(gatewayBaseUrl, shell, labId) {
   const shellId = `urn:decentralabs:lab:${labId}`
   const referencedIds = extractSubmodelIds(shell)
@@ -204,6 +256,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const labId = searchParams.get('labId')
+    const rawShell = searchParams.get('raw') === 'true'
 
     if (!labId) {
       return NextResponse.json({ error: 'Missing required parameter: labId' }, { status: 400 })
@@ -239,11 +292,19 @@ export async function GET(request) {
     }
 
     const shell = await shellRes.json()
+    if (rawShell) {
+      return NextResponse.json(shell, {
+        status: 200,
+        headers: NO_STORE_HEADERS,
+      })
+    }
+
     const referencedSubmodels = await fetchReferencedSubmodels(gatewayBaseUrl, shell, labId)
 
     let nameplate = null
     let simulationInfo = null
     let operationalInfo = null
+    let executionInfo = null
     for (const { submodel, submodelId } of referencedSubmodels) {
       const kind = classifySubmodel(submodel, submodelId)
       if (kind === 'nameplate' && nameplate === null) {
@@ -252,10 +313,15 @@ export async function GET(request) {
         simulationInfo = buildSimulationInfo(submodel)
       } else if (kind === 'operational' && operationalInfo === null) {
         operationalInfo = buildOperationalInfo(submodel, submodelId)
+      } else if (kind === 'execution' && executionInfo === null) {
+        executionInfo = buildExecutionInfo(submodel, submodelId)
       }
     }
 
-    return NextResponse.json({ shell, nameplate, simulationInfo, operationalInfo }, { status: 200 })
+    return NextResponse.json(
+      { shell, nameplate, simulationInfo, operationalInfo, executionInfo },
+      { status: 200, headers: NO_STORE_HEADERS },
+    )
   } catch (error) {
     if (error instanceof GatewayValidationError) {
       return publicErrorResponse({

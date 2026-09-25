@@ -39,18 +39,18 @@ describe('AasPanel external links', () => {
     )
   })
 
-  test('links to the provider AAS endpoint at the gateway root', async () => {
+  test('links to the raw AAS shell through the Marketplace proxy', async () => {
     render(<AasPanel labId="7" gatewayUrl="https://gateway.example/fmu" />)
 
     await waitFor(() => expect(screen.getByText('Digital Twin Metadata')).toBeInTheDocument())
 
-    const encodedId = btoa('urn:decentralabs:lab:7')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '')
-    expect(screen.getByRole('link', { name: 'View raw AAS shell JSON on provider gateway' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'View raw AAS shell JSON through Marketplace proxy' })).toHaveAttribute(
       'href',
-      `https://gateway.example/aas/shells/${encodedId}`,
+      '/api/aas/shell?labId=7&raw=true',
+    )
+    expect(screen.getByRole('link', { name: 'Download AASX package through Marketplace proxy' })).toHaveAttribute(
+      'href',
+      '/api/aas/package?labId=7',
     )
   })
 
@@ -71,6 +71,16 @@ describe('AasPanel external links', () => {
           DocumentationUrl_1: 'https://provider.example/guide.pdf',
         },
         simulationInfo: null,
+        executionInfo: {
+          executionClass: 'PhysicalLaboratory',
+          reservationRequired: true,
+          authorizationScheme: 'ReservationScopedLabAccessCode',
+          accessProtocol: 'Guacamole',
+          operations: [
+            { idShort: 'StartInteractiveSession', inputVariables: ['AccessCapability'], outputVariables: ['SessionHandle'] },
+            { idShort: 'EndInteractiveSession', inputVariables: ['SessionHandle'], outputVariables: ['Status'] },
+          ],
+        },
         operationalInfo: {
           status: 'Ready',
           ready: true,
@@ -88,16 +98,26 @@ describe('AasPanel external links', () => {
 
     render(<AasPanel labId="7" gatewayUrl="https://gateway.example/fmu" />)
 
-    await waitFor(() => expect(screen.getByText('Operational Status')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Last known operational Status')).toBeInTheDocument())
 
-    expect(screen.getAllByText('Ready')).toHaveLength(2)
+    expect(screen.getAllByText('Ready')).toHaveLength(1)
+    expect(screen.queryByText('Ready', { selector: 'span' })).toBeNull()
     expect(screen.getByText('station')).toBeInTheDocument()
     expect(screen.getByText('1 / 4')).toBeInTheDocument()
-    expect(screen.getByText('Yes')).toBeInTheDocument()
+    expect(screen.getAllByText('Yes')).toHaveLength(1)
     expect(screen.getAllByText('No')).toHaveLength(2)
+    expect(screen.getByText('AAS snapshot synced at')).toBeInTheDocument()
+    expect(screen.queryByText('Last synced:')).toBeNull()
+    expect(
+      screen.getByText('AAS snapshot synced at').compareDocumentPosition(screen.getByText('Last Heartbeat'))
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(screen.getByText('https://provider.example/terms')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'https://provider.example/manual.pdf' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'https://provider.example/guide.pdf' })).toBeInTheDocument()
     expect(screen.getByText('https://aas.provider.example/shells/remote-7')).toBeInTheDocument()
+    expect(screen.getByText('Execution Capabilities')).toBeInTheDocument()
+    expect(screen.getByText('PhysicalLaboratory')).toBeInTheDocument()
+    expect(screen.getByText('StartInteractiveSession, EndInteractiveSession')).toBeInTheDocument()
   })
 })

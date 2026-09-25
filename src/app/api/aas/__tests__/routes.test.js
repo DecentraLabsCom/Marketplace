@@ -29,6 +29,7 @@ const shellId = `urn:decentralabs:lab:${LAB_ID}`
 const nameplateId = `${shellId}:sm:nameplate`
 const simulationModelsId = `${shellId}:sm:simulationModels`
 const technicalDataId = `${shellId}:sm:technicalData`
+const executionCapabilitiesId = `${shellId}:sm:executionCapabilities`
 
 const request = (path) => new Request(`http://marketplace.example.com${path}`)
 const responseJson = (response) => response.json()
@@ -62,6 +63,7 @@ describe('GET /api/aas/shell', () => {
           { keys: [{ type: 'Submodel', value: nameplateId }] },
           { keys: [{ type: 'Submodel', value: simulationModelsId }] },
           { keys: [{ type: 'Submodel', value: technicalDataId }] },
+          { keys: [{ type: 'Submodel', value: executionCapabilitiesId }] },
         ],
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -92,10 +94,29 @@ describe('GET /api/aas/shell', () => {
           { modelType: 'Property', idShort: 'LastSyncTimestamp', value: '2026-09-16T10:00:00Z' },
         ],
       }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: executionCapabilitiesId,
+        idShort: 'ExecutionCapabilities',
+        submodelElements: [
+          { modelType: 'Property', idShort: 'ExecutionClass', value: 'FMU' },
+          { modelType: 'Property', idShort: 'ReservationRequired', value: 'true' },
+          { modelType: 'Property', idShort: 'AuthorizationScheme', value: 'ReservationScopedSessionTicket' },
+          { modelType: 'SubmodelElementCollection', idShort: 'Operations', value: [
+            {
+              modelType: 'Operation',
+              idShort: 'RunSimulation',
+              semanticId: { keys: [{ value: 'https://decentralabs.io/aas/ExecutionCapabilities/operations/RunSimulation/1/0' }] },
+              inputVariables: [{ value: { idShort: 'StartTime' } }],
+              outputVariables: [{ value: { idShort: 'SimulationId' } }],
+            },
+          ] },
+        ],
+      }), { status: 200 }))
 
     const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
 
     expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
     await expect(responseJson(response)).resolves.toEqual({
       shell: {
         modelType: 'AssetAdministrationShell',
@@ -104,6 +125,7 @@ describe('GET /api/aas/shell', () => {
           { keys: [{ type: 'Submodel', value: nameplateId }] },
           { keys: [{ type: 'Submodel', value: simulationModelsId }] },
           { keys: [{ type: 'Submodel', value: technicalDataId }] },
+          { keys: [{ type: 'Submodel', value: executionCapabilitiesId }] },
         ],
       },
       nameplate: { ManufacturerName: 'DecentraLabs', ModelNumber: 'FMU-42' },
@@ -127,6 +149,23 @@ describe('GET /api/aas/shell', () => {
         localModeEnabled: null,
         localSessionActive: null,
       },
+      executionInfo: {
+        submodelId: executionCapabilitiesId,
+        idShort: 'ExecutionCapabilities',
+        executionClass: 'FMU',
+        invocationModel: null,
+        operationExposure: null,
+        reservationRequired: true,
+        authorizationScheme: 'ReservationScopedSessionTicket',
+        accessProtocol: null,
+        backendMode: null,
+        operations: [{
+          idShort: 'RunSimulation',
+          semanticId: 'https://decentralabs.io/aas/ExecutionCapabilities/operations/RunSimulation/1/0',
+          inputVariables: ['StartTime'],
+          outputVariables: ['SimulationId'],
+        }],
+      },
     })
     expect(resolveLabAccessGateway).toHaveBeenCalledWith({ labId: LAB_ID })
     expect(gatewayFetch).toHaveBeenNthCalledWith(
@@ -147,6 +186,31 @@ describe('GET /api/aas/shell', () => {
     expect(gatewayFetch).toHaveBeenNthCalledWith(
       4,
       `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(technicalDataId)}`,
+      { cache: 'no-store' },
+    )
+    expect(gatewayFetch).toHaveBeenNthCalledWith(
+      5,
+      `${GATEWAY_ORIGIN}/aas/submodels/${encodedAasId(executionCapabilitiesId)}`,
+      { cache: 'no-store' },
+    )
+  })
+
+  test('proxies the raw shell JSON with no-store headers', async () => {
+    const shell = {
+      modelType: 'AssetAdministrationShell',
+      id: shellId,
+      submodels: [],
+    }
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify(shell), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}&raw=true`))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    await expect(responseJson(response)).resolves.toEqual(shell)
+    expect(gatewayFetch).toHaveBeenCalledTimes(1)
+    expect(gatewayFetch).toHaveBeenCalledWith(
+      `${GATEWAY_ORIGIN}/aas/shells/${encodedAasId(shellId)}`,
       { cache: 'no-store' },
     )
   })
@@ -192,6 +256,7 @@ describe('GET /api/aas/shell', () => {
         ready: true,
         lastHeartbeat: '2026-09-16T11:00:00Z',
       }),
+      executionInfo: null,
     }))
     expect(gatewayFetch).toHaveBeenNthCalledWith(
       2,
@@ -237,6 +302,7 @@ describe('GET /api/aas/shell', () => {
       nameplate: null,
       simulationInfo: null,
       operationalInfo: null,
+      executionInfo: null,
     })
   })
 
