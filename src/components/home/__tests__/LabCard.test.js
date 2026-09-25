@@ -400,8 +400,14 @@ describe("LabCard - Title wrapping spacing", () => {
     renderLabCard();
 
     const providerPrice = screen.getByText("ProviderCorp").parentElement;
+    const provider = screen.getByText("ProviderCorp");
+    const price = screen.getByText(/15\.75 credits \/ hour/);
     expect(providerPrice).toHaveClass("md:mt-4");
     expect(providerPrice).not.toHaveClass("md:mt-[0.82rem]");
+    expect(provider).toHaveClass("mt-2");
+    expect(provider).not.toHaveClass("mt-0");
+    expect(price).toHaveClass("mt-2");
+    expect(price).not.toHaveClass("mt-0");
   });
 
   test("reduces provider and price spacing when the title wraps", async () => {
@@ -426,9 +432,15 @@ describe("LabCard - Title wrapping spacing", () => {
       renderLabCard();
 
       const providerPrice = screen.getByText("ProviderCorp").parentElement;
+      const provider = screen.getByText("ProviderCorp");
+      const price = screen.getByText(/15\.75 credits \/ hour/);
       await waitFor(() => {
         expect(providerPrice).toHaveClass("md:mt-[0.82rem]");
         expect(providerPrice).not.toHaveClass("md:mt-4");
+        expect(provider).toHaveClass("mt-0");
+        expect(provider).not.toHaveClass("mt-2");
+        expect(price).toHaveClass("mt-0");
+        expect(price).not.toHaveClass("mt-2");
       });
     } finally {
       global.ResizeObserver = PreviousResizeObserver;

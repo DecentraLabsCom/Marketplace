@@ -212,8 +212,14 @@ const LabCard = React.memo(function LabCard({
           'md:flex md:justify-between md:items-center min-[700px]:block',
           isTitleWrapped ? 'md:mt-[0.82rem]' : 'md:mt-4',
         )}>
-          <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
-          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{pricePresentation.text}</p>
+          <p className={cn(
+            'text-ui-label-dark font-semibold text-base',
+            isTitleWrapped ? 'mt-0' : 'mt-2',
+          )}>{provider}</p>
+          <p className={cn(
+            'text-text-secondary font-semibold',
+            isTitleWrapped ? 'mt-0' : 'mt-2',
+          )}>{pricePresentation.text}</p>
         </div>
       </div>
 
