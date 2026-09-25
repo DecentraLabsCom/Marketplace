@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
@@ -14,6 +14,20 @@ import { formatPricePerUnit } from '@/utils/pricing/pricePresentation'
 import LabStatusIndicator from '@/components/lab/LabStatusIndicator'
 
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
+const DEFAULT_TITLE_LINE_HEIGHT_PX = 28;
+
+const titleHasWrapped = (titleElement) => {
+  const styles = window.getComputedStyle(titleElement);
+  const lineHeight = Number.parseFloat(styles.lineHeight);
+  const fontSize = Number.parseFloat(styles.fontSize);
+  const singleLineHeight = Number.isFinite(lineHeight)
+    ? lineHeight
+    : Number.isFinite(fontSize)
+      ? fontSize * 1.2
+      : DEFAULT_TITLE_LINE_HEIGHT_PX;
+
+  return titleElement.getBoundingClientRect().height > singleLineHeight * 1.5;
+};
 
 /**
  * Individual lab card component for displaying lab information in grid/list views
@@ -53,10 +67,35 @@ const LabCard = React.memo(function LabCard({
   const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
   const { isSSO } = useUser();
   const [isClient, setIsClient] = useState(false);
+  const [isTitleWrapped, setIsTitleWrapped] = useState(false);
+  const titleRef = useRef(null);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    const titleElement = titleRef.current;
+    if (!titleElement) return undefined;
+
+    const updateTitleWrapping = () => {
+      const nextIsTitleWrapped = titleHasWrapped(titleElement);
+      setIsTitleWrapped((current) => (
+        current === nextIsTitleWrapped ? current : nextIsTitleWrapped
+      ));
+    };
+
+    updateTitleWrapping();
+
+    if (typeof ResizeObserver === 'function') {
+      const resizeObserver = new ResizeObserver(updateTitleWrapping);
+      resizeObserver.observe(titleElement);
+      return () => resizeObserver.disconnect();
+    }
+
+    window.addEventListener('resize', updateTitleWrapping);
+    return () => window.removeEventListener('resize', updateTitleWrapping);
+  }, [name]);
 
   const { formatPrice } = useLabCredit();
   const ratingValue = getLabRatingValue(rating ?? reputation);
@@ -158,7 +197,7 @@ const LabCard = React.memo(function LabCard({
       {/* Lab Details */}
       <div className="p-4 h-1/3">
         <div className="flex items-start justify-between gap-2 md:mt-2">
-          <h2 className="text-xl min-[700px]:text-2xl font-bold text-hover-dark">{name}</h2>
+          <h2 ref={titleRef} className="text-xl min-[700px]:text-2xl font-bold text-hover-dark">{name}</h2>
           {isFmu ? (
             <span className="shrink-0 rounded-full bg-hover-dark/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
               Sim
@@ -169,7 +208,10 @@ const LabCard = React.memo(function LabCard({
             </span>
           )}
         </div>
-        <div className="md:flex md:justify-between md:items-center min-[700px]:block md:mt-4">
+        <div className={cn(
+          'md:flex md:justify-between md:items-center min-[700px]:block',
+          isTitleWrapped ? 'md:mt-[0.82rem]' : 'md:mt-4',
+        )}>
           <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
           <p className="text-text-secondary font-semibold mt-2 md:mt-2">{pricePresentation.text}</p>
         </div>

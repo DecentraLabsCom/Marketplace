@@ -17,7 +17,7 @@
  */
 
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import LabCard from "../LabCard";
 
 // Mock Setup
@@ -392,6 +392,47 @@ describe("LabCard - Rating and Age", () => {
     renderLabCard({ reputation: null, createdAt: null });
 
     expect(screen.queryByText("0d")).not.toBeInTheDocument();
+  });
+});
+
+describe("LabCard - Title wrapping spacing", () => {
+  test("keeps the existing provider and price spacing for a single-line title", () => {
+    renderLabCard();
+
+    const providerPrice = screen.getByText("ProviderCorp").parentElement;
+    expect(providerPrice).toHaveClass("md:mt-4");
+    expect(providerPrice).not.toHaveClass("md:mt-[0.82rem]");
+  });
+
+  test("reduces provider and price spacing when the title wraps", async () => {
+    const PreviousResizeObserver = global.ResizeObserver;
+    global.ResizeObserver = class MockResizeObserver {
+      constructor(callback) {
+        this.callback = callback;
+      }
+
+      observe(element) {
+        Object.defineProperty(element, "getBoundingClientRect", {
+          configurable: true,
+          value: () => ({ height: 56 }),
+        });
+        this.callback([{ target: element }]);
+      }
+
+      disconnect() {}
+    };
+
+    try {
+      renderLabCard();
+
+      const providerPrice = screen.getByText("ProviderCorp").parentElement;
+      await waitFor(() => {
+        expect(providerPrice).toHaveClass("md:mt-[0.82rem]");
+        expect(providerPrice).not.toHaveClass("md:mt-4");
+      });
+    } finally {
+      global.ResizeObserver = PreviousResizeObserver;
+    }
   });
 });
 
