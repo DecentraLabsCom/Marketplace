@@ -106,12 +106,7 @@ describe('AasPanel external links', () => {
     expect(screen.getByText('1 / 4')).toBeInTheDocument()
     expect(screen.getAllByText('Yes')).toHaveLength(1)
     expect(screen.getAllByText('No')).toHaveLength(2)
-    expect(screen.getByText('AAS snapshot synced at')).toBeInTheDocument()
-    expect(screen.queryByText('Last synced:')).toBeNull()
-    expect(
-      screen.getByText('AAS snapshot synced at').compareDocumentPosition(screen.getByText('Last Heartbeat'))
-        & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(screen.queryByText('AAS snapshot synced at')).toBeNull()
     expect(screen.getByText('https://provider.example/terms')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'https://provider.example/manual.pdf' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'https://provider.example/guide.pdf' })).toBeInTheDocument()

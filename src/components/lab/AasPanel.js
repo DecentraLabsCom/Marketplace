@@ -79,7 +79,6 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const hostName = nameplate?.HostName || null
   const networkAddress = nameplate?.NetworkAddress || null
   const mappedLabIds = nameplate?.MappedLabIds || null
-  const syncTimestamp = operationalInfo?.lastSync || nameplate?.SyncTimestamp || null
   const displayAasId = shell?.id || `urn:decentralabs:lab:${labId}`
 
   // Shell-level description (optional, set during FMU sync)
@@ -297,12 +296,6 @@ export default function AasPanel({ labId, gatewayUrl }) {
                       ? ` / ${operationalInfo.maxConcurrentSessions}`
                       : ''}
                   </p>
-                </div>
-              )}
-              {syncTimestamp && (
-                <div>
-                  <span className="text-text-secondary text-xs uppercase tracking-wide">AAS snapshot synced at</span>
-                  <p className="text-neutral-200 font-medium">{formatTimestamp(syncTimestamp)}</p>
                 </div>
               )}
               {operationalInfo.lastHeartbeat && (
