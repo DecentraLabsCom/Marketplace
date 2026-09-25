@@ -7,7 +7,7 @@ const STATUS_QUERY_CONFIG = Object.freeze({
   staleTime: 15_000,
   gcTime: 2 * 60_000,
   refetchInterval: 30_000,
-  refetchOnWindowFocus: false,
+  refetchOnWindowFocus: true,
 })
 
 const normalizeLabIds = (labIds) => {

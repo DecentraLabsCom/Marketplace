@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import {
   getLabOperationalStatus,
@@ -115,6 +115,29 @@ describe('useLabOperationalStatuses', () => {
     )
 
     await waitFor(() => expect(detail.result.current.data['7'].state).toBe('busy'))
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('refreshes operational status when the window regains focus', async () => {
+    const queryClient = createQueryClient()
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(jsonResponse({ statuses: [status('7', 'ready')] }))
+      .mockResolvedValueOnce(jsonResponse({ statuses: [status('7', 'busy', 'local_session_active')] }))
+
+    const { result } = renderHook(
+      () => useLabOperationalStatuses(['7'], {
+        queryOptions: { staleTime: 0 },
+      }),
+      { wrapper: createWrapper(queryClient) },
+    )
+
+    await waitFor(() => expect(result.current.data['7'].state).toBe('ready'))
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+
+    focusManager.setFocused(false)
+    focusManager.setFocused(true)
+
+    await waitFor(() => expect(result.current.data['7'].state).toBe('busy'))
     expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 
