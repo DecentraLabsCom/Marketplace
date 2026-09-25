@@ -586,7 +586,7 @@ export default function LabDetail({ id }) {
 
           {/* AAS / Digital Twin Panel — shown only when provider has an AAS-capable gateway */}
           {lab?.accessURI && (
-            <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
+            <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} resourceType={lab.resourceType} />
           )}
           </div>
         )}

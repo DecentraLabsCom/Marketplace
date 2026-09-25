@@ -54,6 +54,29 @@ describe('AasPanel external links', () => {
     )
   })
 
+  test('uses the Marketplace resource type when the AAS shell omits assetType', async () => {
+    global.fetch.mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      json: async () => ({
+        shell: {
+          assetInformation: { assetKind: 'Instance' },
+          submodels: [],
+        },
+        nameplate: null,
+        simulationInfo: null,
+        operationalInfo: null,
+      }),
+    })
+
+    render(<AasPanel labId="7" gatewayUrl="https://gateway.example/fmu" resourceType="fmu" />)
+
+    await waitFor(() => expect(screen.getByText('Digital Twin Metadata')).toBeInTheDocument())
+
+    expect(screen.getByText('FMU Simulation')).toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).toBeNull()
+  })
+
   test('renders normalized operational metadata for any resource type', async () => {
     global.fetch.mockResolvedValueOnce({
       status: 200,
@@ -102,7 +125,7 @@ describe('AasPanel external links', () => {
 
     expect(screen.getAllByText('Ready')).toHaveLength(1)
     expect(screen.queryByText('Ready', { selector: 'span' })).toBeNull()
-    expect(screen.getByText('station')).toBeInTheDocument()
+    expect(screen.getByText('Station')).toBeInTheDocument()
     expect(screen.getByText('1 / 4')).toBeInTheDocument()
     expect(screen.getAllByText('Yes')).toHaveLength(1)
     expect(screen.getAllByText('No')).toHaveLength(2)

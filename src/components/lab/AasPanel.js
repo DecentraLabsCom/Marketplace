@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
+import { getResourceTypeLabel } from '@/utils/resourceType'
 import {
   safeExternalHttpsUrl,
 } from '@/utils/security/safeUrl'
@@ -15,8 +16,9 @@ import {
  * @param {Object} props
  * @param {string|number} props.labId      - Lab ID (used to build the AAS identifier)
  * @param {string}        props.gatewayUrl - Provider Gateway base URL (accessURI from contract)
+ * @param {string|number} [props.resourceType] - Marketplace resource type used as an AAS fallback
  */
-export default function AasPanel({ labId, gatewayUrl }) {
+export default function AasPanel({ labId, gatewayUrl, resourceType }) {
   const [state, setState] = useState({ loading: true, data: null, error: null })
 
   useEffect(() => {
@@ -61,7 +63,12 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const { shell, nameplate, simulationInfo, operationalInfo, executionInfo } = state.data || {}
   if (!shell) return null
 
-  const assetType = shell?.assetInformation?.assetType || 'Unknown'
+  const assetType = shell?.assetInformation?.assetType
+    || (resourceType !== undefined && resourceType !== null
+      ? getResourceTypeLabel({ resourceType })
+      : simulationInfo
+        ? 'FMU Simulation'
+        : 'Unknown')
   const submodelCount = Array.isArray(shell?.submodels) ? shell.submodels.length : 0
 
   // Build direct URL to the AASX package on the provider's gateway
@@ -110,6 +117,12 @@ export default function AasPanel({ labId, gatewayUrl }) {
     if (value === true) return 'Yes'
     if (value === false) return 'No'
     return 'Unknown'
+  }
+
+  const formatDisplayLabel = (value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed ? `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}` : value
   }
 
   const formatTimestamp = (value) => {
@@ -278,7 +291,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
               {operationalInfo.backendMode && (
                 <div>
                   <span className="text-text-secondary text-xs uppercase tracking-wide">Backend</span>
-                  <p className="text-neutral-200 font-medium">{operationalInfo.backendMode}</p>
+                  <p className="text-neutral-200 font-medium">{formatDisplayLabel(operationalInfo.backendMode)}</p>
                 </div>
               )}
               {operationalInfo.modelAvailable !== null && operationalInfo.modelAvailable !== undefined && (
@@ -327,4 +340,5 @@ export default function AasPanel({ labId, gatewayUrl }) {
 AasPanel.propTypes = {
   labId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   gatewayUrl: PropTypes.string.isRequired,
+  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 }
