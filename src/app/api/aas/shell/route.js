@@ -14,7 +14,15 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' }
 const MAX_SUBMODEL_REFERENCES = 64
 const MAX_IDENTIFIER_LENGTH = 2048
 const MAX_PROPERTY_VALUE_LENGTH = 4096
-const FALLBACK_SUBMODEL_SUFFIXES = ['nameplate', 'simulationModels', 'technicalData']
+const FALLBACK_SUBMODEL_SUFFIXES = [
+  'nameplate',
+  'simulationModels',
+  'technicalData',
+  'executionCapabilities',
+  'assetInterfaces',
+  'contactInformation',
+  'handoverDocumentation',
+]
 
 function encodeAasId(id) {
   return Buffer.from(id).toString('base64url')
@@ -102,18 +110,23 @@ function extractOperationDescriptors(submodelElements, options = {}) {
     if (!Array.isArray(elements) || depth > 12 || operations.length >= maxOperations) return
     for (const element of elements) {
       if (!element || typeof element !== 'object' || operations.length >= maxOperations) return
-      if (element.modelType === 'Operation' && typeof element.idShort === 'string') {
+      const isAction = semanticIdText(element).toLowerCase().includes('actionaffordance')
+      const isActionContainer = ['actions', 'forms'].includes(String(element.idShort || '').toLowerCase())
+      if ((element.modelType === 'Operation' || (isAction && !isActionContainer)) && typeof element.idShort === 'string') {
         const variableNames = (key) => (Array.isArray(element[key])
           ? element[key]
             .map((variable) => variable?.value?.idShort)
             .filter((value) => typeof value === 'string' && value.length <= 128)
           : [])
-        operations.push({
+        const descriptor = {
           idShort: element.idShort,
           semanticId: semanticIdText(element),
           inputVariables: variableNames('inputVariables'),
           outputVariables: variableNames('outputVariables'),
-        })
+        }
+        const href = firstProperty(extractProperties(element.value), ['href'])
+        if (href) descriptor.href = href
+        operations.push(descriptor)
       }
       if (Array.isArray(element.value) && (
         element.modelType === 'SubmodelElementCollection'
@@ -137,7 +150,10 @@ function classifySubmodel(submodel, requestedId) {
 
   if (identity.includes('nameplate')) return 'nameplate'
   if (identity.includes('simulationmodels')) return 'simulation'
-  if (identity.includes('executioncapabilities')) return 'execution'
+  if (identity.includes('executioncapabilities') || identity.includes('capabilitydescription')) return 'execution'
+  if (identity.includes('assetinterfacesdescription')) return 'interfaces'
+  if (identity.includes('contactinformations')) return 'contact'
+  if (identity.includes('handoverdocumentation')) return 'handover'
   if (identity.includes('technicaldata') || identity.includes('operationalstatus') || identity.includes('operationaldata')) {
     return 'operational'
   }
@@ -173,11 +189,34 @@ function buildSimulationInfo(submodel) {
     .filter(Boolean)
 
   return {
-    license: firstProperty(props, ['License']),
+    license: firstProperty(props, ['LicenseModel', 'License']),
     documentationUrl: documentationUrls[0] || firstProperty(props, ['DocumentationUrl']),
     documentationUrls: [...new Set(documentationUrls)],
     contactEmail: firstProperty(props, ['ContactEmail']),
   }
+}
+
+function buildContactInfo(submodel) {
+  const props = extractProperties(submodel?.submodelElements)
+  return { contactEmail: firstProperty(props, ['EmailAddress', 'ContactEmail']) }
+}
+
+function buildHandoverInfo(submodel) {
+  const files = []
+  const visit = (elements, depth = 0) => {
+    if (!Array.isArray(elements) || depth > 12) return
+    for (const element of elements) {
+      if (!element || typeof element !== 'object') continue
+      if (element.modelType === 'File' && typeof element.value === 'string' && element.value) files.push(element.value)
+      if (Array.isArray(element.value)) visit(element.value, depth + 1)
+    }
+  }
+  visit(submodel?.submodelElements)
+  return { documentationUrls: [...new Set(files)] }
+}
+
+function buildInterfaceInfo(submodel) {
+  return { operations: extractOperationDescriptors(submodel?.submodelElements) }
 }
 
 function buildOperationalInfo(submodel, submodelId) {
@@ -210,8 +249,37 @@ function buildExecutionInfo(submodel, submodelId) {
     authorizationScheme: firstProperty(props, ['AuthorizationScheme']),
     accessProtocol: firstProperty(props, ['AccessProtocol']),
     backendMode: firstProperty(props, ['BackendMode']),
-    operations: extractOperationDescriptors(submodel?.submodelElements),
+    operations: [
+      ...extractOperationDescriptors(submodel?.submodelElements),
+      ...extractCapabilityDescriptors(submodel?.submodelElements),
+    ],
   }
+}
+
+function extractCapabilityDescriptors(submodelElements, options = {}) {
+  const maxCapabilities = options.maxCapabilities || 64
+  const capabilities = []
+  const visit = (elements, depth) => {
+    if (!Array.isArray(elements) || depth > 12 || capabilities.length >= maxCapabilities) return
+    for (const element of elements) {
+      if (!element || typeof element !== 'object' || capabilities.length >= maxCapabilities) continue
+      if (element.modelType === 'Capability' && typeof element.idShort === 'string') {
+        const description = Array.isArray(element.description)
+          ? element.description.find((item) => typeof item?.text === 'string')?.text
+          : null
+        capabilities.push({
+          idShort: element.idShort,
+          semanticId: semanticIdText(element),
+          description: description || null,
+          inputVariables: [],
+          outputVariables: [],
+        })
+      }
+      if (Array.isArray(element.value)) visit(element.value, depth + 1)
+    }
+  }
+  visit(submodelElements, 0)
+  return capabilities
 }
 
 async function fetchReferencedSubmodels(gatewayBaseUrl, shell, labId) {
@@ -305,6 +373,9 @@ export async function GET(request) {
     let simulationInfo = null
     let operationalInfo = null
     let executionInfo = null
+    let interfaceInfo = null
+    let contactInfo = null
+    let handoverInfo = null
     for (const { submodel, submodelId } of referencedSubmodels) {
       const kind = classifySubmodel(submodel, submodelId)
       if (kind === 'nameplate' && nameplate === null) {
@@ -315,7 +386,35 @@ export async function GET(request) {
         operationalInfo = buildOperationalInfo(submodel, submodelId)
       } else if (kind === 'execution' && executionInfo === null) {
         executionInfo = buildExecutionInfo(submodel, submodelId)
+      } else if (kind === 'interfaces' && interfaceInfo === null) {
+        interfaceInfo = buildInterfaceInfo(submodel)
+      } else if (kind === 'contact' && contactInfo === null) {
+        contactInfo = buildContactInfo(submodel)
+      } else if (kind === 'handover' && handoverInfo === null) {
+        handoverInfo = buildHandoverInfo(submodel)
       }
+    }
+
+    if (interfaceInfo?.operations?.length) {
+      executionInfo = executionInfo || { submodelId: null, idShort: null, operations: [] }
+      executionInfo.operations = [
+        ...(executionInfo.operations || []),
+        ...interfaceInfo.operations,
+      ]
+    }
+    if (contactInfo || handoverInfo) {
+      simulationInfo = simulationInfo || {
+        license: null,
+        documentationUrl: null,
+        documentationUrls: [],
+        contactEmail: null,
+      }
+      simulationInfo.contactEmail = contactInfo?.contactEmail || simulationInfo.contactEmail
+      simulationInfo.documentationUrls = [
+        ...(simulationInfo.documentationUrls || []),
+        ...(handoverInfo?.documentationUrls || []),
+      ].filter((value, index, values) => values.indexOf(value) === index)
+      simulationInfo.documentationUrl = simulationInfo.documentationUrls[0] || simulationInfo.documentationUrl
     }
 
     return NextResponse.json(

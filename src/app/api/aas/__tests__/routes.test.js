@@ -30,6 +30,9 @@ const nameplateId = `${shellId}:sm:nameplate`
 const simulationModelsId = `${shellId}:sm:simulationModels`
 const technicalDataId = `${shellId}:sm:technicalData`
 const executionCapabilitiesId = `${shellId}:sm:executionCapabilities`
+const assetInterfacesId = `${shellId}:sm:assetInterfaces`
+const contactInformationId = `${shellId}:sm:contactInformation`
+const handoverDocumentationId = `${shellId}:sm:handoverDocumentation`
 
 const request = (path) => new Request(`http://marketplace.example.com${path}`)
 const responseJson = (response) => response.json()
@@ -213,6 +216,110 @@ describe('GET /api/aas/shell', () => {
       `${GATEWAY_ORIGIN}/aas/shells/${encodedAasId(shellId)}`,
       { cache: 'no-store' },
     )
+  })
+
+  test('discovers standard Capability Description and Asset Interfaces affordances', async () => {
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: shellId,
+        submodels: [
+          { keys: [{ type: 'Submodel', value: nameplateId }] },
+          { keys: [{ type: 'Submodel', value: simulationModelsId }] },
+          { keys: [{ type: 'Submodel', value: technicalDataId }] },
+          { keys: [{ type: 'Submodel', value: executionCapabilitiesId }] },
+          { keys: [{ type: 'Submodel', value: assetInterfacesId }] },
+          { keys: [{ type: 'Submodel', value: contactInformationId }] },
+          { keys: [{ type: 'Submodel', value: handoverDocumentationId }] },
+        ],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        semanticId: { keys: [{ value: 'https://admin-shell.io/idta/nameplate/3/0/Nameplate' }] },
+        submodelElements: [],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        semanticId: { keys: [{ value: 'https://admin-shell.io/idta/SubmodelTemplate/SimulationModels/1/1' }] },
+        submodelElements: [{
+          modelType: 'SubmodelElementCollection',
+          idShort: 'SimulationModel',
+          value: [{ modelType: 'Property', idShort: 'LicenseModel', value: 'MIT' }],
+        }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: technicalDataId,
+        idShort: 'TechnicalData',
+        submodelElements: [{ modelType: 'Property', idShort: 'ResourceStatus', value: 'Ready' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: executionCapabilitiesId,
+        idShort: 'CapabilityDescription',
+        semanticId: { keys: [{ value: 'https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0' }] },
+        submodelElements: [{
+          modelType: 'SubmodelElementCollection',
+          idShort: 'CapabilitySet',
+          value: [{
+            modelType: 'SubmodelElementCollection',
+            idShort: 'CapabilityContainer_RunSimulation',
+            value: [{
+              modelType: 'Capability',
+              idShort: 'RunSimulation',
+              semanticId: { keys: [{ value: 'https://admin-shell.io/idta/CapabilityDescription/Capability/1/0' }] },
+              description: [{ language: 'en', text: 'Run a batch simulation' }],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: assetInterfacesId,
+        idShort: 'AssetInterfacesDescription',
+        semanticId: { keys: [{ value: 'https://admin-shell.io/idta/AssetInterfacesDescription/1/1/Submodel' }] },
+        submodelElements: [{
+          modelType: 'SubmodelElementCollection',
+          idShort: 'InterfaceTemplateForHTTP',
+          value: [{
+            modelType: 'SubmodelElementCollection',
+            idShort: 'InteractionMetadata',
+            value: [{
+              modelType: 'SubmodelElementCollection',
+              idShort: 'actions',
+              semanticId: { keys: [{ value: 'https://www.w3.org/2019/wot/td#ActionAffordance' }] },
+              value: [{
+                modelType: 'SubmodelElementCollection',
+                idShort: 'Reset',
+                semanticId: { keys: [{ value: 'https://www.w3.org/2019/wot/td#ActionAffordance' }] },
+                value: [{
+                  modelType: 'SubmodelElementCollection',
+                  idShort: 'forms',
+                  value: [{ modelType: 'Property', idShort: 'href', value: '/fmu/api/v1/fmu/sessions' }],
+                }],
+              }],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: contactInformationId,
+        idShort: 'ContactInformations',
+        submodelElements: [{ modelType: 'Property', idShort: 'EmailAddress', value: 'lab@example.org' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: handoverDocumentationId,
+        idShort: 'HandoverDocumentation',
+        submodelElements: [{ modelType: 'File', value: 'https://example.org/manual.pdf' }],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.simulationInfo).toMatchObject({
+      license: 'MIT',
+      contactEmail: 'lab@example.org',
+      documentationUrls: ['https://example.org/manual.pdf'],
+    })
+    expect(body.executionInfo.operations).toEqual([
+      expect.objectContaining({ idShort: 'RunSimulation', semanticId: expect.stringContaining('Capability/1/0') }),
+      expect.objectContaining({ idShort: 'Reset', href: '/fmu/api/v1/fmu/sessions' }),
+    ])
   })
 
   test('discovers arbitrary submodels from a linked external shell', async () => {
