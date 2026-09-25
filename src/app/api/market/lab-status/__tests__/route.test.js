@@ -98,6 +98,30 @@ describe('GET /api/market/lab-status', () => {
     })
   })
 
+  test('preserves LABUSER occupancy as a bounded busy status', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      statuses: [{
+        labId: '7',
+        state: 'busy',
+        reason: 'lab_user_session_active',
+        source: 'lab_station_heartbeat',
+        severity: 'warning',
+        observedAt: '2026-09-23T10:00:00Z',
+        ageSeconds: 12,
+        generatedAt: '2026-09-23T10:00:12Z',
+      }],
+    }), { status: 200 }))
+
+    const response = await GET(request('/api/market/lab-status?labIds=7'))
+    const body = await response.json()
+
+    expect(body.statuses[0]).toMatchObject({
+      state: 'busy',
+      reason: 'lab_user_session_active',
+      severity: 'warning',
+    })
+  })
+
   test('preserves local FMU runner readiness and its capability source', async () => {
     gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
       statuses: [{
