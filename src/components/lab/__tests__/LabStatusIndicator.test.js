@@ -10,17 +10,19 @@ describe('LabStatusIndicator', () => {
     const indicator = screen.getByTestId('lab-status-indicator')
     expect(indicator).toHaveAttribute('data-status', 'ready')
     expect(indicator).toHaveAttribute('title', expect.stringContaining('Ready'))
-    expect(indicator.querySelector('[aria-hidden="true"]')).toHaveClass('animate-status-glow')
+    const dot = indicator.querySelector('[aria-hidden="true"]')
+    expect(dot).toHaveClass('animate-status-glow', 'status-led')
+    expect(dot.style.getPropertyValue('--status-led-color')).toBe('52 211 153')
     expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('Ready')
     expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent('24s ago')
   })
 
   test('renders an occupied busy LED with an orange pulse', () => {
-    render(<LabStatusIndicator status={{ state: 'busy', severity: 'warning', reason: 'local_session_active' }} />)
+    render(<LabStatusIndicator status={{ state: 'busy', severity: 'warning', reason: 'lab_user_session_active' }} />)
 
     const dot = screen.getByTestId('lab-status-indicator').querySelector('[aria-hidden="true"]')
     expect(dot).toHaveClass('animate-status-pulse', 'bg-orange-400')
-    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent(/another user/i)
+    expect(screen.getByTestId('lab-status-tooltip')).toHaveTextContent(/currently in use/i)
   })
 
   test('renders local-mode busy as a red pulse', () => {
