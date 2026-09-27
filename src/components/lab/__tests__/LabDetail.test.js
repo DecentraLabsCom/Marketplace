@@ -21,6 +21,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LabDetail, { DEMO_WINDOW_SECONDS } from "../LabDetail";
 import { useLabById } from "@/hooks/lab/useLabs";
+import { useLabOperationalStatuses } from "@/hooks/lab/useLabOperationalStatus";
 import { useCheckAvailable } from "@/hooks/booking/useBookingAtomicQueries";
 import { useLabCredit } from "@/context/LabCreditContext";
 import { useRouter } from "next/navigation";
@@ -429,6 +430,26 @@ describe("LabDetail", () => {
       render(<LabDetail id="lab-123" />);
 
       expect(screen.queryByText(/Provider:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Operational status messaging", () => {
+    test("shows generic availability information without implementation details", () => {
+      useLabOperationalStatuses.mockReturnValue({
+        data: {
+          "lab-123": {
+            state: "unknown",
+            wake: { state: "verified" },
+            availability: "on_demand",
+          },
+        },
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      const tooltip = screen.getByTestId("lab-status-tooltip");
+      expect(tooltip).toHaveTextContent(/available when needed/i);
+      expect(tooltip).not.toHaveTextContent(/Wake-on-LAN|Guacamole|Lab Station|executor|capacity/i);
     });
   });
 

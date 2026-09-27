@@ -156,9 +156,10 @@ export const useLabOperationalStatuses = (labIds, options = {}) => {
 }
 
 export const getLabOperationalStatus = (statuses, labId, resourceType = RESOURCE_TYPES.LAB) => {
+  const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU
   const status = statuses?.[String(labId)]
   if (!status) {
-    return {
+    const fallback = {
       labId: String(labId),
       state: 'unknown',
       reason: 'status_unavailable',
@@ -166,11 +167,65 @@ export const getLabOperationalStatus = (statuses, labId, resourceType = RESOURCE
       observedAt: null,
       ageSeconds: null,
       severity: 'neutral',
+      access: 'unknown',
+      availability: 'unknown',
     }
+    return isFmu
+      ? {
+          ...fallback,
+          resourceType: RESOURCE_TYPES.FMU,
+          executor: {
+            state: 'unknown',
+            source: 'status_unavailable',
+            observedAt: null,
+            ageSeconds: null,
+          },
+          capacity: {
+            state: 'unknown',
+            active: null,
+            maximum: null,
+            available: null,
+            source: 'status_unavailable',
+            observedAt: null,
+            ageSeconds: null,
+          },
+        }
+      : {
+          ...fallback,
+          wake: {
+            state: 'unknown',
+            source: 'status_unavailable',
+            observedAt: null,
+            ageSeconds: null,
+          },
+        }
   }
 
-  const capability = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU
+  const capability = isFmu
     ? status.capabilities?.fmu
     : status.capabilities?.physicalLab
-  return capability || status
+  if (capability) return capability
+  if (!isFmu) return status
+
+  const fmuStatus = { ...status }
+  delete fmuStatus.wake
+  return {
+    ...fmuStatus,
+    resourceType: RESOURCE_TYPES.FMU,
+    executor: status.executor || {
+      state: 'unknown',
+      source: 'status_unavailable',
+      observedAt: null,
+      ageSeconds: null,
+    },
+    capacity: status.capacity || {
+      state: 'unknown',
+      active: null,
+      maximum: null,
+      available: null,
+      source: 'status_unavailable',
+      observedAt: null,
+      ageSeconds: null,
+    },
+  }
 }

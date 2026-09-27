@@ -68,6 +68,7 @@ describe('GET /api/market/lab-status', () => {
       state: 'not_ready',
       reason: 'fmu_not_ready',
     })
+    expect(body.statuses[0].capabilities.fmu).not.toHaveProperty('wake')
     expect(gatewayFetch).toHaveBeenCalledWith(
       expect.stringContaining('/public/labs/status?labIds=7'),
       expect.objectContaining({ headers: { Accept: 'application/json' } }),
@@ -122,6 +123,39 @@ describe('GET /api/market/lab-status', () => {
     })
   })
 
+  test('preserves the bounded access, wake and availability dimensions', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      statuses: [{
+        labId: '7',
+        state: 'unknown',
+        reason: 'heartbeat_stale',
+        source: 'lab_station_heartbeat',
+        severity: 'neutral',
+        access: 'unknown',
+        wake: {
+          state: 'verified',
+          source: 'reservation_wake_operation',
+          observedAt: '2026-09-23T09:58:00Z',
+          ageSeconds: 150,
+        },
+        availability: 'on_demand',
+      }],
+    }), { status: 200 }))
+
+    const response = await GET(request('/api/market/lab-status?labIds=7'))
+    const body = await response.json()
+
+    expect(body.statuses[0]).toMatchObject({
+      access: 'unknown',
+      wake: {
+        state: 'verified',
+        source: 'reservation_wake_operation',
+        ageSeconds: 150,
+      },
+      availability: 'on_demand',
+    })
+  })
+
   test('preserves local FMU runner readiness and its capability source', async () => {
     gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
       statuses: [{
@@ -129,15 +163,17 @@ describe('GET /api/market/lab-status', () => {
         state: 'ready',
         reason: 'fmu_ready',
         source: 'fmu_runner_health',
+        resourceType: 'fmu',
         severity: 'positive',
         observedAt: '2026-09-25T10:00:00Z',
         ageSeconds: 2,
         capabilities: {
           fmu: {
-            state: 'ready',
-            reason: 'fmu_ready',
-            source: 'fmu_runner_health',
-            severity: 'positive',
+          state: 'ready',
+          reason: 'fmu_ready',
+          source: 'fmu_runner_health',
+          resourceType: 'fmu',
+          severity: 'positive',
             observedAt: '2026-09-25T10:00:00Z',
             ageSeconds: 2,
           },
@@ -157,6 +193,41 @@ describe('GET /api/market/lab-status', () => {
       state: 'ready',
       source: 'fmu_runner_health',
     })
+    expect(body.statuses[0].capabilities.fmu).not.toHaveProperty('wake')
+  })
+
+  test('preserves FMU executor capacity without inventing Wake-on-LAN state', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      statuses: [{
+        labId: '7',
+        resourceType: 'fmu',
+        state: 'busy',
+        reason: 'fmu_capacity_exhausted',
+        source: 'fmu_runner_health',
+        severity: 'warning',
+        executor: { state: 'ready', source: 'fmu_runner_health' },
+        capacity: {
+          state: 'busy',
+          active: 2,
+          maximum: 2,
+          available: 0,
+          source: 'fmu_runner_health',
+        },
+      }],
+    }), { status: 200 }))
+
+    const response = await GET(request('/api/market/lab-status?labIds=7'))
+    const body = await response.json()
+    const status = body.statuses[0]
+
+    expect(status).toMatchObject({
+      resourceType: 'fmu',
+      state: 'busy',
+      reason: 'fmu_capacity_exhausted',
+    })
+    expect(status.executor).toMatchObject({ state: 'ready' })
+    expect(status.capacity).toMatchObject({ state: 'busy', active: 2, maximum: 2, available: 0 })
+    expect(status).not.toHaveProperty('wake')
   })
 
   test('returns unknown instead of a red signal when the gateway cannot be resolved', async () => {
