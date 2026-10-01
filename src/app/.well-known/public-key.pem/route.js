@@ -6,12 +6,15 @@
  *
  * Endpoint: GET /.well-known/public-key.pem
  * Content-Type: text/plain
- * Cache-Control: public, max-age=3600 (1 hour)
+ * Cache-Control: public, max-age=300 (5 minutes). New consumers should use
+ * /.well-known/jwks.json so rotations can overlap keys by kid.
  */
 
 import fs from 'fs';
 import { createPublicKey } from 'node:crypto';
 import path from 'path';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -74,7 +77,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'text/plain',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'public, max-age=300',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type',

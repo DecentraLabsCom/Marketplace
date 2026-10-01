@@ -1,15 +1,14 @@
 import {
   SignJWT,
   importPKCS8,
-  importSPKI,
-  exportJWK,
-  calculateJwkThumbprint,
   decodeJwt,
+  decodeProtectedHeader,
   importJWK,
   jwtVerify,
 } from 'jose';
-import { createPublicKey, randomBytes, randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import marketplaceJwtService from './marketplaceJwt';
+import { getMarketplaceJwks, getSigningKeyMetadata } from './marketplaceJwks';
 import devLog from '@/utils/dev/logger';
 
 const ALG = 'RS256';
@@ -23,19 +22,12 @@ async function getKeyMaterial() {
   const privateKeyPem = await marketplaceJwtService.getPrivateKeyPem();
   const privateKey = await importPKCS8(privateKeyPem, ALG);
 
-  // Derive public key and convert to JWK
-  const publicKeyPem = createPublicKey(privateKeyPem).export({ type: 'spki', format: 'pem' }).toString();
-  const publicKey = await importSPKI(publicKeyPem, ALG);
-  const publicJwk = await exportJWK(publicKey);
-
-  // Compute deterministic kid from public JWK thumbprint
-  const thumbprint = await calculateJwkThumbprint({ kty: publicJwk.kty, n: publicJwk.n, e: publicJwk.e });
-  const jwkWithMeta = { ...publicJwk, kid: thumbprint, alg: ALG, use: 'sig' };
+  const { publicJwk, kid } = await getSigningKeyMetadata(privateKeyPem);
 
   cachedKeys = {
     privateKey,
-    kid: thumbprint,
-    publicJwk: jwkWithMeta,
+    kid,
+    publicJwk,
   };
 
   devLog.log('ProvisioningToken: Signing material loaded (kid set)');
@@ -43,8 +35,7 @@ async function getKeyMaterial() {
 }
 
 export async function getProvisioningJwks() {
-  const { publicJwk } = await getKeyMaterial();
-  return { keys: [publicJwk] };
+  return getMarketplaceJwks();
 }
 
 export async function signProvisioningToken(claims, {
@@ -196,7 +187,14 @@ export async function verifyProvisioningToken(token, {
     ? normalizeHttpsUrl(decoded.canonicalBackendOrigin, 'Canonical backend origin')
     : normalizeAudienceValue(decoded.aud);
 
-  const { publicJwk } = await getKeyMaterial();
+  const protectedHeader = decodeProtectedHeader(token);
+  const jwks = await getMarketplaceJwks();
+  const publicJwk = protectedHeader.kid
+    ? jwks.keys.find((key) => key.kid === protectedHeader.kid)
+    : jwks.keys[0];
+  if (!publicJwk) {
+    throw new Error(`Unknown provisioning token kid: ${protectedHeader.kid || 'missing'}`);
+  }
   const publicKey = await importJWK(publicJwk, ALG);
   const { payload } = await jwtVerify(token, publicKey, {
     issuer: expectedIssuer,

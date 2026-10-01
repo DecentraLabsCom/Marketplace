@@ -12,6 +12,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { writeFileWithDescriptor } from '../src/utils/security/atomicFile.js';
+import { publicKeyPemToJwk } from '../src/utils/auth/marketplaceJwks.js';
 
 // Configuration
 const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
@@ -20,6 +21,7 @@ const PUBLIC_KEY_FILE = 'marketplace-public-key.pem';
 const BACKUP_DIR = path.join(KEYS_DIR, 'backups');
 const WELL_KNOWN_DIR = path.join(process.cwd(), 'public', '.well-known');
 const WELL_KNOWN_PUBLIC_KEY = path.join(WELL_KNOWN_DIR, 'public-key.pem');
+const WELL_KNOWN_JWKS = path.join(WELL_KNOWN_DIR, 'jwks.json');
 
 // Command line arguments
 const args = process.argv.slice(2);
@@ -155,6 +157,31 @@ function syncPublicKeyToWellKnown() {
     return false;
   }
 }
+
+/**
+ * Publish the candidate key together with the previous key. This overlap is
+ * committed before the new private key is activated in Vercel.
+ */
+async function syncJwksToWellKnown(previousPublicKeyPem) {
+  console.log('🌐 Publishing active and previous keys to public/.well-known/jwks.json...');
+
+  const currentPublicKeyPem = fs.readFileSync(WELL_KNOWN_PUBLIC_KEY, 'utf8');
+  const currentJwk = await publicKeyPemToJwk(currentPublicKeyPem);
+  const keys = [currentJwk];
+
+  if (previousPublicKeyPem) {
+    const previousJwk = await publicKeyPemToJwk(previousPublicKeyPem);
+    if (previousJwk.kid !== currentJwk.kid) {
+      keys.push(previousJwk);
+    }
+  }
+
+  writeFileWithDescriptor(WELL_KNOWN_JWKS, JSON.stringify({ keys }, null, 2) + '\n', {
+    mode: 0o644,
+  });
+  console.log(`✅ JWKS published with ${keys.length} verification keys`);
+  return true;
+}
 /**
  * Update rotation metadata
  */
@@ -222,9 +249,13 @@ async function rotateKeys() {
   console.log('2. ✅ Generate new RSA key pair');
   console.log('3. ✅ Validate new keys');  
   console.log('4. 🌐 Sync public key to /.well-known/public-key.pem');
-  console.log('5. ✅ Update rotation metadata');
-  console.log('6. 🔄 Deploy marketplace (manual)');
-  console.log('7. ⏱️  Auth-services auto-fetch new public key (1h cache)\n');
+  console.log('5. 🌐 Publish active + previous keys to /.well-known/jwks.json');
+  console.log('6. ✅ Update rotation metadata');
+  console.log('7. 🔄 Deploy the JWKS before activating the new private key\n');
+
+  const previousPublicKeyPem = fs.existsSync(WELL_KNOWN_PUBLIC_KEY)
+    ? fs.readFileSync(WELL_KNOWN_PUBLIC_KEY, 'utf8')
+    : null;
   
   // Step 2: Backup current keys
   backupCurrentKeys();
@@ -249,19 +280,26 @@ async function rotateKeys() {
     console.error('❌ Key rotation failed - could not sync public key to /.well-known');
     process.exit(1);
   }
+
+  // Step 6: Publish an overlap set before the candidate private key is used
+  const jwksSynced = await syncJwksToWellKnown(previousPublicKeyPem);
+  if (!jwksSynced) {
+    console.error('❌ Key rotation failed - could not sync JWKS to /.well-known');
+    process.exit(1);
+  }
   
-  // Step 6: Update metadata
+  // Step 7: Update metadata
   updateRotationMetadata();
   
   console.log('\n🎉 JWT Key Rotation Completed Successfully!');
   console.log('\n📋 Next Steps:');
-  console.log('1. 🚀 Deploy marketplace to update JWT signing');
-  console.log('2. ⏱️  Wait for auth-services to fetch new public key (up to 1 hour)');
+  console.log('1. 🚀 Commit and deploy the overlapping JWKS');
+  console.log('2. 🔐 Activate the new private key only after the JWKS is live');
   console.log('3. 🧪 Test authentication flow');
-  console.log('4. 📊 Monitor logs for any JWT validation errors');
+  console.log('4. 📊 Monitor logs for JWT validation errors');
   
   console.log('\n🔍 Verification Commands:');
-  console.log('• Test public key endpoint: curl http://localhost:3000/.well-known/public-key.pem');
+  console.log('• Test JWKS endpoint: curl http://localhost:3000/.well-known/jwks.json');
   console.log('• Test JWT generation: curl -X POST http://localhost:3000/api/auth/test-jwt');
 }
 

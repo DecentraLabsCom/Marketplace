@@ -14,10 +14,12 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import devLog from '@/utils/dev/logger';
 import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from './assertionHashVersion';
+import { getSigningKeyMetadata } from './marketplaceJwks';
 
 class MarketplaceJwtService {
   constructor() {
     this.privateKey = null;
+    this.signingKeyId = null;
     this.keyLoadAttempted = false;
     // Don't load the key in constructor - wait until it's actually needed
   }
@@ -94,6 +96,29 @@ class MarketplaceJwtService {
   }
 
   /**
+   * Return the deterministic JWK thumbprint used as the JWT protected-header
+   * kid. The value is cached with the private key for the lifetime of the
+   * server instance.
+   *
+   * @returns {Promise<string>} Current signing key identifier
+   */
+  async getSigningKeyId() {
+    if (!this.privateKey) {
+      await this.loadPrivateKey();
+    }
+
+    if (!this.privateKey) {
+      throw new Error('JWT private key is not available for key identification');
+    }
+
+    if (!this.signingKeyId) {
+      this.signingKeyId = (await getSigningKeyMetadata(this.privateKey)).kid;
+    }
+
+    return this.signingKeyId;
+  }
+
+  /**
    * Generate a signed JWT token for user authentication with auth-service
    * 
    * @param {Object} samlAttributes - User attributes from SAML2 session
@@ -117,6 +142,8 @@ class MarketplaceJwtService {
         throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
 
+      const keyId = await this.getSigningKeyId();
+
       // Validate required attributes
       if (!samlAttributes || !samlAttributes.puc) {
         throw new Error('PUC is required for JWT generation');
@@ -137,7 +164,8 @@ class MarketplaceJwtService {
       // Generate signed JWT with issuer in options (not payload)
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
-        issuer: process.env.JWT_ISSUER || 'marketplace'
+        issuer: process.env.JWT_ISSUER || 'marketplace',
+        keyid: keyId,
       });
 
       devLog.log('✅ JWT generated successfully for PUC:', samlAttributes.puc);
@@ -198,6 +226,8 @@ class MarketplaceJwtService {
       if (!this.privateKey) {
         throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
+
+      const keyId = await this.getSigningKeyId();
 
       if (!puc) {
         throw new Error('puc is required for SAML auth token generation');
@@ -267,6 +297,7 @@ class MarketplaceJwtService {
         audience: audience.trim(),
         subject: puc,
         jwtid: randomUUID(),
+        keyid: keyId,
       });
 
       devLog.log('INFO: SAML auth JWT generated successfully for puc:', puc);
@@ -306,6 +337,8 @@ class MarketplaceJwtService {
       if (!this.privateKey) {
         throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
+
+      const keyId = await this.getSigningKeyId();
 
       if (typeof audience !== 'string' || !audience.trim()) {
         throw new Error('Intent backend JWT audience is required');
@@ -357,6 +390,7 @@ class MarketplaceJwtService {
         audience: audience.trim(),
         subject: 'marketplace',
         jwtid: randomUUID(),
+        keyid: keyId,
       });
 
       return {
@@ -492,6 +526,8 @@ class MarketplaceJwtService {
         throw new Error('JWT private key is not available for invite token');
       }
 
+      const keyId = await this.getSigningKeyId();
+
       // Normalize and deduplicate domains
       const normalizedDomains = Array.from(new Set(
         domains
@@ -549,6 +585,7 @@ class MarketplaceJwtService {
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
+        keyid: keyId,
       });
 
       devLog.log('? Institution invite token generated for:', issuerId, 'domains:', normalizedDomains);

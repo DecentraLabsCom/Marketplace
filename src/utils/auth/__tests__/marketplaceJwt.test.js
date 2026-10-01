@@ -27,6 +27,9 @@ jest.mock("@/utils/dev/logger", () => ({
     error: jest.fn(),
   },
 }));
+jest.mock("../marketplaceJwks", () => ({
+  getSigningKeyMetadata: jest.fn().mockResolvedValue({ kid: "test-kid" }),
+}));
 
 describe("MarketplaceJwtService", () => {
   const originalEnv = process.env;
@@ -377,7 +380,7 @@ describe("MarketplaceJwtService", () => {
           scope: "booking:read",
         }),
         validPrivateKey,
-        expect.objectContaining({ algorithm: "RS256" })
+          expect.objectContaining({ algorithm: "RS256", keyid: "test-kid" })
       );
     });
 
@@ -402,7 +405,7 @@ describe("MarketplaceJwtService", () => {
           affiliation: "",
         }),
         validPrivateKey,
-        expect.objectContaining({ algorithm: "RS256" })
+        expect.objectContaining({ algorithm: "RS256", keyid: "test-kid" })
       );
     });
 
@@ -440,7 +443,7 @@ describe("MarketplaceJwtService", () => {
           stableUserIdMode: "principal",
         }),
         validPrivateKey,
-        expect.objectContaining({ algorithm: "RS256" })
+        expect.objectContaining({ algorithm: "RS256", keyid: "test-kid" })
       );
     });
 

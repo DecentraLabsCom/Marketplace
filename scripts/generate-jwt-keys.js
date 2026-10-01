@@ -15,11 +15,13 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { publicKeyPemToJwk } from '../src/utils/auth/marketplaceJwks.js';
 
 const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
 const PRIVATE_KEY_PATH = path.join(KEYS_DIR, 'marketplace-private-key.pem');
 const PUBLIC_KEY_PATH = path.join(KEYS_DIR, 'marketplace-public-key.pem');
 const WELL_KNOWN_PUBLIC_KEY_PATH = path.join(process.cwd(), 'public', '.well-known', 'public-key.pem');
+const WELL_KNOWN_JWKS_PATH = path.join(process.cwd(), 'public', '.well-known', 'jwks.json');
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -40,7 +42,7 @@ function writeFile(pathname, value, mode) {
   fs.writeFileSync(pathname, value, { encoding: 'utf8', mode });
 }
 
-function main() {
+async function main() {
   ensureDir(KEYS_DIR);
   assertCanWrite(PRIVATE_KEY_PATH);
   assertCanWrite(PUBLIC_KEY_PATH);
@@ -48,6 +50,7 @@ function main() {
   // replacing the cert files, so a failure here doesn't leave them inconsistent.
   ensureDir(path.dirname(WELL_KNOWN_PUBLIC_KEY_PATH));
   assertCanWrite(WELL_KNOWN_PUBLIC_KEY_PATH);
+  assertCanWrite(WELL_KNOWN_JWKS_PATH);
 
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -66,16 +69,17 @@ function main() {
 
   // Also update the well-known path so the route handler and local dev stay in sync
   writeFile(WELL_KNOWN_PUBLIC_KEY_PATH, publicKey, 0o644);
+  const jwk = await publicKeyPemToJwk(publicKey);
+  writeFile(WELL_KNOWN_JWKS_PATH, JSON.stringify({ keys: [jwk] }, null, 2) + '\n', 0o644);
 
   console.log('JWT key pair generated:');
   console.log(`- Private   : ${PRIVATE_KEY_PATH}`);
   console.log(`- Public    : ${PUBLIC_KEY_PATH}`);
   console.log(`- Well-known: ${WELL_KNOWN_PUBLIC_KEY_PATH}`);
+  console.log(`- JWKS      : ${WELL_KNOWN_JWKS_PATH}`);
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(`Failed to generate JWT keys: ${error.message}`);
   process.exit(1);
-}
+});

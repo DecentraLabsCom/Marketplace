@@ -17,6 +17,7 @@ on:
 jobs:
   rotate-jwt-keys:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     
     permissions:
       contents: write
@@ -69,6 +70,7 @@ jobs:
         
       - name: Rotate JWT Keys
         if: steps.check-rotation.outputs.needs_rotation == 'true'
+        id: rotate-keys
         run: |
           # Create backup suffix with current date
           backup_suffix=$(date +%Y-%m-%d)-automated
@@ -86,27 +88,16 @@ jobs:
             echo "Error: Public key not found after rotation"
             exit 1
           fi
+
+          candidate_kid=$(jq -r '.keys[0].kid // empty' public/.well-known/jwks.json)
+          if [ -z "$candidate_kid" ]; then
+            echo "Error: Candidate kid not found in generated JWKS"
+            exit 1
+          fi
+          echo "candidate_kid=$candidate_kid" >> "$GITHUB_OUTPUT"
           
           echo "Key rotation completed successfully"
-      
-      - name: Update Vercel Environment Variables
-        if: steps.check-rotation.outputs.needs_rotation == 'true'
-        env:
-          # Secrets configured in GitHub repository settings
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
-        run: |
-          echo "🔄 Updating JWT keys in Vercel environment variables..."
-          node scripts/update-vercel-env.js
-          
-          if [ $? -eq 0 ]; then
-            echo "✅ Vercel environment variables updated successfully"
-          else
-            echo "❌ Failed to update Vercel environment variables"
-            echo "⚠️  Manual update required - see PR description for details"
-            # Don't fail the workflow - PR will still be created
-          fi
+
       - name: Set Rotation Date
         if: steps.check-rotation.outputs.needs_rotation == 'true'
         id: rotation-date
@@ -130,31 +121,31 @@ jobs:
             - 🔑 New RSA key pair generated and validated
             - 💾 Previous keys backed up to `certificates/jwt/backups/`
             - 📊 Rotation metadata updated
-            - 🚀 **Vercel environment variables updated automatically**
-            - 🌐 **Production deployment will be triggered by merge to main**
+            - 🔐 JWKS contains the candidate key and the previous key for overlap
+            - 🌐 Production deployment will be triggered by merge to main
             
-            ### 🎯 Vercel Integration:
-            The following environment variables have been automatically updated in Vercel:
-            - `JWT_PRIVATE_KEY` - New private key for JWT signing
-            - `JWT_PUBLIC_KEY` - New public key for JWT verification
-            
-            A production deployment will be triggered after this PR is merged to `main`.
+            ### 🎯 Safe cutover:
+            Vercel environment variables are updated only after this PR is merged and
+            the deployed `/.well-known/jwks.json` exposes the candidate `kid`. This
+            makes the overlap visible to validators before Marketplace signs with the
+            new private key.
             
             ### ⚠️ Post-Merge Checklist:
             1. ✅ Review this PR for any issues
             2. ✅ Merge to main branch
-            3. 🧪 Verify deployment completed successfully in Vercel dashboard (after merge)
+            3. ✅ Confirm the rotation workflow activates Vercel variables after JWKS deployment
             4. 🔍 Test authentication flow:
                - SSO login via eduGAIN/RedIRIS
                - JWT token generation
                - Lab access with new tokens
             5. 📊 Monitor logs for JWT validation:
                - Marketplace logs (Vercel)
-               - Auth-service logs (up to 1 hour for public key cache refresh)
-            6. 🌐 Verify public key endpoint: `curl https://your-domain/.well-known/public-key.pem`
+               - Auth-service logs, including `kid` selection and refreshes
+            6. 🌐 Verify JWKS endpoint: `curl https://your-domain/.well-known/jwks.json`
             
             ### 📁 Files Changed:
             - `public/.well-known/public-key.pem` (new public key, committed for client verification)
+            - `public/.well-known/jwks.json` (candidate and previous keys with `kid`)
             
             > **Note**: Private key, rotation metadata, and backups are stored in `certificates/jwt/` (gitignored) and not committed to the repository. The new keys are applied via Vercel environment variables.
             
@@ -162,8 +153,8 @@ jobs:
             If authentication issues occur after deployment:
             1. Check Vercel environment variables are correctly set
             2. Verify deployment completed without errors
-            3. Wait up to 1 hour for auth-service public key cache to refresh
-            4. If needed, manually trigger auth-service key refresh
+            3. Verify the candidate `kid` is in the deployed JWKS
+            4. Check auth-service logs for the selected `kid` and refresh result
             5. Check logs for JWT signature validation errors
             
             **🚨 Emergency Rollback**: If critical issues occur, restore previous keys from backups using:
@@ -218,6 +209,60 @@ jobs:
           token: ${{ secrets.BOT_PR_TOKEN }}
           pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
           merge-method: squash
+
+      - name: Wait for rotation PR to merge before activating the candidate key
+        if: steps.check-rotation.outputs.needs_rotation == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.BOT_PR_TOKEN }}
+          script: |
+            const pull_number = Number('${{ steps.create-pr.outputs.pull-request-number }}')
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const timeoutMs = 60 * 60 * 1000
+            const pollMs = 30 * 1000
+            const startedAt = Date.now()
+
+            while (Date.now() - startedAt < timeoutMs) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number })
+              core.info(`PR #${pull_number}: merged=${Boolean(pr.merged_at)} state=${pr.state}`)
+              if (pr.merged_at) return
+              if (pr.state === 'closed') throw new Error(`Rotation PR #${pull_number} was closed without merging`)
+              await new Promise((resolve) => setTimeout(resolve, pollMs))
+            }
+
+            throw new Error(`Rotation PR #${pull_number} did not merge within the activation window`)
+
+      - name: Wait for deployed JWKS to expose the candidate key
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        env:
+          CANDIDATE_KID: ${{ steps.rotate-keys.outputs.candidate_kid }}
+          MARKETPLACE_URL: https://marketplace-decentralabs.vercel.app
+        run: |
+          echo "Waiting for deployed JWKS to expose kid ${CANDIDATE_KID}..."
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent --show-error --location \
+              "${MARKETPLACE_URL}/.well-known/jwks.json?rotation-check=${{ github.run_id }}" \
+              | jq -e --arg kid "$CANDIDATE_KID" '.keys | any(.[]; .kid == $kid)' >/dev/null; then
+              echo "Candidate JWKS key is live"
+              exit 0
+            fi
+            echo "JWKS does not expose the candidate yet (attempt ${attempt}/120)"
+            sleep 10
+          done
+          echo "Candidate key was not exposed by the deployed JWKS"
+          exit 1
+
+      - name: Activate candidate key in Vercel
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+        run: |
+          echo "Activating JWT signing key after overlapping JWKS deployment..."
+          node scripts/update-vercel-env.js
+          echo "Candidate signing key activated"
           
       - name: Notify team (optional)
         if: steps.check-rotation.outputs.needs_rotation == 'true'
