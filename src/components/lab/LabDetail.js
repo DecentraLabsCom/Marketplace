@@ -32,6 +32,8 @@ import AasPanel from '@/components/lab/AasPanel'
 import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUrl'
 import { getLabOperationalStatus, useLabOperationalStatuses } from '@/hooks/lab/useLabOperationalStatus'
 import LabStatusIndicator from '@/components/lab/LabStatusIndicator'
+import * as userContext from '@/context/UserContext'
+import { useLabAccessEligibility } from '@/hooks/accessPolicy/useLabAccessEligibility'
 
 let countryLocaleRegistered = false
 
@@ -82,7 +84,14 @@ export default function LabDetail({ id }) {
   } = useLabById(id);
   const { formatPrice } = useLabCredit();
   const router = useRouter();
+  const optionalUser = typeof userContext.useOptionalUser === 'function' ? userContext.useOptionalUser() : null;
   const labIsFmu = isFmu(lab);
+  const accessEligibility = useLabAccessEligibility(lab?.id, {
+    enabled: Boolean(optionalUser?.isSSO && lab?.id && !labIsFmu),
+    lab,
+    price: lab?.price ?? lab?.pricePerHour ?? 0,
+  });
+  const policyDenied = accessEligibility.data?.allowed === false;
   const operationalLabId = lab?.id ?? lab?.labId ?? id;
   const operationalStatusQuery = useLabOperationalStatuses(
     operationalLabId !== undefined && operationalLabId !== null ? [operationalLabId] : [],
@@ -338,19 +347,20 @@ export default function LabDetail({ id }) {
             </div>
             <button 
               className={`px-4 py-2 rounded mt-4 max-h-11.25 w-2/3 mx-auto transition-colors ${
-                lab?.isListed === false 
+                lab?.isListed === false || policyDenied
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                   : 'bg-brand hover:bg-hover-dark text-white'
               }`}
               onClick={() => {
-                if (lab?.isListed !== false) {
+                if (lab?.isListed !== false && !policyDenied) {
                   router.push(`/reservation/${lab?.id}`);
                 }
               }} 
-              disabled={lab?.isListed === false}
-              aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
-              {lab?.isListed === false ? 'Not Available' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
+              disabled={lab?.isListed === false || policyDenied}
+              aria-label={lab?.isListed === false ? 'Lab not available for booking' : policyDenied ? 'Lab restricted by institutional policy' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
+              {lab?.isListed === false ? 'Not Available' : policyDenied ? 'Restricted by policy' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
             </button>
+            {policyDenied && <p className="mt-2 text-center text-sm text-text-secondary">Restricted by your institution&apos;s access policy.</p>}
 
             {/* Demo Access */}
             {lab?.isListed === true && lab?.demoEnabled && !labIsFmu && demoAccessUri && (

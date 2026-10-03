@@ -211,6 +211,11 @@ describe('Unified intent prepare route', () => {
       normalizedDomain: 'uni.example',
     })
     resolveInstitutionalBackendUrl.mockResolvedValue('https://ib.example')
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ allowed: true, reasonCode: 'ALLOW_NO_POLICY' }),
+    })
     serializeIntent.mockImplementation((value) => value)
     getIntentBackendAuthToken.mockResolvedValue({ token: 'backend-token', expiresAt: '2026-02-20T00:00:00Z' })
     requestIntentAuthorizationSession.mockResolvedValue({ ok: true, status: 200, data: authorization })

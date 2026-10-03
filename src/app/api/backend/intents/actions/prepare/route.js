@@ -54,6 +54,7 @@ import { recordRegisteredIntent } from '@/utils/intents/intentLifecycleStore'
 import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconciler'
 import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from '@/utils/auth/assertionHashVersion'
 import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
+import { evaluateReservationAccess } from '@/utils/accessPolicy/backendAccessPolicyClient'
 
 const checkRate = createRateLimiter({ operation: 'intent-prepare', windowMs: 60_000, maxRequests: 10 })
 
@@ -402,6 +403,23 @@ export async function POST(request) {
     const assertionHash = isReservationIntentAction(action)
       ? preparedReservation.assertionHash
       : session.samlAssertionHash
+
+    if (kind === 'reservation' && action !== ACTION_CODES.CANCEL_REQUEST_BOOKING) {
+      try {
+        await evaluateReservationAccess({
+          backendUrl,
+          institutionId: schacHomeOrganization,
+          institutionalSessionToken,
+          reservation: preparedReservation,
+        })
+      } catch (error) {
+        const status = error?.status === 403 ? 403 : 503
+        return NextResponse.json({
+          error: status === 403 ? 'Lab access denied by institutional policy' : 'Lab access policy could not be evaluated',
+          code: error?.code || 'ACCESS_POLICY_UNAVAILABLE',
+        }, { status })
+      }
+    }
 
     let intentPackage
     let adminSignature

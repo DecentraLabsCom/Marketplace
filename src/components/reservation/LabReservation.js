@@ -7,6 +7,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
+import { useLabAccessEligibility } from '@/hooks/accessPolicy/useLabAccessEligibility'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabOwner, useLabsForReservation } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
@@ -65,6 +66,12 @@ export default function LabReservation({ id }) {
     && selectedLabOwner
     && String(userAddress).toLowerCase() === String(selectedLabOwner).toLowerCase()
   )
+  const accessEligibility = useLabAccessEligibility(selectedLab?.id, {
+    enabled: Boolean(isSSO && selectedLab?.id && !isOwnInstitutionLab),
+    lab: selectedLab,
+    price: selectedLab?.price ?? selectedLab?.pricePerHour ?? 0,
+  })
+  const policyDenied = accessEligibility.data?.allowed === false
   
   // Auto-select lab when labId is provided from URL
   useEffect(() => {
@@ -319,7 +326,7 @@ export default function LabReservation({ id }) {
   
   // Main booking handler
   const handleBooking = () => {
-    if (reservationButtonState?.isBusy || isBooking) return
+    if (reservationButtonState?.isBusy || isBooking || policyDenied) return
     if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
     if (!institutionBackendUrl) {
       notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
@@ -346,7 +353,7 @@ export default function LabReservation({ id }) {
   const buttonState = reservationButtonState || (() => {
     const isBusy = isBooking
     const isLocked = Boolean(resolvedSsoStage !== 'idle')
-    const isDisabled = isBusy || !selectedTime || isLocked
+    const isDisabled = isBusy || !selectedTime || isLocked || policyDenied
 
     let label = 'Book Now'
     if (isBooking || resolvedSsoStage === 'processing') label = 'Processing...'
@@ -422,7 +429,7 @@ export default function LabReservation({ id }) {
             <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
-                disabled={buttonState.isDisabled}
+                disabled={buttonState.isDisabled || policyDenied}
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
                   buttonState.isDisabled
                     ? 'bg-gray-500 cursor-not-allowed' 
@@ -435,6 +442,7 @@ export default function LabReservation({ id }) {
                   {buttonState.label}
                 </span>
               </button>
+              {policyDenied && <p className="mt-2 text-sm text-text-secondary">Restricted by your institution&apos;s access policy.</p>}
             </div>
           </>
         )}
