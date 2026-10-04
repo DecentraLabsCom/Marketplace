@@ -55,14 +55,27 @@ where applicable, Lab Station. Marketplace does not replace those components.
 If an issue affects an institutional account, contact the institution
 administrator or backend operator first. For provider infrastructure, contact
 the provider's Gateway/operator team. For a Marketplace error, use the live
-[Contact page](https://marketplace-decentralabs.vercel.app/contact) and include
+[Contact page](https://decentralabs-marketplace.app/contact) and include
 the time, affected laboratory, visible error and correlation ID if one is shown.
 
-The live product also publishes the [FAQ](https://marketplace-decentralabs.vercel.app/faq),
-[privacy notice](https://marketplace-decentralabs.vercel.app/privacy),
-[terms](https://marketplace-decentralabs.vercel.app/terms),
-[cookies notice](https://marketplace-decentralabs.vercel.app/cookies) and
-[security page](https://marketplace-decentralabs.vercel.app/security).
+The live product also publishes the [FAQ](https://decentralabs-marketplace.app/faq),
+[privacy notice](https://decentralabs-marketplace.app/privacy),
+[terms](https://decentralabs-marketplace.app/terms),
+[cookies notice](https://decentralabs-marketplace.app/cookies) and
+[security page](https://decentralabs-marketplace.app/security).
+
+## Federation callback origins
+
+Production uses `https://decentralabs-marketplace.app`. The stable Preview
+deployment for the `develop` branch uses
+`https://marketplace-decentralabs.vercel.app`. Register the corresponding
+SAML metadata/ACS URLs and Entra redirect URI in the external identity
+providers; the two origins must not be mixed:
+
+| Environment | SAML metadata | SAML ACS/callback | SAML logout | Entra redirect URI |
+| --- | --- | --- | --- | --- |
+| Production | `https://decentralabs-marketplace.app/api/auth/sso/saml2/metadata` | `https://decentralabs-marketplace.app/api/auth/sso/saml2/callback` | `https://decentralabs-marketplace.app/api/auth/sso/saml2/logout` | `https://decentralabs-marketplace.app/api/auth/entra/callback` |
+| Preview (`develop`) | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/metadata` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/callback` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/logout` | `https://marketplace-decentralabs.vercel.app/api/auth/entra/callback` |
 
 For implementation-specific work, consult the documentation of the owning
 project: [Lab-Metadata](https://github.com/DecentraLabsCom/Lab-Metadata),

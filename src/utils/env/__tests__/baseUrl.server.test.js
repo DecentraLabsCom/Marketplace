@@ -6,7 +6,7 @@
  * This test file uses @jest-environment node to disable jsdom, allowing us to test
  * the server-side logic that runs when typeof window === 'undefined'.
  *
- * Coverage Target: Lines 19-47 (server logic in getBaseUrl)
+ * Coverage Target: Lines 19-46 (server logic in getBaseUrl)
  *
  * This complements baseUrl.test.js which tests browser environment and envUtils.
  */
@@ -95,13 +95,13 @@ describe("baseUrl utility - Server Environment", () => {
         expect(result).toBe("http://localhost:3000");
       });
 
-      test("does not use localhost:3000 if not in development", () => {
+      test("fails closed if no production URL is configured", () => {
         process.env.NODE_ENV = "production";
         process.env.HOSTNAME = "localhost";
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
     });
 
@@ -115,14 +115,14 @@ describe("baseUrl utility - Server Environment", () => {
         expect(result).toBe("https://my-app-staging.vercel.app");
       });
 
-      test("uses default Vercel URL when VERCEL flag is set but no URL", () => {
+      test("fails closed when Vercel has no deployment URL", () => {
         process.env.VERCEL = "true";
         process.env.NODE_ENV = "production";
         delete process.env.VERCEL_URL;
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
 
       test("VERCEL_URL takes precedence over VERCEL flag", () => {
@@ -135,44 +135,44 @@ describe("baseUrl utility - Server Environment", () => {
         expect(result).toBe("https://custom-preview.vercel.app");
       });
 
-      test("handles empty VERCEL_URL with VERCEL flag", () => {
+      test("fails closed when VERCEL_URL is empty", () => {
         process.env.VERCEL_URL = "";
         process.env.VERCEL = "true";
         process.env.NODE_ENV = "production";
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
     });
 
-    describe("Priority 4: Production fallback", () => {
-      test("returns production URL when no other conditions match", () => {
+    describe("Missing deployment configuration", () => {
+      test("fails closed when no other conditions match", () => {
         process.env.NODE_ENV = "production";
         delete process.env.VERCEL_URL;
         delete process.env.VERCEL;
         delete process.env.NEXT_PUBLIC_BASE_URL;
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
 
-      test("returns production URL when NODE_ENV is undefined", () => {
+      test("fails closed when NODE_ENV is undefined", () => {
         delete process.env.NODE_ENV;
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
 
-      test("returns production URL in test environment without config", () => {
+      test("fails closed in test environment without config", () => {
         process.env.NODE_ENV = "test";
         delete process.env.NEXT_PUBLIC_BASE_URL;
 
-        const result = getBaseUrl();
-
-        expect(result).toBe("https://marketplace-decentralabs.vercel.app");
+        expect(() => getBaseUrl()).toThrow(
+          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+        );
       });
     });
   });

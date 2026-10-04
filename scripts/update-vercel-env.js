@@ -14,6 +14,7 @@
  *
  * Flags:
  * - --dry-run  print planned operations without API writes
+ * - --targets=production,preview,development  select Vercel targets
  */
 
 import fs from 'fs';
@@ -21,13 +22,19 @@ import path from 'path';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const targetsArgument = args.find((arg) => arg.startsWith('--targets='));
 
 const token = process.env.VERCEL_TOKEN;
 const projectId = process.env.VERCEL_PROJECT_ID;
 const teamId = process.env.VERCEL_TEAM_ID;
 
 const baseUrl = `https://api.vercel.com`;
-const targets = ['production', 'preview', 'development'];
+const validTargets = new Set(['production', 'preview', 'development']);
+const targets = (targetsArgument
+  ? targetsArgument.slice('--targets='.length).split(',')
+  : ['production'])
+  .map((target) => target.trim())
+  .filter(Boolean);
 const keysDir = path.join(process.cwd(), 'certificates', 'jwt');
 const privateKeyPath = path.join(keysDir, 'marketplace-private-key.pem');
 const publicKeyPath = path.join(keysDir, 'marketplace-public-key.pem');
@@ -40,6 +47,9 @@ function fail(message) {
 function requireEnv() {
   if (!token) fail('VERCEL_TOKEN environment variable is required');
   if (!projectId) fail('VERCEL_PROJECT_ID environment variable is required');
+  if (targets.length === 0 || targets.some((target) => !validTargets.has(target))) {
+    fail('Invalid --targets value. Use production, preview and/or development.');
+  }
 }
 
 function readPem(filePath, label) {
@@ -95,19 +105,38 @@ async function deleteEnvVar(envId) {
   }
 }
 
-async function createEnvVar(key, value) {
+async function patchEnvVar(envId, patch) {
+  const { res, payload } = await vercelFetch(`/v9/projects/${projectId}/env/${envId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    fail(`Failed to update env var ${envId}: ${res.status} ${JSON.stringify(payload)}`);
+  }
+}
+
+async function createEnvVar(key, value, targetList = targets, gitBranch) {
+  const body = {
+    key,
+    value,
+    type: 'encrypted',
+    target: targetList,
+  };
+  if (gitBranch) body.gitBranch = gitBranch;
+
   const { res, payload } = await vercelFetch(`/v10/projects/${projectId}/env`, {
     method: 'POST',
-    body: JSON.stringify({
-      key,
-      value,
-      type: 'encrypted',
-      target: targets,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     fail(`Failed to create env var ${key}: ${res.status} ${JSON.stringify(payload)}`);
   }
+}
+
+function getTargets(envItem) {
+  if (Array.isArray(envItem?.target)) return envItem.target;
+  if (typeof envItem?.target === 'string') return [envItem.target];
+  return [];
 }
 
 async function main() {
@@ -138,10 +167,32 @@ async function main() {
       console.log(`Found ${current.length} existing ${item.key} variable(s).`);
     }
 
+    const scopesToCreate = [];
     for (const envItem of current) {
       const envId = envItem?.id;
       if (!envId) continue;
-      if (dryRun) {
+      const currentTargets = getTargets(envItem);
+      const selectedTargets = currentTargets.filter((target) => targets.includes(target));
+      if (selectedTargets.length === 0) continue;
+
+      const preservedTargets = currentTargets.filter((target) => !targets.includes(target));
+      scopesToCreate.push({
+        targets: selectedTargets,
+        gitBranch: envItem.gitBranch,
+      });
+
+      if (preservedTargets.length > 0) {
+        if (dryRun) {
+          console.log(
+            `[dry-run] keep ${item.key} id=${envId} for targets: ${preservedTargets.join(', ')}`,
+          );
+        } else {
+          await patchEnvVar(envId, { target: preservedTargets });
+          console.log(
+            `Preserved ${item.key} id=${envId} for targets: ${preservedTargets.join(', ')}`,
+          );
+        }
+      } else if (dryRun) {
         console.log(`[dry-run] delete ${item.key} id=${envId}`);
       } else {
         await deleteEnvVar(envId);
@@ -149,11 +200,19 @@ async function main() {
       }
     }
 
-    if (dryRun) {
-      console.log(`[dry-run] create ${item.key} for targets: ${targets.join(', ')}`);
-    } else {
-      await createEnvVar(item.key, item.value);
-      console.log(`Created ${item.key} for targets: ${targets.join(', ')}`);
+    if (scopesToCreate.length === 0) {
+      scopesToCreate.push({ targets });
+    }
+
+    for (const scope of scopesToCreate) {
+      if (dryRun) {
+        console.log(
+          `[dry-run] create ${item.key} for targets: ${scope.targets.join(', ')}`,
+        );
+      } else {
+        await createEnvVar(item.key, item.value, scope.targets, scope.gitBranch);
+        console.log(`Created ${item.key} for targets: ${scope.targets.join(', ')}`);
+      }
     }
   }
 

@@ -58,12 +58,12 @@ before testing an institutional flow. Do not copy secrets into source files or
 ## Public documentation
 
 The complete user-facing map is in [SUMMARY.md](SUMMARY.md). The live
-[FAQ](https://marketplace-decentralabs.vercel.app/faq),
-[contact page](https://marketplace-decentralabs.vercel.app/contact),
-[privacy notice](https://marketplace-decentralabs.vercel.app/privacy),
-[terms](https://marketplace-decentralabs.vercel.app/terms),
-[cookies notice](https://marketplace-decentralabs.vercel.app/cookies) and
-[security page](https://marketplace-decentralabs.vercel.app/security) are part
+[FAQ](https://decentralabs-marketplace.app/faq),
+[contact page](https://decentralabs-marketplace.app/contact),
+[privacy notice](https://decentralabs-marketplace.app/privacy),
+[terms](https://decentralabs-marketplace.app/terms),
+[cookies notice](https://decentralabs-marketplace.app/cookies) and
+[security page](https://decentralabs-marketplace.app/security) are part
 of the operational product experience.
 
 For technical integration work, use the linked project documentation from the

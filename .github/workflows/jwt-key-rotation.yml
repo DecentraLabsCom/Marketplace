@@ -237,7 +237,7 @@ jobs:
         if: steps.check-rotation.outputs.needs_rotation == 'true'
         env:
           CANDIDATE_KID: ${{ steps.rotate-keys.outputs.candidate_kid }}
-          MARKETPLACE_URL: https://marketplace-decentralabs.vercel.app
+          MARKETPLACE_URL: https://decentralabs-marketplace.app
         run: |
           echo "Waiting for deployed JWKS to expose kid ${CANDIDATE_KID}..."
           for attempt in $(seq 1 120); do
@@ -261,7 +261,7 @@ jobs:
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
         run: |
           echo "Activating JWT signing key after overlapping JWKS deployment..."
-          node scripts/update-vercel-env.js
+          node scripts/update-vercel-env.js --targets=production
           echo "Candidate signing key activated"
           
       - name: Notify team (optional)
