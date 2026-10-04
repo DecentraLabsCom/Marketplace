@@ -64,6 +64,7 @@ import { hasAdminRole } from '@/utils/auth/roleValidation'
 import { GET as getActiveReservationKey } from '../institution/getActiveReservationKey/route'
 import { GET as getReservationByUserIndex } from '../institution/getUserReservationByIndex/route'
 import { GET as getUserReservationCount } from '../institution/getUserReservationCount/route'
+import { GET as getUserFinancialStats } from '../institution/getUserFinancialStats/route'
 import { GET as hasUserActiveBooking } from '../institution/hasUserActiveBooking/route'
 import { GET as resolveInstitution } from '../institution/resolve/route'
 import { GET as getAllLabs } from '../lab/getAllLabs/route'
@@ -88,6 +89,7 @@ describe('special contract adapters', () => {
       getInstitutionalUserReservationByIndex: jest.fn(),
       getReservation: jest.fn(),
       getInstitutionalUserReservationCount: jest.fn(),
+      getInstitutionalUserFinancialStats: jest.fn(),
       hasInstitutionalUserActiveBooking: jest.fn(),
       resolveSchacHomeOrganization: jest.fn(),
       getSchacHomeOrganizationBackend: jest.fn(),
@@ -197,6 +199,34 @@ describe('special contract adapters', () => {
       institutionAddress: null,
       institutionDomain: null,
     })
+  })
+
+  test('returns session-bound institutional spending statistics', async () => {
+    contract.getInstitutionalUserFinancialStats.mockResolvedValue({
+      currentPeriodSpent: 125_000_000n,
+      totalHistoricalSpent: 400_000_000n,
+      spendingLimit: 2_000_000_000n,
+      remainingAllowance: 1_875_000_000n,
+      periodStart: 1_700_000_000n,
+      periodEnd: 1_710_368_000n,
+      periodDuration: 10_368_000n,
+    })
+
+    const response = await getUserFinancialStats()
+
+    expect(response.status).toBe(200)
+    await expect(json(response)).resolves.toEqual({
+      currentPeriodSpent: '125000000',
+      totalHistoricalSpent: '400000000',
+      spendingLimit: '2000000000',
+      remainingAllowance: '1875000000',
+      periodStart: '1700000000',
+      periodEnd: '1710368000',
+      periodDuration: '10368000',
+      institutionAddress: ADDRESS,
+      institutionDomain: 'uni.example',
+    })
+    expect(contract.getInstitutionalUserFinancialStats).toHaveBeenCalledWith(ADDRESS, PUC_HASH)
   })
 
   test('returns active-booking state with normalized lab id', async () => {

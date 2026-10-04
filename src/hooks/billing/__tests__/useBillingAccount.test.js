@@ -6,6 +6,7 @@ const mockUserData = {
   address: '0xaaa0001',
   institutionBackendUrl: 'http://localhost:8080',
   isSSO: true,
+  isLoggedIn: true,
 };
 jest.mock('@/context/UserContext', () => ({ useUser: () => mockUserData }));
 
@@ -14,6 +15,7 @@ import {
   useCreditLots,
   useFundingOrders,
   useCreditMovements,
+  useInstitutionalSpendingStats,
 } from '../useBillingAccount';
 
 const createTestQueryClient = () =>
@@ -115,6 +117,26 @@ describe('useBillingAccount hooks', () => {
     );
   });
 
+  test('useInstitutionalSpendingStats fetches the current period allowance', async () => {
+    const stats = {
+      currentPeriodSpent: '125000000',
+      spendingLimit: '2000000000',
+      remainingAllowance: '1875000000',
+      periodEnd: '1710368000',
+    };
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => stats });
+
+    const qc = createTestQueryClient();
+    const { result } = renderHook(() => useInstitutionalSpendingStats(), { wrapper: createWrapper(qc) });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(stats);
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/contract/institution/getUserFinancialStats',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   // ── disabled when not SSO ─────────────────────────────────────────────
   test('hooks are disabled when user is not SSO', async () => {
     mockUserData.isSSO = false;
@@ -122,10 +144,12 @@ describe('useBillingAccount hooks', () => {
     const qc = createTestQueryClient();
     const { result: r1 } = renderHook(() => useCreditAccountSummary(), { wrapper: createWrapper(qc) });
     const { result: r2 } = renderHook(() => useCreditMovements(), { wrapper: createWrapper(qc) });
+    const { result: r3 } = renderHook(() => useInstitutionalSpendingStats(), { wrapper: createWrapper(qc) });
 
     // Should stay idle — no fetch
     expect(r1.current.fetchStatus).toBe('idle');
     expect(r2.current.fetchStatus).toBe('idle');
+    expect(r3.current.fetchStatus).toBe('idle');
     expect(global.fetch).not.toHaveBeenCalled();
 
     // restore

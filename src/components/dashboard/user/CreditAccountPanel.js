@@ -10,8 +10,9 @@ import {
   useCreditLots,
   useFundingOrders,
   useCreditMovements,
+  useInstitutionalSpendingStats,
 } from '@/hooks/billing/useBillingAccount';
-import { trimTrailingZeros } from '@/utils/blockchain/creditUnits';
+import { formatRawCredits, trimTrailingZeros } from '@/utils/blockchain/creditUnits';
 
 const LOW_AVAILABLE_CREDIT_THRESHOLD = 50;
 const CREDIT_PANEL_TEXT_COLOR = 'var(--color-ui-label-light)';
@@ -80,6 +81,18 @@ const formatDateTime = (isoString) => {
   }
 };
 
+const formatPeriodDate = (timestamp) => {
+  if (timestamp === null || timestamp === undefined) return '—';
+  const numericTimestamp = Number(timestamp);
+  if (!Number.isFinite(numericTimestamp) || numericTimestamp <= 0) return '—';
+
+  try {
+    return new Date(numericTimestamp * 1000).toLocaleDateString('en-IE', { dateStyle: 'medium' });
+  } catch {
+    return '—';
+  }
+};
+
 const hasLowAvailableCredits = (value) => {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) && parsed < LOW_AVAILABLE_CREDIT_THRESHOLD;
@@ -90,10 +103,12 @@ export default function CreditAccountPanel() {
   const lotsQuery = useCreditLots();
   const fundingOrdersQuery = useFundingOrders();
   const movementsQuery = useCreditMovements({ limit: 10 });
+  const spendingStatsQuery = useInstitutionalSpendingStats();
   const { data: account, isLoading: accountLoading, isError: accountErrorState, error: accountError } = accountQuery;
   const { data: lots } = lotsQuery;
   const { data: fundingOrders } = fundingOrdersQuery;
   const { data: movements } = movementsQuery;
+  const { data: spendingStats } = spendingStatsQuery;
   const [showAllMovements, setShowAllMovements] = useState(false);
 
   const detailQueries = [lotsQuery, fundingOrdersQuery, movementsQuery];
@@ -103,6 +118,7 @@ export default function CreditAccountPanel() {
   const retryAll = () => {
     detailQueries.forEach((query) => query.refetch?.());
     accountQuery.refetch?.();
+    spendingStatsQuery.refetch?.();
   };
 
   const expiringLots = useMemo(() => {
@@ -227,6 +243,43 @@ export default function CreditAccountPanel() {
           </>
         )}
       </div>
+
+      {spendingStats && (
+        <div
+          data-testid="institutional-spending-stats"
+          className="rounded-lg border border-slate-600/70 bg-slate-900/30 p-3 space-y-2"
+        >
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
+            Current spending limit
+          </p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+            <span>Remaining this period</span>
+            <span className="text-right font-semibold">
+              {formatRawCredits(spendingStats.remainingAllowance)} credits
+            </span>
+            <span>Used this period</span>
+            <span className="text-right font-semibold">
+              {formatRawCredits(spendingStats.currentPeriodSpent)} credits
+            </span>
+            <span>Period limit</span>
+            <span className="text-right font-semibold">
+              {formatRawCredits(spendingStats.spendingLimit)} credits
+            </span>
+          </div>
+          <p className="text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
+            Resets {formatPeriodDate(spendingStats.periodEnd)}
+          </p>
+        </div>
+      )}
+
+      {spendingStatsQuery.isError && !accountErrorState && (
+        <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
+          <p>Current spending limit could not be loaded. The account balance is still available.</p>
+          <button type="button" onClick={() => spendingStatsQuery.refetch?.()} className="mt-2 underline">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Expiring lots */}
       {expiringLots.length > 0 && (

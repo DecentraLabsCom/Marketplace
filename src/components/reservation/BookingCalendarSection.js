@@ -138,12 +138,12 @@ export default function BookingCalendarSection({
 
   if (!lab) return null
 
-  const pricePresentation = formatPricePerUnit({
+  formatPricePerUnit({
     price: lab.price,
     lab,
     formatPrice,
   })
-  const totalCostLabel = pricePresentation.isFree
+  const totalCostLabel = totalCost === 0n
     ? 'Free'
     : `${formatTokenAmount(totalCost)} credits`
   const selectedSlotTimeZones = getSelectedSlotTimeZonePresentation({

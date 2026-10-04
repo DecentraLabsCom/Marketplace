@@ -1,10 +1,9 @@
-import { formatRawCredits, RAW_PER_CREDIT } from '@/utils/blockchain/creditUnits'
+import { formatRawCredits } from '@/utils/blockchain/creditUnits'
 import { isFmu } from '@/utils/resourceType'
 
 const CANCELLATION_FEE_PERCENT = 10n
 const CANCELLATION_FEE_DENOMINATOR = 100n
 const PROVIDER_FEE_PERCENT_OF_TOTAL = 6n
-const MIN_CANCELLATION_FEE = RAW_PER_CREDIT / 10n
 
 const parseRawCreditAmount = (value) => {
   if (typeof value === 'bigint') return value >= 0n ? value : null
@@ -92,9 +91,10 @@ const isCompleteOnChainPreview = (preview, status) => {
   const expiry = normalizeSourceCreditExpiry(preview.sourceCreditExpiry)
   if (!hasOwn(preview, 'sourceCreditExpiry') || !expiry.known) return false
 
-  // A zero-price reservation does not consume service credits and therefore
-  // legitimately has no captured spending-period sidecar. Charged confirmed
-  // reservations still require that accounting metadata before confirmation.
+  // A zero-price reservation has no reservation-scoped price allocation and
+  // legitimately has no captured spending-period sidecar. Its separate fixed
+  // institutional booking charge, when applicable, is generic user spending
+  // and is intentionally outside cancellation settlement.
   if (Number(preview.status) === 1 && price > 0n && (
     toTimestamp(preview.spendingPeriodStart) === null
     || toTimestamp(preview.spendingPeriodEnd) === null
@@ -121,7 +121,6 @@ const buildPreview = ({
   cancellable = status === 1,
 }) => {
   const percentageFee = (price * CANCELLATION_FEE_PERCENT) / CANCELLATION_FEE_DENOMINATOR
-  const minimumFee = price < MIN_CANCELLATION_FEE ? price : MIN_CANCELLATION_FEE
   const sourceExpiry = normalizeSourceCreditExpiry(sourceCreditExpiry)
 
   return {
@@ -130,12 +129,10 @@ const buildPreview = ({
     cancellable,
     priceRaw: price,
     percentageFeeRaw: percentageFee,
-    minimumFeeRaw: minimumFee,
     totalFeeRaw: totalFee,
     providerFeeRaw: providerFee,
     refundRaw: refund,
     refundDestination,
-    minimumFeeApplied: totalFee > percentageFee,
     cancellationCutoff: toTimestamp(cutoff),
     spendingPeriodStart: toTimestamp(periodStart),
     spendingPeriodEnd: toTimestamp(periodEnd),
@@ -215,8 +212,7 @@ export function getCancellationPreview(booking) {
   }
 
   const percentageFee = (bookingPrice * CANCELLATION_FEE_PERCENT) / CANCELLATION_FEE_DENOMINATOR
-  const minimumFee = bookingPrice < MIN_CANCELLATION_FEE ? bookingPrice : MIN_CANCELLATION_FEE
-  const totalFee = percentageFee < minimumFee ? minimumFee : percentageFee
+  const totalFee = percentageFee
   const providerFee = (totalFee * PROVIDER_FEE_PERCENT_OF_TOTAL) / CANCELLATION_FEE_PERCENT
 
   return buildPreview({

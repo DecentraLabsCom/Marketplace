@@ -22,6 +22,12 @@ The final price and reservation window are recalculated by the institutional
 backend and contract. Do not treat a cached catalogue value as final
 authorization.
 
+For an institutional reservation, a paid booking uses the lab price. A booking
+inside the user's own institution adds a fixed **2 credits** charge, while a
+cross-institutional booking whose lab price is zero adds **1 credit**. These
+fixed charges count against the user's institutional spending limit. Demo access
+does not create a reservation and remains free.
+
 ## Reservation lifecycle
 
 | User-visible state | Meaning |

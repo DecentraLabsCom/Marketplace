@@ -72,4 +72,21 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/vercel_args=\(redeploy/);
   });
 
+  test('ships an isolated Preview JWT rotation workflow', () => {
+    const workflow = readRepositoryFile('.github/workflows/jwt-key-rotation-preview.yml');
+
+    expect(workflow).toMatch(/MARKETPLACE_URL: https:\/\/marketplace-decentralabs\.vercel\.app/);
+    expect(workflow).toMatch(/node scripts\/update-vercel-env\.js --targets=preview/);
+    expect(workflow).toMatch(/PREVIEW_BRANCH/);
+    expect(workflow).toMatch(/base: \$\{\{ env\.PREVIEW_BRANCH \}\}/);
+    expect(workflow).toMatch(/if \[ "\$PREVIEW_BRANCH" = "main" \]/);
+    expect(workflow).toMatch(/Capture current Preview public key/);
+    expect(workflow).toMatch(/npm install -g vercel@latest/);
+    expect(workflow).toMatch(/git fetch --no-tags origin "\$PREVIEW_BRANCH"/);
+    expect(workflow).toMatch(/git reset --hard "origin\/\$PREVIEW_BRANCH"/);
+    expect(workflow).toMatch(/vercel pull --yes --environment=preview/);
+    expect(workflow).toMatch(/vercel build --token=/);
+    expect(workflow).toMatch(/vercel deploy --prebuilt --token=/);
+    expect(workflow).not.toMatch(/vercel_args=\(redeploy/);
+  });
 });

@@ -31,6 +31,7 @@ import {
 import { isCancelledBooking } from "@/utils/booking/bookingStatus";
 import { generateTimeOptions } from "@/utils/booking/labBookingCalendar";
 import devLog from "@/utils/dev/logger";
+import { RAW_PER_CREDIT } from "@/utils/blockchain/creditUnits";
 
 // Mock external contexts to control their behavior and responses
 jest.mock("@/context/NotificationContext");
@@ -407,8 +408,23 @@ describe("useLabReservationState", () => {
         })
       );
 
-      expect(result.current.totalCost).toBe(0n);
+      expect(result.current.totalCost).toBe(2n * RAW_PER_CREDIT);
       expect(mockLabToken.calculateReservationCost).not.toHaveBeenCalled();
+    });
+
+    test("charges one credit for a cross-institutional zero-price lab", () => {
+      mockLabToken.calculateReservationCost.mockReturnValue(0n);
+
+      const { result } = renderHookWithClient(() =>
+        useLabReservationState({
+          selectedLab: { ...mockLab, price: 0 },
+          labBookings: [],
+          isSSO: true,
+          isOwnInstitutionLab: false,
+        })
+      );
+
+      expect(result.current.totalCost).toBe(RAW_PER_CREDIT);
     });
 
     test("recalculates cost when duration changes", () => {

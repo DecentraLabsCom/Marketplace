@@ -1,0 +1,236 @@
+name: JWT Key Rotation - Preview
+
+on:
+  # Preview uses a separate key pair and rotates on the same quarterly cadence
+  # as production, but against the branch that owns the stable Preview URL.
+  schedule:
+    - cron: '30 2 1 1,4,7,10 *'
+
+  # Manual runs can select a different Preview branch without changing the
+  # scheduled default. Set the MARKETPLACE_PREVIEW_BRANCH repository variable
+  # when the stable Preview branch changes.
+  workflow_dispatch:
+    inputs:
+      preview_branch:
+        description: 'Git branch deployed to the stable Marketplace Preview URL'
+        required: false
+        default: 'feature/entra-id'
+        type: string
+
+jobs:
+  rotate-preview-jwt-keys:
+    name: Rotate Preview JWT keys
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      PREVIEW_BRANCH: ${{ inputs.preview_branch || vars.MARKETPLACE_PREVIEW_BRANCH || 'feature/entra-id' }}
+      MARKETPLACE_URL: https://marketplace-decentralabs.vercel.app
+
+    steps:
+      - name: Checkout Preview branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.preview_branch || vars.MARKETPLACE_PREVIEW_BRANCH || 'feature/entra-id' }}
+          fetch-depth: 0
+
+      - name: Validate Preview branch
+        run: |
+          if [ -z "$PREVIEW_BRANCH" ]; then
+            echo "Preview branch is required"
+            exit 1
+          fi
+          if [ "$PREVIEW_BRANCH" = "main" ]; then
+            echo "Refusing to rotate Preview keys on main"
+            exit 1
+          fi
+          echo "Preview rotation branch: $PREVIEW_BRANCH"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Capture current Preview public key
+        run: |
+          mkdir -p public/.well-known
+          curl --fail --silent --show-error --location \
+            "${MARKETPLACE_URL}/.well-known/public-key.pem?rotation-check=${{ github.run_id }}" \
+            > public/.well-known/public-key.pem
+          if ! grep -q -- '-----BEGIN .*PUBLIC KEY-----' public/.well-known/public-key.pem; then
+            echo "The stable Preview URL did not return a PEM public key"
+            exit 1
+          fi
+
+      - name: Rotate Preview JWT keys
+        id: rotate-keys
+        run: |
+          backup_suffix=$(date +%Y-%m-%d)-preview-automated
+          node scripts/rotate-jwt-keys.js --force --backup-suffix="$backup_suffix"
+
+          if [ ! -f "certificates/jwt/marketplace-private-key.pem" ]; then
+            echo "Error: Preview private key was not generated"
+            exit 1
+          fi
+          if [ ! -f "certificates/jwt/marketplace-public-key.pem" ]; then
+            echo "Error: Preview public key was not generated"
+            exit 1
+          fi
+
+          candidate_kid=$(jq -r '.keys[0].kid // empty' public/.well-known/jwks.json)
+          if [ -z "$candidate_kid" ]; then
+            echo "Error: Preview candidate kid not found in generated JWKS"
+            exit 1
+          fi
+          echo "candidate_kid=$candidate_kid" >> "$GITHUB_OUTPUT"
+
+      - name: Set rotation date
+        id: rotation-date
+        run: echo "value=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Create Preview rotation pull request
+        id: create-pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.BOT_PR_TOKEN }}
+          commit-message: "Automated Preview JWT key rotation - ${{ steps.rotation-date.outputs.value }}"
+          title: "Automated Preview JWT Key Rotation - ${{ steps.rotation-date.outputs.value }}"
+          body: |
+            ## Automated Preview JWT Key Rotation
+
+            This PR rotates the JWT key pair for the stable Preview deployment
+            on `${{ env.PREVIEW_BRANCH }}` only.
+
+            - Production Vercel variables are not modified.
+            - The private key is generated on the runner and is not committed.
+            - The overlapping Preview JWKS must deploy before the Preview
+              Vercel private key is activated.
+
+            After merge, the workflow verifies:
+            `${{ env.MARKETPLACE_URL }}/.well-known/jwks.json`
+          branch: automated/jwt-preview-key-rotation-${{ steps.rotation-date.outputs.value }}
+          base: ${{ env.PREVIEW_BRANCH }}
+          delete-branch: true
+          add-paths: |
+            public/.well-known/public-key.pem
+            public/.well-known/jwks.json
+
+      - name: Enable Preview rotation auto-merge
+        if: steps.create-pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.BOT_PR_TOKEN }}
+          script: |
+            const pull_number = Number('${{ steps.create-pr.outputs.pull-request-number }}')
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const timeoutMs = 5 * 60 * 1000
+            const pollMs = 15 * 1000
+            const startedAt = Date.now()
+
+            while (Date.now() - startedAt < timeoutMs) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number })
+              if (pr.mergeable === true && pr.mergeable_state !== 'unknown') return
+              await new Promise((resolve) => setTimeout(resolve, pollMs))
+            }
+
+            core.warning('Preview rotation PR did not become stable before the auto-merge attempt')
+
+      - name: Enable Preview rotation pull-request auto-merge
+        if: steps.create-pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.BOT_PR_TOKEN }}
+          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          merge-method: squash
+
+      - name: Wait for Preview rotation PR to merge
+        if: steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.BOT_PR_TOKEN }}
+          script: |
+            const pull_number = Number('${{ steps.create-pr.outputs.pull-request-number }}')
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const timeoutMs = 60 * 60 * 1000
+            const pollMs = 30 * 1000
+            const startedAt = Date.now()
+
+            while (Date.now() - startedAt < timeoutMs) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number })
+              if (pr.merged_at) return
+              if (pr.state === 'closed') throw new Error(`Preview rotation PR #${pull_number} was closed without merging`)
+              await new Promise((resolve) => setTimeout(resolve, pollMs))
+            }
+
+            throw new Error(`Preview rotation PR #${pull_number} did not merge within the activation window`)
+
+      - name: Wait for deployed Preview JWKS to expose the candidate key
+        env:
+          CANDIDATE_KID: ${{ steps.rotate-keys.outputs.candidate_kid }}
+        run: |
+          echo "Waiting for Preview JWKS to expose kid ${CANDIDATE_KID}..."
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent --show-error --location \
+              "${MARKETPLACE_URL}/.well-known/jwks.json?rotation-check=${{ github.run_id }}" \
+              | jq -e --arg kid "$CANDIDATE_KID" '.keys | any(.[]; .kid == $kid)' >/dev/null; then
+              echo "Preview candidate JWKS key is live"
+              exit 0
+            fi
+            echo "Preview JWKS does not expose the candidate yet (attempt ${attempt}/120)"
+            sleep 10
+          done
+          echo "Preview candidate key was not exposed by the deployed JWKS"
+          exit 1
+
+      - name: Refresh Preview branch after rotation PR merge
+        if: steps.create-pr.outputs.pull-request-number != ''
+        run: |
+          git fetch --no-tags origin "$PREVIEW_BRANCH"
+          git reset --hard "origin/$PREVIEW_BRANCH"
+
+      - name: Activate Preview candidate key in Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+        run: |
+          echo "Activating Preview JWT signing key after overlapping JWKS deployment..."
+          node scripts/update-vercel-env.js --targets=preview
+          echo "Preview candidate signing key activated"
+
+      - name: Pull Preview environment with activated Vercel variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Build Preview with activated Vercel variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+        run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Create new Preview deployment with activated Vercel variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+        run: |
+          vercel deploy --prebuilt --token="$VERCEL_TOKEN"

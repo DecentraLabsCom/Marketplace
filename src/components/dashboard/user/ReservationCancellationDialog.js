@@ -117,7 +117,6 @@ export default function ReservationCancellationDialog({
                 <dt className="font-semibold">Cancellation fee:</dt>
                 <dd>
                   {formatRawCredits(preview.totalFeeRaw)} credits
-                  {preview.minimumFeeApplied ? ' (minimum applies)' : ''}
                 </dd>
               </div>
               {hasChargedReservation && (
