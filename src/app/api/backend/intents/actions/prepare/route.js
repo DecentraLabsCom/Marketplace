@@ -52,7 +52,7 @@ import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimi
 import { cancellationStateError, hasCancellationOwnership } from '@/utils/intents/cancellationOwnership'
 import { recordRegisteredIntent } from '@/utils/intents/intentLifecycleStore'
 import { reconcileTrackedIntents } from '@/utils/intents/intentLifecycleReconciler'
-import { INSTITUTIONAL_ASSERTION_HASH_VERSION } from '@/utils/auth/assertionHashVersion'
+import { resolveSessionIdentityEvidence } from '@/utils/auth/identityEvidence'
 import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
 import { evaluateReservationAccess } from '@/utils/accessPolicy/backendAccessPolicyClient'
 
@@ -288,9 +288,9 @@ export async function POST(request) {
 
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const institutionalSessionToken = session.institutionalBackendSessionToken
+    const identityEvidence = resolveSessionIdentityEvidence(session)
     if (!institutionalSessionToken
-      || !session.samlAssertionHash
-      || session.samlAssertionHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
+      || !identityEvidence) {
       return NextResponse.json(
         { error: 'Institutional session renewal required', code: 'INSTITUTIONAL_SESSION_REQUIRED' },
         { status: 401 },
@@ -361,7 +361,7 @@ export async function POST(request) {
         session,
         contract,
         pucHash,
-        assertionHash: session.samlAssertionHash,
+        assertionHash: identityEvidence.hash,
         cancellationSnapshot,
       })
       if (preparedReservation.error) return preparedReservation.error
@@ -402,7 +402,7 @@ export async function POST(request) {
     const chainNowSec = preparedReservation.chainNowSec || await chainNowPromise
     const assertionHash = isReservationIntentAction(action)
       ? preparedReservation.assertionHash
-      : session.samlAssertionHash
+      : identityEvidence.hash
 
     if (kind === 'reservation' && action !== ACTION_CODES.CANCEL_REQUEST_BOOKING) {
       try {

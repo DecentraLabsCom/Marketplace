@@ -3,9 +3,10 @@ import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUniversity } from '@fortawesome/free-solid-svg-icons'
+import EntraLoginButton from '@/components/auth/EntraLoginButton'
 
 /**
- * Institutional login component for SAML2-based SSO authentication
+ * Institutional login component for federation-based SSO authentication
  * Redirects users to institutional identity provider for secure authentication
  * @param {Object} props
  * @param {Function} props.setIsModalOpen - Function to close the login modal before redirect
@@ -26,29 +27,25 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
   }
 
   return (
-    <button 
-      onClick={handleInstitutionalLogin}
-      className="group w-full p-4 text-left rounded-xl border bg-brand border-brand hover:bg-hover-dark hover:shadow-lg text-white transition-all duration-300 hover:scale-[1.02]"
-    >
-      <div className="flex items-center space-x-4">
-        <div className="size-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
-          <FontAwesomeIcon icon={faUniversity} className="text-brand text-lg" />
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={handleInstitutionalLogin}
+        className="group w-full rounded-xl border border-brand bg-brand p-4 text-left text-white transition-all duration-300 hover:scale-[1.02] hover:bg-hover-dark hover:shadow-lg"
+      >
+        <div className="flex items-center space-x-4">
+          <div className="flex size-12 items-center justify-center rounded-lg bg-white shadow-sm">
+            <FontAwesomeIcon icon={faUniversity} className="text-brand text-lg" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">EduGAIN / SAML2</h3>
+            <p className="text-sm text-white/80">Institutional SSO authentication</p>
+          </div>
+          <span aria-hidden="true" className="text-xl opacity-0 transition-opacity group-hover:opacity-100">→</span>
         </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg text-white">
-            Institutional Login
-          </h3>
-          <p className="text-sm text-white/80">
-            SSO authentication
-          </p>
-        </div>
-        <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </div>
-      </div>
-    </button>
+      </button>
+      <EntraLoginButton setIsModalOpen={setIsModalOpen} />
+    </div>
   )
 }
 

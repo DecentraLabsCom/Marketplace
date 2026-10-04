@@ -11,6 +11,7 @@ const PUBLIC_SESSION_FIELDS = [
   'affiliation',
   'schacHomeOrganization',
   'role',
+  'roles',
   'scopedRole',
   'eduPersonScopedAffiliation',
   'entitlements',
@@ -22,6 +23,15 @@ const PUBLIC_SESSION_FIELDS = [
   'samlAssertionExpiresAt',
   'institutionalReauthenticationAt',
   'institutionalBackendSessionExpiresAt',
+  'stableUserId',
+  'stableUserIdMode',
+  'authMethod',
+  'identityProtocol',
+  'identityProvider',
+  'identityIssuer',
+  'identitySubject',
+  'identityEvidenceHash',
+  'identityEvidenceHashVersion',
 ];
 
 export function sanitizeSessionUserForClient(sessionUser) {

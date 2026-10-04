@@ -49,8 +49,9 @@ export async function getOnboardingContext({ includeBackend = true } = {}) {
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
     }),
   }
-  if (typeof session.samlAssertionHash === 'string' && /^0x[0-9a-f]{64}$/i.test(session.samlAssertionHash)) {
-    payload.assertionReference = `keccak256:${session.samlAssertionHash.toLowerCase()}`
+  const identityEvidenceHash = session.identityEvidenceHash || session.samlAssertionHash
+  if (typeof identityEvidenceHash === 'string' && /^0x[0-9a-f]{64}$/i.test(identityEvidenceHash)) {
+    payload.assertionReference = `keccak256:${identityEvidenceHash.toLowerCase()}`
   }
 
   const backendUrl = includeBackend

@@ -73,6 +73,11 @@ export function getNormalizedPucFromSession(session) {
     return stableId.toLowerCase()
   }
 
+  const genericStableUserId = session?.stableUserId || session?.puc
+  if (typeof genericStableUserId === 'string' && genericStableUserId.trim()) {
+    return normalizePuc(genericStableUserId)
+  }
+
   return null
 }
 
@@ -82,7 +87,12 @@ export function getStableUserIdModeFromSession(session) {
   const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
   const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
-  if (!principalName) return null
+  if (!principalName) {
+    const genericMode = typeof session?.stableUserIdMode === 'string'
+      ? session.stableUserIdMode.trim()
+      : ''
+    return genericMode || null
+  }
 
   return shouldIncludeEduPersonTargetedId() && targetedId
     ? SAML_STABLE_USER_ID_MODES.PRINCIPAL_TARGETED_ID

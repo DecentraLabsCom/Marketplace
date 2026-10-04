@@ -24,6 +24,7 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { normalizeInstitutionalServiceAudience } from '@/utils/auth/institutionalServiceCredential'
 import { isInstitutionalReauthenticationDue } from '@/utils/auth/institutionalSessionClient'
+import { resolveSessionIdentityEvidence } from '@/utils/auth/identityEvidence'
 
 const checkRate = createRateLimiter({ operation: 'auth-lab-access', windowMs: 60_000, maxRequests: 20 })
 
@@ -289,9 +290,9 @@ export async function POST(req) {
     }
 
     const institutionalSessionToken = session?.institutionalBackendSessionToken
-    const samlAssertionHash = session?.samlAssertionHash
+    const identityEvidence = resolveSessionIdentityEvidence(session)
     if (typeof institutionalSessionToken !== 'string' || !institutionalSessionToken.trim()
-      || typeof samlAssertionHash !== 'string' || !/^0x[0-9a-f]{64}$/i.test(samlAssertionHash)) {
+      || !identityEvidence) {
       throw new UnauthorizedError('Institutional session is missing. Please log in again.')
     }
     if (isInstitutionalReauthenticationDue(session)) {
@@ -344,10 +345,14 @@ export async function POST(req) {
       purpose: 'lab_access',
       reservationKey,
       labId,
-      samlAssertionHash,
-      ...(session?.samlAssertionHashVersion
-        ? { samlAssertionHashVersion: session.samlAssertionHashVersion }
-        : {}),
+      samlAssertionHash: identityEvidence.hash,
+      samlAssertionHashVersion: identityEvidence.version,
+      identityEvidenceHash: identityEvidence.hash,
+      identityEvidenceHashVersion: identityEvidence.version,
+      identityProtocol: identityEvidence.protocol,
+      identityProvider: identityEvidence.provider,
+      identityIssuer: session.identityIssuer,
+      identitySubject: session.identitySubject,
       stableUserIdMode: getStableUserIdModeFromSession(session),
     }
 

@@ -22,7 +22,10 @@ laboratory infrastructure and publish its availability through the platform.
 
 ## Current product model
 
-- Users authenticate with institutional SAML SSO.
+- Users authenticate with institutional identity. The current federation flows are
+  EduGAIN/SAML2 and Microsoft Entra ID/OIDC; CILogon/OIDC and verifiable
+  credentials (including EBSI) use the same provider-neutral session/evidence
+  boundary as they are added.
 - An institution owns the backend and managed wallet that authorize and execute its operations.
 - Service credits are internal units used to authorize reservations and are not redeemable for cash.
 - Reservations and provider changes are authorized through signed intents and a WebAuthn ceremony in the institutional backend.
@@ -50,10 +53,9 @@ npm ci
 npm run dev
 ```
 
-`npm run dev` starts Next.js with Turbopack. Configure a development SAML
-identity provider, RPC endpoint, contract address and server-side session store
-before testing an institutional flow. Do not copy secrets into source files or
-`NEXT_PUBLIC_*` variables.
+`npm run dev` starts Next.js with Turbopack. Configure a development identity
+provider, RPC endpoint, contract address and server-side session store before
+testing an institutional flow.
 
 ## Public documentation
 

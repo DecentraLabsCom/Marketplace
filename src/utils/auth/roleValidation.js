@@ -33,6 +33,9 @@ export const PROVIDER_DENIED_ROLES = [
 export const INSTITUTION_ADMIN_ENTITLEMENT =
   'urn:decentralabs:entitlement:institution-admin';
 
+export const CANONICAL_PROVIDER_ROLE = 'provider';
+export const CANONICAL_ADMIN_ROLE = 'admin';
+
 /**
  * Check if a user role is allowed for provider registration
  * @param {string} role - Primary role from SSO
@@ -42,6 +45,12 @@ export const INSTITUTION_ADMIN_ENTITLEMENT =
 export function validateProviderRole(role, scopedRole = '') {
   const userRole = (role || '').toLowerCase().trim();
   const userScopedRole = (scopedRole || '').toLowerCase().trim();
+  const canonicalRoles = new Set(
+    `${userRole},${userScopedRole}`
+      .split(/[\s,]+/)
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
   
   // Check if explicitly denied first
   const isDenied = PROVIDER_DENIED_ROLES.some(deniedRole => 
@@ -52,6 +61,13 @@ export function validateProviderRole(role, scopedRole = '') {
     return {
       isValid: false,
       reason: `Students and learners are not eligible for provider registration.`
+    };
+  }
+
+  if (canonicalRoles.has(CANONICAL_PROVIDER_ROLE) || canonicalRoles.has(CANONICAL_ADMIN_ROLE)) {
+    return {
+      isValid: true,
+      reason: '',
     };
   }
   

@@ -199,8 +199,14 @@ class MarketplaceJwtService {
    * @param {string} [params.purpose] - Purpose binding for backend-side policy
    * @param {string} [params.reservationKey] - Reservation key bound to this token
   * @param {string|number} [params.labId] - Lab id bound to this token
-  * @param {string} [params.samlAssertionHash] - Keccak256 hash of the SAML assertion
- * @param {string} [params.samlAssertionHashVersion] - Version of the SAML assertion hash
+   * @param {string} [params.samlAssertionHash] - Legacy alias for the identity evidence hash
+   * @param {string} [params.samlAssertionHashVersion] - Legacy alias for the identity evidence hash version
+   * @param {string} [params.identityEvidenceHash] - Provider-neutral identity evidence hash
+   * @param {string} [params.identityEvidenceHashVersion] - Provider-neutral identity evidence hash version
+   * @param {string} [params.identityProtocol] - Identity protocol (saml2, oidc, or vc)
+   * @param {string} [params.identityProvider] - Identity provider identifier
+   * @param {string} [params.identityIssuer] - Identity issuer
+   * @param {string} [params.identitySubject] - External identity subject
    * @param {string} [params.stableUserIdMode] - PUC derivation mode used by Marketplace
    * @returns {Promise<string>} Signed JWT token
    */
@@ -216,6 +222,12 @@ class MarketplaceJwtService {
     labId,
     samlAssertionHash,
     samlAssertionHashVersion,
+    identityEvidenceHash,
+    identityEvidenceHashVersion,
+    identityProtocol,
+    identityProvider,
+    identityIssuer,
+    identitySubject,
     stableUserIdMode,
   } = {}) {
     try {
@@ -279,12 +291,35 @@ class MarketplaceJwtService {
         payload.labId = String(labId);
       }
 
-      if (samlAssertionHash) {
-        if (samlAssertionHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
+      const evidenceHash = identityEvidenceHash || samlAssertionHash;
+      const evidenceHashVersion = identityEvidenceHashVersion || samlAssertionHashVersion;
+      if (evidenceHash) {
+        if (!/^0x[0-9a-fA-F]{64}$/.test(evidenceHash)) {
+          throw new Error('Invalid identityEvidenceHash');
+        }
+        if (typeof evidenceHashVersion !== 'string' || !evidenceHashVersion.trim()) {
+          throw new Error('Identity evidence hash version is required');
+        }
+        if (!identityEvidenceHash && evidenceHashVersion !== INSTITUTIONAL_ASSERTION_HASH_VERSION) {
           throw new Error('Unsupported samlAssertionHashVersion');
         }
-        payload.samlAssertionHash = samlAssertionHash;
-        payload.samlAssertionHashVersion = samlAssertionHashVersion;
+        payload.samlAssertionHash = evidenceHash.toLowerCase();
+        payload.samlAssertionHashVersion = evidenceHashVersion;
+        payload.identityEvidenceHash = evidenceHash.toLowerCase();
+        payload.identityEvidenceHashVersion = evidenceHashVersion;
+      }
+
+      if (identityProtocol) {
+        payload.identityProtocol = identityProtocol;
+      }
+      if (identityProvider) {
+        payload.identityProvider = identityProvider;
+      }
+      if (identityIssuer) {
+        payload.identityIssuer = identityIssuer;
+      }
+      if (identitySubject) {
+        payload.identitySubject = identitySubject;
       }
 
       if (stableUserIdMode) {

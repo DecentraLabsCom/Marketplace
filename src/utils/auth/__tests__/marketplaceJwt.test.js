@@ -447,6 +447,34 @@ describe("MarketplaceJwtService", () => {
       );
     });
 
+    test("includes provider-neutral identity evidence claims for OIDC", async () => {
+      await MarketplaceJwtService.generateSamlAuthToken({
+        puc: "oidc:entra-id:tenant:oid-123",
+        affiliation: "uned.es",
+        payerInstitutionWallet: "0x1111111111111111111111111111111111111111",
+        audience: "https://backend.example.edu",
+        identityEvidenceHash: "0x" + "b".repeat(64),
+        identityEvidenceHashVersion: "oidc-id-token-keccak-v1",
+        identityProtocol: "oidc",
+        identityProvider: "entra-id",
+        identityIssuer: "https://login.microsoftonline.com/tenant/v2.0",
+        identitySubject: "oid-123",
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identityEvidenceHash: "0x" + "b".repeat(64),
+          identityEvidenceHashVersion: "oidc-id-token-keccak-v1",
+          samlAssertionHash: "0x" + "b".repeat(64),
+          identityProtocol: "oidc",
+          identityProvider: "entra-id",
+          identitySubject: "oid-123",
+        }),
+        validPrivateKey,
+        expect.objectContaining({ algorithm: "RS256", keyid: "test-kid" })
+      );
+    });
+
     test('requires an exact backend audience', async () => {
       await expect(MarketplaceJwtService.generateSamlAuthToken({
         puc: 'puc-default',

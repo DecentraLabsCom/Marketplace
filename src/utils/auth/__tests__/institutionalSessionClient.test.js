@@ -12,6 +12,7 @@ jest.mock('@/utils/api/gatewayProxy', () => ({
 import { createInstitutionalServiceToken } from '@/utils/auth/institutionalServiceCredential'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
 import {
+  createInstitutionalIdentitySession,
   createInstitutionalSessionCredential,
   INSTITUTIONAL_ASSERTION_HASH_VERSION,
   isInstitutionalReauthenticationDue,
@@ -71,6 +72,61 @@ describe('institutional session client', () => {
       stableUserIdMode: 'principal',
       puc: 'user@uned.es',
     })).rejects.toThrow('Unsupported institutional backend assertion hash version')
+  })
+
+  test('creates a provider-neutral identity session without sending raw evidence', async () => {
+    institutionalBackendFetch.mockResolvedValue(new Response(JSON.stringify({
+      sessionToken: 'identity-session-token',
+      expiresAt: '2026-08-18T14:00:00.000Z',
+      reauthenticationAt: '2026-08-18T14:00:00.000Z',
+      identityProtocol: 'oidc',
+      identityProvider: 'entra-id',
+      identityIssuer: 'https://login.microsoftonline.com/tenant/v2.0',
+      identitySubject: 'oid-123',
+      identityEvidenceHash: `0x${'b'.repeat(64)}`,
+      identityEvidenceHashVersion: 'oidc-id-token-keccak-v1',
+    }), { status: 200 }))
+
+    const result = await createInstitutionalIdentitySession({
+      backendUrl: 'https://backend.example/',
+      institutionId: 'uned.es',
+      stableUserIdMode: 'oidc-issuer-sub-v1',
+      puc: 'oidc:entra-id:tenant:oid-123',
+      identityEvidence: {
+        protocol: 'oidc',
+        provider: 'entra-id',
+        issuer: 'https://login.microsoftonline.com/tenant/v2.0',
+        subject: 'oid-123',
+        stableUserId: 'oidc:entra-id:tenant:oid-123',
+        evidenceHash: `0x${'b'.repeat(64)}`,
+        evidenceHashVersion: 'oidc-id-token-keccak-v1',
+      },
+      externalIdToken: 'eyJhbGciOiJSUzI1NiJ9.external.payload',
+      identityNonce: 'nonce-1',
+    })
+
+    expect(result).toMatchObject({
+      institutionalBackendSessionToken: 'identity-session-token',
+      identityProtocol: 'oidc',
+      identityEvidenceHashVersion: 'oidc-id-token-keccak-v1',
+    })
+    expect(institutionalBackendFetch).toHaveBeenCalledWith(
+      'https://backend.example/auth/identity/session',
+      expect.objectContaining({
+        body: JSON.stringify({
+          stableUserIdMode: 'oidc-issuer-sub-v1',
+          externalIdToken: 'eyJhbGciOiJSUzI1NiJ9.external.payload',
+        }),
+      }),
+    )
+    expect(createInstitutionalServiceToken).toHaveBeenCalledWith(expect.objectContaining({
+      claims: expect.objectContaining({
+        identityProtocol: 'oidc',
+        identityEvidenceHashVersion: 'oidc-id-token-keccak-v1',
+        identityNonce: 'nonce-1',
+      }),
+    }))
+    expect(createInstitutionalServiceToken.mock.calls[0][0].claims.rawEvidence).toBeUndefined()
   })
 
   test('marks the five-minute reauthentication window as due', () => {

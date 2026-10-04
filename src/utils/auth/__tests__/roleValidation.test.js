@@ -223,6 +223,12 @@ describe("hasInstitutionRegistrationPrivilege", () => {
     ).toBe(true);
   });
 
+  test("accepts canonical provider and admin roles from provider-neutral IdPs", () => {
+    expect(hasInstitutionRegistrationPrivilege({ role: "provider" })).toBe(true);
+    expect(hasInstitutionRegistrationPrivilege({ role: "admin" })).toBe(true);
+    expect(hasInstitutionRegistrationPrivilege({ role: "provider,admin" })).toBe(true);
+  });
+
   test.each(["student", "alum", "library-walk-in", "visitor"])(
     "denies a %s affiliation without the administrator entitlement",
     (role) => {
