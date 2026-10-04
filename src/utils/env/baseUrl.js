@@ -15,12 +15,12 @@ export const getBaseUrl = () => {
     return `${protocol}//${host}`;
   }
   
-  // Server environment - check NODE_ENV and various deployment indicators
+  // Server environment - check NODE_ENV and deployment indicators
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const isVercel = process.env.VERCEL_URL || process.env.VERCEL;
+  const vercelUrl = String(process.env.VERCEL_URL || '').trim();
   const isLocalhost = process.env.HOSTNAME === 'localhost' || 
                      process.env.HOST === 'localhost' ||
-                     !process.env.VERCEL_URL;
+                     !vercelUrl;
   
   // Priority order:
   // 1. Explicit environment variable
@@ -37,14 +37,13 @@ export const getBaseUrl = () => {
   }
   
   // 3. Vercel deployment
-  if (isVercel) {
-    return process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://marketplace-decentralabs.vercel.app';
+  if (vercelUrl) {
+    return `https://${vercelUrl}`;
   }
-  
-  // 4. Fallback to production URL
-  return 'https://marketplace-decentralabs.vercel.app';
+
+  throw new Error(
+    'Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.',
+  );
 };
 
 /**
