@@ -19,6 +19,7 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/pull_request:/);
     expect(workflow).toMatch(/name: Build/);
     expect(workflow).toMatch(/run: npm run build/);
+    expect(workflow).toMatch(/NEXT_PUBLIC_BASE_URL: https:\/\/www\.decentralabs-marketplace\.app/);
   });
 
   test('keeps the Next test bootstrap on the JavaScript project configuration', () => {
