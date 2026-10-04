@@ -32,6 +32,7 @@ jest.mock('@/utils/auth/guards', () => ({
       this.status = 403
     }
   },
+  requireProviderRole: jest.fn(),
 }))
 
 jest.mock('@/utils/security/publicError', () => ({
@@ -48,7 +49,7 @@ import {
   resolveForwardHeaders,
 } from '@/utils/api/backendProxyHelpers'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
-import { handleGuardError } from '@/utils/auth/guards'
+import { handleGuardError, requireProviderRole } from '@/utils/auth/guards'
 import { publicErrorResponse } from '@/utils/security/publicError'
 import { GET as getCreditAccount } from '../credit-account/route'
 import { GET as getCreditLots } from '../credit-account/lots/route'
@@ -87,7 +88,7 @@ describe('institutional billing HTTP routes', () => {
   beforeEach(() => {
     resolveBackendUrlForSession.mockResolvedValue({
       backendUrl: BACKEND_URL,
-      session: { id: 'session-1', isSSO: true },
+      session: { id: 'session-1', isSSO: true, role: 'faculty' },
       institutionDomain: 'uni.example',
     })
     resolveForwardHeaders.mockResolvedValue({
@@ -102,6 +103,8 @@ describe('institutional billing HTTP routes', () => {
       JSON.stringify({ balance: '42', tokenShouldStayServerSide: true }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     )))
+    requireProviderRole.mockReset()
+    requireProviderRole.mockImplementation((session) => session)
   })
 
   test.each(routeCases)('proxies $name through the authenticated institution', async ({ handler, path, upstreamPath }) => {
@@ -172,6 +175,45 @@ describe('institutional billing HTTP routes', () => {
     expect(handleGuardError).toHaveBeenCalled()
     expect(resolveInstitutionAddressFromSession).not.toHaveBeenCalled()
     expect(institutionalBackendFetch).not.toHaveBeenCalled()
+  })
+
+  test('rejects a student from provider-only billing details before resolving the institution', async () => {
+    resolveBackendUrlForSession.mockResolvedValue({
+      backendUrl: BACKEND_URL,
+      session: { id: 'session-1', isSSO: true, role: 'student' },
+      institutionDomain: 'uni.example',
+    })
+    requireProviderRole.mockImplementationOnce(() => {
+      const error = new Error('Provider access required')
+      error.name = 'ForbiddenError'
+      error.code = 'FORBIDDEN'
+      error.status = 403
+      throw error
+    })
+
+    const response = await getCreditMovements(request('/api/billing/credit-account/movements?limit=20'))
+
+    expect(response.status).toBe(403)
+    await expect(json(response)).resolves.toEqual({
+      error: 'Provider access required',
+      code: 'FORBIDDEN',
+    })
+    expect(resolveInstitutionAddressFromSession).not.toHaveBeenCalled()
+    expect(institutionalBackendFetch).not.toHaveBeenCalled()
+  })
+
+  test('allows a student to read the institutional credit-account summary', async () => {
+    resolveBackendUrlForSession.mockResolvedValue({
+      backendUrl: BACKEND_URL,
+      session: { id: 'session-1', isSSO: true, role: 'student' },
+      institutionDomain: 'uni.example',
+    })
+
+    const response = await getCreditAccount(request('/api/billing/credit-account'))
+
+    expect(response.status).toBe(200)
+    expect(requireProviderRole).not.toHaveBeenCalled()
+    expect(institutionalBackendFetch).toHaveBeenCalled()
   })
 
   test('preserves the authentication boundary when the session is missing', async () => {

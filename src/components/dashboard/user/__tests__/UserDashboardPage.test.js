@@ -111,7 +111,11 @@ jest.mock('@/components/dashboard/user/BookingSummarySection', () => ({
 
 jest.mock('@/components/dashboard/user/CreditAccountPanel', () => ({
     __esModule: true,
-    default: () => <div data-testid="credit-account-panel">Credit Panel</div>
+    default: ({ showProviderDetails }) => (
+        <div data-testid="credit-account-panel" data-provider-details={String(showProviderDetails)}>
+            Credit Panel
+        </div>
+    )
 }));
 
 jest.mock('@/components/booking/CalendarWithBookings', () => ({
@@ -304,6 +308,12 @@ describe('UserDashboard - Unit Tests', () => {
         });
 
         test('opens the service credit account from the button below the booking lists', async () => {
+            mockUserData = {
+                ...mockUser,
+                isProvider: true,
+                isProviderLoading: false,
+                user: { ...mockUser.user, role: 'faculty', scopedRole: 'faculty@test.edu' },
+            };
             render(<UserDashboard />);
 
             const upcomingList = screen.getByTestId('bookings-list-upcoming');
@@ -317,7 +327,29 @@ describe('UserDashboard - Unit Tests', () => {
             await userEvent.click(accountButton);
 
             expect(screen.getByRole('dialog', { name: 'Service Credit Account' })).toBeInTheDocument();
-            expect(screen.getByTestId('credit-account-panel')).toBeInTheDocument();
+            expect(screen.getByTestId('credit-account-panel')).toHaveAttribute('data-provider-details', 'true');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Close modal' }));
+            expect(screen.queryByRole('dialog', { name: 'Service Credit Account' })).not.toBeInTheDocument();
+        });
+
+        test('keeps the service credit account available to students without provider details', async () => {
+            mockUserData = {
+                ...mockUser,
+                isProvider: true,
+                isProviderLoading: false,
+                user: { ...mockUser.user, role: 'student', scopedRole: 'student@test.edu' },
+            };
+
+            render(<UserDashboard />);
+
+            const accountButton = screen.getByRole('button', { name: /view service credit account/i });
+            expect(accountButton).toBeInTheDocument();
+
+            await userEvent.click(accountButton);
+
+            expect(screen.getByRole('dialog', { name: 'Service Credit Account' })).toBeInTheDocument();
+            expect(screen.getByTestId('credit-account-panel')).toHaveAttribute('data-provider-details', 'false');
 
             await userEvent.click(screen.getByRole('button', { name: 'Close modal' }));
             expect(screen.queryByRole('dialog', { name: 'Service Credit Account' })).not.toBeInTheDocument();

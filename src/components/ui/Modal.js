@@ -53,7 +53,7 @@ const THEMES = {
  * @param {Object} props - Component props
  * @param {boolean} props.isOpen - Whether the modal is visible
  * @param {function} [props.onClose] - Handler for closing the modal (if not provided, modal cannot be closed)
- * @param {string} [props.title] - Optional title displayed in header
+ * @param {React.ReactNode} [props.title] - Optional title displayed in header
  * @param {string} [props.size='md'] - Modal size: 'sm', 'md', 'lg', 'xl', '2xl', 'full'
  * @param {string} [props.theme='light'] - Modal theme: 'light' or 'dark'
  * @param {React.ReactNode} props.children - Modal content
@@ -233,7 +233,7 @@ export default function Modal({
 Modal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func,
-  title: PropTypes.string,
+  title: PropTypes.node,
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', '2xl', 'full']),
   theme: PropTypes.oneOf(['light', 'dark']),
   children: PropTypes.node.isRequired,

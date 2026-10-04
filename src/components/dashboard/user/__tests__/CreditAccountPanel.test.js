@@ -113,7 +113,6 @@ describe('CreditAccountPanel', () => {
     render(<CreditAccountPanel />);
 
     expect(screen.getByTestId('credit-account-panel')).toBeInTheDocument();
-    expect(screen.getByText('Service Credit Account')).toBeInTheDocument();
     expect(screen.getByText('150 credits')).toBeInTheDocument();
     expect(screen.getByText('20 credits')).toBeInTheDocument();
     expect(screen.getByText('30 credits')).toBeInTheDocument();
@@ -123,7 +122,6 @@ describe('CreditAccountPanel', () => {
   test('uses readable dashboard-sized typography for account details', () => {
     render(<CreditAccountPanel />);
 
-    expect(screen.getByText('Service Credit Account')).toHaveClass('text-lg');
     expect(screen.getByText('Available').parentElement).toHaveClass('text-sm');
     expect(screen.getByText('150 credits')).toHaveClass('text-base');
   });
@@ -141,8 +139,26 @@ describe('CreditAccountPanel', () => {
     expect(screen.getByTestId('institutional-spending-stats')).toBeInTheDocument();
     expect(screen.getByText('187.5 credits')).toBeInTheDocument();
     expect(screen.getByText('12.5 credits')).toBeInTheDocument();
-    expect(screen.getByText('200 credits')).toBeInTheDocument();
-    expect(screen.getByText(/Resets/)).toBeInTheDocument();
+    const periodLimit = screen.getByTestId('institutional-spending-period-limit');
+    expect(periodLimit).toHaveTextContent('Resets on');
+    expect(screen.queryByText('200 credits')).not.toBeInTheDocument();
+  });
+
+  test('keeps balance and spending period visible without provider-only details', () => {
+    spendingStatsData = {
+      currentPeriodSpent: '125000000',
+      spendingLimit: '2000000000',
+      remainingAllowance: '1875000000',
+      periodEnd: '1710368000',
+    };
+    mockMovements.push({ id: 1, movementType: 'MINT', amount: '500.0', createdAt: '2026-03-20T10:00:00Z' });
+
+    render(<CreditAccountPanel showProviderDetails={false} />);
+
+    expect(screen.getByText('150 credits')).toBeInTheDocument();
+    expect(screen.getByTestId('institutional-spending-stats')).toBeInTheDocument();
+    expect(screen.queryByText(/Recent activity/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('credit-movements-list')).not.toBeInTheDocument();
   });
 
   test('does not show the top-up notice when available credits are not low', () => {
