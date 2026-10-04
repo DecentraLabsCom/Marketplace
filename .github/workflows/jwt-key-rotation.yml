@@ -237,7 +237,7 @@ jobs:
         if: steps.check-rotation.outputs.needs_rotation == 'true'
         env:
           CANDIDATE_KID: ${{ steps.rotate-keys.outputs.candidate_kid }}
-          MARKETPLACE_URL: https://decentralabs-marketplace.app
+          MARKETPLACE_URL: https://www.decentralabs-marketplace.app
         run: |
           echo "Waiting for deployed JWKS to expose kid ${CANDIDATE_KID}..."
           for attempt in $(seq 1 120); do
@@ -267,7 +267,7 @@ jobs:
       - name: Redeploy production with the activated Vercel variables
         if: steps.check-rotation.outputs.needs_rotation == 'true'
         env:
-          MARKETPLACE_URL: https://decentralabs-marketplace.app
+          MARKETPLACE_URL: https://www.decentralabs-marketplace.app
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
         run: |
