@@ -61,4 +61,14 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(packageJson.scripts['docs:check']).toBe('node scripts/check-public-docs.mjs');
     expect(fs.existsSync(path.join(repositoryRoot, 'scripts/check-public-docs.mjs'))).toBe(true);
   });
+  test('keeps production JWT rotation scoped to the production Vercel target', () => {
+    const workflow = readRepositoryFile('.github/workflows/jwt-key-rotation.yml');
+
+    expect(workflow).toMatch(/MARKETPLACE_URL: https:\/\/www\.decentralabs-marketplace\.app/);
+    expect(workflow).not.toMatch(/MARKETPLACE_URL: https:\/\/decentralabs-marketplace\.app(?:\/|\s)/);
+    expect(workflow).toMatch(/node scripts\/update-vercel-env\.js --targets=production/);
+    expect(workflow).toMatch(/npx --yes vercel@latest/);
+    expect(workflow).toMatch(/vercel_args=\(redeploy/);
+  });
+
 });

@@ -38,7 +38,7 @@ Before you can reserve and access a laboratory, you need:
 
 ### 1. Sign in with Your Institution
 
-Navigate to the [DecentraLabs Marketplace](https://decentralabs-marketplace.app) and use **Institutional Login**.
+Navigate to the [DecentraLabs Marketplace](https://www.decentralabs-marketplace.app) and use **Institutional Login**.
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 

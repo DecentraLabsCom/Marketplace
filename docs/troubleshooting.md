@@ -23,6 +23,6 @@ institution, approximate time and any correlation ID when contacting support.
 
 Do not send passwords, SAML assertions, bearer tokens, private keys, backend
 credentials or full personal-data exports in a support request. The Marketplace
-contact route is the live [Contact page](https://decentralabs-marketplace.app/contact).
+contact route is the live [Contact page](https://www.decentralabs-marketplace.app/contact).
 
 Last reviewed: 2026-09-02
