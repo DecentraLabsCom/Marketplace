@@ -18,6 +18,8 @@ import BookingsList from '@/components/dashboard/user/BookingsList'
 import CreditAccountPanel from '@/components/dashboard/user/CreditAccountPanel'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
+import { hasInstitutionRegistrationPrivilege } from '@/utils/auth/roleValidation'
+import { CreditCard } from 'lucide-react'
 import devLog from '@/utils/dev/logger'
 import useCurrentTime from '@/hooks/useCurrentTime'
 import {
@@ -39,9 +41,15 @@ export default function UserDashboard() {
     user,
     isLoggedIn,
     isSSO,
+    isProvider,
+    isProviderLoading,
     address,
   } = useUser();
   const institutionName = user?.institutionName || user?.organizationName || user?.affiliation || null;
+  const canViewProviderCreditDetails =
+    isProvider &&
+    !isProviderLoading &&
+    hasInstitutionRegistrationPrivilege(user);
   
   // Institutional bookings are resolved through backend/API queries only.
   const canFetchBookings = canFetchUserBookings({
@@ -568,7 +576,8 @@ export default function UserDashboard() {
               />
             </div>
 
-            {/* Credit account details - available on demand for SSO institutional users */}
+            {/* Institutional credit-account balance and period are available to SSO users;
+                provider-only details are filtered inside the panel. */}
             {isSSO && (
               <div className="mt-6 flex justify-center">
                 <button
@@ -581,15 +590,22 @@ export default function UserDashboard() {
               </div>
             )}
 
-            <Modal
-              isOpen={isCreditAccountModalOpen}
-              onClose={() => setIsCreditAccountModalOpen(false)}
-              title="Service Credit Account"
-              size="xl"
-              theme="dark"
-            >
-              <CreditAccountPanel />
-            </Modal>
+            {isSSO && (
+              <Modal
+                isOpen={isCreditAccountModalOpen}
+                onClose={() => setIsCreditAccountModalOpen(false)}
+                title={(
+                  <span className="flex items-center gap-2">
+                    <CreditCard className="size-5" aria-hidden="true" />
+                    <span>Service Credit Account</span>
+                  </span>
+                )}
+                size="xl"
+                theme="dark"
+              >
+                <CreditAccountPanel showProviderDetails={canViewProviderCreditDetails} />
+              </Modal>
+            )}
           </div>
         </div>
       </Container>

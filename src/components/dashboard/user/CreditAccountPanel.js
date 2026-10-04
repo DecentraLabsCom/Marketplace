@@ -98,11 +98,11 @@ const hasLowAvailableCredits = (value) => {
   return Number.isFinite(parsed) && parsed < LOW_AVAILABLE_CREDIT_THRESHOLD;
 };
 
-export default function CreditAccountPanel() {
+export default function CreditAccountPanel({ showProviderDetails = true }) {
   const accountQuery = useCreditAccountSummary();
-  const lotsQuery = useCreditLots();
-  const fundingOrdersQuery = useFundingOrders();
-  const movementsQuery = useCreditMovements({ limit: 10 });
+  const lotsQuery = useCreditLots({ enabled: showProviderDetails });
+  const fundingOrdersQuery = useFundingOrders({ enabled: showProviderDetails });
+  const movementsQuery = useCreditMovements({ limit: 10, enabled: showProviderDetails });
   const spendingStatsQuery = useInstitutionalSpendingStats();
   const { data: account, isLoading: accountLoading, isError: accountErrorState, error: accountError } = accountQuery;
   const { data: lots } = lotsQuery;
@@ -199,15 +199,6 @@ export default function CreditAccountPanel() {
       className="rounded-xl p-5 space-y-4"
       style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}
     >
-      {/* Header */}
-      <h3
-        className="flex items-center gap-2 text-lg font-semibold"
-        style={{ color: 'var(--color-text-inverse)' }}
-      >
-        <span className="text-base">💳</span>
-        Service Credit Account
-      </h3>
-
       {accountErrorState && (
         <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
           <p>Credit account could not be loaded. Showing the last successful data.</p>
@@ -250,7 +241,7 @@ export default function CreditAccountPanel() {
           className="rounded-lg border border-slate-600/70 bg-slate-900/30 p-3 space-y-2"
         >
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
-            Current spending limit
+            User spending limit
           </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
             <span>Remaining this period</span>
@@ -261,20 +252,23 @@ export default function CreditAccountPanel() {
             <span className="text-right font-semibold">
               {formatRawCredits(spendingStats.currentPeriodSpent)} credits
             </span>
-            <span>Period limit</span>
+          </div>
+          <div
+            data-testid="institutional-spending-period-limit"
+            className="flex items-center justify-between gap-4 whitespace-nowrap text-sm"
+            style={{ color: CREDIT_PANEL_TEXT_COLOR }}
+          >
+            <span>Resets on</span>
             <span className="text-right font-semibold">
-              {formatRawCredits(spendingStats.spendingLimit)} credits
+              {formatPeriodDate(spendingStats.periodEnd)}
             </span>
           </div>
-          <p className="text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
-            Resets {formatPeriodDate(spendingStats.periodEnd)}
-          </p>
         </div>
       )}
 
       {spendingStatsQuery.isError && !accountErrorState && (
         <div role="alert" className="rounded border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-amber-200">
-          <p>Current spending limit could not be loaded. The account balance is still available.</p>
+          <p>User spending limit could not be loaded. The account balance is still available.</p>
           <button type="button" onClick={() => spendingStatsQuery.refetch?.()} className="mt-2 underline">
             Retry
           </button>
@@ -282,7 +276,7 @@ export default function CreditAccountPanel() {
       )}
 
       {/* Expiring lots */}
-      {expiringLots.length > 0 && (
+      {showProviderDetails && expiringLots.length > 0 && (
         <div>
           <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             ⚠️ Expiring credit lots (next 30 days)
@@ -299,7 +293,7 @@ export default function CreditAccountPanel() {
       )}
 
       {/* Active funding orders */}
-      {activeFundingOrders.length > 0 && (
+      {showProviderDetails && activeFundingOrders.length > 0 && (
         <div>
           <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             📄 Pending top-up orders
@@ -321,7 +315,7 @@ export default function CreditAccountPanel() {
       )}
 
       {/* Recent activity */}
-      {recentMovements.length > 0 && (
+      {showProviderDetails && recentMovements.length > 0 && (
         <div>
           <p className="mb-1 text-sm font-medium" style={{ color: 'var(--color-text-inverse)' }}>
             📋 Recent activity
@@ -357,7 +351,7 @@ export default function CreditAccountPanel() {
       )}
 
       {/* No orders message */}
-      {shouldShowTopUpNotice && (
+      {showProviderDetails && shouldShowTopUpNotice && (
         <p className="text-xs" style={{ color: CREDIT_PANEL_TEXT_COLOR }}>
           No pending top-up orders. Contact your administrator to request service-credit top-up.
         </p>

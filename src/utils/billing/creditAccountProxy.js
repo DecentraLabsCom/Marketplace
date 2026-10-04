@@ -3,7 +3,7 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import { resolveBackendUrlForSession, resolveForwardHeaders } from '@/utils/api/backendProxyHelpers'
 import { institutionalBackendFetch } from '@/utils/api/gatewayProxy'
-import { ForbiddenError } from '@/utils/auth/guards'
+import { ForbiddenError, requireProviderRole } from '@/utils/auth/guards'
 import { publicErrorResponse } from '@/utils/security/publicError'
 
 const MAX_MOVEMENTS = 100
@@ -18,6 +18,7 @@ export async function proxyCreditAccount(resource, request) {
   try {
     const { backendUrl, session, institutionDomain } = await resolveBackendUrlForSession()
     if (!session.isSSO) throw new ForbiddenError('Institutional SSO session required')
+    if (resource !== 'summary') requireProviderRole(session)
     if (!backendUrl) {
       return publicErrorResponse({ status: 424, code: 'BACKEND_NOT_CONFIGURED', message: 'The institutional billing service is not configured.', context: 'billing-proxy' })
     }
