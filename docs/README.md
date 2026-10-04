@@ -67,15 +67,16 @@ The live product also publishes the [FAQ](https://decentralabs-marketplace.app/f
 ## Federation callback origins
 
 Production uses `https://decentralabs-marketplace.app`. The stable Preview
-deployment for the `develop` branch uses
-`https://marketplace-decentralabs.vercel.app`. Register the corresponding
+deployment uses `https://marketplace-decentralabs.vercel.app`; its branch is
+selected by the GitHub `MARKETPLACE_PREVIEW_BRANCH` variable (currently
+`feature/entra-id` when the variable is not set). Register the corresponding
 SAML metadata/ACS URLs and Entra redirect URI in the external identity
 providers; the two origins must not be mixed:
 
 | Environment | SAML metadata | SAML ACS/callback | SAML logout | Entra redirect URI |
 | --- | --- | --- | --- | --- |
 | Production | `https://decentralabs-marketplace.app/api/auth/sso/saml2/metadata` | `https://decentralabs-marketplace.app/api/auth/sso/saml2/callback` | `https://decentralabs-marketplace.app/api/auth/sso/saml2/logout` | `https://decentralabs-marketplace.app/api/auth/entra/callback` |
-| Preview (`develop`) | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/metadata` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/callback` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/logout` | `https://marketplace-decentralabs.vercel.app/api/auth/entra/callback` |
+| Preview (configured branch) | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/metadata` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/callback` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/logout` | `https://marketplace-decentralabs.vercel.app/api/auth/entra/callback` |
 
 For implementation-specific work, consult the documentation of the owning
 project: [Lab-Metadata](https://github.com/DecentraLabsCom/Lab-Metadata),

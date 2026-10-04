@@ -263,6 +263,19 @@ jobs:
           echo "Activating JWT signing key after overlapping JWKS deployment..."
           node scripts/update-vercel-env.js --targets=production
           echo "Candidate signing key activated"
+
+      - name: Redeploy production with the activated Vercel variables
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        env:
+          MARKETPLACE_URL: https://decentralabs-marketplace.app
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+        run: |
+          vercel_args=(redeploy "$MARKETPLACE_URL" --target production --token "$VERCEL_TOKEN" --non-interactive)
+          if [ -n "$VERCEL_TEAM_ID" ]; then
+            vercel_args+=(--scope "$VERCEL_TEAM_ID")
+          fi
+          npx --yes vercel@latest "${vercel_args[@]}"
           
       - name: Notify team (optional)
         if: steps.check-rotation.outputs.needs_rotation == 'true'

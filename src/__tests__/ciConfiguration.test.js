@@ -61,4 +61,26 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(packageJson.scripts['docs:check']).toBe('node scripts/check-public-docs.mjs');
     expect(fs.existsSync(path.join(repositoryRoot, 'scripts/check-public-docs.mjs'))).toBe(true);
   });
+
+  test('keeps production JWT rotation scoped to the production Vercel target', () => {
+    const workflow = readRepositoryFile('.github/workflows/jwt-key-rotation.yml');
+
+    expect(workflow).toMatch(/MARKETPLACE_URL: https:\/\/decentralabs-marketplace\.app/);
+    expect(workflow).toMatch(/node scripts\/update-vercel-env\.js --targets=production/);
+    expect(workflow).toMatch(/npx --yes vercel@latest/);
+    expect(workflow).toMatch(/vercel_args=\(redeploy/);
+  });
+
+  test('ships an isolated Preview JWT rotation workflow', () => {
+    const workflow = readRepositoryFile('.github/workflows/jwt-key-rotation-preview.yml');
+
+    expect(workflow).toMatch(/MARKETPLACE_URL: https:\/\/marketplace-decentralabs\.vercel\.app/);
+    expect(workflow).toMatch(/node scripts\/update-vercel-env\.js --targets=preview/);
+    expect(workflow).toMatch(/PREVIEW_BRANCH/);
+    expect(workflow).toMatch(/base: \$\{\{ env\.PREVIEW_BRANCH \}\}/);
+    expect(workflow).toMatch(/if \[ "\$PREVIEW_BRANCH" = "main" \]/);
+    expect(workflow).toMatch(/Capture current Preview public key/);
+    expect(workflow).toMatch(/npx --yes vercel@latest/);
+    expect(workflow).toMatch(/vercel_args=\(redeploy/);
+  });
 });
