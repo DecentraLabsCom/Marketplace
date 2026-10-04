@@ -23,6 +23,9 @@ let lotsError = null;
 let fundingOrdersError = null;
 let movementsError = null;
 let accountUpdatedAt = Date.now();
+let spendingStatsData = null;
+let spendingStatsError = null;
+let spendingStatsRefetch = jest.fn();
 
 jest.mock('@/hooks/billing/useBillingAccount', () => ({
   useCreditAccountSummary: () => ({
@@ -36,6 +39,13 @@ jest.mock('@/hooks/billing/useBillingAccount', () => ({
   useCreditLots: () => ({ data: mockLots, isError: Boolean(lotsError), error: lotsError, refetch: jest.fn() }),
   useFundingOrders: () => ({ data: mockFundingOrders, isError: Boolean(fundingOrdersError), error: fundingOrdersError, refetch: jest.fn() }),
   useCreditMovements: () => ({ data: mockMovements, isError: Boolean(movementsError), error: movementsError, refetch: jest.fn() }),
+  useInstitutionalSpendingStats: () => ({
+    data: spendingStatsData,
+    isLoading: false,
+    isError: Boolean(spendingStatsError),
+    error: spendingStatsError,
+    refetch: spendingStatsRefetch,
+  }),
 }));
 
 import CreditAccountPanel from '../CreditAccountPanel';
@@ -50,6 +60,9 @@ describe('CreditAccountPanel', () => {
     fundingOrdersError = null;
     movementsError = null;
     accountUpdatedAt = Date.now();
+    spendingStatsData = null;
+    spendingStatsError = null;
+    spendingStatsRefetch = jest.fn();
     mockLots.length = 0;
     mockFundingOrders.length = 0;
     mockMovements.length = 0;
@@ -113,6 +126,23 @@ describe('CreditAccountPanel', () => {
     expect(screen.getByText('Service Credit Account')).toHaveClass('text-lg');
     expect(screen.getByText('Available').parentElement).toHaveClass('text-sm');
     expect(screen.getByText('150 credits')).toHaveClass('text-base');
+  });
+
+  test('shows the current institutional spending allowance and reset date', () => {
+    spendingStatsData = {
+      currentPeriodSpent: '125000000',
+      spendingLimit: '2000000000',
+      remainingAllowance: '1875000000',
+      periodEnd: '1710368000',
+    };
+
+    render(<CreditAccountPanel />);
+
+    expect(screen.getByTestId('institutional-spending-stats')).toBeInTheDocument();
+    expect(screen.getByText('187.5 credits')).toBeInTheDocument();
+    expect(screen.getByText('12.5 credits')).toBeInTheDocument();
+    expect(screen.getByText('200 credits')).toBeInTheDocument();
+    expect(screen.getByText(/Resets/)).toBeInTheDocument();
   });
 
   test('does not show the top-up notice when available credits are not low', () => {

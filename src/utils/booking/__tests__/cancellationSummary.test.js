@@ -20,8 +20,16 @@ describe('cancellationSummary', () => {
     expect(calculateCancellationCreditReturn({ status: 1, price: '100000000', resourceType: 'fmu' })).toBe(100000000n)
   })
 
-  test('applies the contractual minimum cancellation fee', () => {
+  test('applies the exact contractual ten-percent cancellation fee', () => {
     expect(calculateCancellationCreditReturn({ status: 1, price: '10000000' })).toBe(9000000n)
+  })
+
+  test('applies the exact ten-percent fee for small prices', () => {
+    const preview = getCancellationPreview({ status: 1, price: '1000000' })
+
+    expect(preview.totalFeeRaw).toBe(100000n)
+    expect(preview.providerFeeRaw).toBe(60000n)
+    expect(preview.refundRaw).toBe(900000n)
   })
 
   test('does not invent a return amount when the reservation price is unavailable', () => {
@@ -55,7 +63,6 @@ describe('cancellationSummary', () => {
     expect(preview.totalFeeRaw).toBe(10000000n)
     expect(preview.providerFeeRaw).toBe(6000000n)
     expect(preview.refundRaw).toBe(90000000n)
-    expect(preview.minimumFeeApplied).toBe(false)
     expect(preview.allocations).toHaveLength(0)
     expect(preview.allocationCount).toBe(1)
     expect(preview.policyVersion).toBe(2)
@@ -103,7 +110,6 @@ describe('cancellationSummary', () => {
     expect(preview.totalFeeRaw).toBe(1000000n)
     expect(preview.providerFeeRaw).toBe(600000n)
     expect(preview.refundRaw).toBe(9000000n)
-    expect(preview.minimumFeeApplied).toBe(false)
     expect(preview.cancellationCutoff).toBe(1893456000)
     expect(preview.cancellable).toBe(false)
     expect(preview.policyVersion).toBeNull()

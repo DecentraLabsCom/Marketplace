@@ -35,6 +35,7 @@ import {
   normalizeAllowedDurations,
   normalizeBookingMode,
 } from '@/utils/pricing/pricingUnits'
+import { calculateInstitutionalReservationFee } from '@/utils/pricing/reservationFees'
 
 const durationToDays = (duration) => {
   const value = Number(duration?.value)
@@ -416,7 +417,7 @@ export function useLabReservationState({
   const totalCost = useMemo(
     () => {
       if (!selectedLab) return 0n
-      if (isSSO && isOwnInstitutionLab) return 0n
+      let reservationCost = 0n
       if (isCalendarPeriod) {
         const startDate = new Date(date)
         startDate.setHours(0, 0, 0, 0)
@@ -426,9 +427,21 @@ export function useLabReservationState({
           : addDaysAtStartOfDay(startDate, duration)
         resolvedEndDate.setHours(0, 0, 0, 0)
         const end = Math.floor(resolvedEndDate.getTime() / 1000)
-        return calculateReservationCost(selectedLab.price, { start, end })
+        reservationCost = isSSO && isOwnInstitutionLab
+          ? 0n
+          : calculateReservationCost(selectedLab.price, { start, end })
+      } else {
+        reservationCost = isSSO && isOwnInstitutionLab
+          ? 0n
+          : calculateReservationCost(selectedLab.price, duration)
       }
-      return calculateReservationCost(selectedLab.price, duration)
+
+      return reservationCost + calculateInstitutionalReservationFee({
+        isSSO,
+        isOwnInstitutionLab,
+        reservationPrice: reservationCost,
+        isDemo: selectedLab.demoEnabled === true,
+      })
     },
     [selectedLab, isSSO, isOwnInstitutionLab, isCalendarPeriod, allowCustomDateRange, periodEndDate, date, duration, calculateReservationCost]
   )

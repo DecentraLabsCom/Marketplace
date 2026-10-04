@@ -113,3 +113,26 @@ export const useCreditMovements = (options = {}) => {
     ...options,
   });
 };
+
+/**
+ * Fetch the authenticated user's current institutional spending-period data.
+ * The API derives the institution and PUC from the SSO session.
+ */
+export const useInstitutionalSpendingStats = (options = {}) => {
+  const { address, isSSO, isLoggedIn } = useUser();
+  const enabled = Boolean(isSSO && isLoggedIn && address) && (options.enabled !== false);
+
+  return useQuery({
+    queryKey: ['contract', 'institutionalSpendingStats', address],
+    queryFn: async () => {
+      const url = '/api/contract/institution/getUserFinancialStats';
+      devLog.log('useInstitutionalSpendingStats – fetching', url);
+      return safeFetch(url);
+    },
+    enabled,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    ...options,
+  });
+};

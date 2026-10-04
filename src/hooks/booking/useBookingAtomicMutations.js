@@ -359,6 +359,9 @@ export const useReservationRequestSSO = (options = {}) => {
                   labId: variables.tokenId,
                   reservationKey: finalKey,
                 });
+                if (reservationConfirmed) {
+                  queryClient.invalidateQueries({ queryKey: ['contract', 'institutionalSpendingStats'] });
+                }
 
                 devLog.log('✅ Invalidated booking queries after institutional reservation executed:', {
                   finalKey,
@@ -570,6 +573,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   labId,
                   reservationKey,
                 });
+                queryClient.invalidateQueries({ queryKey: ['contract', 'institutionalSpendingStats'] });
 
                 devLog.log('✅ Invalidated booking queries after reservation request cancellation executed');
 
@@ -600,6 +604,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   labId,
                   reservationKey,
                 });
+                queryClient.invalidateQueries({ queryKey: ['contract', 'institutionalSpendingStats'] });
 
                 try {
                   clearOptimisticBookingState(reservationKey);
