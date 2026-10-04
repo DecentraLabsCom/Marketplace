@@ -82,7 +82,12 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/base: \$\{\{ env\.PREVIEW_BRANCH \}\}/);
     expect(workflow).toMatch(/if \[ "\$PREVIEW_BRANCH" = "main" \]/);
     expect(workflow).toMatch(/Capture current Preview public key/);
-    expect(workflow).toMatch(/npx --yes vercel@latest/);
-    expect(workflow).toMatch(/vercel_args=\(redeploy/);
+    expect(workflow).toMatch(/npm install -g vercel@latest/);
+    expect(workflow).toMatch(/git fetch --no-tags origin "\$PREVIEW_BRANCH"/);
+    expect(workflow).toMatch(/git reset --hard "origin\/\$PREVIEW_BRANCH"/);
+    expect(workflow).toMatch(/vercel pull --yes --environment=preview/);
+    expect(workflow).toMatch(/vercel build --token=/);
+    expect(workflow).toMatch(/vercel deploy --prebuilt --token=/);
+    expect(workflow).not.toMatch(/vercel_args=\(redeploy/);
   });
 });

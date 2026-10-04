@@ -59,6 +59,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
       - name: Capture current Preview public key
         run: |
           mkdir -p public/.well-known
@@ -194,6 +197,12 @@ jobs:
           echo "Preview candidate key was not exposed by the deployed JWKS"
           exit 1
 
+      - name: Refresh Preview branch after rotation PR merge
+        if: steps.create-pr.outputs.pull-request-number != ''
+        run: |
+          git fetch --no-tags origin "$PREVIEW_BRANCH"
+          git reset --hard "origin/$PREVIEW_BRANCH"
+
       - name: Activate Preview candidate key in Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
@@ -204,14 +213,24 @@ jobs:
           node scripts/update-vercel-env.js --targets=preview
           echo "Preview candidate signing key activated"
 
-      - name: Redeploy Preview with the activated Vercel variables
+      - name: Pull Preview environment with activated Vercel variables
         env:
-          MARKETPLACE_URL: https://marketplace-decentralabs.vercel.app
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Build Preview with activated Vercel variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
+        run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Create new Preview deployment with activated Vercel variables
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
         run: |
-          vercel_args=(redeploy "$MARKETPLACE_URL" --target preview --token "$VERCEL_TOKEN" --non-interactive)
-          if [ -n "$VERCEL_TEAM_ID" ]; then
-            vercel_args+=(--scope "$VERCEL_TEAM_ID")
-          fi
-          npx --yes vercel@latest "${vercel_args[@]}"
+          vercel deploy --prebuilt --token="$VERCEL_TOKEN"
