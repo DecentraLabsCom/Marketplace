@@ -101,7 +101,7 @@
     "baseline-browser-mapping": "^2.11.21",
     "cypress": "^15.21.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.6",
+    "eslint-config-next": "^16.3.8",
     "eslint-plugin-drizzle": "^0.2.3",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-jest": "^29.16.6",
