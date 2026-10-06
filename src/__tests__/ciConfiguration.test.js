@@ -30,6 +30,12 @@ describe('CI and dependency reproducibility configuration', () => {
     );
   });
 
+  test('pins the patched source-map-js version in the production dependency tree', () => {
+    const lockfile = JSON.parse(readRepositoryFile('package-lock.json'));
+
+    expect(lockfile.packages['node_modules/source-map-js'].version).toBe('1.2.2');
+  });
+
   test('keeps the Next test bootstrap on the JavaScript project configuration', () => {
     expect(fs.existsSync(path.join(repositoryRoot, 'tsconfig.json'))).toBe(false);
     expect(fs.existsSync(path.join(repositoryRoot, 'jsconfig.json'))).toBe(true);
