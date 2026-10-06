@@ -22,6 +22,14 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/NEXT_PUBLIC_BASE_URL: https:\/\/www\.decentralabs-marketplace\.app/);
   });
 
+  test('provides the public base URL when Lighthouse builds the app', () => {
+    const workflow = readRepositoryFile('.github/workflows/lighthouse.yml');
+
+    expect(workflow).toMatch(
+      /name: Build Next\.js app[\s\S]*?run: npm run build[\s\S]*?NEXT_PUBLIC_BASE_URL: https:\/\/www\.decentralabs-marketplace\.app/,
+    );
+  });
+
   test('keeps the Next test bootstrap on the JavaScript project configuration', () => {
     expect(fs.existsSync(path.join(repositoryRoot, 'tsconfig.json'))).toBe(false);
     expect(fs.existsSync(path.join(repositoryRoot, 'jsconfig.json'))).toBe(true);
