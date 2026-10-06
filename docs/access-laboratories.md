@@ -42,6 +42,12 @@ Navigate to the [DecentraLabs Marketplace](https://www.decentralabs-marketplace.
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
+![Institutional Login dialog](../.gitbook/assets/marketplace-institutional-login.png)
+
+The dialog shows the current entry point: **Institutional Login** redirects to
+the institution's SSO provider. A personal wallet is not part of this access
+step.
+
 The session may expire after a period of inactivity or when the institution's
 SSO session ends. If Marketplace asks you to sign in again, complete
 Institutional Login before retrying the reservation or access request.

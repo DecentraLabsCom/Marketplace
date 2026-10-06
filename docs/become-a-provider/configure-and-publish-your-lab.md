@@ -2,7 +2,11 @@
 
 Once the institution has been onboarded and the provider role is available, open the **Lab Panel** and select **Add New Lab**. The normal provider flow uses institutional SSO and the institution's managed backend. It does not require a personal Web3 wallet, a network selection, a browser gas payment or a direct Marketplace transaction.
 
-<figure><img src="../../.gitbook/assets/image (1) (1).png" alt="Lab Panel"><figcaption></figcaption></figure>
+![Add New Lab dialog](../../.gitbook/assets/marketplace-add-new-lab.png)
+
+The screenshot uses fictitious example data and shows the current provider
+dialog, including the **Full Setup**/**Quick Setup** choice and the **Real Lab**
+/**Simulation** resource type.
 
 The form offers **Full Setup** and **Quick Setup**. Both flows send authorized changes through the institution's configured backend; the backend performs the on-chain operation with the managed institutional wallet.
 
@@ -36,7 +40,11 @@ Quick Setup is for providers that already maintain a metadata document at an ext
 
 The metadata URL is public catalogue input. Keep access URLs, access keys, service credentials and institutional contact details outside the public document.
 
-<figure><img src="../../.gitbook/assets/image (3).png" alt="Quick Setup"><figcaption></figcaption></figure>
+![Quick Setup form](../../.gitbook/assets/marketplace-quick-setup.png)
+
+Quick Setup keeps the provider input small: price and unit, access endpoint,
+access key and the public metadata URL. The values shown in the capture are
+illustrative only.
 
 ## Listing and unlisted labs
 
