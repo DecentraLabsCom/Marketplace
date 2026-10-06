@@ -19,4 +19,4 @@ implementation notes are intentionally kept out of the public navigation.
     * [Operate your laboratory](docs/provider/operate-your-lab.md)
     * [Access security for providers](docs/become-a-provider/authentication-and-authorization.md)
 * [Troubleshooting](docs/troubleshooting.md)
-* [FAQ and operational notices](docs/README.md#support-and-operational-notices)
+* [Support and live notices](docs/README.md#support-and-operational-notices)

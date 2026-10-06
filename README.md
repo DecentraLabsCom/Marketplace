@@ -22,7 +22,10 @@ laboratory infrastructure and publish its availability through the platform.
 
 ## Current product model
 
-- Users authenticate with institutional SAML SSO.
+- Production users authenticate with institutional SAML SSO. Microsoft Entra
+  ID/OIDC is implemented on `feature/entra-id` and is available to the stable
+  Preview; it becomes a production path when that branch is promoted to
+  `main`.
 - An institution owns the backend and managed wallet that authorize and execute its operations.
 - Service credits are internal units used to authorize reservations and are not redeemable for cash.
 - Reservations and provider changes are authorized through signed intents and a WebAuthn ceremony in the institutional backend.

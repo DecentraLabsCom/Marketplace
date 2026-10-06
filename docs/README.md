@@ -27,27 +27,22 @@ does not publish a lab or operate a provider gateway.
 
 ### I represent an institution that wants to publish a laboratory
 
-Follow [Become a provider](become-a-provider.md) in this order:
-
-1. [Lab requirements](become-a-provider/lab-requirements.md).
-2. [Enable online access](become-a-provider/enable-your-lab-for-online-access.md).
-3. [Register as a provider](become-a-provider/register-as-a-provider.md).
-4. [Prepare Marketplace metadata](provider/metadata-integration.md).
-5. [Configure and publish the lab](become-a-provider/configure-and-publish-your-lab.md).
-6. [Operate the published laboratory](provider/operate-your-lab.md).
+Follow [Become a provider](become-a-provider.md), which links the setup steps
+in their intended order. The provider pages then link to the Gateway and
+Lab-Metadata documentation for the parts owned by those projects.
 
 The provider path depends on a working Lab Gateway, institutional backend and,
 where applicable, Lab Station. Marketplace does not replace those components.
 
-## Current model in one minute
+## Current model
 
 - Institutional SSO identifies the user and the user's institution.
 - The institution's backend and managed wallet authorize institutional actions.
-- Service credits are internal accounting units used by institutions to authorize
-  reservations. They are not cash or a personal wallet balance.
-- The provider's Gateway is responsible for the remote session after the
-  reservation and institutional checks succeed.
-- Public metadata describes the lab; it never grants access and must not contain
+- Service credits authorize reservations but are not cash or a personal wallet
+  balance.
+- The provider's Gateway creates the remote session after reservation and
+  institutional checks succeed.
+- Public metadata describes a lab; it never grants access and must not contain
   credentials or session tokens.
 
 ## Support and operational notices
@@ -64,23 +59,26 @@ The live product also publishes the [FAQ](https://www.decentralabs-marketplace.a
 [cookies notice](https://www.decentralabs-marketplace.app/cookies) and
 [security page](https://www.decentralabs-marketplace.app/security).
 
-## Federation callback origins
+## Identity provider rollout
 
-Production uses `https://www.decentralabs-marketplace.app`. The stable Preview
-deployment uses `https://marketplace-decentralabs.vercel.app`; its branch is
-selected by the GitHub `MARKETPLACE_PREVIEW_BRANCH` variable (currently
-`feature/entra-id` when the variable is not set). Register the corresponding
-SAML metadata/ACS URLs and Entra redirect URI in the external identity
-providers; the two origins must not be mixed:
+Production currently uses SAML. Microsoft Entra ID/OIDC is implemented on the
+`feature/entra-id` branch and is the identity-provider path exercised by the
+stable Preview while that branch is selected by `MARKETPLACE_PREVIEW_BRANCH`.
+Do not register the Preview callback as a production callback until the branch
+is promoted to `main`.
 
-| Environment | SAML metadata | SAML ACS/callback | SAML logout | Entra redirect URI |
-| --- | --- | --- | --- | --- |
-| Production | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/metadata` | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/callback` | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/logout` | `https://www.decentralabs-marketplace.app/api/auth/entra/callback` |
-| Preview (configured branch) | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/metadata` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/callback` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/logout` | `https://marketplace-decentralabs.vercel.app/api/auth/entra/callback` |
+| Environment | SAML metadata | SAML ACS/callback | SAML logout | Entra callback | Status |
+| --- | --- | --- | --- | --- | --- |
+| Production (`main`) | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/metadata` | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/callback` | `https://www.decentralabs-marketplace.app/api/auth/sso/saml2/logout` | Pending OIDC promotion | SAML available |
+| Stable Preview (default `feature/entra-id`) | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/metadata` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/callback` | `https://marketplace-decentralabs.vercel.app/api/auth/sso/saml2/logout` | `https://marketplace-decentralabs.vercel.app/api/auth/entra/callback` | SAML + Entra |
 
-For implementation-specific work, consult the documentation of the owning
-project: [Lab-Metadata](https://github.com/DecentraLabsCom/Lab-Metadata),
+For identity-provider registration, use the technical configuration supplied by
+the institution or deployment operator. Callback origins are environment- and
+branch-specific; do not copy a preview registration into production.
+
+For implementation-specific work, consult the owning project:
+[Lab-Metadata](https://github.com/DecentraLabsCom/Lab-Metadata),
 [Lab Gateway](https://github.com/DecentraLabsCom/Lab-Gateway) or the canonical
 [blockchain-services documentation](https://github.com/DecentraLabsCom/blockchain-services/blob/main/SUMMARY.md).
 
-Last reviewed: 2026-09-02
+Last reviewed: 2026-10-06
