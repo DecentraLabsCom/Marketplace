@@ -40,6 +40,9 @@ browser behavior.
 ### Documentation
 
 - Reorganized Marketplace documentation by audience and operational concern.
+- Aligned the public guide with the SAML-based production checkout, scoped
+  Entra callback instructions to the `feature/entra-id` Preview, and corrected
+  the canonical `www` origin in federation notes.
 - Added current architecture, operations, institutional-intent, provisioning,
   credits, metadata, security, testing and CI references.
 - Added Mermaid diagrams for the runtime, intent, access, provisioning and

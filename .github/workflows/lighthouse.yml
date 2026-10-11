@@ -29,7 +29,9 @@ jobs:
       - name: Build Next.js app
         run: npm run build
         env:
-          # Add any required build-time env vars here
+          # GitHub Actions is not a Vercel deployment, so VERCEL_URL is absent.
+          # Use the canonical public origin for metadata generated at build time.
+          NEXT_PUBLIC_BASE_URL: https://www.decentralabs-marketplace.app
           NODE_ENV: production
 
       - name: Run Lighthouse CI

@@ -42,6 +42,12 @@ Navigate to the [DecentraLabs Marketplace](https://www.decentralabs-marketplace.
 
 After a successful sign-in, the marketplace creates an institutional session for your user and loads the reservations and credits available to your organization. Credits are internal units and cannot be exchanged for cash.
 
+![Institutional Login dialog](../.gitbook/assets/marketplace-institutional-login.png)
+
+The dialog shows the current entry point: **Institutional Login** redirects to
+the institution's SSO provider. A personal wallet is not part of this access
+step.
+
 The session may expire after a period of inactivity or when the institution's
 SSO session ends. If Marketplace asks you to sign in again, complete
 Institutional Login before retrying the reservation or access request.
@@ -188,17 +194,7 @@ If the reservation is still active, you can return to the marketplace and use **
 
 ---
 
-## Summary
-
-The customer laboratory-access flow is:
-
-1. sign in with your institution;
-2. choose and reserve a lab;
-3. wait for confirmation or cancel an eligible reservation;
-4. access the lab during the active reservation window;
-5. use the session until the reservation ends.
-
-This keeps customer authentication and access aligned with the institutional and managed-custody model used by the current marketplace.
-
 For common login, credit, metadata and Gateway failures, see
-[Troubleshooting](troubleshooting.md). Last reviewed: 2026-09-02
+[Troubleshooting](troubleshooting.md).
+
+Last reviewed: 2026-10-06

@@ -417,7 +417,7 @@ export function useLabReservationState({
   const totalCost = useMemo(
     () => {
       if (!selectedLab) return 0n
-      let reservationCost = 0n
+      let reservationCost
       if (isCalendarPeriod) {
         const startDate = new Date(date)
         startDate.setHours(0, 0, 0, 0)

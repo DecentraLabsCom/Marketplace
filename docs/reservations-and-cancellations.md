@@ -22,11 +22,15 @@ The final price and reservation window are recalculated by the institutional
 backend and contract. Do not treat a cached catalogue value as final
 authorization.
 
-For an institutional reservation, a paid booking uses the lab price. A booking
-inside the user's own institution adds a fixed **2 credits** charge, while a
-cross-institutional booking whose lab price is zero adds **1 credit**. These
-fixed charges count against the user's institutional spending limit. Demo access
-does not create a reservation and remains free.
+For an institutional reservation, a paid booking uses the lab price. The
+platform's default commission is 40%, leaving 60% for the provider; an approved
+lab-specific agreement can change that split. An own-lab booking within the
+same institution has zero lab price and adds a fixed **4 credits** charge. A
+free booking at an external lab adds **2 credits**. These fixed charges count
+against the user's institutional spending limit and are non-refundable. Demo
+access does not create a reservation and remains free. See the Smart-Contracts
+`Smart-Contracts/docs/credits-and-settlement.md` for the complete economic
+policy.
 
 ## Reservation lifecycle
 
@@ -82,4 +86,4 @@ If a provider reports a service failure after access authorization, the provider
 must use the Gateway's **Actionable Reservations** workflow. The consumer does
 not cancel that state from Marketplace.
 
-Last reviewed: 2026-09-02
+Last reviewed: 2026-10-11
