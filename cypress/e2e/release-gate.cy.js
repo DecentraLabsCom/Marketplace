@@ -1,7 +1,7 @@
-const releaseGateDescribe = Cypress.env('releaseGate') ? describe : describe.skip
+const releaseGateDescribe = Cypress.expose('releaseGate') ? describe : describe.skip
 
 function requiredUrl(name) {
-  const value = Cypress.env(name)
+  const value = Cypress.expose(name)
   expect(value, name).to.be.a('string').and.not.be.empty
   return value.replace(/\/$/, '')
 }
@@ -40,23 +40,24 @@ releaseGateDescribe('release gate across Marketplace and Gateway services', () =
 
   it('exercises the real Redis REST atomic path used by Marketplace', () => {
     const url = requiredUrl('releaseGateRedisRestUrl')
-    const token = Cypress.env('releaseGateRedisRestToken')
-    expect(token, 'releaseGateRedisRestToken').to.be.a('string').and.not.be.empty
-    const key = `release-gate:marketplace:${Date.now()}`
-    const headers = { Authorization: `Bearer ${token}` }
+    cy.env('releaseGateRedisRestToken').then((token) => {
+      expect(token, 'releaseGateRedisRestToken').to.be.a('string').and.not.be.empty
+      const key = `release-gate:marketplace:${Date.now()}`
+      const headers = { Authorization: `Bearer ${token}` }
 
-    cy.request({ method: 'POST', url, headers, body: ['SET', key, 'prepared', 'EX', '300'] })
-      .its('body.result').should('eq', 'OK')
-    cy.request({ method: 'POST', url, headers, body: ['SET', key, 'duplicate', 'NX'] })
-      .its('body.result').should('be.null')
-    cy.request({
-      method: 'POST',
-      url,
-      headers,
-      body: ['EVAL', "return redis.call('SET', KEYS[1], ARGV[1], 'XX')", '1', key, 'committed'],
-    }).its('body.result').should('eq', 'OK')
-    cy.request({ method: 'POST', url, headers, body: ['GET', key] })
-      .its('body.result').should('eq', 'committed')
-      .then(() => cy.request({ method: 'POST', url, headers, body: ['DEL', key] }))
+      cy.request({ method: 'POST', url, headers, body: ['SET', key, 'prepared', 'EX', '300'] })
+        .its('body.result').should('eq', 'OK')
+      cy.request({ method: 'POST', url, headers, body: ['SET', key, 'duplicate', 'NX'] })
+        .its('body.result').should('be.null')
+      cy.request({
+        method: 'POST',
+        url,
+        headers,
+        body: ['EVAL', "return redis.call('SET', KEYS[1], ARGV[1], 'XX')", '1', key, 'committed'],
+      }).its('body.result').should('eq', 'OK')
+      cy.request({ method: 'POST', url, headers, body: ['GET', key] })
+        .its('body.result').should('eq', 'committed')
+        .then(() => cy.request({ method: 'POST', url, headers, body: ['DEL', key] }))
+    })
   })
 })

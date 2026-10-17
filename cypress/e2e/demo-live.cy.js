@@ -1,13 +1,13 @@
-const demoDescribe = Cypress.env('demoLive') ? describe : describe.skip
+const demoDescribe = Cypress.expose('demoLive') ? describe : describe.skip
 
 const requiredUrl = (name) => {
-  const value = String(Cypress.env(name) || '').trim().replace(/\/$/, '')
+  const value = String(Cypress.expose(name) || '').trim().replace(/\/$/, '')
   expect(value, name).to.match(/^https:\/\//)
   return value
 }
 
 const requiredNumericId = (name) => {
-  const value = String(Cypress.env(name) || '').trim()
+  const value = String(Cypress.expose(name) || '').trim()
   expect(value, name).to.match(/^\d+$/)
   return value.replace(/^0+(?=\d)/, '')
 }
