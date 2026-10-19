@@ -39,6 +39,7 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   const [loadState, setLoadState] = useState('loading')
   const times = Array.isArray(results?.time) ? results.time : []
   const lastIndex = Math.max(times.length - 1, 0)
+  const displayedSampleIndex = isRunning ? lastIndex : Math.min(sampleIndex, lastIndex)
 
   useEffect(() => {
     setSampleIndex(0)
@@ -46,8 +47,12 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   }, [sceneUrl])
 
   useEffect(() => {
-    if (isRunning && times.length > 0) setSampleIndex(lastIndex)
     if (isRunning) setPlaying(false)
+  }, [isRunning])
+
+  useEffect(() => {
+    if (isRunning) return
+    setSampleIndex((current) => current === lastIndex ? current : lastIndex)
   }, [isRunning, lastIndex, times.length])
 
   useEffect(() => {
@@ -65,8 +70,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   }, [playing, isRunning, lastIndex])
 
   const values = useMemo(() => Object.fromEntries(
-    Object.entries(results?.outputs || {}).map(([name, series]) => [name, getSampleValue(series, sampleIndex)]),
-  ), [results?.outputs, sampleIndex])
+    Object.entries(results?.outputs || {}).map(([name, series]) => [name, getSampleValue(series, displayedSampleIndex)]),
+  ), [results?.outputs, displayedSampleIndex])
 
   const togglePlayback = useCallback(() => {
     if (playing) {
@@ -136,14 +141,14 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
           <div className="mt-auto rounded-xl border border-[#26383f] bg-[#142128] p-3">
             <div className="flex items-center justify-between text-xs text-[#a9bec2]">
               <span>Simulation timeline</span>
-              <span className="font-mono text-white">{formatTime(times[sampleIndex])}</span>
+              <span className="font-mono text-white">{formatTime(times[displayedSampleIndex])}</span>
             </div>
             <input
               aria-label="Digital twin simulation timeline"
               type="range"
               min="0"
               max={lastIndex}
-              value={Math.min(sampleIndex, lastIndex)}
+              value={displayedSampleIndex}
               onChange={(event) => {
                 setPlaying(false)
                 setSampleIndex(Number(event.target.value))
