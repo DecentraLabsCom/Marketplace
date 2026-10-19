@@ -56,14 +56,14 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   }, [isRunning, lastIndex, times.length])
 
   useEffect(() => {
+    if (playing && !isRunning && lastIndex > 0 && sampleIndex >= lastIndex) setPlaying(false)
+  }, [playing, isRunning, lastIndex, sampleIndex])
+
+  useEffect(() => {
     if (!playing || isRunning || lastIndex < 1) return undefined
     const timer = window.setInterval(() => {
       setSampleIndex((current) => {
-        if (current >= lastIndex) {
-          setPlaying(false)
-          return lastIndex
-        }
-        return current + 1
+        return current >= lastIndex ? lastIndex : current + 1
       })
     }, 25)
     return () => window.clearInterval(timer)
@@ -113,19 +113,19 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
           </div>
           {loadState === 'error' && (
             <div className="absolute inset-0 grid place-items-center bg-[#0b141a]/90 p-6 text-center text-sm text-[#f5b4ba]">
-            The GLB scene could not be loaded. Check its AAS File URL, Marketplace's allowed hosts and the asset's CORS policy.
+            The GLB scene could not be loaded. Check its AAS File URL and the provider Gateway response.
             </div>
           )}
         </div>
 
         <aside className="flex flex-col gap-3">
-          <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-128 space-y-2 overflow-y-auto pr-1">
             {stats.map(({ variable, value }) => (
               <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
                 <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={variable.description || variable.name}>
                   {variable.description || variable.name}
                 </p>
-                <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white">
+                <p className="mt-1 wrap-break-words text-lg font-semibold tabular-nums text-white">
                   {formatOutputValue(value)}
                   {variable.unit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{variable.unit}</span> : null}
                 </p>

@@ -71,7 +71,7 @@ only when the on-chain lab record should be permanently removed.
 
 Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
 
-### Smart Factory Cell demo
+### Smart Factory and Smart Warehouse Cells Demo
 
 The Windows Lab Station demo package includes the public `SmartFactoryCell.fmu`
 model and its companion `SmartFactoryCell.glb` under
@@ -88,14 +88,22 @@ the resulting public scene URL; Station does not expose the GLB publicly.
 Once the AAS shell contains that File reference, Marketplace discovers the GLB
 and shows the Smart Factory viewer in the lab simulation view.
 
+Smart Warehouse Cell is also distributed as a demo. In Lab Manager, choose
+either its companion GLB for the standard viewer or its companion
+`SmartWarehouseCell.webapp.zip` to use the bundled Three.js application. Both
+choices use the same FMU and simulation results; the AAS File MIME selects the
+Marketplace presentation.
+
 For a new provider-owned scene, prepare the GLB geometry and add
 `extras.fmiBindings` to the nodes animated by FMI outputs, then upload it in the
 same Lab Manager panel. The Gateway stores and serves that file from its own
-read-only public asset route; the AAS stores only the reference. This does not
-require Marketplace file permissions. To
-load a Gateway-hosted scene, the Marketplace deployment must permit that
-Gateway origin in `CSP_CONNECT_SRC`, and the Gateway must permit the Marketplace
-origin in `CORS_ALLOWED_ORIGINS`.
+read-only asset route; the AAS stores only the reference. Marketplace resolves
+the lab's on-chain Gateway and proxies managed GLBs through a same-origin API,
+so providers do not need to request per-Gateway Marketplace CSP or browser CORS
+changes. A provider may instead package a self-contained static Three.js app
+as a ZIP. Gateway validates and stores its files, then Marketplace loads its
+entry page in an isolated iframe and sends only FMI output samples. Neither
+choice requires Marketplace file permissions or Marketplace code changes.
 
 ## Post-publication management
 
@@ -107,4 +115,4 @@ origin in `CORS_ALLOWED_ORIGINS`.
 For ongoing reservations, incidents, unlisting and settlement responsibilities,
 see [Operate your laboratory](../provider/operate-your-lab.md).
 
-Last reviewed: 2026-10-06
+Last reviewed: 2026-10-19

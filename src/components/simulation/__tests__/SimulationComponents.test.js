@@ -28,6 +28,20 @@ jest.mock("@/components/ui", () => ({
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(() => ({ push: jest.fn(), replace: jest.fn() })),
 }));
+jest.mock("next/dynamic", () => {
+  let viewerIndex = 0;
+  return {
+    __esModule: true,
+    default: () => {
+      const testId = viewerIndex++ === 0 ? "digital-twin-glb" : "digital-twin-app";
+      const React = require("react");
+      return (props) => React.createElement("div", {
+        "data-testid": testId,
+        "data-url": props.sceneUrl || props.appUrl,
+      });
+    },
+  };
+});
 jest.mock("@/utils/hooks/authMode", () => ({
   useGetIsSSO: jest.fn(() => true),
 }));
@@ -414,6 +428,63 @@ describe("SimulationRunner", () => {
   function queueGatewayResponses(...responses) {
     gatewayResponses.push(...responses);
   }
+
+  test.each([
+    {
+      contentType: "model/gltf-binary",
+      assetUrl: `/digital-twin-scenes/42/${"a".repeat(64)}.glb`,
+      testId: "digital-twin-glb",
+      otherTestId: "digital-twin-app",
+      expectedUrl: `/api/aas/digital-twin-scene/42/${"a".repeat(64)}.glb`,
+    },
+    {
+      contentType: "text/html",
+      assetUrl: `/digital-twin-apps/42/${"b".repeat(64)}/index.html`,
+      testId: "digital-twin-app",
+      otherTestId: "digital-twin-glb",
+      expectedUrl: `/api/aas/digital-twin-app/42/${"b".repeat(64)}/index.html`,
+    },
+  ])("selects the Marketplace viewer from AAS MIME $contentType", async ({
+    contentType,
+    assetUrl,
+    testId,
+    otherTestId,
+    expectedUrl,
+  }) => {
+    global.fetch = jest.fn((url) => {
+      if (String(url).startsWith("/api/aas/shell?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ visualAssets: [{ url: assetUrl, contentType }] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    render(<SimulationRunner lab={fmuLab} />);
+
+    const viewer = await screen.findByTestId(testId);
+    expect(viewer).toHaveAttribute("data-url", expectedUrl);
+    expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
+  });
+
+  test("keeps the standard FMI view when AAS has no visual asset", async () => {
+    global.fetch = jest.fn((url) => {
+      if (String(url).startsWith("/api/aas/shell?")) {
+        return Promise.resolve({ ok: true, json: async () => ({ visualAssets: [] }) });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    render(<SimulationRunner lab={fmuLab} />);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      "/api/aas/shell?labId=42",
+      expect.objectContaining({ cache: "no-store" }),
+    ));
+    expect(screen.queryByTestId("digital-twin-glb")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("digital-twin-app")).not.toBeInTheDocument();
+  });
 
   test("renders simulation header with lab name", () => {
     render(<SimulationRunner lab={fmuLab} />);

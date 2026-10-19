@@ -198,6 +198,67 @@ describe('GET /api/aas/shell', () => {
     )
   })
 
+  test.each([
+    [
+      'managed GLB scene',
+      'model/gltf-binary',
+      `/digital-twin-scenes/${LAB_ID}/${'a'.repeat(64)}.glb`,
+      'glb',
+    ],
+    [
+      'managed Three.js application',
+      'text/html',
+      `/digital-twin-apps/${LAB_ID}/${'b'.repeat(64)}/index.html`,
+      'threejs-app',
+    ],
+  ])('discovers a $name from the Handover Documentation File MIME', async (_name, contentType, value, renderer) => {
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: shellId,
+        submodels: [{ keys: [{ type: 'Submodel', value: handoverDocumentationId }] }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: handoverDocumentationId,
+        idShort: 'HandoverDocumentation',
+        submodelElements: [{
+          idShort: 'Documents',
+          modelType: 'SubmodelElementList',
+          value: [{
+            idShort: 'Document_0',
+            modelType: 'SubmodelElementCollection',
+            value: [{
+              idShort: 'DocumentVersions',
+              modelType: 'SubmodelElementList',
+              value: [{
+                idShort: 'DocumentVersion_0',
+                modelType: 'SubmodelElementCollection',
+                value: [{
+                  idShort: 'DigitalFiles',
+                  modelType: 'SubmodelElementList',
+                  value: [{
+                    idShort: 'DigitalTwinAsset',
+                    modelType: 'File',
+                    contentType,
+                    value,
+                  }],
+                }],
+              }],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.visualAssets).toEqual([expect.objectContaining({
+      url: value,
+      contentType: contentType,
+      renderer,
+    })])
+  })
+
   test('proxies the raw shell JSON with no-store headers', async () => {
     const shell = {
       modelType: 'AssetAdministrationShell',

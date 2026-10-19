@@ -54,15 +54,20 @@ const nextConfig = {
     const sameOriginDocumentHeaders = [
       { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
     ];
+    const sameOriginDocumentSources = [
+      '/api/metadata/document',
+      '/api/aas/digital-twin-app/:path*',
+      '/api/dev/smart-warehouse/app/:path*',
+    ];
     return [
       {
         source: '/:path*',
         headers: securityHeaders,
       },
-      {
-        source: '/api/metadata/document',
+      ...sameOriginDocumentSources.map((source) => ({
+        source,
         headers: sameOriginDocumentHeaders,
-      },
+      })),
       ...noStoreSources.map((source) => ({
         source,
         headers: noStoreHeaders,

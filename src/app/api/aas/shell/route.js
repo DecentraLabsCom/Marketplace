@@ -209,16 +209,19 @@ function buildHandoverInfo(submodel, submodelId) {
     for (const element of elements) {
       if (!element || typeof element !== 'object') continue
       if (element.modelType === 'File' && typeof element.value === 'string' && element.value) {
-        const contentType = String(element.contentType || '').trim().toLowerCase()
+        const contentType = String(element.contentType || '').split(';', 1)[0].trim().toLowerCase()
         const isGlb = contentType === 'model/gltf-binary'
           || (/\.glb(?:$|[?#])/i.test(element.value) && !contentType)
+        const isThreeJsApp = contentType === 'text/html'
+          && /^\/(?:digital-twin-apps)\/\d+\/[a-f0-9]{64}\/index\.html$/i.test(element.value)
 
-        if (isGlb && typeof element.idShort === 'string' && element.idShort.length <= 128) {
+        if ((isGlb || isThreeJsApp) && typeof element.idShort === 'string' && element.idShort.length <= 128) {
           visualAssets.push({
             submodelId,
             elementIdShort: element.idShort,
             url: element.value,
             contentType: contentType || 'model/gltf-binary',
+            renderer: isThreeJsApp ? 'threejs-app' : 'glb',
           })
         } else {
           files.push(element.value)
