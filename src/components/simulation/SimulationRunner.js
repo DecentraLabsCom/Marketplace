@@ -1,5 +1,6 @@
 ﻿"use client";
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import ParameterForm from './ParameterForm'
@@ -15,6 +16,9 @@ import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
 import { normalizeSimulationParameters } from './simulationParameters'
+import { safeExternalHttpsUrl } from '@/utils/security/safeUrl'
+
+const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
 
 const SIM_STATE = {
   IDLE: 'idle',
@@ -49,6 +53,27 @@ function resolveGatewayOrigin(accessUri) {
   }
 }
 
+function resolveSceneAssetUrl(value, gatewayOrigin) {
+  if (typeof value !== 'string' || value.length > 2048) return null
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes('\\')) return null
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    try {
+      const gateway = new URL(gatewayOrigin)
+      const rawPath = trimmed.split(/[?#]/, 1)[0]
+      if (gateway.protocol !== 'https:' || gateway.username || gateway.password || rawPath.includes('%')) return null
+      const parsed = new URL(trimmed, gateway.origin)
+      const isGatewayAsset = parsed.pathname.startsWith('/digital-twin-scenes/')
+        && /\.glb$/i.test(parsed.pathname)
+        && !/(^|\/)\.{1,2}(\/|$)/.test(rawPath)
+      return parsed.origin === gateway.origin && isGatewayAsset ? parsed.toString() : null
+    } catch {
+      return null
+    }
+  }
+  return safeExternalHttpsUrl(trimmed)
+}
+
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
   const modelVariables = fmuMeta?.modelVariables || []
@@ -74,12 +99,48 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [proxyDownloadState, setProxyDownloadState] = useState('idle')
   const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
   const [proxyNeedsRegeneration, setProxyNeedsRegeneration] = useState(false)
+  const [twinSceneUrl, setTwinSceneUrl] = useState(null)
 
   const authPromiseRef = useRef(null)
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
   const [solver, setSolver] = useState('Euler')
+
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+
+  useEffect(() => {
+    if (!labId) {
+      setTwinSceneUrl(null)
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setTwinSceneUrl(null)
+    fetch(`/api/aas/shell?${new URLSearchParams({ labId })}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null
+        return response.json()
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return
+        const sceneAsset = Array.isArray(data?.visualAssets)
+          ? data.visualAssets.find((asset) => asset?.contentType === 'model/gltf-binary')
+          : null
+        setTwinSceneUrl(resolveSceneAssetUrl(sceneAsset?.url, resolveGatewayOrigin(lab.accessURI)))
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          devLog.warn('Smart Factory Twin scene discovery failed:', error?.message)
+          setTwinSceneUrl(null)
+        }
+      })
+
+    return () => controller.abort()
+  }, [labId, lab.accessURI])
 
   const handleParamChange = useCallback((name, value) => {
     setParameters(prev => ({ ...prev, [name]: value }))
@@ -426,6 +487,16 @@ export default function SimulationRunner({ lab, reservationKey }) {
           onEnsureGatewaySession={ensureGatewaySession}
           onFetchGateway={fetchGateway}
           onLoadResult={handleLoadResult}
+        />
+      )}
+
+      {twinSceneUrl && (
+        <DigitalTwinViewer
+          sceneUrl={twinSceneUrl}
+          title={lab?.name || 'Digital Twin'}
+          results={results}
+          modelVariables={modelVariables}
+          isRunning={simState === SIM_STATE.RUNNING}
         />
       )}
 

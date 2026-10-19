@@ -201,18 +201,37 @@ function buildContactInfo(submodel) {
   return { contactEmail: firstProperty(props, ['EmailAddress', 'ContactEmail']) }
 }
 
-function buildHandoverInfo(submodel) {
+function buildHandoverInfo(submodel, submodelId) {
   const files = []
+  const visualAssets = []
   const visit = (elements, depth = 0) => {
     if (!Array.isArray(elements) || depth > 12) return
     for (const element of elements) {
       if (!element || typeof element !== 'object') continue
-      if (element.modelType === 'File' && typeof element.value === 'string' && element.value) files.push(element.value)
+      if (element.modelType === 'File' && typeof element.value === 'string' && element.value) {
+        const contentType = String(element.contentType || '').trim().toLowerCase()
+        const isGlb = contentType === 'model/gltf-binary'
+          || (/\.glb(?:$|[?#])/i.test(element.value) && !contentType)
+
+        if (isGlb && typeof element.idShort === 'string' && element.idShort.length <= 128) {
+          visualAssets.push({
+            submodelId,
+            elementIdShort: element.idShort,
+            url: element.value,
+            contentType: contentType || 'model/gltf-binary',
+          })
+        } else {
+          files.push(element.value)
+        }
+      }
       if (Array.isArray(element.value)) visit(element.value, depth + 1)
     }
   }
   visit(submodel?.submodelElements)
-  return { documentationUrls: [...new Set(files)] }
+  return {
+    documentationUrls: [...new Set(files)],
+    visualAssets: visualAssets.slice(0, 32),
+  }
 }
 
 function buildInterfaceInfo(submodel) {
@@ -391,7 +410,7 @@ export async function GET(request) {
       } else if (kind === 'contact' && contactInfo === null) {
         contactInfo = buildContactInfo(submodel)
       } else if (kind === 'handover' && handoverInfo === null) {
-        handoverInfo = buildHandoverInfo(submodel)
+        handoverInfo = buildHandoverInfo(submodel, submodelId)
       }
     }
 
@@ -418,7 +437,16 @@ export async function GET(request) {
     }
 
     return NextResponse.json(
-      { shell, nameplate, simulationInfo, operationalInfo, executionInfo },
+      {
+        shell,
+        nameplate,
+        simulationInfo,
+        operationalInfo,
+        executionInfo,
+        ...(handoverInfo?.visualAssets?.length
+          ? { visualAssets: handoverInfo.visualAssets }
+          : {}),
+      },
       { status: 200, headers: NO_STORE_HEADERS },
     )
   } catch (error) {

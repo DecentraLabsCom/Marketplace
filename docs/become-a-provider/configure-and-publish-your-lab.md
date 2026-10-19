@@ -71,6 +71,32 @@ only when the on-chain lab record should be permanently removed.
 
 Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
 
+### Smart Factory Cell demo
+
+The Windows Lab Station demo package includes the public `SmartFactoryCell.fmu`
+model and its companion `SmartFactoryCell.glb` under
+`fmu-executor/fmu-data/`. Create its Marketplace listing through
+the normal **Add New Lab → Simulation** flow and use `SmartFactoryCell.fmu` as
+the FMU file name/access key. There is no Marketplace FMU upload step. After
+the listing exists, open the provider Gateway's **Lab Manager → Digital Twins**
+tab and synchronize its AAS shell. Lab Manager imports the prepared GLB from
+the active FMU backend: from Gateway `fmu-data` in local development, or from
+Lab Station through its protected internal endpoint in production. The GLB
+already contains the factory geometry and FMI bindings, so no scene authoring
+or GLB upload is needed for the demo. The provider Gateway stores and serves
+the resulting public scene URL; Station does not expose the GLB publicly.
+Once the AAS shell contains that File reference, Marketplace discovers the GLB
+and shows the Smart Factory viewer in the lab simulation view.
+
+For a new provider-owned scene, prepare the GLB geometry and add
+`extras.fmiBindings` to the nodes animated by FMI outputs, then upload it in the
+same Lab Manager panel. The Gateway stores and serves that file from its own
+read-only public asset route; the AAS stores only the reference. This does not
+require Marketplace file permissions. To
+load a Gateway-hosted scene, the Marketplace deployment must permit that
+Gateway origin in `CSP_CONNECT_SRC`, and the Gateway must permit the Marketplace
+origin in `CORS_ALLOWED_ORIGINS`.
+
 ## Post-publication management
 
 * Metadata-only changes update the application-managed document and do not necessarily require changing the on-chain lab record.

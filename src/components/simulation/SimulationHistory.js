@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 import { resolveGatewayFeatureError } from './gatewayErrors'
@@ -12,6 +12,13 @@ export default function SimulationHistory({ labId, reservationKey, gatewayUrl, g
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [historyUnavailable, setHistoryUnavailable] = useState(false)
+  const gatewaySessionOriginRef = useRef(gatewaySessionOrigin)
+  const ensureGatewaySessionRef = useRef(onEnsureGatewaySession)
+  const fetchGatewayRef = useRef(onFetchGateway)
+
+  gatewaySessionOriginRef.current = gatewaySessionOrigin
+  ensureGatewaySessionRef.current = onEnsureGatewaySession
+  fetchGatewayRef.current = onFetchGateway
 
   const fetchHistory = useCallback(async () => {
     if (!gatewayUrl || !labId) return
@@ -20,9 +27,9 @@ export default function SimulationHistory({ labId, reservationKey, gatewayUrl, g
     setHistoryUnavailable(false)
 
     try {
-      let gatewayOrigin = gatewaySessionOrigin
-      if (!gatewayOrigin && onEnsureGatewaySession) {
-        gatewayOrigin = await onEnsureGatewaySession()
+      let gatewayOrigin = gatewaySessionOriginRef.current
+      if (!gatewayOrigin && ensureGatewaySessionRef.current) {
+        gatewayOrigin = await ensureGatewaySessionRef.current()
       }
       if (!gatewayOrigin) {
         throw new Error('Authentication required to load simulation history')
@@ -35,8 +42,8 @@ export default function SimulationHistory({ labId, reservationKey, gatewayUrl, g
         offset: '0',
       })
       const path = `/api/simulations/history?${qs.toString()}`
-      const res = onFetchGateway
-        ? await onFetchGateway(path, { credentials: 'include' })
+      const res = fetchGatewayRef.current
+        ? await fetchGatewayRef.current(path, { credentials: 'include' })
         : await fetch(path, { credentials: 'include' })
       if (!res.ok) {
         let payload = {}
@@ -60,7 +67,7 @@ export default function SimulationHistory({ labId, reservationKey, gatewayUrl, g
     } finally {
       setLoading(false)
     }
-  }, [gatewayUrl, labId, reservationKey, gatewaySessionOrigin, onEnsureGatewaySession, onFetchGateway])
+  }, [gatewayUrl, labId, reservationKey])
 
   useEffect(() => {
     fetchHistory()

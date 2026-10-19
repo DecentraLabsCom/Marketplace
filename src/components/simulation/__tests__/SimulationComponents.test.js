@@ -393,11 +393,27 @@ function mockNdjsonResponse(events) {
 }
 
 describe("SimulationRunner", () => {
+  let gatewayResponses;
+
   beforeEach(() => {
-    global.fetch = jest.fn();
+    gatewayResponses = [];
+    global.fetch = jest.fn((url) => {
+      if (String(url).startsWith('/api/aas/shell?')) {
+        return Promise.resolve({ ok: false, status: 404 });
+      }
+      return Promise.resolve(gatewayResponses.shift() || {
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Unexpected fetch in test' }),
+      });
+    });
     authenticateLabAccessSSO.mockClear();
     establishFmuGatewaySession.mockClear();
   });
+
+  function queueGatewayResponses(...responses) {
+    gatewayResponses.push(...responses);
+  }
 
   test("renders simulation header with lab name", () => {
     render(<SimulationRunner lab={fmuLab} />);
@@ -418,7 +434,7 @@ describe("SimulationRunner", () => {
   });
 
   test("downloads proxy FMU for valid reservation", async () => {
-    global.fetch.mockResolvedValueOnce({
+    queueGatewayResponses({
       ok: true,
       blob: async () => new Blob(["proxy"]),
       headers: new Headers({
@@ -449,7 +465,7 @@ describe("SimulationRunner", () => {
         details: JSON.stringify({ code: "SESSION_TICKET_ALREADY_USED", error: "ticket already used" }),
       }),
     };
-    global.fetch.mockResolvedValueOnce(expiredResponse).mockResolvedValueOnce(expiredResponse);
+    queueGatewayResponses(expiredResponse, expiredResponse);
 
     render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
     fireEvent.click(screen.getByRole("button", { name: /Download Proxy FMU/i }));
@@ -481,7 +497,7 @@ describe("SimulationRunner", () => {
   });
 
   test("calls /api/simulations/stream on button click", async () => {
-    global.fetch.mockResolvedValueOnce(
+    queueGatewayResponses(
       mockNdjsonResponse([
         { type: "started", simId: "abc123" },
         { type: "data", chunkIndex: 0, totalChunks: 1, time: [0, 1], outputs: { position: [0, 0.5] } },
@@ -503,7 +519,7 @@ describe("SimulationRunner", () => {
   });
 
   test("serializes numeric lab ids for the Gateway stream contract", async () => {
-    global.fetch.mockResolvedValueOnce(
+    queueGatewayResponses(
       mockNdjsonResponse([
         { type: "started", simId: "abc123" },
         { type: "completed", simulationTime: 0.1, outputVariables: ["position"], fmiType: "CoSimulation" },
@@ -520,12 +536,12 @@ describe("SimulationRunner", () => {
       );
     });
 
-    const [, requestInit] = global.fetch.mock.calls[0];
+    const [, requestInit] = global.fetch.mock.calls.find(([url]) => url === "/api/simulations/stream");
     expect(JSON.parse(requestInit.body).labId).toBe("1");
   });
 
   test("rejects a scalar value for a dimensioned input variable", async () => {
-    global.fetch.mockResolvedValueOnce(
+    queueGatewayResponses(
       mockNdjsonResponse([
         { type: "started", simId: "abc123" },
         { type: "completed", simulationTime: 0.1, outputVariables: ["y"], fmiType: "CoSimulation" },
@@ -554,18 +570,17 @@ describe("SimulationRunner", () => {
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => expect(screen.getByText("Input u requires 3 values separated by spaces.")).toBeInTheDocument());
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(global.fetch.mock.calls.filter(([url]) => url === "/api/simulations/stream")).toHaveLength(0);
   });
 
   test("reauthenticates once with the canonical lab auth context after a 401", async () => {
-    global.fetch
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-      .mockResolvedValueOnce(
-        mockNdjsonResponse([
-          { type: "started", simId: "abc123" },
-          { type: "completed", simulationTime: 0.1, outputVariables: [], fmiType: "CoSimulation" },
-        ])
-      );
+    queueGatewayResponses(
+      { ok: false, status: 401 },
+      mockNdjsonResponse([
+        { type: "started", simId: "abc123" },
+        { type: "completed", simulationTime: 0.1, outputVariables: [], fmiType: "CoSimulation" },
+      ]),
+    );
 
     render(<SimulationRunner lab={{ ...fmuLab, accessURI: "https://gateway.example.com/fmu" }} reservationKey="0xabc" />);
     fireEvent.click(screen.getByText("Run Simulation"));
@@ -576,11 +591,11 @@ describe("SimulationRunner", () => {
       labId: "42",
       reservationKey: "0xabc",
     });
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls.filter(([url]) => url === "/api/simulations/stream")).toHaveLength(2);
   });
 
   test("shows results after successful streaming run", async () => {
-    global.fetch.mockResolvedValueOnce(
+    queueGatewayResponses(
       mockNdjsonResponse([
         { type: "started", simId: "abc123" },
         { type: "data", chunkIndex: 0, totalChunks: 1, time: [0, 0.1], outputs: { position: [0, 0.5] } },
@@ -597,7 +612,7 @@ describe("SimulationRunner", () => {
   });
 
   test("shows error message on failed run", async () => {
-    global.fetch.mockResolvedValueOnce({
+    queueGatewayResponses({
       ok: false,
       status: 500,
       json: async () => ({ error: "Simulation exploded" }),
@@ -628,7 +643,7 @@ describe("SimulationRunner", () => {
   });
 
   test("shows a specific message when history is not available for the active FMU backend", async () => {
-    global.fetch.mockResolvedValueOnce({
+    queueGatewayResponses({
       ok: false,
       status: 501,
       json: async () => ({
@@ -659,23 +674,20 @@ describe("SimulationRunner", () => {
       ],
     };
 
-    global.fetch
-      .mockResolvedValueOnce({
+    queueGatewayResponses(
+      {
         ok: true,
         json: async () => historyPayload,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => historyPayload,
-      })
-      .mockResolvedValueOnce({
+      },
+      {
         ok: false,
         status: 501,
         json: async () => ({
           error: "Gateway error (501)",
           details: JSON.stringify({ code: "NOT_IMPLEMENTED", error: "not implemented" }),
         }),
-      });
+      },
+    );
 
     render(<SimulationRunner lab={fmuLab} />);
     fireEvent.click(screen.getByText("Show History"));
