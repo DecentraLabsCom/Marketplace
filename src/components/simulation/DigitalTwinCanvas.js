@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
 
 const ALLOWED_TARGETS = new Set([
   'position.x', 'position.y', 'position.z',
@@ -52,6 +54,8 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     camera.lookAt(0, 1, 0)
 
     let renderer
+    let environmentTarget = null
+    let pmremGenerator = null
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     } catch {
@@ -61,7 +65,7 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.15
+    renderer.toneMappingExposure = 0.92
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.domElement.className = 'h-full w-full outline-none'
@@ -69,14 +73,20 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     renderer.domElement.tabIndex = 0
     host.appendChild(renderer.domElement)
 
-    scene.add(new THREE.HemisphereLight('#d9f2ff', '#13212a', 2.1))
-    const keyLight = new THREE.DirectionalLight('#fff2d4', 3.2)
+    const studioEnvironment = new RoomEnvironment()
+    pmremGenerator = new THREE.PMREMGenerator(renderer)
+    environmentTarget = pmremGenerator.fromScene(studioEnvironment, 0.04)
+    scene.environment = environmentTarget.texture
+    studioEnvironment.dispose()
+
+    scene.add(new THREE.HemisphereLight('#d9f2ff', '#13212a', 1.3))
+    const keyLight = new THREE.DirectionalLight('#fff2d4', 2.25)
     keyLight.position.set(-3, 7, 4)
     keyLight.castShadow = true
     keyLight.shadow.mapSize.set(1024, 1024)
     scene.add(keyLight)
     scene.add(keyLight.target)
-    const fillLight = new THREE.DirectionalLight('#57b9d0', 1.5)
+    const fillLight = new THREE.DirectionalLight('#57b9d0', 0.75)
     fillLight.position.set(4, 3, -5)
     scene.add(fillLight)
 
@@ -139,10 +149,17 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
           center.z - largestDimension * 1.5,
         )
       }
+      const outputVariables = new Map(
+        (Array.isArray(variablesRef.current) ? variablesRef.current : [])
+          .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
+          .map((variable) => [variable.name, variable]),
+      )
       gltfRoot.traverse((node) => {
         if (node.isMesh) {
           node.castShadow = true
           node.receiveShadow = true
+          const materials = Array.isArray(node.material) ? node.material : [node.material]
+          materials.filter(Boolean).forEach((material) => { material.envMapIntensity = 0.48 })
         }
 
         const declaredBindings = node.userData?.fmiBindings
@@ -150,12 +167,12 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
 
         for (const binding of declaredBindings) {
           if (!binding || typeof binding.variable !== 'string' || !ALLOWED_TARGETS.has(binding.target)) continue
-          const outputVariables = new Set(
-            (Array.isArray(variablesRef.current) ? variablesRef.current : [])
-              .filter((variable) => variable?.causality === 'output')
-              .map((variable) => variable.name),
-          )
-          if (!outputVariables.has(binding.variable)) continue
+          const outputVariable = outputVariables.get(binding.variable)
+          if (!outputVariable) continue
+          if (binding.target === 'visible') {
+            const initialValue = valuesRef.current?.[binding.variable] ?? getFmiInitialValue(outputVariable)
+            if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
+          }
           boundObjects.push({ node, binding })
         }
       })
@@ -176,7 +193,7 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
         if (rawValue === undefined || rawValue === null) continue
 
         if (binding.target === 'visible') {
-          node.visible = Boolean(rawValue)
+          node.visible = isFmiBindingVisible(rawValue, binding)
           continue
         }
         if (binding.target === 'material.color') {
@@ -211,6 +228,8 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       resize.disconnect()
       controls.dispose()
       if (gltfRoot) disposeObject(gltfRoot)
+      environmentTarget?.dispose()
+      pmremGenerator?.dispose()
       renderer.dispose()
       renderer.forceContextLoss()
       renderer.domElement.remove()

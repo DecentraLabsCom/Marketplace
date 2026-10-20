@@ -100,8 +100,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
         </div>
       </header>
 
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="relative h-90 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a] sm:h-110">
+      <div className="grid items-stretch gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="relative min-h-[32rem] overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
           <DigitalTwinCanvas
             sceneUrl={sceneUrl}
             values={values}

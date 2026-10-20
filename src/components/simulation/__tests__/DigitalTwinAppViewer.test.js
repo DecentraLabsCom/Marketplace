@@ -18,6 +18,8 @@ describe('DigitalTwinAppViewer', () => {
       { name: 'agvPosition', causality: 'output' },
       { name: 'ordersPicked', causality: 'output' },
       { name: 'alarm', causality: 'output' },
+      { name: 'packageOnAgv', causality: 'output', type: 'Boolean', start: 'false' },
+      { name: 'truckLoadCount', causality: 'output', type: 'Integer', start: '0' },
       { name: 'jam', causality: 'input' },
     ]
 
@@ -44,7 +46,7 @@ describe('DigitalTwinAppViewer', () => {
         type: 'decentralabs:fmi-sample',
         version: 1,
         time: 0.1,
-        outputs: { agvPosition: 2.72, ordersPicked: 1, alarm: true },
+        outputs: { agvPosition: 2.72, ordersPicked: 1, alarm: true, packageOnAgv: false, truckLoadCount: 0 },
       }, '*')
     })
     expect(screen.getByText('Application ready')).toBeInTheDocument()

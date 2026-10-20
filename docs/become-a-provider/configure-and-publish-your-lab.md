@@ -71,28 +71,18 @@ only when the on-chain lab record should be permanently removed.
 
 Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
 
-### Smart Factory and Smart Warehouse Cells Demo
+### Smart Warehouse Cell Demo
 
-The Windows Lab Station demo package includes the public `SmartFactoryCell.fmu`
-model and its companion `SmartFactoryCell.glb` under
-`fmu-executor/fmu-data/`. Create its Marketplace listing through
-the normal **Add New Lab → Simulation** flow and use `SmartFactoryCell.fmu` as
-the FMU file name/access key. There is no Marketplace FMU upload step. After
-the listing exists, open the provider Gateway's **Lab Manager → Digital Twins**
-tab and synchronize its AAS shell. Lab Manager imports the prepared GLB from
-the active FMU backend: from Gateway `fmu-data` in local development, or from
-Lab Station through its protected internal endpoint in production. The GLB
-already contains the factory geometry and FMI bindings, so no scene authoring
-or GLB upload is needed for the demo. The provider Gateway stores and serves
-the resulting public scene URL; Station does not expose the GLB publicly.
-Once the AAS shell contains that File reference, Marketplace discovers the GLB
-and shows the Smart Factory viewer in the lab simulation view.
-
-Smart Warehouse Cell is also distributed as a demo. In Lab Manager, choose
-either its companion GLB for the standard viewer or its companion
-`SmartWarehouseCell.webapp.zip` to use the bundled Three.js application. Both
-choices use the same FMU and simulation results; the AAS File MIME selects the
-Marketplace presentation.
+The Lab Station demo package includes the public `SmartWarehouseCell.fmu` model and its companion GLB under
+`fmu-executor/fmu-data/`. Create its Marketplace listing through the normal
+**Add New Lab → Simulation** flow and use `SmartWarehouseCell.fmu` as the FMU file name/access key. There is no Marketplace FMU upload step.
+After the listing exists, open the provider Gateway's **Lab Manager → Digital Twins** tab and synchronize its AAS shell. Lab Manager imports the
+prepared visual asset from the active FMU backend: from Gateway `fmu-data` in local development, or from Lab Station through its protected internal
+endpoint in production. The demo includes both a GLB for the standard viewer
+and `SmartWarehouseCell.webapp.zip` for the bundled Three.js application.
+Both choices use the same FMU and simulation results; the AAS File MIME
+selects the Marketplace presentation. The provider Gateway stores and serves
+the selected asset; Station does not expose it publicly.
 
 For a new provider-owned scene, prepare the GLB geometry and add
 `extras.fmiBindings` to the nodes animated by FMI outputs, then upload it in the

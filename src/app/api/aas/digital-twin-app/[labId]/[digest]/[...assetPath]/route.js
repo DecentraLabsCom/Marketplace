@@ -68,7 +68,7 @@ function headersFor(mime, isHtml) {
       "style-src-attr 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self'",
+      "connect-src 'self' blob:",
       "media-src 'self' data: blob:",
       "worker-src 'self' blob:",
       "object-src 'none'",

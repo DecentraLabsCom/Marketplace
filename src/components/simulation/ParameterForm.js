@@ -52,7 +52,9 @@ export default function ParameterForm({
                   <td className="px-3 py-2 align-top">
                     <input
                       type={details.inputType}
-                      step={details.valueCount > 1 ? undefined : 'any'}
+                      step={details.step}
+                      min={details.min}
+                      max={details.max}
                       value={formatParameterValue(values[variable.name])}
                       onChange={(event) => onChange(variable.name, event.target.value)}
                       disabled={disabled}

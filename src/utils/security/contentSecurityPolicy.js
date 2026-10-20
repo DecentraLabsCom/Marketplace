@@ -21,10 +21,11 @@ const defaultImageSources = () => unique([
 
 const defaultConnectSources = () => {
   const configured = readConfiguredSources('CSP_CONNECT_SRC', 'NEXT_PUBLIC_CSP_CONNECT_SRC')
-  // Institutional API calls are relayed through Marketplace same-origin routes.
-  // Deployments may add narrowly scoped browser connections when genuinely needed.
+  // Three.js fetches embedded GLB images through blob URLs; institutional APIs
+  // still flow through Marketplace same-origin routes.
   return unique([
     "'self'",
+    'blob:',
     ...configured,
   ])
 }

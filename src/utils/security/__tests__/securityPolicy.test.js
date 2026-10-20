@@ -26,7 +26,7 @@ describe('browser security policy', () => {
 
     const policy = buildContentSecurityPolicy({ nonce: 'nonce-value' })
 
-    expect(policy).toContain('connect-src \'self\' https://institution.example https://rpc.example')
+    expect(policy).toContain('connect-src \'self\' blob: https://institution.example https://rpc.example')
     expect(policy).toContain("frame-src 'self' https://docs.example")
     expect(policy).not.toContain('connect-src \'self\' https: wss:')
   })

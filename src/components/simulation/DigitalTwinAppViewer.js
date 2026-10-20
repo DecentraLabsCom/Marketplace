@@ -62,6 +62,16 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
       .map((variable) => variable.name))
     const outputs = {}
+    for (const variable of modelVariables) {
+      if (variable?.causality !== 'output' || typeof variable.name !== 'string' || variable.start === undefined) continue
+      const start = variable.start
+      if (variable.type === 'Boolean' || typeof start === 'boolean') {
+        outputs[variable.name] = start === true || start === 'true'
+      } else {
+        const numericStart = Number(start)
+        if (Number.isFinite(numericStart)) outputs[variable.name] = numericStart
+      }
+    }
     for (const [name, series] of Object.entries(results?.outputs || {})) {
       if (!allowedOutputs.has(name)) continue
       const value = currentValue(series, displayedSampleIndex)
@@ -108,8 +118,8 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         </div>
       </header>
 
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="relative h-90 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a] sm:h-110">
+      <div className="grid items-stretch gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
           <iframe
             key={appUrl}
             ref={iframeRef}
@@ -126,13 +136,13 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         </div>
 
         <aside className="flex flex-col gap-3">
-          <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-128 space-y-2 overflow-y-auto pr-1">
             {stats.map(({ variable, value }) => (
               <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
                 <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={variable.description || variable.name}>
                   {variable.description || variable.name}
                 </p>
-                <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white">
+                <p className="mt-1 wrap-break-word text-lg font-semibold tabular-nums text-white">
                   {formatValue(value)}
                   {variable.unit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{variable.unit}</span> : null}
                 </p>

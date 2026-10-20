@@ -93,6 +93,11 @@ export function getVariableInputDetails(variable, modelVariables = []) {
   return {
     valueCount,
     inputType: valueCount > 1 || !NUMERIC_TYPES.has(variable?.type) ? 'text' : 'number',
+    step: valueCount > 1 || !NUMERIC_TYPES.has(variable?.type)
+      ? undefined
+      : INTEGER_TYPES.has(variable?.type) ? 1 : 'any',
+    min: valueCount === 1 ? variable?.min : undefined,
+    max: valueCount === 1 ? variable?.max : undefined,
     summary: `${type} · ${shape}`,
     format: `Format: ${format}`,
     range,
@@ -106,9 +111,30 @@ function coerceParameterValue(value, variable) {
   return Number.isFinite(numericValue) ? numericValue : value
 }
 
+function normalizeScalarParameterValue(variable, value) {
+  const normalized = coerceParameterValue(value, variable)
+
+  if (INTEGER_TYPES.has(variable?.type) && !Number.isInteger(normalized)) {
+    throw new Error(`Input ${variable.name} must be a whole number.`)
+  }
+
+  if (NUMERIC_TYPES.has(variable?.type) && typeof normalized === 'number') {
+    const minimum = Number(variable.min)
+    const maximum = Number(variable.max)
+    if (Number.isFinite(minimum) && normalized < minimum) {
+      throw new Error(`Input ${variable.name} must be between ${minimum} and ${Number.isFinite(maximum) ? maximum : 'the maximum'}.`)
+    }
+    if (Number.isFinite(maximum) && normalized > maximum) {
+      throw new Error(`Input ${variable.name} must be between ${Number.isFinite(minimum) ? minimum : 'the minimum'} and ${maximum}.`)
+    }
+  }
+
+  return normalized
+}
+
 export function normalizeParameterValue(variable, value, modelVariables = []) {
   const valueCount = getVariableValueCount(variable, modelVariables)
-  if (valueCount === 1) return coerceParameterValue(value, variable)
+  if (valueCount === 1) return normalizeScalarParameterValue(variable, value)
 
   const values = Array.isArray(value)
     ? value
@@ -118,7 +144,7 @@ export function normalizeParameterValue(variable, value, modelVariables = []) {
     throw new Error(`Input ${variable.name} requires ${valueCount} values separated by spaces.`)
   }
 
-  return values.map((item) => coerceParameterValue(item, variable))
+  return values.map((item) => normalizeScalarParameterValue(variable, item))
 }
 
 export function normalizeSimulationParameters(parameters, modelVariables = []) {
