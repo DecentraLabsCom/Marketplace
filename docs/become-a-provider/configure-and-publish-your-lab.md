@@ -92,7 +92,13 @@ the lab's on-chain Gateway and proxies managed GLBs through a same-origin API,
 so providers do not need to request per-Gateway Marketplace CSP or browser CORS
 changes. A provider may instead package a self-contained static Three.js app
 as a ZIP. Gateway validates and stores its files, then Marketplace loads its
-entry page in an isolated iframe and sends only FMI output samples. Neither
+entry page as the complete presentation in an isolated iframe and sends only
+FMI output samples. The app supplies its scene controls and telemetry display;
+Marketplace keeps generic FMU run and parameter controls outside the app, but
+does not add its GLB viewer, timeline, charts or output table to this view. The
+app must acknowledge initialization with the version 1 digital-twin-ready
+message after its scene has loaded. Gateway reports GLB bindings that do not
+match the FMU outputs before the provider synchronizes the shell. Neither
 choice requires Marketplace file permissions or Marketplace code changes.
 
 ## Post-publication management

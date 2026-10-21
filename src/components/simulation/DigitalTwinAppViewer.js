@@ -1,193 +1,184 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+
+const APP_READY_MESSAGE = 'decentralabs:digital-twin-ready'
+const APP_ERROR_MESSAGE = 'decentralabs:digital-twin-error'
+const HOST_READY_MESSAGE = 'decentralabs:digital-twin-host-ready'
+const APP_MESSAGE_VERSION = 1
+const APP_READY_TIMEOUT_MS = 30_000
+const EMPTY_TIMES = []
 
 function currentValue(series, index) {
   if (!Array.isArray(series) || series.length === 0) return undefined
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-function formatValue(value) {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'
-  return String(value).slice(0, 64)
-}
-
-function formatTime(value) {
-  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} s` : '—'
-}
-
 export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables, isRunning }) {
   const iframeRef = useRef(null)
-  const [appReady, setAppReady] = useState(false)
-  const [sampleIndex, setSampleIndex] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const times = Array.isArray(results?.time) ? results.time : []
-  const lastIndex = Math.max(times.length - 1, 0)
-  const displayedSampleIndex = isRunning ? lastIndex : Math.min(sampleIndex, lastIndex)
-
-  useEffect(() => {
-    setAppReady(false)
-    setSampleIndex(0)
-    setPlaying(false)
-  }, [appUrl])
-
-  useEffect(() => {
-    if (isRunning) setPlaying(false)
-  }, [isRunning])
-
-  useEffect(() => {
-    if (isRunning) return
-    setSampleIndex((current) => current === lastIndex ? current : lastIndex)
-  }, [isRunning, lastIndex, times.length])
-
-  useEffect(() => {
-    if (playing && !isRunning && lastIndex > 0 && sampleIndex >= lastIndex) setPlaying(false)
-  }, [playing, isRunning, lastIndex, sampleIndex])
-
-  useEffect(() => {
-    if (!playing || isRunning || lastIndex < 1) return undefined
-    const timer = window.setInterval(() => {
-      setSampleIndex((current) => {
-        return current >= lastIndex ? lastIndex : current + 1
-      })
-    }, 25)
-    return () => window.clearInterval(timer)
-  }, [playing, isRunning, lastIndex])
-
-  const sample = useMemo(() => {
-    const allowedOutputs = new Set(modelVariables
-      .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
-      .map((variable) => variable.name))
-    const outputs = {}
+  const sentSampleCountRef = useRef(0)
+  const [appState, setAppState] = useState('loading')
+  const [frameLoaded, setFrameLoaded] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
+  const sampleIndex = Math.max(times.length - 1, 0)
+  const outputNames = useMemo(() => modelVariables
+    .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
+    .map((variable) => variable.name), [modelVariables])
+  const outputDefaults = useMemo(() => {
+    const defaults = {}
     for (const variable of modelVariables) {
       if (variable?.causality !== 'output' || typeof variable.name !== 'string' || variable.start === undefined) continue
-      const start = variable.start
-      if (variable.type === 'Boolean' || typeof start === 'boolean') {
-        outputs[variable.name] = start === true || start === 'true'
+      if (variable.type === 'Boolean' || typeof variable.start === 'boolean') {
+        defaults[variable.name] = variable.start === true || variable.start === 'true'
       } else {
-        const numericStart = Number(start)
-        if (Number.isFinite(numericStart)) outputs[variable.name] = numericStart
+        const numericStart = Number(variable.start)
+        if (Number.isFinite(numericStart)) defaults[variable.name] = numericStart
       }
     }
+    return defaults
+  }, [modelVariables])
+
+  const sample = useMemo(() => {
+    const allowedOutputs = new Set(outputNames)
+    const outputs = { ...outputDefaults }
     for (const [name, series] of Object.entries(results?.outputs || {})) {
       if (!allowedOutputs.has(name)) continue
-      const value = currentValue(series, displayedSampleIndex)
+      const value = currentValue(series, sampleIndex)
       if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) outputs[name] = value
     }
-    const timeValue = Number(times[displayedSampleIndex])
+    const timeValue = Number(times[sampleIndex])
     return {
       type: 'decentralabs:fmi-sample',
-      version: 1,
+      version: APP_MESSAGE_VERSION,
       time: Number.isFinite(timeValue) ? timeValue : null,
       outputs,
     }
-  }, [results?.outputs, modelVariables, displayedSampleIndex, times])
+  }, [outputDefaults, outputNames, results?.outputs, sampleIndex, times])
 
   useEffect(() => {
-    if (!appReady) return
-    iframeRef.current?.contentWindow?.postMessage(sample, '*')
-  }, [appReady, sample])
-
-  const togglePlayback = useCallback(() => {
-    if (playing) {
-      setPlaying(false)
-      return
+    setAppState('loading')
+    setFrameLoaded(false)
+    sentSampleCountRef.current = 0
+    function notifyAppHostReady() {
+      iframeRef.current?.contentWindow?.postMessage({
+        type: HOST_READY_MESSAGE,
+        version: APP_MESSAGE_VERSION,
+      }, '*')
     }
-    if (lastIndex < 1 || isRunning) return
-    if (sampleIndex >= lastIndex) setSampleIndex(0)
-    setPlaying(true)
-  }, [playing, lastIndex, isRunning, sampleIndex])
+    const handshake = window.setInterval(notifyAppHostReady, 500)
+    const timeout = window.setTimeout(() => {
+      window.clearInterval(handshake)
+      setAppState((current) => current === 'ready' ? current : 'error')
+    }, APP_READY_TIMEOUT_MS)
 
-  const stats = modelVariables
-    .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
-    .map((variable) => ({ variable, value: sample.outputs[variable.name] }))
+    function handleAppMessage(event) {
+      if (event.source !== iframeRef.current?.contentWindow) return
+      const message = event.data
+      if (!message || typeof message !== 'object' || message.version !== APP_MESSAGE_VERSION) return
+      if (message.type === APP_READY_MESSAGE) {
+        window.clearInterval(handshake)
+        window.clearTimeout(timeout)
+        setAppState('ready')
+      } else if (message.type === APP_ERROR_MESSAGE) {
+        window.clearInterval(handshake)
+        window.clearTimeout(timeout)
+        setAppState('error')
+      }
+    }
+
+    window.addEventListener('message', handleAppMessage)
+    notifyAppHostReady()
+    return () => {
+      window.clearInterval(handshake)
+      window.clearTimeout(timeout)
+      window.removeEventListener('message', handleAppMessage)
+    }
+  }, [appUrl, reloadKey])
+
+  useEffect(() => {
+    if (appState !== 'ready') return
+    const target = iframeRef.current?.contentWindow
+    if (!target) return
+    const send = (type, payload = {}) => target.postMessage({
+      type,
+      version: APP_MESSAGE_VERSION,
+      ...payload,
+    }, '*')
+
+    let sentSampleCount = sentSampleCountRef.current
+    if (times.length < sentSampleCount) {
+      send('decentralabs:fmi-reset')
+      sentSampleCount = 0
+      sentSampleCountRef.current = 0
+    }
+
+    if (times.length === 0) {
+      target.postMessage(sample, '*')
+    } else if (times.length > sentSampleCount) {
+      const samples = []
+      for (let index = sentSampleCount; index < times.length; index += 1) {
+        const time = Number(times[index])
+        if (!Number.isFinite(time)) continue
+        const outputs = { ...outputDefaults }
+        for (const name of outputNames) {
+          const value = results?.outputs?.[name]?.[index]
+          if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+            outputs[name] = value
+          }
+        }
+        samples.push({ time, outputs })
+      }
+      if (samples.length > 0) send('decentralabs:fmi-samples', { samples })
+      sentSampleCountRef.current = times.length
+    }
+
+    send('decentralabs:fmi-simulation-state', {
+      state: isRunning ? 'running' : times.length > 0 ? 'completed' : 'idle',
+    })
+  }, [appState, isRunning, outputDefaults, outputNames, results, sample, times])
+
+  function handleFrameLoad() {
+    setFrameLoaded(true)
+    iframeRef.current?.contentWindow?.postMessage({
+      type: HOST_READY_MESSAGE,
+      version: APP_MESSAGE_VERSION,
+    }, '*')
+  }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#283a42] bg-[#101a20] shadow-xl shadow-black/20">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#26363d] px-5 py-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#67d7cf]">FMI / Three.js application</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
+    <section className="relative h-[min(82vh,60rem)] min-h-128 w-full overflow-hidden rounded-xl border border-[#253840] bg-[#07151b]">
+      <iframe
+        key={`${appUrl}:${reloadKey}`}
+        ref={iframeRef}
+        src={appUrl}
+        title={`${title} digital twin application`}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        onLoad={handleFrameLoad}
+        onError={() => setAppState('error')}
+        className="absolute inset-0 h-full w-full border-0"
+      />
+      {appState === 'loading' && (
+        <div className="absolute inset-0 grid place-items-center bg-[#07151b]/90 p-6 text-center text-sm text-[#c4d9dd]" role="status" aria-live="polite">
+          {frameLoaded ? 'Waiting for the application scene to initialize…' : 'Loading the provider application…'}
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-[#29434a] bg-[#14262b] px-3 py-1.5 text-xs text-[#bad0d2]">
-          <span className={`h-2 w-2 rounded-full ${appReady ? 'bg-[#59e1a2]' : 'bg-[#f5b942] animate-pulse'}`} />
-          {appReady ? (isRunning ? 'Live simulation' : 'Application ready') : 'Loading provider application'}
-        </div>
-      </header>
-
-      <div className="grid items-stretch gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
-          <iframe
-            key={appUrl}
-            ref={iframeRef}
-            src={appUrl}
-            title={`${title} Three.js application`}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            onLoad={() => setAppReady(true)}
-            className="h-full w-full border-0"
-          />
-          <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg border border-white/10 bg-[#071014]/80 px-3 py-2 text-[10px] text-[#a9c0c4] backdrop-blur">
-            Isolated provider app · FMI outputs only
-          </div>
-        </div>
-
-        <aside className="flex flex-col gap-3">
-          <div className="max-h-128 space-y-2 overflow-y-auto pr-1">
-            {stats.map(({ variable, value }) => (
-              <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
-                <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={variable.description || variable.name}>
-                  {variable.description || variable.name}
-                </p>
-                <p className="mt-1 wrap-break-word text-lg font-semibold tabular-nums text-white">
-                  {formatValue(value)}
-                  {variable.unit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{variable.unit}</span> : null}
-                </p>
-              </div>
-            ))}
-            {stats.length === 0 && (
-              <p className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3 text-xs text-[#829ba1]">
-                This FMU does not declare output variables for the application panel.
-              </p>
-            )}
-          </div>
-
-          <div className="mt-auto rounded-xl border border-[#26383f] bg-[#142128] p-3">
-            <div className="flex items-center justify-between text-xs text-[#a9bec2]">
-              <span>Simulation timeline</span>
-              <span className="font-mono text-white">{formatTime(times[displayedSampleIndex])}</span>
-            </div>
-            <input
-              aria-label="Digital twin simulation timeline"
-              type="range"
-              min="0"
-              max={lastIndex}
-              value={displayedSampleIndex}
-              onChange={(event) => {
-                setPlaying(false)
-                setSampleIndex(Number(event.target.value))
-              }}
-              disabled={times.length < 2 || isRunning}
-              className="mt-3 w-full accent-[#54d5c9] disabled:opacity-40"
-            />
-            <div className="mt-2 flex items-center justify-between text-[10px] text-[#829ba1]">
-              <span>{formatTime(times[0])}</span>
-              <span>{formatTime(times[lastIndex])}</span>
-            </div>
+      )}
+      {appState === 'error' && (
+        <div className="absolute inset-0 grid place-items-center bg-[#07151b]/95 p-6 text-center text-sm text-[#f5b4ba]" role="alert">
+          <div className="max-w-md">
+            <p>The provider application did not initialize successfully. Check its bundled assets and browser console errors.</p>
             <button
               type="button"
-              onClick={togglePlayback}
-              disabled={times.length < 2 || isRunning}
-              className="mt-3 w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setReloadKey((current) => current + 1)}
+              className="mt-4 rounded-lg border border-[#7b4650] bg-[#321d24] px-4 py-2 text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e]"
             >
-              {playing ? 'Pause replay' : 'Replay simulation'}
+              Retry application
             </button>
           </div>
-        </aside>
-      </div>
+        </div>
+      )}
     </section>
   )
 }

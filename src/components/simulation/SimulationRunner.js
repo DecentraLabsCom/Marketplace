@@ -608,23 +608,27 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
       {(simState === SIM_STATE.COMPLETED || (simState === SIM_STATE.RUNNING && results)) && results && (
         <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-header-bg">
-            Results
-            {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
-          </h3>
-          {results.outputs && Object.keys(results.outputs).length > 0 && (
-            <ResultsChart
-              outputs={results.outputs}
-              time={results.time}
-              variableMetadata={modelVariables}
-            />
-          )}
-          {simState === SIM_STATE.COMPLETED && results.outputs && (
-            <ResultsTable
-              outputs={results.outputs}
-              time={results.time}
-              variableMetadata={modelVariables}
-            />
+          {twinAsset?.type !== 'threejs-app' && (
+            <>
+              <h3 className="text-lg font-semibold text-header-bg">
+                Results
+                {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
+              </h3>
+              {results.outputs && Object.keys(results.outputs).length > 0 && (
+                <ResultsChart
+                  outputs={results.outputs}
+                  time={results.time}
+                  variableMetadata={modelVariables}
+                />
+              )}
+              {simState === SIM_STATE.COMPLETED && results.outputs && (
+                <ResultsTable
+                  outputs={results.outputs}
+                  time={results.time}
+                  variableMetadata={modelVariables}
+                />
+              )}
+            </>
           )}
           {simState === SIM_STATE.COMPLETED && (
             <DownloadButtons

@@ -32,7 +32,7 @@ describe('DigitalTwinAppViewer', () => {
       />,
     )
 
-    const iframe = screen.getByTitle('Smart Warehouse Three.js application')
+    const iframe = screen.getByTitle('Smart Warehouse digital twin application')
     const postMessage = jest.fn()
     Object.defineProperty(iframe.contentWindow, 'postMessage', {
       configurable: true,
@@ -40,15 +40,26 @@ describe('DigitalTwinAppViewer', () => {
     })
 
     fireEvent.load(iframe)
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'decentralabs:digital-twin-host-ready',
+      version: 1,
+    }, '*')
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'decentralabs:digital-twin-ready', version: 1 },
+      source: iframe.contentWindow,
+    }))
 
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith({
-        type: 'decentralabs:fmi-sample',
+        type: 'decentralabs:fmi-samples',
         version: 1,
-        time: 0.1,
-        outputs: { agvPosition: 2.72, ordersPicked: 1, alarm: true, packageOnAgv: false, truckLoadCount: 0 },
+        samples: [
+          { time: 0, outputs: { agvPosition: 0, ordersPicked: 0, alarm: false, packageOnAgv: false, truckLoadCount: 0 } },
+          { time: 0.1, outputs: { agvPosition: 2.72, ordersPicked: 1, alarm: true, packageOnAgv: false, truckLoadCount: 0 } },
+        ],
       }, '*')
     })
-    expect(screen.getByText('Application ready')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
