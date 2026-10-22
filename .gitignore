@@ -82,6 +82,7 @@ next-env.d.ts
 
 # Private agent and developer documentation
 dev/
+/src/components/simulation/QfmuResponseChart.js
 TODO.md
 
 # labs data
