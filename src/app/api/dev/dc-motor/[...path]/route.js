@@ -17,7 +17,6 @@ const MAX_REQUEST_BYTES = 8 * 1024
 const MAX_APP_ASSET_BYTES = 8 * 1024 * 1024
 const MAX_MODEL_DESCRIPTION_BYTES = 8 * 1024 * 1024
 const TEACHING_VARIABLES = new Set([
-  'in_torque',
   'out_control_err',
   'out_load_speed',
   'out_motor_speed',
@@ -32,7 +31,6 @@ const TEACHING_VARIABLES = new Set([
   'data.Jm.value',
 ])
 const DEFAULT_PARAMETERS = Object.freeze({
-  'in_torque': 0,
   'speedController.k': 100,
   'speedController.Ti': 0.1,
   'damper.d': 40,
@@ -44,7 +42,6 @@ const DEFAULT_PARAMETERS = Object.freeze({
   'data.Jm.value': 1,
 })
 const PARAMETER_RANGES = Object.freeze({
-  'in_torque': [-10, 10],
   'speedController.k': [20, 180],
   'speedController.Ti': [0.02, 0.5],
   'damper.d': [5, 120],
@@ -168,6 +165,7 @@ export async function GET(request, { params }) {
     })
     if (extension === 'html') {
       headers.set('Content-Security-Policy', HTML_POLICY)
+      headers.set('X-Frame-Options', 'SAMEORIGIN')
       headers.set('Referrer-Policy', 'no-referrer')
     }
     return new Response(body, { status: 200, headers })
