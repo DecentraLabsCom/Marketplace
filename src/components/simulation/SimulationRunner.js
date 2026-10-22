@@ -295,9 +295,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
         if (!requestedParameters || typeof requestedParameters !== 'object' || Array.isArray(requestedParameters)) {
           throw new Error('The digital twin requested invalid simulation inputs.')
         }
-        const allowedInputNames = new Set(inputVars.map((variable) => variable.name))
-        if (Object.keys(requestedParameters).some((name) => !allowedInputNames.has(name))) {
-          throw new Error('The digital twin requested an input that is not declared by this FMU.')
+        const allowedInitializationNames = new Set(modelVariables
+          .filter((variable) => (
+            variable?.causality === 'input'
+            || (variable?.causality === 'parameter' && variable?.variability !== 'constant')
+          ))
+          .map((variable) => variable.name))
+        if (Object.keys(requestedParameters).some((name) => !allowedInitializationNames.has(name))) {
+          throw new Error('The digital twin requested an FMU input or tunable parameter that this model does not expose.')
         }
         activeParameters = { ...parameters, ...requestedParameters }
         setParameters(activeParameters)
