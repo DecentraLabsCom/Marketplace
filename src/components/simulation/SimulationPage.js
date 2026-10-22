@@ -73,7 +73,7 @@ export default function SimulationPage({ id, reservationKey }) {
 
   return (
     <Container padding="sm">
-      <div className="mt-4 max-w-4xl mx-auto">
+      <div className="mt-4 w-full max-w-none mx-auto">
         <SimulationErrorBoundary>
           <SimulationRunner lab={lab} reservationKey={reservationKey} />
         </SimulationErrorBoundary>

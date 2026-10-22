@@ -429,6 +429,10 @@ describe("SimulationRunner", () => {
     gatewayResponses.push(...responses);
   }
 
+  async function waitForStandardSimulationView() {
+    await screen.findByText(/^Simulation:/);
+  }
+
   test.each([
     {
       contentType: "model/gltf-binary",
@@ -486,25 +490,18 @@ describe("SimulationRunner", () => {
     expect(screen.queryByTestId("digital-twin-app")).not.toBeInTheDocument();
   });
 
-  test("renders simulation header with lab name", () => {
+  test("renders simulation header with lab name", async () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
+    expect(await screen.findByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
   });
 
-  test("does not show the redundant compatibility label", () => {
+  test("does not show the redundant compatibility label", async () => {
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     expect(screen.queryByText("Compatible with FMI 2.0 Co-Simulation")).not.toBeInTheDocument();
   });
 
-  test("shows proxy download action only when reservation key is provided", () => {
-    const { rerender } = render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
-
-    rerender(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
-    expect(screen.getByRole("button", { name: /Download Proxy FMU/i })).toBeInTheDocument();
-  });
-
-  test("downloads proxy FMU for valid reservation", async () => {
+  test("automatically downloads the reservation FMU and removes the manual action", async () => {
     queueGatewayResponses({
       ok: true,
       blob: async () => new Blob(["proxy"]),
@@ -512,10 +509,11 @@ describe("SimulationRunner", () => {
         "content-disposition": 'attachment; filename="fmu-proxy-lab-42.fmu"',
       }),
     });
+    const { rerender } = render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
+    expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
 
-    render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
-    fireEvent.click(screen.getByRole("button", { name: /Download Proxy FMU/i }));
-
+    rerender(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining("/api/simulations/proxy?"),
@@ -524,10 +522,11 @@ describe("SimulationRunner", () => {
         })
       );
     });
-    expect(screen.getByText(/Proxy FMU downloaded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Reservation FMU downloaded automatically/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
   });
 
-  test("shows regenerate action when proxy ticket is expired or used", async () => {
+  test("shows an automatic-download error when the reservation proxy ticket is expired or used", async () => {
     const expiredResponse = {
       ok: false,
       status: 401,
@@ -539,32 +538,30 @@ describe("SimulationRunner", () => {
     queueGatewayResponses(expiredResponse, expiredResponse);
 
     render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
-    fireEvent.click(screen.getByRole("button", { name: /Download Proxy FMU/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Regenerate Proxy FMU/i })).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/Re-enter the reserved laboratory/i);
     });
-    expect(screen.getByText(/ticket expired or already used/i)).toBeInTheDocument();
     expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
   });
 
-  test("renders input parameter form for input variables only", () => {
+  test("renders input parameter form for input variables only", async () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByLabelText("Parameter mass")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Parameter mass")).toBeInTheDocument();
     // output variable should not have a parameter input
     expect(screen.queryByLabelText("Parameter position")).toBeNull();
   });
 
-  test("renders simulation options with default values", () => {
+  test("renders simulation options with default values", async () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByLabelText("Start Time (s)")).toHaveValue(0);
+    expect(await screen.findByLabelText("Start Time (s)")).toHaveValue(0);
     expect(screen.getByLabelText("Stop Time (s)")).toHaveValue(10);
     expect(screen.getByLabelText("Step Size (s)")).toHaveValue(0.01);
   });
 
-  test("shows 'Run Simulation' button in idle state", () => {
+  test("shows 'Run Simulation' button in idle state", async () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByText("Run Simulation")).toBeInTheDocument();
+    expect(await screen.findByText("Run Simulation")).toBeInTheDocument();
   });
 
   test("calls /api/simulations/stream on button click", async () => {
@@ -577,6 +574,7 @@ describe("SimulationRunner", () => {
     );
 
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => {
@@ -598,6 +596,7 @@ describe("SimulationRunner", () => {
     );
 
     render(<SimulationRunner lab={{ ...fmuLab, id: 1 }} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => {
@@ -637,7 +636,7 @@ describe("SimulationRunner", () => {
     };
 
     render(<SimulationRunner lab={stateSpaceLab} />);
-    fireEvent.change(screen.getByLabelText("Parameter u"), { target: { value: "4" } });
+    fireEvent.change(await screen.findByLabelText("Parameter u"), { target: { value: "4" } });
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => expect(screen.getByText("Input u requires 3 values separated by spaces.")).toBeInTheDocument());
@@ -645,6 +644,18 @@ describe("SimulationRunner", () => {
   });
 
   test("reauthenticates once with the canonical lab auth context after a 401", async () => {
+    queueGatewayResponses({
+      ok: true,
+      blob: async () => new Blob(["proxy"]),
+      headers: new Headers({
+        "content-disposition": 'attachment; filename="fmu-proxy-lab-42.fmu"',
+      }),
+    });
+
+    render(<SimulationRunner lab={{ ...fmuLab, accessURI: "https://gateway.example.com/fmu" }} reservationKey="0xabc" />);
+    await waitForStandardSimulationView();
+    expect(await screen.findByText(/Reservation FMU downloaded automatically/i)).toBeInTheDocument();
+
     queueGatewayResponses(
       { ok: false, status: 401 },
       mockNdjsonResponse([
@@ -653,7 +664,6 @@ describe("SimulationRunner", () => {
       ]),
     );
 
-    render(<SimulationRunner lab={{ ...fmuLab, accessURI: "https://gateway.example.com/fmu" }} reservationKey="0xabc" />);
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => expect(screen.getByText("Results")).toBeInTheDocument());
@@ -675,6 +685,7 @@ describe("SimulationRunner", () => {
     );
 
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => {
@@ -690,6 +701,7 @@ describe("SimulationRunner", () => {
     });
 
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
     await waitFor(() => {
@@ -708,9 +720,9 @@ describe("SimulationRunner", () => {
     expect(screen.getByText(/No FMU metadata/)).toBeInTheDocument();
   });
 
-  test("shows history toggle button", () => {
+  test("shows history toggle button", async () => {
     render(<SimulationRunner lab={fmuLab} />);
-    expect(screen.getByText("Show History")).toBeInTheDocument();
+    expect(await screen.findByText("Show History")).toBeInTheDocument();
   });
 
   test("shows a specific message when history is not available for the active FMU backend", async () => {
@@ -724,6 +736,7 @@ describe("SimulationRunner", () => {
     });
 
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Show History"));
 
     await waitFor(() => {
@@ -761,6 +774,7 @@ describe("SimulationRunner", () => {
     );
 
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Show History"));
 
     await waitFor(() => {
@@ -774,14 +788,15 @@ describe("SimulationRunner", () => {
     });
   });
 
-  test("shows solver selector for ModelExchange FMUs", () => {
+  test("shows solver selector for ModelExchange FMUs", async () => {
     const meLab = { ...fmuLab, simulationType: "ModelExchange" };
     render(<SimulationRunner lab={meLab} />);
-    expect(screen.getByLabelText("ODE Solver:")).toBeInTheDocument();
+    expect(await screen.findByLabelText("ODE Solver:")).toBeInTheDocument();
   });
 
-  test("does not show solver selector for CoSimulation FMUs", () => {
+  test("does not show solver selector for CoSimulation FMUs", async () => {
     render(<SimulationRunner lab={fmuLab} />);
+    await waitForStandardSimulationView();
     expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
   });
 });

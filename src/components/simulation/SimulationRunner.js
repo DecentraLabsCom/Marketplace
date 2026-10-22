@@ -144,10 +144,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [gatewaySessionOrigin, setGatewaySessionOrigin] = useState(null)
   const [proxyDownloadState, setProxyDownloadState] = useState('idle')
   const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
-  const [proxyNeedsRegeneration, setProxyNeedsRegeneration] = useState(false)
   const [twinAsset, setTwinAsset] = useState(null)
+  const [twinAssetState, setTwinAssetState] = useState('loading')
 
   const authPromiseRef = useRef(null)
+  const proxyAttemptRef = useRef(null)
+  const simulationInFlightRef = useRef(false)
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
@@ -158,11 +160,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
   useEffect(() => {
     if (!labId) {
       setTwinAsset(null)
+      setTwinAssetState('ready')
       return undefined
     }
 
     const controller = new AbortController()
     setTwinAsset(null)
+    setTwinAssetState('loading')
     fetch(`/api/aas/shell?${new URLSearchParams({ labId })}`, {
       cache: 'no-store',
       signal: controller.signal,
@@ -173,20 +177,32 @@ export default function SimulationRunner({ lab, reservationKey }) {
       })
       .then((data) => {
         if (controller.signal.aborted) return
-        const visualAsset = Array.isArray(data?.visualAssets)
-          ? data.visualAssets.find((asset) => ['model/gltf-binary', 'text/html'].includes(asset?.contentType))
-          : null
-        setTwinAsset(resolveDigitalTwinAsset(visualAsset, resolveGatewayOrigin(lab.accessURI), labId))
+        const visualAssets = Array.isArray(data?.visualAssets) ? data.visualAssets : []
+        // A provider Three.js app is a complete experience and takes precedence
+        // over a GLB when both are linked to the same AAS.
+        const visualAsset = [
+          ...visualAssets.filter((asset) => asset?.contentType === 'text/html'),
+          ...visualAssets.filter((asset) => asset?.contentType === 'model/gltf-binary'),
+        ]
+          .map((asset) => resolveDigitalTwinAsset(asset, resolveGatewayOrigin(lab.accessURI), labId))
+          .find(Boolean) || null
+        setTwinAsset(visualAsset)
+        setTwinAssetState('ready')
       })
       .catch((error) => {
         if (!controller.signal.aborted) {
           devLog.warn('Digital twin visual asset discovery failed:', error?.message)
           setTwinAsset(null)
+          setTwinAssetState('ready')
         }
       })
 
     return () => controller.abort()
   }, [labId, lab.accessURI])
+
+  const proxyAttemptKey = reservationKey && fmuMeta?.fmuFileName
+    ? `${labId}:${String(reservationKey).toLowerCase()}`
+    : ''
 
   const handleParamChange = useCallback((name, value) => {
     setParameters(prev => ({ ...prev, [name]: value }))
@@ -265,13 +281,28 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return response
   }, [ensureGatewaySession, reauthenticateGatewaySession])
 
-  const handleRun = useCallback(async () => {
+  const runSimulation = useCallback(async (requestedParameters = null) => {
+    if (simulationInFlightRef.current) return
+    simulationInFlightRef.current = true
     setSimState(SIM_STATE.RUNNING)
     setErrorMsg(null)
     setResults(null)
     setProgress({ elapsedSeconds: 0, chunkIndex: null, totalChunks: null })
 
     try {
+      let activeParameters = parameters
+      if (requestedParameters !== null) {
+        if (!requestedParameters || typeof requestedParameters !== 'object' || Array.isArray(requestedParameters)) {
+          throw new Error('The digital twin requested invalid simulation inputs.')
+        }
+        const allowedInputNames = new Set(inputVars.map((variable) => variable.name))
+        if (Object.keys(requestedParameters).some((name) => !allowedInputNames.has(name))) {
+          throw new Error('The digital twin requested an input that is not declared by this FMU.')
+        }
+        activeParameters = { ...parameters, ...requestedParameters }
+        setParameters(activeParameters)
+      }
+
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
 
@@ -281,7 +312,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         reqOptions.solver = solver
       }
 
-      const normalizedParameters = normalizeSimulationParameters(parameters, modelVariables)
+      const normalizedParameters = normalizeSimulationParameters(activeParameters, modelVariables)
 
       const body = {
         labId: String(lab.id ?? lab.tokenId ?? ''),
@@ -350,8 +381,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
       devLog.error('Simulation error:', err)
       setErrorMsg(err.message)
       setSimState(SIM_STATE.ERROR)
+    } finally {
+      simulationInFlightRef.current = false
     }
-  }, [fetchGateway, isModelExchange, lab, modelVariables, options, parameters, reservationKey, solver])
+  }, [fetchGateway, inputVars, isModelExchange, lab, modelVariables, options, parameters, reservationKey, solver])
+
+  const handleRun = useCallback(() => runSimulation(), [runSimulation])
+  const handleRunRequest = useCallback((requestedParameters) => runSimulation(requestedParameters), [runSimulation])
 
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
@@ -410,12 +446,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
     const gatewayCode = String(gatewayDetail?.code || '').toUpperCase()
     if (gatewayCode === 'SESSION_TICKET_EXPIRED' || gatewayCode === 'SESSION_TICKET_ALREADY_USED') {
-      setProxyNeedsRegeneration(true)
-      return 'Proxy ticket expired or already used. Click "Regenerate Proxy FMU".'
+      return 'The reservation FMU could not be prepared. Re-enter the reserved laboratory to request a fresh file.'
     }
     if (status === 401) {
-      setProxyNeedsRegeneration(true)
-      return 'Authorization failed. Re-authenticate and regenerate the proxy FMU.'
+      return 'The reservation FMU could not be authorized. Re-enter the reserved laboratory and try again.'
     }
     return payload?.error || gatewayDetail?.error || `Proxy download failed (${status})`
   }, [])
@@ -452,20 +486,26 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const anchor = document.createElement('a')
       anchor.href = blobUrl
       anchor.download = filename
+      anchor.hidden = true
       document.body.appendChild(anchor)
       anchor.click()
       document.body.removeChild(anchor)
-      URL.revokeObjectURL(blobUrl)
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
-      setProxyNeedsRegeneration(false)
       setProxyDownloadState('success')
-      setProxyDownloadMessage('Proxy FMU downloaded.')
+      setProxyDownloadMessage('Reservation FMU downloaded automatically.')
     } catch (err) {
       devLog.error('Proxy FMU download failed:', err)
       setProxyDownloadState('error')
       setProxyDownloadMessage(err?.message || 'Unable to download proxy FMU')
     }
   }, [fetchGateway, lab.id, lab.tokenId, reservationKey, resolveProxyError])
+
+  useEffect(() => {
+    if (!proxyAttemptKey || proxyAttemptRef.current === proxyAttemptKey) return
+    proxyAttemptRef.current = proxyAttemptKey
+    void triggerProxyDownload()
+  }, [proxyAttemptKey, triggerProxyDownload])
 
   if (!fmuMeta || !fmuMeta.fmuFileName) {
     return (
@@ -477,63 +517,191 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   const gatewayUrl = lab.accessURI || ''
 
+  if (twinAssetState === 'loading') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-sm text-[#bad0d2]" role="status">
+        Preparing the simulation view…
+      </div>
+    )
+  }
+
+  if (twinAsset?.type === 'threejs-app') {
+    return (
+      <div className="fixed inset-0 z-100 bg-[#07151b]">
+        <DigitalTwinAppViewer
+          appUrl={twinAsset.url}
+          title={lab?.name || 'Digital Twin'}
+          results={results}
+          modelVariables={modelVariables}
+          isRunning={simState === SIM_STATE.RUNNING}
+          simulationState={simState}
+          onRunSimulation={handleRunRequest}
+          downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
+          fullScreen
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-header-bg">
-            Simulation: {lab?.name || 'Untitled FMU'}
-          </h2>
-          {fmuMeta.fmuFileName && (
-            <p className="text-sm text-text-secondary mt-1">
-              {fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {simulationTypeLabel || '?'}
-            </p>
-          )}
-        </div>
-        <button onClick={() => setShowHistory(h => !h)} className="text-xs text-brand hover:underline">
-          {showHistory ? 'Hide History' : 'Show History'}
-        </button>
-      </div>
+      {twinAsset?.type === 'glb' ? (
+        <section className="rounded-2xl border border-[#283a42] bg-[#101a20] p-4 shadow-xl shadow-black/20 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#67d7cf]">FMU simulation</p>
+              <h2 className="mt-1 text-xl font-bold text-white">{lab?.name || 'Digital Twin'}</h2>
+              <p className="mt-1 text-xs text-[#9aafb4]">Set the model inputs, then run the simulation to animate the scene.</p>
+            </div>
+            <p className="rounded-full border border-[#29434a] bg-[#14262b] px-3 py-1.5 text-[10px] text-[#bad0d2]">FMI {fmuMeta.fmiVersion || '?'} · {simulationTypeLabel || '?'}</p>
+          </div>
 
-      {reservationKey && (
-        <div className="rounded border border-[#2a2f33] bg-[#1f2426] p-3">
-          <div className="flex flex-wrap items-center gap-3">
+          {inputVars.length > 0 ? (
+            <ParameterForm
+              variables={inputVars}
+              modelVariables={modelVariables}
+              values={parameters}
+              onChange={handleParamChange}
+              disabled={simState === SIM_STATE.RUNNING}
+            />
+          ) : (
+            <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no input variables. Run it with its default settings.</p>
+          )}
+
+          <details className="mt-4 rounded-xl border border-[#26383f] bg-[#0c171c] p-3">
+            <summary className="cursor-pointer text-xs font-semibold text-[#c0d1d3]">Simulation settings</summary>
+            <div className="mt-3 space-y-4">
+              <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
+              {isModelExchange && (
+                <div className="flex items-center gap-3">
+                  <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
+                  <select
+                    id="solver-select"
+                    value={solver}
+                    onChange={(event) => setSolver(event.target.value)}
+                    disabled={simState === SIM_STATE.RUNNING}
+                    className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
+                  >
+                    <option value="Euler">Euler (fast, less accurate)</option>
+                    <option value="CVode">CVode (adaptive, more accurate)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </details>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#26383f] pt-4">
             <button
               type="button"
-              onClick={triggerProxyDownload}
-              disabled={proxyDownloadState === 'running'}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                proxyDownloadState === 'running'
-                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                  : 'bg-brand hover:bg-hover-dark text-white'
-              }`}
+              onClick={handleRun}
+              disabled={simState === SIM_STATE.RUNNING}
+              className="rounded-lg bg-[#52d6bd] px-5 py-2.5 text-sm font-semibold text-[#06201c] transition hover:bg-[#80f0d8] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {proxyDownloadState === 'running'
-                ? 'Preparing Proxy FMU...'
-                : (proxyNeedsRegeneration ? 'Regenerate Proxy FMU' : 'Download Proxy FMU')}
+              {simState === SIM_STATE.RUNNING ? 'Running simulation…' : simState === SIM_STATE.COMPLETED ? 'Run simulation again' : 'Run simulation'}
             </button>
-            <span className="text-xs text-text-secondary">
-              For reserved FMU sessions only. The real model is never downloaded.
-            </span>
+            {reservationKey && proxyDownloadState !== 'idle' && (
+              <span role={proxyDownloadState === 'error' ? 'alert' : 'status'} className={`text-xs ${proxyDownloadState === 'error' ? 'text-error-text' : 'text-[#9aafb4]'}`}>
+                {proxyDownloadState === 'running' ? 'Preparing the reservation FMU…' : proxyDownloadMessage}
+              </span>
+            )}
           </div>
-          {proxyDownloadMessage && (
-            <p className={`text-sm mt-2 ${proxyDownloadState === 'error' ? 'text-error-text' : 'text-green-500'}`}>
-              {proxyDownloadMessage}
+          {simState === SIM_STATE.RUNNING && <div className="mt-3"><SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} /></div>}
+          {simState === SIM_STATE.ERROR && errorMsg && <p role="alert" className="mt-3 rounded-lg border border-error-border bg-error-bg p-3 text-sm text-error-text">{errorMsg}</p>}
+        </section>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-header-bg">Simulation: {lab?.name || 'Untitled FMU'}</h2>
+              <p className="mt-1 text-sm text-text-secondary">{fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {simulationTypeLabel || '?'}</p>
+            </div>
+            <button onClick={() => setShowHistory((visible) => !visible)} className="text-xs text-brand hover:underline">
+              {showHistory ? 'Hide History' : 'Show History'}
+            </button>
+          </div>
+
+          {reservationKey && proxyDownloadState !== 'idle' && (
+            <p role={proxyDownloadState === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-xs ${proxyDownloadState === 'error' ? 'border-error-border bg-error-bg text-error-text' : 'border-[#2a2f33] bg-[#1f2426] text-text-secondary'}`}>
+              {proxyDownloadState === 'running' ? 'Preparing the reservation FMU…' : proxyDownloadMessage}
             </p>
           )}
-        </div>
-      )}
 
-      {showHistory && (
-        <SimulationHistory
-          labId={String(lab.id ?? lab.tokenId ?? '')}
-          reservationKey={reservationKey}
-          gatewayUrl={gatewayUrl}
-          gatewaySessionOrigin={gatewaySessionOrigin}
-          onEnsureGatewaySession={ensureGatewaySession}
-          onFetchGateway={fetchGateway}
-          onLoadResult={handleLoadResult}
-        />
+          {showHistory && (
+            <SimulationHistory
+              labId={String(lab.id ?? lab.tokenId ?? '')}
+              reservationKey={reservationKey}
+              gatewayUrl={gatewayUrl}
+              gatewaySessionOrigin={gatewaySessionOrigin}
+              onEnsureGatewaySession={ensureGatewaySession}
+              onFetchGateway={fetchGateway}
+              onLoadResult={handleLoadResult}
+            />
+          )}
+
+          {inputVars.length > 0 && (
+            <ParameterForm
+              variables={inputVars}
+              modelVariables={modelVariables}
+              values={parameters}
+              onChange={handleParamChange}
+              disabled={simState === SIM_STATE.RUNNING}
+            />
+          )}
+
+          <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
+
+          {isModelExchange && (
+            <div className="flex items-center gap-3">
+              <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
+              <select
+                id="solver-select"
+                value={solver}
+                onChange={(event) => setSolver(event.target.value)}
+                disabled={simState === SIM_STATE.RUNNING}
+                className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
+              >
+                <option value="Euler">Euler (fast, less accurate)</option>
+                <option value="CVode">CVode (adaptive, more accurate)</option>
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleRun}
+              disabled={simState === SIM_STATE.RUNNING}
+              className={`rounded px-6 py-2 font-medium transition-colors ${simState === SIM_STATE.RUNNING ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
+            >
+              {simState === SIM_STATE.RUNNING ? 'Running…' : simState === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
+            </button>
+          </div>
+
+          {simState === SIM_STATE.RUNNING && <SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} />}
+          {simState === SIM_STATE.ERROR && errorMsg && (
+            <div className="rounded-lg border border-error-border bg-error-bg p-4">
+              <p className="text-sm font-medium text-error-text">Simulation Error</p>
+              <p className="mt-1 text-sm text-error-text">{errorMsg}</p>
+            </div>
+          )}
+
+          {(simState === SIM_STATE.COMPLETED || (simState === SIM_STATE.RUNNING && results)) && results && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-header-bg">
+                Results
+                {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
+              </h3>
+              {results.outputs && Object.keys(results.outputs).length > 0 && (
+                <ResultsChart outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />
+              )}
+              {simState === SIM_STATE.COMPLETED && results.outputs && (
+                <ResultsTable outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />
+              )}
+              {simState === SIM_STATE.COMPLETED && (
+                <DownloadButtons results={results} labName={lab?.name} variableMetadata={modelVariables} />
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {twinAsset?.type === 'glb' && (
@@ -543,101 +711,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
           results={results}
           modelVariables={modelVariables}
           isRunning={simState === SIM_STATE.RUNNING}
+          simulationState={simState}
+          onRunSimulation={handleRun}
         />
-      )}
-      {twinAsset?.type === 'threejs-app' && (
-        <DigitalTwinAppViewer
-          appUrl={twinAsset.url}
-          title={lab?.name || 'Digital Twin'}
-          results={results}
-          modelVariables={modelVariables}
-          isRunning={simState === SIM_STATE.RUNNING}
-        />
-      )}
-
-      {inputVars.length > 0 && (
-        <ParameterForm
-          variables={inputVars}
-          modelVariables={modelVariables}
-          values={parameters}
-          onChange={handleParamChange}
-          disabled={simState === SIM_STATE.RUNNING}
-        />
-      )}
-
-      <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
-
-      {isModelExchange && (
-        <div className="flex items-center gap-3">
-          <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
-          <select
-            id="solver-select"
-            value={solver}
-            onChange={(e) => setSolver(e.target.value)}
-            disabled={simState === SIM_STATE.RUNNING}
-            className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
-          >
-            <option value="Euler">Euler (fast, less accurate)</option>
-            <option value="CVode">CVode (adaptive, more accurate)</option>
-          </select>
-        </div>
-      )}
-
-      <div className="flex items-center gap-4">
-        <button
-          onClick={handleRun}
-          disabled={simState === SIM_STATE.RUNNING}
-          className={`px-6 py-2 rounded font-medium transition-colors ${
-            simState === SIM_STATE.RUNNING ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-brand hover:bg-hover-dark text-white'
-          }`}
-        >
-          {simState === SIM_STATE.RUNNING ? 'Running...' : simState === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
-        </button>
-      </div>
-
-      {simState === SIM_STATE.RUNNING && (
-        <SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} />
-      )}
-
-      {simState === SIM_STATE.ERROR && errorMsg && (
-        <div className="bg-error-bg border border-error-border rounded-lg p-4">
-          <p className="text-error-text text-sm font-medium">Simulation Error</p>
-          <p className="text-error-text text-sm mt-1">{errorMsg}</p>
-        </div>
-      )}
-
-      {(simState === SIM_STATE.COMPLETED || (simState === SIM_STATE.RUNNING && results)) && results && (
-        <div className="space-y-6">
-          {twinAsset?.type !== 'threejs-app' && (
-            <>
-              <h3 className="text-lg font-semibold text-header-bg">
-                Results
-                {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
-              </h3>
-              {results.outputs && Object.keys(results.outputs).length > 0 && (
-                <ResultsChart
-                  outputs={results.outputs}
-                  time={results.time}
-                  variableMetadata={modelVariables}
-                />
-              )}
-              {simState === SIM_STATE.COMPLETED && results.outputs && (
-                <ResultsTable
-                  outputs={results.outputs}
-                  time={results.time}
-                  variableMetadata={modelVariables}
-                />
-              )}
-            </>
-          )}
-          {simState === SIM_STATE.COMPLETED && (
-            <DownloadButtons
-              results={results}
-              labName={lab?.name}
-              variableMetadata={modelVariables}
-            />
-          )}
-        </div>
       )}
     </div>
   )

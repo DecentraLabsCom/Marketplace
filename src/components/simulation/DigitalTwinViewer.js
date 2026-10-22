@@ -33,7 +33,7 @@ function formatTime(value) {
   return Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} s` : '—'
 }
 
-export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning }) {
+export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning, simulationState, onRunSimulation }) {
   const [sampleIndex, setSampleIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [loadState, setLoadState] = useState('loading')
@@ -101,7 +101,7 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
       </header>
 
       <div className="grid items-stretch gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="relative min-h-[32rem] overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
+        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
           <DigitalTwinCanvas
             sceneUrl={sceneUrl}
             values={values}
@@ -137,6 +137,17 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
               </p>
             )}
           </div>
+
+          {onRunSimulation && (
+            <button
+              type="button"
+              onClick={onRunSimulation}
+              disabled={isRunning}
+              className="w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2.5 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isRunning ? 'Running simulation…' : simulationState === 'completed' ? 'Run simulation again' : 'Run simulation'}
+            </button>
+          )}
 
           <div className="mt-auto rounded-xl border border-[#26383f] bg-[#142128] p-3">
             <div className="flex items-center justify-between text-xs text-[#a9bec2]">
@@ -184,6 +195,8 @@ DigitalTwinViewer.propTypes = {
   results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
   isRunning: PropTypes.bool,
+  simulationState: PropTypes.string,
+  onRunSimulation: PropTypes.func,
 }
 
 DigitalTwinViewer.defaultProps = {
@@ -191,4 +204,6 @@ DigitalTwinViewer.defaultProps = {
   results: null,
   modelVariables: [],
   isRunning: false,
+  simulationState: 'idle',
+  onRunSimulation: null,
 }

@@ -15,9 +15,11 @@ function currentValue(series, index) {
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables, isRunning }) {
+export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables, isRunning, simulationState, onRunSimulation, downloadError, fullScreen }) {
   const iframeRef = useRef(null)
   const sentSampleCountRef = useRef(0)
+  const onRunSimulationRef = useRef(onRunSimulation)
+  onRunSimulationRef.current = onRunSimulation
   const [appState, setAppState] = useState('loading')
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -85,6 +87,12 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         window.clearInterval(handshake)
         window.clearTimeout(timeout)
         setAppState('error')
+      } else if (message.type === 'decentralabs:fmi-run-request') {
+        if (message.parameters === undefined || (
+          message.parameters && typeof message.parameters === 'object' && !Array.isArray(message.parameters)
+        )) {
+          onRunSimulationRef.current?.(message.parameters ?? {})
+        }
       }
     }
 
@@ -135,9 +143,9 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     }
 
     send('decentralabs:fmi-simulation-state', {
-      state: isRunning ? 'running' : times.length > 0 ? 'completed' : 'idle',
+      state: simulationState === 'error' ? 'error' : isRunning ? 'running' : times.length > 0 ? 'completed' : 'idle',
     })
-  }, [appState, isRunning, outputDefaults, outputNames, results, sample, times])
+  }, [appState, isRunning, outputDefaults, outputNames, results, sample, simulationState, times])
 
   function handleFrameLoad() {
     setFrameLoaded(true)
@@ -148,7 +156,9 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   }
 
   return (
-    <section className="relative h-[min(82vh,60rem)] min-h-128 w-full overflow-hidden rounded-xl border border-[#253840] bg-[#07151b]">
+    <section className={fullScreen
+      ? 'relative h-screen min-h-0 w-screen overflow-hidden bg-[#07151b]'
+      : 'relative h-[min(82vh,60rem)] min-h-128 w-full overflow-hidden rounded-xl border border-[#253840] bg-[#07151b]'}>
       <iframe
         key={`${appUrl}:${reloadKey}`}
         ref={iframeRef}
@@ -179,6 +189,11 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
           </div>
         </div>
       )}
+      {downloadError && appState !== 'loading' && appState !== 'error' && (
+        <div className="absolute left-3 right-3 top-3 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-6" role="alert">
+          {downloadError}
+        </div>
+      )}
     </section>
   )
 }
@@ -189,6 +204,10 @@ DigitalTwinAppViewer.propTypes = {
   results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
   isRunning: PropTypes.bool,
+  simulationState: PropTypes.string,
+  onRunSimulation: PropTypes.func,
+  downloadError: PropTypes.string,
+  fullScreen: PropTypes.bool,
 }
 
 DigitalTwinAppViewer.defaultProps = {
@@ -196,4 +215,8 @@ DigitalTwinAppViewer.defaultProps = {
   results: null,
   modelVariables: [],
   isRunning: false,
+  simulationState: 'idle',
+  onRunSimulation: null,
+  downloadError: null,
+  fullScreen: false,
 }
