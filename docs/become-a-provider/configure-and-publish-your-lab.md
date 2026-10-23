@@ -96,15 +96,29 @@ entry page as the complete presentation in an isolated iframe and sends FMI
 output samples. The app supplies its scene, input controls, run action, charts
 and telemetry display; Marketplace does not wrap it in the GLB viewer or inject
 Marketplace UI modules. To start a simulation, the app may send the version 1
-`decentralabs:fmi-run-request` message with a `parameters` object. Marketplace
-validates its names against the FMU inputs, runs the model and streams its
-samples back to the app. Include every required chart, module, stylesheet,
-font and other runtime asset in the ZIP using relative paths; Gateway does not
-serve the app from Marketplace source files or external asset servers. The app
-must acknowledge initialization with the version 1 digital-twin-ready message
-after its scene has loaded. Gateway reports GLB bindings that do not match the
-FMU outputs before the provider synchronizes the shell. Neither choice
-requires Marketplace file permissions or Marketplace code changes.
+`decentralabs:fmi-run-request` message with a `parameters` object and an
+optional `options` object. The app can provide finite numeric `startTime`,
+`stopTime` and `stepSize` options. For example, its duration control can send:
+
+```js
+window.parent.postMessage({
+  type: 'decentralabs:fmi-run-request',
+  version: 1,
+  parameters,
+  options: { stopTime: Number(durationInput.value) },
+}, '*')
+```
+
+Marketplace validates and applies those options when it runs the FMU, then
+streams the samples back to the app. The stop time must be greater than the
+start time and the step size must be greater than zero. Include every required
+chart, module, stylesheet, font and other runtime asset in the ZIP using
+relative paths; Gateway does not serve the app from Marketplace source files
+or external asset servers. The app must acknowledge initialization with the
+version 1 digital-twin-ready message after its scene has loaded. Gateway
+reports GLB bindings that do not match the FMU outputs before the provider
+synchronizes the shell. Neither choice requires Marketplace file permissions
+or Marketplace code changes.
 
 ## Post-publication management
 
@@ -116,4 +130,4 @@ requires Marketplace file permissions or Marketplace code changes.
 For ongoing reservations, incidents, unlisting and settlement responsibilities,
 see [Operate your laboratory](../provider/operate-your-lab.md).
 
-Last reviewed: 2026-10-19
+Last reviewed: 2026-10-23

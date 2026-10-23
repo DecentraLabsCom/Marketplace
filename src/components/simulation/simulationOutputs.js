@@ -1,4 +1,4 @@
-import { getVariableValueCount } from './simulationParameters'
+import { getVariableValueCount, toVariableDisplayValue } from './simulationParameters'
 
 const NUMERIC_OUTPUT_TYPES = new Set([
   'real',
@@ -55,10 +55,18 @@ export function normalizeSimulationOutputs(outputs, variableMetadata = []) {
       return
     }
 
+    if (observedComponentCount === 0 && metadataComponentCount === 1) {
+      normalized[name] = variable
+        ? values.map((sample) => sample === null || sample === undefined ? sample : toVariableDisplayValue(variable, sample))
+        : values
+      return
+    }
+
     for (let component = 0; component < componentCount; component += 1) {
-      normalized[`${name}[${component}]`] = values.map((sample) => (
-        Array.isArray(sample) ? sample[component] ?? null : null
-      ))
+      normalized[`${name}[${component}]`] = values.map((sample) => {
+        const value = Array.isArray(sample) ? sample[component] ?? null : null
+        return variable && value !== null ? toVariableDisplayValue(variable, value) : value
+      })
     }
   })
 

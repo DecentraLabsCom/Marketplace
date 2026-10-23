@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import InputScheduleEditor from './InputScheduleEditor'
+import { normalizeInputSchedule } from './simulationParameters'
 
 const APP_READY_MESSAGE = 'decentralabs:digital-twin-ready'
 const APP_ERROR_MESSAGE = 'decentralabs:digital-twin-error'
@@ -15,7 +17,7 @@ function currentValue(series, index) {
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables, isRunning, simulationState, onRunSimulation, downloadError, fullScreen }) {
+export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, downloadError, fullScreen }) {
   const iframeRef = useRef(null)
   const sentSampleCountRef = useRef(0)
   const onRunSimulationRef = useRef(onRunSimulation)
@@ -23,7 +25,10 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const [appState, setAppState] = useState('loading')
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
+  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
+  const updateScheduledInputEvents = typeof onInputEventsChange === 'function' ? onInputEventsChange : () => {}
   const sampleIndex = Math.max(times.length - 1, 0)
   const outputNames = useMemo(() => modelVariables
     .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
@@ -41,6 +46,15 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     }
     return defaults
   }, [modelVariables])
+  const inputVariables = useMemo(() => modelVariables.filter((variable) => variable?.causality === 'input'), [modelVariables])
+  let scheduleError = ''
+  if (enableInputSchedule && scheduledInputEvents.length > 0) {
+    try {
+      normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, startTime, stopTime, stepSize)
+    } catch (error) {
+      scheduleError = error.message
+    }
+  }
 
   const sample = useMemo(() => {
     const allowedOutputs = new Set(outputNames)
@@ -91,7 +105,10 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         if (message.parameters === undefined || (
           message.parameters && typeof message.parameters === 'object' && !Array.isArray(message.parameters)
         )) {
-          onRunSimulationRef.current?.(message.parameters ?? {})
+          const options = message.options && typeof message.options === 'object' && !Array.isArray(message.options)
+            ? message.options
+            : {}
+          onRunSimulationRef.current?.(message.parameters ?? {}, options)
         }
       }
     }
@@ -194,6 +211,46 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
           {downloadError}
         </div>
       )}
+      {simulationError && appState !== 'loading' && appState !== 'error' && (
+        <div className="absolute left-3 right-3 top-16 z-10 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-20" role="alert">
+          {simulationError}
+        </div>
+      )}
+      {enableInputSchedule && inputVariables.length > 0 && appState === 'ready' && (
+        <>
+          <button
+            type="button"
+            aria-expanded={scheduleOpen}
+            aria-controls="digital-twin-input-schedule"
+            onClick={() => setScheduleOpen((open) => !open)}
+            disabled={isRunning}
+            className="absolute right-[312px] top-[20.5px] z-10 grid h-[29px] min-h-[29px] place-items-center rounded-md border border-[rgba(93,231,205,0.4)] bg-[rgba(14,62,58,0.78)] px-[10px] py-0 font-mono text-[7px] leading-none font-bold tracking-[0.09em] text-[#b9fff0] uppercase shadow-lg backdrop-blur transition hover:border-[#8bffe4] hover:bg-[rgba(22,91,81,0.92)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 max-[680px]:right-[239px] max-[680px]:top-[16.5px] max-[680px]:h-[27px] max-[680px]:min-h-[27px] max-[680px]:px-[7px] max-[680px]:text-[6px]"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            {scheduleOpen ? 'Hide input schedule' : 'Schedule input changes'}
+          </button>
+          {scheduleOpen && (
+            <div
+              id="digital-twin-input-schedule"
+              className="absolute left-1/2 top-[60px] z-10 -translate-x-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-[#36535a] bg-[#08181deF] p-4 text-left shadow-2xl backdrop-blur-xl max-[680px]:top-[54px]"
+              style={{ width: 'min(44rem, calc(100% - 2rem))', maxHeight: 'min(76vh, 52rem, calc(100% - 76px))' }}
+            >
+              <InputScheduleEditor
+                variables={inputVariables}
+                modelVariables={modelVariables}
+                initialValues={inputValues}
+                events={scheduledInputEvents}
+                startTime={startTime}
+                stopTime={stopTime}
+                stepSize={stepSize}
+                validationError={scheduleError}
+                disabled={isRunning}
+                onChange={updateScheduledInputEvents}
+              />
+            </div>
+          )}
+        </>
+      )}
     </section>
   )
 }
@@ -203,8 +260,16 @@ DigitalTwinAppViewer.propTypes = {
   title: PropTypes.string,
   results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
+  enableInputSchedule: PropTypes.bool,
+  inputValues: PropTypes.object,
+  inputEvents: PropTypes.arrayOf(PropTypes.object),
+  onInputEventsChange: PropTypes.func,
+  startTime: PropTypes.number,
+  stopTime: PropTypes.number,
+  stepSize: PropTypes.number,
   isRunning: PropTypes.bool,
   simulationState: PropTypes.string,
+  simulationError: PropTypes.string,
   onRunSimulation: PropTypes.func,
   downloadError: PropTypes.string,
   fullScreen: PropTypes.bool,
@@ -214,8 +279,16 @@ DigitalTwinAppViewer.defaultProps = {
   title: 'Digital Twin',
   results: null,
   modelVariables: [],
+  enableInputSchedule: true,
+  inputValues: {},
+  inputEvents: [],
+  onInputEventsChange: null,
+  startTime: 0,
+  stopTime: 1,
+  stepSize: 0.001,
   isRunning: false,
   simulationState: 'idle',
+  simulationError: null,
   onRunSimulation: null,
   downloadError: null,
   fullScreen: false,

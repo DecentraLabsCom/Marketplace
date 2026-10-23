@@ -2,7 +2,14 @@
 
 import React from 'react'
 import PropTypes from 'prop-types'
-import { formatParameterValue, getVariableInputDetails } from './simulationParameters'
+import {
+  formatVariableDisplayValue,
+  fromVariableDisplayValue,
+  getVariableDisplayName,
+  getVariableDisplayUnit,
+  getVariableInputDetails,
+} from './simulationParameters'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 /**
  * Editable table of FMU input variables.
@@ -26,50 +33,70 @@ export default function ParameterForm({
   return (
     <div>
       <h3 className="text-sm font-semibold text-header-bg mb-2">Input Parameters</h3>
-      <div className="rounded-lg border border-[#2a2f33] overflow-hidden">
+      <div className="rounded-lg border border-[#2a2f33]">
         <table className="w-full text-sm">
           <thead className="bg-[#181b1d]">
             <tr>
-              <th className="text-left px-3 py-2 text-text-secondary font-medium">Variable</th>
+              <th className="first:rounded-tl-lg text-left px-3 py-2 text-text-secondary font-medium">Variable</th>
               <th className="text-left px-3 py-2 text-text-secondary font-medium">Value</th>
-              <th className="text-left px-3 py-2 text-text-secondary font-medium">Unit</th>
+              <th className="last:rounded-tr-lg text-left px-3 py-2 text-text-secondary font-medium">Unit</th>
             </tr>
           </thead>
           <tbody>
             {variables.map((variable) => {
               const details = getVariableInputDetails(variable, modelVariables)
+              const displayName = getVariableDisplayName(variable)
+              const displayUnit = getVariableDisplayUnit(variable)
               const hintId = `parameter-hint-${String(variable.name).replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
               return (
                 <tr key={variable.name} className="border-t border-[#2a2f33]">
                   <td className="px-3 py-2 text-neutral-200 text-xs align-top">
-                    <div className="font-mono">{variable.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-mono" title={variable.name}>{displayName}</div>
+                      <VariableDescriptionTooltip name={variable.name} description={variable.description} align="left" />
+                    </div>
                     <p className="text-text-secondary mt-1">{details.summary}</p>
-                    {variable.description && (
-                      <p className="text-text-secondary mt-1">{variable.description}</p>
-                    )}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    <input
-                      type={details.inputType}
-                      step={details.step}
-                      min={details.min}
-                      max={details.max}
-                      value={formatParameterValue(values[variable.name])}
-                      onChange={(event) => onChange(variable.name, event.target.value)}
-                      disabled={disabled}
-                      placeholder={details.valueCount > 1 ? details.format.replace('Format: ', '') : undefined}
-                      className="w-full bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-xs
-                        focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
-                      aria-label={`Parameter ${variable.name}`}
-                      aria-describedby={hintId}
-                    />
+                    {details.inputType === 'select' ? (
+                      <select
+                        value={String(values[variable.name] ?? '')}
+                        onChange={(event) => onChange(variable.name, Number(event.target.value))}
+                        disabled={disabled}
+                        className="w-full bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-xs
+                          focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={`Parameter ${displayName}`}
+                        aria-describedby={hintId}
+                      >
+                        {details.enumItems.map((item) => (
+                          <option key={item.value} value={item.value} title={item.description || undefined}>
+                            {item.description || item.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={details.inputType}
+                        step={details.step}
+                        min={details.min}
+                        max={details.max}
+                        value={formatVariableDisplayValue(variable, values[variable.name])}
+                        onChange={(event) => onChange(variable.name, fromVariableDisplayValue(variable, event.target.value))}
+                        disabled={disabled}
+                        placeholder={details.valueCount > 1 ? details.format.replace('Format: ', '') : undefined}
+                        className="w-full bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-xs
+                          focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={`Parameter ${displayName}`}
+                        aria-describedby={hintId}
+                      />
+                    )}
                     <div id={hintId} className="text-text-secondary text-xs mt-1 space-y-0.5">
-                      <p>{details.format}</p>
+                      {details.inputType !== 'select' && <p>{details.format}</p>}
                       {details.range && <p>{details.range}</p>}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-text-secondary text-xs align-top">{variable.unit || '—'}</td>
+                  <td className="px-3 py-2 text-text-secondary text-xs align-top">{displayUnit || '—'}</td>
                 </tr>
               )
             })}

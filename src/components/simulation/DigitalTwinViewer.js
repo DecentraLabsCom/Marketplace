@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
+import {
+  getVariableDescription,
+  getVariableDisplayName,
+  getVariableDisplayUnit,
+  getVariableEnumerationLabel,
+  toVariableDisplayValue,
+} from './simulationParameters'
 
 const DigitalTwinCanvas = dynamic(() => import('./DigitalTwinCanvas'), {
   ssr: false,
@@ -14,26 +21,29 @@ function getSampleValue(series, index) {
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-function formatOutputValue(value) {
+function formatOutputValue(value, variable) {
   if (value === undefined || value === null) return '—'
   if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'number') {
-    return Number.isFinite(value)
-      ? value.toLocaleString(undefined, { maximumFractionDigits: 4 })
+  const enumerationLabel = variable ? getVariableEnumerationLabel(variable, value) : null
+  if (enumerationLabel) return enumerationLabel
+  const displayValue = variable ? toVariableDisplayValue(variable, value) : value
+  if (typeof displayValue === 'number') {
+    return Number.isFinite(displayValue)
+      ? displayValue.toLocaleString(undefined, { maximumFractionDigits: 4 })
       : '—'
   }
-  if (Array.isArray(value)) {
-    const preview = value.slice(0, 4).map(formatOutputValue).join(', ')
-    return `[${preview}${value.length > 4 ? ', …' : ''}]`
+  if (Array.isArray(displayValue)) {
+    const preview = displayValue.slice(0, 4).map((item) => formatOutputValue(item)).join(', ')
+    return `[${preview}${displayValue.length > 4 ? ', …' : ''}]`
   }
-  return String(value).slice(0, 64)
+  return String(displayValue).slice(0, 64)
 }
 
 function formatTime(value) {
   return Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} s` : '—'
 }
 
-export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning, simulationState, onRunSimulation }) {
+export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning }) {
   const [sampleIndex, setSampleIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [loadState, setLoadState] = useState('loading')
@@ -85,7 +95,13 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
 
   const stats = modelVariables
     .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
-    .map((variable) => ({ variable, value: values[variable.name] }))
+    .map((variable) => ({
+      variable,
+      value: values[variable.name],
+      description: getVariableDescription(variable),
+      displayName: getVariableDisplayName(variable),
+      displayUnit: getVariableDisplayUnit(variable),
+    }))
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#283a42] bg-[#101a20] shadow-xl shadow-black/20">
@@ -120,14 +136,14 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
 
         <aside className="flex flex-col gap-3">
           <div className="max-h-128 space-y-2 overflow-y-auto pr-1">
-            {stats.map(({ variable, value }) => (
+            {stats.map(({ variable, value, description, displayName, displayUnit }) => (
               <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
-                <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={variable.description || variable.name}>
-                  {variable.description || variable.name}
+                <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={description || variable.name}>
+                  {displayName !== variable.name ? displayName : description || variable.name}
                 </p>
                 <p className="mt-1 wrap-break-words text-lg font-semibold tabular-nums text-white">
-                  {formatOutputValue(value)}
-                  {variable.unit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{variable.unit}</span> : null}
+                  {formatOutputValue(value, variable)}
+                  {displayUnit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{displayUnit}</span> : null}
                 </p>
               </div>
             ))}
@@ -137,17 +153,6 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
               </p>
             )}
           </div>
-
-          {onRunSimulation && (
-            <button
-              type="button"
-              onClick={onRunSimulation}
-              disabled={isRunning}
-              className="w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2.5 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isRunning ? 'Running simulation…' : simulationState === 'completed' ? 'Run simulation again' : 'Run simulation'}
-            </button>
-          )}
 
           <div className="mt-auto rounded-xl border border-[#26383f] bg-[#142128] p-3">
             <div className="flex items-center justify-between text-xs text-[#a9bec2]">
@@ -195,8 +200,6 @@ DigitalTwinViewer.propTypes = {
   results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
   isRunning: PropTypes.bool,
-  simulationState: PropTypes.string,
-  onRunSimulation: PropTypes.func,
 }
 
 DigitalTwinViewer.defaultProps = {
@@ -204,6 +207,4 @@ DigitalTwinViewer.defaultProps = {
   results: null,
   modelVariables: [],
   isRunning: false,
-  simulationState: 'idle',
-  onRunSimulation: null,
 }

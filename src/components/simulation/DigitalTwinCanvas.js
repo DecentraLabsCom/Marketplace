@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
+import { getVariableDescription } from './simulationParameters'
 
 const ALLOWED_TARGETS = new Set([
   'position.x', 'position.y', 'position.z',
@@ -27,6 +28,41 @@ function numericValue(value) {
   if (typeof value === 'boolean') return value ? 1 : 0
   const number = Number(value)
   return Number.isFinite(number) ? number : null
+}
+
+function findBindingsForObject(object, bindingsByNode) {
+  for (let node = object; node; node = node.parent) {
+    const bindings = bindingsByNode.get(node)
+    if (bindings?.length) return bindings
+  }
+  return []
+}
+
+function isVisibleInScene(object) {
+  for (let node = object; node; node = node.parent) {
+    if (!node.visible) return false
+  }
+  return true
+}
+
+function setTooltipContent(tooltip, bindings) {
+  tooltip.replaceChildren()
+  for (const { variable } of bindings) {
+    const entry = document.createElement('div')
+    entry.className = 'border-b border-white/10 py-1.5 last:border-0 last:pb-0 first:pt-0'
+
+    const name = document.createElement('p')
+    name.className = 'text-[11px] font-semibold text-white'
+    name.textContent = variable.name
+    entry.appendChild(name)
+
+    const details = document.createElement('p')
+    details.className = 'mt-0.5 text-[11px] leading-snug text-[#c1d2d5]'
+    details.textContent = getVariableDescription(variable)
+    entry.appendChild(details)
+
+    tooltip.appendChild(entry)
+  }
 }
 
 export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, onStatus }) {
@@ -73,6 +109,22 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     renderer.domElement.tabIndex = 0
     host.appendChild(renderer.domElement)
 
+    const tooltip = document.createElement('div')
+    tooltip.setAttribute('role', 'tooltip')
+    tooltip.style.position = 'absolute'
+    tooltip.style.zIndex = '10'
+    tooltip.style.display = 'none'
+    tooltip.style.maxWidth = '280px'
+    tooltip.style.maxHeight = 'min(70%, 240px)'
+    tooltip.style.overflowY = 'auto'
+    tooltip.style.pointerEvents = 'none'
+    tooltip.style.border = '1px solid rgba(148, 181, 190, 0.34)'
+    tooltip.style.borderRadius = '10px'
+    tooltip.style.background = 'rgba(7, 16, 20, 0.94)'
+    tooltip.style.padding = '9px 11px'
+    tooltip.style.boxShadow = '0 10px 28px rgba(0, 0, 0, 0.36)'
+    host.appendChild(tooltip)
+
     const studioEnvironment = new RoomEnvironment()
     pmremGenerator = new THREE.PMREMGenerator(renderer)
     environmentTarget = pmremGenerator.fromScene(studioEnvironment, 0.04)
@@ -99,7 +151,47 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     controls.maxDistance = 13
 
     const boundObjects = []
+    const bindingsByNode = new WeakMap()
+    const raycastTargets = new Set()
+    const raycaster = new THREE.Raycaster()
+    const pointer = new THREE.Vector2()
     let gltfRoot = null
+
+    const hideTooltip = () => {
+      tooltip.style.display = 'none'
+    }
+    const showBoundVariableTooltip = (event) => {
+      if (!gltfRoot) return hideTooltip()
+
+      const canvasBounds = renderer.domElement.getBoundingClientRect()
+      if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return hideTooltip()
+      const hostBounds = host.getBoundingClientRect()
+      pointer.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1
+      pointer.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1
+      raycaster.setFromCamera(pointer, camera)
+
+      const intersections = raycaster.intersectObjects([...raycastTargets], false)
+      const bindings = intersections
+        .filter(({ object }) => isVisibleInScene(object))
+        .map(({ object }) => findBindingsForObject(object, bindingsByNode))
+        .map((nodeBindings) => nodeBindings.filter(({ variable }) => getVariableDescription(variable)))
+        .find((nodeBindings) => nodeBindings.length) || []
+      const uniqueBindings = [...new Map(bindings.map((entry) => [entry.variable.name, entry])).values()]
+      if (uniqueBindings.length === 0) return hideTooltip()
+
+      setTooltipContent(tooltip, uniqueBindings)
+      tooltip.style.display = 'block'
+      const x = event.clientX - hostBounds.left
+      const y = event.clientY - hostBounds.top
+      const left = Math.max(8, Math.min(x + 14, host.clientWidth - tooltip.offsetWidth - 8))
+      const top = Math.max(8, Math.min(y + 14, host.clientHeight - tooltip.offsetHeight - 8))
+      tooltip.style.left = `${left}px`
+      tooltip.style.top = `${top}px`
+    }
+
+    renderer.domElement.addEventListener('pointermove', showBoundVariableTooltip)
+    renderer.domElement.addEventListener('pointerleave', hideTooltip)
+
     const resize = new ResizeObserver(() => {
       if (!host.clientWidth || !host.clientHeight) return
       camera.aspect = host.clientWidth / host.clientHeight
@@ -169,6 +261,9 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
           if (!binding || typeof binding.variable !== 'string' || !ALLOWED_TARGETS.has(binding.target)) continue
           const outputVariable = outputVariables.get(binding.variable)
           if (!outputVariable) continue
+          const nodeBindings = bindingsByNode.get(node) || []
+          nodeBindings.push({ binding, variable: outputVariable })
+          bindingsByNode.set(node, nodeBindings)
           if (binding.target === 'visible') {
             const initialValue = valuesRef.current?.[binding.variable] ?? getFmiInitialValue(outputVariable)
             if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
@@ -176,6 +271,15 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
           boundObjects.push({ node, binding })
         }
       })
+      for (const { node } of boundObjects) {
+        if (node.isMesh) {
+          raycastTargets.add(node)
+        } else {
+          node.traverse((child) => {
+            if (child.isMesh) raycastTargets.add(child)
+          })
+        }
+      }
       scene.add(gltfRoot)
       mixer = gltf.animations.length ? new THREE.AnimationMixer(gltfRoot) : null
       onStatusRef.current?.('ready')
@@ -226,7 +330,10 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       disposed = true
       window.cancelAnimationFrame(frameId)
       resize.disconnect()
+      renderer.domElement.removeEventListener('pointermove', showBoundVariableTooltip)
+      renderer.domElement.removeEventListener('pointerleave', hideTooltip)
       controls.dispose()
+      tooltip.remove()
       if (gltfRoot) disposeObject(gltfRoot)
       environmentTarget?.dispose()
       pmremGenerator?.dispose()

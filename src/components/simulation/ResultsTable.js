@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { normalizeSimulationOutputs } from './simulationOutputs'
+import { getVariableDisplayName, getVariableDisplayUnit, getVariableEnumerationLabel } from './simulationParameters'
 
 /**
  * ResultsTable — scrollable data table showing time + output columns.
@@ -16,6 +17,18 @@ export default function ResultsTable({ outputs, time, variableMetadata }) {
     [outputs, variableMetadata],
   )
   const columns = useMemo(() => Object.keys(normalizedOutputs), [normalizedOutputs])
+  const columnLabel = (name) => {
+    const baseName = name.replace(/\[\d+\]$/, '')
+    const variable = variableMetadata?.find((item) => item?.name === baseName)
+    const unit = getVariableDisplayUnit(variable)
+    const displayName = `${getVariableDisplayName(variable) || baseName}${name.match(/\[\d+\]$/)?.[0] || ''}`
+    return unit ? `${displayName} (${unit})` : displayName
+  }
+  const columnValue = (name, value) => {
+    const baseName = name.replace(/\[\d+\]$/, '')
+    const variable = variableMetadata?.find((item) => item?.name === baseName)
+    return getVariableEnumerationLabel(variable, value) || value
+  }
 
   const timeArr = useMemo(() => (Array.isArray(time) ? time : []), [time])
   const rowCount = useMemo(() => {
@@ -40,7 +53,7 @@ export default function ResultsTable({ outputs, time, variableMetadata }) {
             <tr>
               {timeArr.length > 0 && <th className="text-left px-2 py-1.5 text-text-secondary">Time</th>}
               {columns.map(c => (
-                <th key={c} className="text-left px-2 py-1.5 text-text-secondary">{c}</th>
+                <th key={c} className="text-left px-2 py-1.5 text-text-secondary">{columnLabel(c)}</th>
               ))}
             </tr>
           </thead>
@@ -51,7 +64,7 @@ export default function ResultsTable({ outputs, time, variableMetadata }) {
                   <td className="px-2 py-1 text-neutral-400 font-mono">{timeArr[i] ?? ''}</td>
                 )}
                 {columns.map(c => (
-                  <td key={c} className="px-2 py-1 text-neutral-200 font-mono">{normalizedOutputs[c]?.[i] ?? ''}</td>
+                  <td key={c} className="px-2 py-1 text-neutral-200 font-mono">{columnValue(c, normalizedOutputs[c]?.[i] ?? '')}</td>
                 ))}
               </tr>
             ))}

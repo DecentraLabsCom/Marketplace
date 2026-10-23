@@ -71,17 +71,17 @@ export default function FmuFieldsSection({
           fmiVersion: data.fmiVersion || '',
           simulationType: data.simulationType || '',
           modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
-          ...(data.defaultStartTime != null ? { defaultStartTime: data.defaultStartTime } : {}),
-          ...(data.defaultStopTime != null ? { defaultStopTime: data.defaultStopTime } : {}),
-          ...(data.defaultStepSize != null ? { defaultStepSize: data.defaultStepSize } : {}),
+          defaultStartTime: data.defaultStartTime ?? null,
+          defaultStopTime: data.defaultStopTime ?? null,
+          defaultStepSize: data.defaultStepSize ?? null,
         })
       } else {
         handleBasicChange('fmiVersion', data.fmiVersion || '')
         handleBasicChange('simulationType', data.simulationType || '')
         handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
-        if (data.defaultStartTime != null) handleBasicChange('defaultStartTime', data.defaultStartTime)
-        if (data.defaultStopTime != null) handleBasicChange('defaultStopTime', data.defaultStopTime)
-        if (data.defaultStepSize != null) handleBasicChange('defaultStepSize', data.defaultStepSize)
+        handleBasicChange('defaultStartTime', data.defaultStartTime ?? null)
+        handleBasicChange('defaultStopTime', data.defaultStopTime ?? null)
+        handleBasicChange('defaultStepSize', data.defaultStepSize ?? null)
       }
       setDescribeFetch({ loading: false, error: null, fetched: true })
     } catch (err) {

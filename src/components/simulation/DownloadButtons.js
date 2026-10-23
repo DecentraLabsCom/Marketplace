@@ -2,6 +2,7 @@
 import React, { useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { normalizeSimulationOutputs } from './simulationOutputs'
+import { getVariableDisplayName, getVariableDisplayUnit } from './simulationParameters'
 
 /**
  * DownloadButtons — export simulation results as CSV or JSON.
@@ -23,7 +24,16 @@ export default function DownloadButtons({ results, labName, variableMetadata }) 
     const outputs = normalizeSimulationOutputs(results?.outputs, variableMetadata)
     const columns = Object.keys(outputs)
 
-    const header = ['time', ...columns].join(',')
+    const header = [
+      'time',
+      ...columns.map((name) => {
+        const baseName = name.replace(/\[\d+\]$/, '')
+        const variable = variableMetadata?.find((item) => item?.name === baseName)
+        const unit = getVariableDisplayUnit(variable)
+        const displayName = `${getVariableDisplayName(variable) || baseName}${name.match(/\[\d+\]$/)?.[0] || ''}`
+        return unit ? `${displayName} (${unit})` : displayName
+      }),
+    ].join(',')
     const rowCount = Math.max(timeArr.length, ...columns.map(c => outputs[c]?.length ?? 0), 0)
     const rows = Array.from({ length: rowCount }, (_, i) => {
       return [timeArr[i] ?? '', ...columns.map(c => outputs[c]?.[i] ?? '')].join(',')

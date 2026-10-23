@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { isChartableOutputSeries, normalizeSimulationOutputs } from './simulationOutputs'
+import { getVariableDisplayName, getVariableDisplayUnit } from './simulationParameters'
 
 const TIME_KEY = '__time__'
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16']
@@ -16,6 +17,7 @@ const HEIGHT = 300
 const PAD = 46
 
 function finiteNumber(value) {
+  if (value === null || value === undefined || value === '') return null
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
@@ -26,9 +28,7 @@ function formatNumber(value) {
 }
 
 function getUnit(variable) {
-  const unit = variable?.displayUnit || variable?.unit
-  if (typeof unit === 'string') return unit
-  return unit?.name || ''
+  return getVariableDisplayUnit(variable)
 }
 
 function getVariableForSeries(name, variableMetadata = []) {
@@ -38,8 +38,11 @@ function getVariableForSeries(name, variableMetadata = []) {
 }
 
 function getSeriesLabel(name, variableMetadata = []) {
-  const unit = getUnit(getVariableForSeries(name, variableMetadata))
-  return unit ? `${name} (${unit})` : name
+  const variable = getVariableForSeries(name, variableMetadata)
+  const suffix = name.match(/\[\d+\]$/)?.[0] || ''
+  const displayName = `${getVariableDisplayName(variable) || name.replace(/\[\d+\]$/, '')}${suffix}`
+  const unit = getUnit(variable)
+  return unit ? `${displayName} (${unit})` : displayName
 }
 
 function getAxisOptions(numericNames, variableMetadata) {

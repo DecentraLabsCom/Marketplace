@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import ParameterForm from './ParameterForm'
+import DigitalTwinSimulationForm from './DigitalTwinSimulationForm'
+import InputScheduleEditor from './InputScheduleEditor'
 import SimulationOptions from './SimulationOptions'
 import SimulationProgress from './SimulationProgress'
 import ResultsChart from './ResultsChart'
@@ -15,7 +17,8 @@ import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
-import { normalizeSimulationParameters } from './simulationParameters'
+import { normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
+import { getInitialSimulationOptions, getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
 import { safeExternalHttpsUrl } from '@/utils/security/safeUrl'
 
 const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
@@ -120,6 +123,24 @@ function resolveDigitalTwinAsset(asset, gatewayOrigin, labId) {
   }
 }
 
+function resolveDigitalTwinSimulationOptions(baseOptions, requestedOptions, simulationType) {
+  if (!requestedOptions || typeof requestedOptions !== 'object' || Array.isArray(requestedOptions)) {
+    throw new Error('The digital twin requested invalid simulation options.')
+  }
+
+  const includeStepSize = simulationType !== 'ScheduledExecution'
+  const allowedOptionNames = new Set(['startTime', 'stopTime', ...(includeStepSize ? ['stepSize'] : [])])
+  if (Object.keys(requestedOptions).some((name) => !allowedOptionNames.has(name))) {
+    throw new Error('The digital twin requested an unsupported simulation option.')
+  }
+
+  const resolved = { ...baseOptions, ...requestedOptions }
+  return {
+    ...resolved,
+    ...normalizeSimulationTimeOptions(resolved, { includeStepSize }),
+  }
+}
+
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
   const modelVariables = fmuMeta?.modelVariables || []
@@ -131,11 +152,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
     inputVars.forEach(v => { params[v.name] = v.start ?? '' })
     return params
   })
-  const [options, setOptions] = useState({
-    startTime: fmuMeta?.defaultStartTime ?? 0,
-    stopTime: fmuMeta?.defaultStopTime ?? 10,
-    stepSize: fmuMeta?.defaultStepSize ?? 0.01,
-  })
+  const [inputEvents, setInputEvents] = useState([])
+  const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
   const [simState, setSimState] = useState(SIM_STATE.IDLE)
   const [results, setResults] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -152,9 +170,19 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const simulationInFlightRef = useRef(false)
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
+  const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
+  const supportsInputSchedule = !isModelExchange && !isScheduledExecution
   const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
   const [solver, setSolver] = useState('Euler')
-
+  let inputScheduleError = ''
+  const simulationOptionsError = getSimulationOptionsError(options, { includeStepSize: !isScheduledExecution })
+  if (supportsInputSchedule && inputEvents.length > 0 && !simulationOptionsError) {
+    try {
+      normalizeInputSchedule(inputEvents, inputVars, modelVariables, options.startTime, options.stopTime, options.stepSize)
+    } catch (error) {
+      inputScheduleError = error.message
+    }
+  }
   const labId = String(lab.id ?? lab.tokenId ?? '')
 
   useEffect(() => {
@@ -281,7 +309,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return response
   }, [ensureGatewaySession, reauthenticateGatewaySession])
 
-  const runSimulation = useCallback(async (requestedParameters = null) => {
+  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null) => {
     if (simulationInFlightRef.current) return
     simulationInFlightRef.current = true
     setSimState(SIM_STATE.RUNNING)
@@ -308,10 +336,36 @@ export default function SimulationRunner({ lab, reservationKey }) {
         setParameters(activeParameters)
       }
 
+      const activeOptions = requestedOptions === null || requestedOptions === undefined
+        ? options
+        : resolveDigitalTwinSimulationOptions(options, requestedOptions, fmuMeta.simulationType)
+      if (requestedOptions !== null && requestedOptions !== undefined) {
+        setOptions(activeOptions)
+      }
+      const normalizedTimeOptions = normalizeSimulationTimeOptions(activeOptions, {
+        includeStepSize: !isScheduledExecution,
+      })
+      const resolvedActiveOptions = { ...activeOptions, ...normalizedTimeOptions }
+
+      const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
+        ? inputEvents
+        : requestedInputEvents
+      const inputSchedule = supportsInputSchedule
+        ? normalizeInputSchedule(
+          activeInputEvents,
+          inputVars,
+          modelVariables,
+          resolvedActiveOptions.startTime,
+          resolvedActiveOptions.stopTime,
+          resolvedActiveOptions.stepSize,
+        )
+        : []
+
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
 
-      const reqOptions = { ...options }
+      const reqOptions = { ...resolvedActiveOptions }
+      if (isScheduledExecution) delete reqOptions.stepSize
       if (isModelExchange) {
         reqOptions.fmiType = 'ModelExchange'
         reqOptions.solver = solver
@@ -324,6 +378,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         reservationKey,
         parameters: normalizedParameters,
         options: reqOptions,
+        ...(inputSchedule.length > 0 ? { inputSchedule } : {}),
       }
 
       const res = await fetchGateway('/api/simulations/stream', {
@@ -389,10 +444,16 @@ export default function SimulationRunner({ lab, reservationKey }) {
     } finally {
       simulationInFlightRef.current = false
     }
-  }, [fetchGateway, inputVars, isModelExchange, lab, modelVariables, options, parameters, reservationKey, solver])
+  }, [fetchGateway, fmuMeta.simulationType, inputEvents, inputVars, isModelExchange, isScheduledExecution, lab, modelVariables, options, parameters, reservationKey, solver, supportsInputSchedule])
 
-  const handleRun = useCallback(() => runSimulation(), [runSimulation])
-  const handleRunRequest = useCallback((requestedParameters) => runSimulation(requestedParameters), [runSimulation])
+  const handleRun = useCallback((scheduledEvents) => (
+    Array.isArray(scheduledEvents)
+      ? runSimulation(null, null, scheduledEvents)
+      : runSimulation()
+  ), [runSimulation])
+  const handleRunRequest = useCallback((requestedParameters, requestedOptions) => (
+    runSimulation(requestedParameters, requestedOptions)
+  ), [runSimulation])
 
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
@@ -538,8 +599,16 @@ export default function SimulationRunner({ lab, reservationKey }) {
           title={lab?.name || 'Digital Twin'}
           results={results}
           modelVariables={modelVariables}
+          enableInputSchedule={supportsInputSchedule}
+          inputValues={parameters}
+          inputEvents={inputEvents}
+          onInputEventsChange={setInputEvents}
+          startTime={Number(options.startTime)}
+          stopTime={Number(options.stopTime)}
+          stepSize={Number(options.stepSize)}
           isRunning={simState === SIM_STATE.RUNNING}
           simulationState={simState}
+          simulationError={simState === SIM_STATE.ERROR ? errorMsg : null}
           onRunSimulation={handleRunRequest}
           downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
           fullScreen
@@ -549,70 +618,48 @@ export default function SimulationRunner({ lab, reservationKey }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       {twinAsset?.type === 'glb' ? (
-        <section className="rounded-2xl border border-[#283a42] bg-[#101a20] p-4 shadow-xl shadow-black/20 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#67d7cf]">FMU simulation</p>
-              <h2 className="mt-1 text-xl font-bold text-white">{lab?.name || 'Digital Twin'}</h2>
-              <p className="mt-1 text-xs text-[#9aafb4]">Set the model inputs, then run the simulation to animate the scene.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#67d7cf]">Interactive digital twin</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">{lab?.name || 'Digital Twin'}</h1>
+              <p className="mt-2 max-w-3xl text-sm text-slate-300">Run the FMU simulation to animate the linked GLB scene.</p>
             </div>
-            <p className="rounded-full border border-[#29434a] bg-[#14262b] px-3 py-1.5 text-[10px] text-[#bad0d2]">FMI {fmuMeta.fmiVersion || '?'} · {simulationTypeLabel || '?'}</p>
+            <div className="rounded-xl border border-[#315057] bg-[#122328] px-4 py-3 text-xs text-[#b8d2d5]">
+              <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              FMI {fmuMeta.fmiVersion || '?'} · {simulationTypeLabel || 'FMU'}
+            </div>
           </div>
 
-          {inputVars.length > 0 ? (
-            <ParameterForm
-              variables={inputVars}
-              modelVariables={modelVariables}
-              values={parameters}
-              onChange={handleParamChange}
-              disabled={simState === SIM_STATE.RUNNING}
-            />
-          ) : (
+          {inputVars.length === 0 && (
             <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no input variables. Run it with its default settings.</p>
           )}
 
-          <details className="mt-4 rounded-xl border border-[#26383f] bg-[#0c171c] p-3">
-            <summary className="cursor-pointer text-xs font-semibold text-[#c0d1d3]">Simulation settings</summary>
-            <div className="mt-3 space-y-4">
-              <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
-              {isModelExchange && (
-                <div className="flex items-center gap-3">
-                  <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
-                  <select
-                    id="solver-select"
-                    value={solver}
-                    onChange={(event) => setSolver(event.target.value)}
-                    disabled={simState === SIM_STATE.RUNNING}
-                    className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
-                  >
-                    <option value="Euler">Euler (fast, less accurate)</option>
-                    <option value="CVode">CVode (adaptive, more accurate)</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </details>
+          <DigitalTwinSimulationForm
+            variables={inputVars}
+            modelVariables={modelVariables}
+            values={parameters}
+            onInputChange={handleParamChange}
+            simulationOptions={options}
+            onSimulationOptionChange={handleOptionChange}
+            simulationType={fmuMeta.simulationType}
+            enableInputSchedule={supportsInputSchedule}
+            inputEvents={inputEvents}
+            onInputEventsChange={setInputEvents}
+            running={simState === SIM_STATE.RUNNING}
+            onRun={handleRun}
+          />
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#26383f] pt-4">
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={simState === SIM_STATE.RUNNING}
-              className="rounded-lg bg-[#52d6bd] px-5 py-2.5 text-sm font-semibold text-[#06201c] transition hover:bg-[#80f0d8] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {simState === SIM_STATE.RUNNING ? 'Running simulation…' : simState === SIM_STATE.COMPLETED ? 'Run simulation again' : 'Run simulation'}
-            </button>
-            {reservationKey && proxyDownloadState !== 'idle' && (
-              <span role={proxyDownloadState === 'error' ? 'alert' : 'status'} className={`text-xs ${proxyDownloadState === 'error' ? 'text-error-text' : 'text-[#9aafb4]'}`}>
-                {proxyDownloadState === 'running' ? 'Preparing the reservation FMU…' : proxyDownloadMessage}
-              </span>
-            )}
-          </div>
+          {reservationKey && proxyDownloadState !== 'idle' && (
+            <p role={proxyDownloadState === 'error' ? 'alert' : 'status'} className={`mb-4 text-xs ${proxyDownloadState === 'error' ? 'text-error-text' : 'text-[#9aafb4]'}`}>
+              {proxyDownloadState === 'running' ? 'Preparing the reservation FMU…' : proxyDownloadMessage}
+            </p>
+          )}
           {simState === SIM_STATE.RUNNING && <div className="mt-3"><SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} /></div>}
           {simState === SIM_STATE.ERROR && errorMsg && <p role="alert" className="mt-3 rounded-lg border border-error-border bg-error-bg p-3 text-sm text-error-text">{errorMsg}</p>}
-        </section>
+        </>
       ) : (
         <>
           <div className="flex items-center justify-between">
@@ -653,7 +700,27 @@ export default function SimulationRunner({ lab, reservationKey }) {
             />
           )}
 
-          <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
+          {supportsInputSchedule && inputVars.length > 0 && (
+            <InputScheduleEditor
+              variables={inputVars}
+              modelVariables={modelVariables}
+              initialValues={parameters}
+              events={inputEvents}
+              startTime={Number(options.startTime)}
+              stopTime={Number(options.stopTime)}
+              stepSize={Number(options.stepSize)}
+              validationError={inputScheduleError}
+              disabled={simState === SIM_STATE.RUNNING}
+              onChange={setInputEvents}
+            />
+          )}
+
+          <SimulationOptions
+            options={options}
+            onChange={handleOptionChange}
+            simulationType={fmuMeta.simulationType}
+            disabled={simState === SIM_STATE.RUNNING}
+          />
 
           {isModelExchange && (
             <div className="flex items-center gap-3">
@@ -674,8 +741,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           <div className="flex items-center gap-4">
             <button
               onClick={handleRun}
-              disabled={simState === SIM_STATE.RUNNING}
-              className={`rounded px-6 py-2 font-medium transition-colors ${simState === SIM_STATE.RUNNING ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
+              disabled={simState === SIM_STATE.RUNNING || Boolean(inputScheduleError) || Boolean(simulationOptionsError)}
+              className={`rounded px-6 py-2 font-medium transition-colors ${simState === SIM_STATE.RUNNING || inputScheduleError || simulationOptionsError ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
             >
               {simState === SIM_STATE.RUNNING ? 'Running…' : simState === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
             </button>
@@ -716,8 +783,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
           results={results}
           modelVariables={modelVariables}
           isRunning={simState === SIM_STATE.RUNNING}
-          simulationState={simState}
-          onRunSimulation={handleRun}
         />
       )}
     </div>

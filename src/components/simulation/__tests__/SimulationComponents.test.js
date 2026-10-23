@@ -112,7 +112,7 @@ describe("ParameterForm", () => {
     render(<ParameterForm variables={vectorVariables} values={{ u: "1 2 3" }} onChange={jest.fn()} />);
 
     expect(screen.getByText("Float64 · vector[3]")).toBeInTheDocument();
-    expect(screen.getByText("Input vector")).toBeInTheDocument();
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Input vector");
     expect(screen.getByText("Format: 3 numbers separated by spaces")).toBeInTheDocument();
     expect(screen.queryByText("Initial: 1 2 3")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Parameter u")).toHaveAttribute("type", "text");
