@@ -31,11 +31,6 @@ export default function SimulationOptions({ options, onChange, simulationType, d
   return (
     <fieldset className="grid gap-3 rounded-xl border border-[#26383f] bg-[#0c171c] p-3" disabled={disabled}>
       <legend className="text-sm font-semibold text-white">Simulation time</legend>
-      <p className="text-xs text-[#829ba1]">
-        {includeStepSize
-          ? 'Uses FMI defaults when declared. Missing values use tool defaults: start 0, stop 10, and step 0.01.'
-          : 'Uses FMI defaults when declared. Missing start and stop values use tool defaults: start 0 and stop 10.'}
-      </p>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {fields.map(({ key, label, description }) => (
           <div key={key} className="grid content-start gap-1">

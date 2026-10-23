@@ -783,6 +783,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           results={results}
           modelVariables={modelVariables}
           isRunning={simState === SIM_STATE.RUNNING}
+          startTime={Number(options.startTime)}
+          stopTime={Number(options.stopTime)}
         />
       )}
     </div>

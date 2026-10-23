@@ -46,6 +46,64 @@ Quick Setup keeps the provider input small: price and unit, access endpoint,
 access key and the public metadata URL. The values shown in the capture are
 illustrative only.
 
+## Choose the laboratory experience
+
+The **Real Lab**/**Simulation** choice in **Add New Lab** determines what kind
+of resource a reservation opens. A simulation lab then has one of three
+presentation styles. The listing, reservation and access authorization flow is
+the same; the files and the view presented to the user differ.
+
+| Type selected in Add New Lab | What the user gets after reserving | What the provider prepares |
+| --- | --- | --- |
+| **Real Lab** | Access to the provider's physical equipment and its configured remote-control session. | The physical setup, its control application and Gateway/Station connection. No FMU or digital-twin scene is required. |
+| **Simulation** — FMU without a scene | Marketplace's standard FMU interface, generated from the model's FMI metadata: input controls, simulation run controls and output charts/results. | The FMU provisioned on the Gateway or Lab Station. No scene asset or AAS visual link is required. |
+| **Simulation** — FMU with a GLB scene | Marketplace's standard simulation controls and generated GLB viewer, which can animate the scene from FMU outputs. | The FMU, a GLB asset linked through the lab's AAS shell and, when animation is needed, bindings from scene elements to FMU outputs. |
+| **Simulation** — FMU with a complete Three.js app | The provider's app as the complete experience. Marketplace embeds the app and connects it to the FMU run and output stream; it does not add the GLB viewer around it. | The FMU and a self-contained Three.js web app package linked through the AAS shell and using the Marketplace app contract. |
+
+For all three simulation styles, Marketplace does not store or execute the
+provider's `.fmu`. The provider provisions it in the active Gateway/Lab Station
+environment and registers its filename as the simulation resource. The choice
+between no scene, GLB and Three.js affects presentation only; it does not
+change the FMU reservation or execution path.
+
+### Physical lab
+
+Choose **Real Lab** when the reserved resource is real equipment. Configure the
+equipment and its control application behind the provider's Gateway, and make
+sure the Gateway/Station can open the correct setup for the registered access
+key. Marketplace does not generate an equipment control UI: the remote session
+is the one configured for that lab. Follow [Enable your lab for online
+access](enable-your-lab-for-online-access.md) to install and verify the access
+path before publishing.
+
+### Virtual lab: FMU without a scene
+
+Choose **Simulation** and register the provisioned FMU. This is the simplest
+virtual lab: the user sees Marketplace's standard FMU view, which uses the
+model's FMI metadata to present its inputs and outputs. No GLB, web app, AAS
+visual asset or output-to-scene binding is needed. Use this option when plots
+and model values are the intended way to inspect the simulation.
+
+### Virtual lab: FMU with a GLB scene
+
+Choose **Simulation**, provision the FMU and link a GLB asset in the lab's AAS
+digital-twin shell. Marketplace supplies the surrounding controls—input form,
+run/replay controls, simulation timeline and output indicators—and renders the
+linked scene. Prepare `extras.fmiBindings` on GLB nodes only when scene elements
+should react to FMU outputs; an unbound GLB can still be shown as a static
+scene. The detailed asset setup is described under [Configure a GLB scene](#configure-a-glb-scene).
+
+### Virtual lab: FMU with a complete Three.js app
+
+Choose **Simulation**, provision the FMU and link the packaged app in the AAS
+digital-twin shell. In this mode the app owns the complete presentation: its
+scene, normal input controls, run action, charts and telemetry display. The
+user sees that app in Marketplace without the GLB viewer or its standard
+simulation wrapper. Marketplace executes requested FMU runs and streams model
+time and outputs to the app. The app must implement the versioned messaging
+contract; see [Configure a complete Three.js app](#configure-a-complete-threejs-app)
+and the [Three.js app contract](../provider/digital-twin-threejs-app-contract.md).
+
 ## Listing and unlisted labs
 
 Creating a lab and publishing it are separate states. The default public catalogue contains listed labs only. An explicit `includeUnlisted=true` request can expose an unlisted lab for discovery or administration, but an unlisted lab is not eligible for public booking. If the Marketplace cannot read the on-chain listing status, it does not treat the lab as listed.
@@ -67,38 +125,39 @@ These operations are not interchangeable:
 Use **Unlist** when the intention is only to stop new bookings. Use **Delete**
 only when the on-chain lab record should be permanently removed.
 
-## FMU and gateway files
+## Configure the simulation files
 
-Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
+Marketplace upload of `.fmu` files is disabled. For every **Simulation** lab,
+provision the FMU on the provider's **Lab Gateway/Lab Station** and register
+its filename as the simulation resource/access key. The Marketplace stores and
+displays descriptive metadata; it is not the authoritative FMU artifact store.
+Follow the [Lab Gateway FMI/FMU guide](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/fmi-fmu-support.md)
+for the execution-side setup.
 
-### Smart Warehouse Cell Demo
+### Configure a GLB scene
 
-The Lab Station demo package includes the public `SmartWarehouseCell.fmu` model and its companion GLB under
-`fmu-executor/fmu-data/`. Create its Marketplace listing through the normal
-**Add New Lab → Simulation** flow and use `SmartWarehouseCell.fmu` as the FMU file name/access key. There is no Marketplace FMU upload step.
-After the listing exists, open the provider Gateway's **Lab Manager → Digital Twins** tab and synchronize its AAS shell. Lab Manager imports the
-prepared visual asset from the active FMU backend: from Gateway `fmu-data` in local development, or from Lab Station through its protected internal
-endpoint in production. The demo includes both a GLB for the standard viewer
-and `SmartWarehouseCell.webapp.zip` for the bundled Three.js application.
-Both choices use the same FMU and simulation results; the AAS File MIME
-selects the Marketplace presentation. The provider Gateway stores and serves
-the selected asset; Station does not expose it publicly.
+Prepare the GLB geometry and add `extras.fmiBindings` to nodes that should be
+animated by FMU outputs. In the provider Gateway's **Lab Manager → Digital
+Twins** tab, synchronize the AAS shell and add/select the visual asset. The
+Gateway stores and serves the file from its read-only asset route; the AAS
+stores its reference. Marketplace resolves the lab's on-chain Gateway and
+proxies managed GLBs through a same-origin API, so providers do not need to
+request per-Gateway Marketplace CSP or browser CORS changes. Gateway reports
+GLB bindings that do not match FMU outputs before the provider synchronizes
+the shell. Neither Marketplace file permissions nor Marketplace code changes
+are needed.
 
-For a new provider-owned scene, prepare the GLB geometry and add
-`extras.fmiBindings` to the nodes animated by FMI outputs, then upload it in the
-same Lab Manager panel. The Gateway stores and serves that file from its own
-read-only asset route; the AAS stores only the reference. Marketplace resolves
-the lab's on-chain Gateway and proxies managed GLBs through a same-origin API,
-so providers do not need to request per-Gateway Marketplace CSP or browser CORS
-changes. A provider may instead package a self-contained static Three.js app
-as a ZIP. Gateway validates and stores its files, then Marketplace loads its
-entry page as the complete presentation in an isolated iframe and sends FMI
-output samples. The app supplies its scene, input controls, run action, charts
-and telemetry display; Marketplace does not wrap it in the GLB viewer or inject
-Marketplace UI modules. To start a simulation, the app may send the version 1
-`decentralabs:fmi-run-request` message with a `parameters` object and an
-optional `options` object. The app can provide finite numeric `startTime`,
-`stopTime` and `stepSize` options. For example, its duration control can send:
+### Configure a complete Three.js app
+
+Package the complete static app as a ZIP, including its entry HTML and all
+required modules, charts, stylesheets, fonts and other runtime assets using
+relative paths. Link it from the AAS shell with the app's HTML MIME type
+(`text/html`) through **Lab Manager → Digital Twins**. The Gateway validates
+and stores its files; Marketplace loads the entry page in an isolated iframe.
+The app must send FMU run requests and handle streamed model time and outputs
+according to the [Three.js app contract](../provider/digital-twin-threejs-app-contract.md).
+For example, an app that lets the user choose a duration can send the selected
+stop time as a simulation option:
 
 ```js
 window.parent.postMessage({
@@ -109,16 +168,24 @@ window.parent.postMessage({
 }, '*')
 ```
 
-Marketplace validates and applies those options when it runs the FMU, then
-streams the samples back to the app. The stop time must be greater than the
-start time and the step size must be greater than zero. Include every required
-chart, module, stylesheet, font and other runtime asset in the ZIP using
-relative paths; Gateway does not serve the app from Marketplace source files
-or external asset servers. The app must acknowledge initialization with the
-version 1 digital-twin-ready message after its scene has loaded. Gateway
-reports GLB bindings that do not match the FMU outputs before the provider
-synchronizes the shell. Neither choice requires Marketplace file permissions
-or Marketplace code changes.
+Marketplace may show its generic input-schedule editor outside the app; those
+scheduled events are applied to the next FMU run. The app can also opt in to
+Marketplace's playback-rate control. These are optional overlays; the app
+still owns its normal presentation and controls.
+
+### Smart Warehouse Cell example
+
+The distributed demo package includes `SmartWarehouseCell.fmu`, its companion
+GLB and `SmartWarehouseCell.webapp.zip` under `fmu-executor/fmu-data/`. Create
+the listing through **Add New Lab → Simulation** and register
+`SmartWarehouseCell.fmu` as the FMU filename/access key; there is no Marketplace
+FMU upload step. After the listing exists, open **Lab Manager → Digital Twins**
+and synchronize the AAS shell. Lab Manager imports the prepared visual asset
+from the active FMU backend: from Gateway `fmu-data` during local development,
+or from Lab Station through its protected internal endpoint in production.
+The same FMU can use the GLB viewer or the bundled Three.js app; the AAS File
+MIME type selects the Marketplace presentation. The provider Gateway stores
+and serves the selected asset; Lab Station does not expose it publicly.
 
 ## Post-publication management
 

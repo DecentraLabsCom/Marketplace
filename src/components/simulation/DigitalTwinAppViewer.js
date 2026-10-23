@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import InputScheduleEditor from './InputScheduleEditor'
+import PlaybackRateControl from './PlaybackRateControl'
 import { normalizeInputSchedule } from './simulationParameters'
 
 const APP_READY_MESSAGE = 'decentralabs:digital-twin-ready'
 const APP_ERROR_MESSAGE = 'decentralabs:digital-twin-error'
 const HOST_READY_MESSAGE = 'decentralabs:digital-twin-host-ready'
 const APP_MESSAGE_VERSION = 1
+const PLAYBACK_RATE_CAPABILITY = 'playback-rate'
 const APP_READY_TIMEOUT_MS = 30_000
 const EMPTY_TIMES = []
 
@@ -26,10 +28,15 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [appCapabilities, setAppCapabilities] = useState([])
+  const [playbackRate, setPlaybackRate] = useState(1)
   const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = typeof onInputEventsChange === 'function' ? onInputEventsChange : () => {}
   const sampleIndex = Math.max(times.length - 1, 0)
+  const modelDuration = times.length > 1
+    ? Number(times[times.length - 1]) - Number(times[0])
+    : Number(stopTime) - Number(startTime)
   const outputNames = useMemo(() => modelVariables
     .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
     .map((variable) => variable.name), [modelVariables])
@@ -76,6 +83,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   useEffect(() => {
     setAppState('loading')
     setFrameLoaded(false)
+    setAppCapabilities([])
     sentSampleCountRef.current = 0
     function notifyAppHostReady() {
       iframeRef.current?.contentWindow?.postMessage({
@@ -96,6 +104,9 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       if (message.type === APP_READY_MESSAGE) {
         window.clearInterval(handshake)
         window.clearTimeout(timeout)
+        setAppCapabilities(Array.isArray(message.capabilities)
+          ? message.capabilities.filter((capability) => capability === PLAYBACK_RATE_CAPABILITY)
+          : [])
         setAppState('ready')
       } else if (message.type === APP_ERROR_MESSAGE) {
         window.clearInterval(handshake)
@@ -164,6 +175,16 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     })
   }, [appState, isRunning, outputDefaults, outputNames, results, sample, simulationState, times])
 
+  useEffect(() => {
+    if (appState !== 'ready' || !appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) return
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'decentralabs:fmi-playback-control',
+      version: APP_MESSAGE_VERSION,
+      rate: playbackRate,
+      rateUnit: 'model-seconds-per-real-second',
+    }, '*')
+  }, [appCapabilities, appState, playbackRate])
+
   function handleFrameLoad() {
     setFrameLoaded(true)
     iframeRef.current?.contentWindow?.postMessage({
@@ -209,6 +230,11 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       {downloadError && appState !== 'loading' && appState !== 'error' && (
         <div className="absolute left-3 right-3 top-3 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-6" role="alert">
           {downloadError}
+        </div>
+      )}
+      {appState === 'ready' && !scheduleOpen && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
+        <div className="absolute bottom-16 left-3 z-20 w-[min(22rem,calc(100%-1.5rem))] shadow-xl sm:bottom-5 sm:left-5">
+          <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} />
         </div>
       )}
       {simulationError && appState !== 'loading' && appState !== 'error' && (
