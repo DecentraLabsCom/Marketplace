@@ -14,7 +14,7 @@ function formatRate(value) {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
-export default function PlaybackRateControl({ rate, onChange, modelDuration, disabled = false }) {
+export default function PlaybackRateControl({ rate, onChange, modelDuration, disabled = false, compact = false }) {
   const controlId = useId()
   const numericRate = Number(rate)
   const validRate = Number.isFinite(numericRate) && numericRate > 0 ? numericRate : 1
@@ -36,9 +36,9 @@ export default function PlaybackRateControl({ rate, onChange, modelDuration, dis
   }
 
   return (
-    <div className="rounded-lg border border-[#26383f] bg-[#101d23] p-3">
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-        <div className="col-span-2 grid min-w-0 gap-1">
+    <div className={`rounded-lg border border-[#26383f] bg-[#101d23] p-3 ${compact && customMode ? 'w-[min(13rem,calc(100vw-2rem))]' : 'w-full'}`}>
+      <div className={`grid ${compact && !customMode ? 'grid-cols-1' : 'grid-cols-2'} gap-x-3 gap-y-2`}>
+        <div className="col-span-full grid min-w-0 gap-1">
           <label htmlFor={`${controlId}-preset`} className="text-xs font-medium text-[#dce9e9]">Speed presets</label>
           <select
             id={`${controlId}-preset`}
@@ -119,11 +119,6 @@ export default function PlaybackRateControl({ rate, onChange, modelDuration, dis
           </>
         )}
       </div>
-      {customMode && (
-        <p className="mt-2 text-xs font-medium tabular-nums text-[#b8fff1]" aria-live="polite">
-          {formatRate(validRate)}× · {formatRate(validRate)} s model / 1 s real
-        </p>
-      )}
     </div>
   )
 }
@@ -133,9 +128,11 @@ PlaybackRateControl.propTypes = {
   onChange: PropTypes.func.isRequired,
   modelDuration: PropTypes.number,
   disabled: PropTypes.bool,
+  compact: PropTypes.bool,
 }
 
 PlaybackRateControl.defaultProps = {
   modelDuration: 0,
   disabled: false,
+  compact: false,
 }
