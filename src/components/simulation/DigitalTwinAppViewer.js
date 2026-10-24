@@ -21,6 +21,8 @@ function currentValue(series, index) {
 
 export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, downloadError, fullScreen }) {
   const iframeRef = useRef(null)
+  const playbackTriggerRef = useRef(null)
+  const playbackDialogRef = useRef(null)
   const sentSampleCountRef = useRef(0)
   const onRunSimulationRef = useRef(onRunSimulation)
   onRunSimulationRef.current = onRunSimulation
@@ -28,6 +30,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false)
   const [appCapabilities, setAppCapabilities] = useState([])
   const [playbackRate, setPlaybackRate] = useState(1)
   const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
@@ -54,6 +57,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     return defaults
   }, [modelVariables])
   const inputVariables = useMemo(() => modelVariables.filter((variable) => variable?.causality === 'input'), [modelVariables])
+  const playbackRateLabel = Number(playbackRate).toLocaleString(undefined, { maximumFractionDigits: 2 })
   let scheduleError = ''
   if (enableInputSchedule && scheduledInputEvents.length > 0) {
     try {
@@ -185,6 +189,19 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     }, '*')
   }, [appCapabilities, appState, playbackRate])
 
+  useEffect(() => {
+    if (!playbackControlsOpen) return undefined
+    playbackDialogRef.current?.querySelector('select')?.focus()
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setPlaybackControlsOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+      playbackTriggerRef.current?.focus()
+    }
+  }, [playbackControlsOpen])
+
   function handleFrameLoad() {
     setFrameLoaded(true)
     iframeRef.current?.contentWindow?.postMessage({
@@ -233,8 +250,49 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         </div>
       )}
       {appState === 'ready' && !scheduleOpen && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
-        <div data-testid="digital-twin-playback-rate" className="digital-twin-playback-rate-dock absolute z-20 w-[min(13rem,calc(100%-2rem))] shadow-xl">
-          <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} compact />
+        <div data-testid="digital-twin-playback-rate" className="digital-twin-playback-rate-dock absolute z-20 w-max max-w-[calc(100%-1rem)]">
+          <button
+            ref={playbackTriggerRef}
+            type="button"
+            aria-label={`Playback speed settings, current ${playbackRateLabel}×`}
+            aria-haspopup="dialog"
+            aria-expanded={playbackControlsOpen}
+            onClick={() => setPlaybackControlsOpen(true)}
+            className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-[#30464d] bg-[#101d23] px-3 text-xs font-semibold text-[#dce9e9] shadow-xl transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+          >
+            <span>Playback speed</span>
+            <span className="font-mono text-[#73e4cb]">{playbackRateLabel}×</span>
+          </button>
+        </div>
+      )}
+      {playbackControlsOpen && appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
+        <div
+          role="presentation"
+          onClick={(event) => { if (event.target === event.currentTarget) setPlaybackControlsOpen(false) }}
+          className="absolute inset-0 z-30 grid place-items-center overflow-y-auto bg-[#030c10]/75 p-4 backdrop-blur-sm"
+        >
+          <div
+            ref={playbackDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="digital-twin-playback-rate-title"
+            className="w-full max-w-sm rounded-xl border border-[#30464d] bg-[#0b171d] p-4 text-left shadow-2xl"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 id="digital-twin-playback-rate-title" className="text-sm font-semibold text-white">Playback speed</h2>
+              <button
+                type="button"
+                aria-label="Close playback controls"
+                onClick={() => setPlaybackControlsOpen(false)}
+                className="rounded-md border border-[#30464d] px-2 py-1 text-xs text-[#c4d9dd] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex justify-center">
+              <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} compact />
+            </div>
+          </div>
         </div>
       )}
       {simulationError && appState !== 'loading' && appState !== 'error' && (
