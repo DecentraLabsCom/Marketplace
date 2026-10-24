@@ -11,6 +11,7 @@ const APP_ERROR_MESSAGE = 'decentralabs:digital-twin-error'
 const HOST_READY_MESSAGE = 'decentralabs:digital-twin-host-ready'
 const APP_MESSAGE_VERSION = 1
 const PLAYBACK_RATE_CAPABILITY = 'playback-rate'
+const PLAYBACK_CONTROL_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
 const APP_READY_TIMEOUT_MS = 30_000
 const EMPTY_TIMES = []
 
@@ -19,7 +20,7 @@ function currentValue(series, index) {
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, downloadError, fullScreen }) {
+export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule = false, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, downloadError, fullScreen }) {
   const iframeRef = useRef(null)
   const playbackTriggerRef = useRef(null)
   const playbackDialogRef = useRef(null)
@@ -32,6 +33,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false)
   const [appCapabilities, setAppCapabilities] = useState([])
+  const [playbackControlPosition, setPlaybackControlPosition] = useState(null)
   const [playbackRate, setPlaybackRate] = useState(1)
   const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
@@ -88,6 +90,8 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     setAppState('loading')
     setFrameLoaded(false)
     setAppCapabilities([])
+    setPlaybackControlPosition(null)
+    setPlaybackRate(1)
     sentSampleCountRef.current = 0
     function notifyAppHostReady() {
       iframeRef.current?.contentWindow?.postMessage({
@@ -108,9 +112,22 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       if (message.type === APP_READY_MESSAGE) {
         window.clearInterval(handshake)
         window.clearTimeout(timeout)
-        setAppCapabilities(Array.isArray(message.capabilities)
+        const capabilities = Array.isArray(message.capabilities)
           ? message.capabilities.filter((capability) => capability === PLAYBACK_RATE_CAPABILITY)
-          : [])
+          : []
+        setAppCapabilities(capabilities)
+        setPlaybackControlPosition(
+          PLAYBACK_CONTROL_POSITIONS.has(message.playbackControlPosition)
+            ? message.playbackControlPosition
+            : null,
+        )
+        const defaultPlaybackRate = Number(message.defaultPlaybackRate)
+        if (capabilities.includes(PLAYBACK_RATE_CAPABILITY)
+            && Number.isFinite(defaultPlaybackRate)
+            && defaultPlaybackRate > 0
+            && defaultPlaybackRate <= 100_000) {
+          setPlaybackRate(defaultPlaybackRate)
+        }
         setAppState('ready')
       } else if (message.type === APP_ERROR_MESSAGE) {
         window.clearInterval(handshake)
@@ -250,17 +267,20 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         </div>
       )}
       {appState === 'ready' && !scheduleOpen && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
-        <div data-testid="digital-twin-playback-rate" className="digital-twin-playback-rate-dock absolute z-20 w-max max-w-[calc(100%-1rem)]">
+        <div
+          data-testid="digital-twin-playback-rate"
+          className={`digital-twin-playback-rate-dock${playbackControlPosition ? ` digital-twin-playback-rate-dock--${playbackControlPosition}` : ''} absolute z-20 w-max max-w-[calc(100%-1rem)]`}
+        >
           <button
             ref={playbackTriggerRef}
             type="button"
-            aria-label={`Playback speed settings, current ${playbackRateLabel}×`}
+            aria-label={`Speed settings, current ${playbackRateLabel}×`}
             aria-haspopup="dialog"
             aria-expanded={playbackControlsOpen}
             onClick={() => setPlaybackControlsOpen(true)}
             className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-[#30464d] bg-[#101d23] px-3 text-xs font-semibold text-[#dce9e9] shadow-xl transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
           >
-            <span>Playback speed</span>
+            <span>Speed</span>
             <span className="font-mono text-[#73e4cb]">{playbackRateLabel}×</span>
           </button>
         </div>
@@ -276,10 +296,10 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
             role="dialog"
             aria-modal="true"
             aria-labelledby="digital-twin-playback-rate-title"
-            className="w-full max-w-sm rounded-xl border border-[#30464d] bg-[#0b171d] p-4 text-left shadow-2xl"
+            className="w-fit max-w-[calc(100vw-2rem)] rounded-xl border border-[#30464d] bg-[#0b171d] p-4 text-left shadow-2xl"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="digital-twin-playback-rate-title" className="text-sm font-semibold text-white">Playback speed</h2>
+              <h2 id="digital-twin-playback-rate-title" className="text-sm font-semibold text-white">Set visualization speed</h2>
               <button
                 type="button"
                 aria-label="Close playback controls"
@@ -289,7 +309,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
                 Close
               </button>
             </div>
-            <div className="flex justify-center">
+            <div className="flex w-fit justify-center">
               <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} compact />
             </div>
           </div>
@@ -363,7 +383,6 @@ DigitalTwinAppViewer.defaultProps = {
   title: 'Digital Twin',
   results: null,
   modelVariables: [],
-  enableInputSchedule: true,
   inputValues: {},
   inputEvents: [],
   onInputEventsChange: null,

@@ -813,3 +813,31 @@ body::-webkit-scrollbar-thumb:hover {
     right: 0.5rem;
   }
 }
+
+.digital-twin-playback-rate-dock--top-left {
+  top: 0.75rem;
+  right: auto;
+  bottom: auto;
+  left: 0.75rem;
+}
+
+.digital-twin-playback-rate-dock--top-right {
+  top: 0.75rem;
+  right: 0.75rem;
+  bottom: auto;
+  left: auto;
+}
+
+.digital-twin-playback-rate-dock--bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 0.25rem;
+  left: 1rem;
+}
+
+.digital-twin-playback-rate-dock--bottom-right {
+  top: auto;
+  right: 1rem;
+  bottom: 0.25rem;
+  left: auto;
+}

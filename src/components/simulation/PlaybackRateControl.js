@@ -36,13 +36,13 @@ export default function PlaybackRateControl({ rate, onChange, modelDuration, dis
   }
 
   return (
-    <div className={`rounded-lg border border-[#26383f] bg-[#101d23] p-3 ${compact && customMode ? 'w-[min(13rem,calc(100vw-2rem))]' : 'w-full'}`}>
+    <div className={`rounded-lg border border-[#26383f] bg-[#101d23] p-3 ${compact ? 'w-[min(13rem,calc(100vw-4rem))]' : 'w-full'}`}>
       <div className={`grid ${compact && !customMode ? 'grid-cols-1' : 'grid-cols-2'} gap-x-3 gap-y-2`}>
         <div className="col-span-full grid min-w-0 gap-1">
           <label htmlFor={`${controlId}-preset`} className="text-xs font-medium text-[#dce9e9]">Speed presets</label>
           <select
             id={`${controlId}-preset`}
-            aria-label="Playback speed preset"
+            aria-label="Speed preset"
             value={customMode ? 'custom' : String(validRate)}
             onChange={(event) => {
               if (event.target.value === 'custom') {
