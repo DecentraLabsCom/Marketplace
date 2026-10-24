@@ -55,10 +55,10 @@ function boundedAssetPath(parts) {
   }
 }
 
-function headersFor(mime, isHtml) {
+function headersFor(mime, isHtml, gatewayBaseUrl) {
   const headers = new Headers({
     'Content-Type': mime,
-    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Cache-Control': isHtml ? 'no-store' : 'public, max-age=31536000, immutable',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'Access-Control-Allow-Origin': '*',
@@ -67,6 +67,8 @@ function headersFor(mime, isHtml) {
     'Cross-Origin-Resource-Policy': 'cross-origin',
   })
   if (isHtml) {
+    const endpoint = new URL('/fmu/api/v1/fmu/sessions', gatewayBaseUrl)
+    endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
     headers.set('X-Frame-Options', 'SAMEORIGIN')
     headers.set('Content-Security-Policy', [
       "default-src 'self' data: blob:",
@@ -75,7 +77,7 @@ function headersFor(mime, isHtml) {
       "style-src-attr 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' blob:",
+      `connect-src 'self' blob: ${endpoint.href}`,
       "media-src 'self' data: blob:",
       "worker-src 'self' blob:",
       "object-src 'none'",
@@ -113,7 +115,7 @@ async function handleRequest(_request, { params }, method) {
       return NextResponse.json({ error: 'Digital twin application asset too large' }, { status: 413 })
     }
     if (method === 'HEAD') {
-      return new Response(null, { status: 200, headers: headersFor(boundedPath.mime, boundedPath.mime.startsWith('text/html')) })
+      return new Response(null, { status: 200, headers: headersFor(boundedPath.mime, boundedPath.mime.startsWith('text/html'), gatewayBaseUrl) })
     }
     const body = await upstream.arrayBuffer()
     if (body.byteLength > MAX_ASSET_BYTES) {
@@ -121,7 +123,7 @@ async function handleRequest(_request, { params }, method) {
     }
     return new Response(body, {
       status: 200,
-      headers: headersFor(boundedPath.mime, boundedPath.mime.startsWith('text/html')),
+      headers: headersFor(boundedPath.mime, boundedPath.mime.startsWith('text/html'), gatewayBaseUrl),
     })
   } catch (error) {
     if (error instanceof GatewayValidationError) {

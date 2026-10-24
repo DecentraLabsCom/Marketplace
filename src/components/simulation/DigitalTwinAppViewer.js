@@ -6,68 +6,29 @@ import InputScheduleEditor from './InputScheduleEditor'
 import PlaybackRateControl from './PlaybackRateControl'
 import { normalizeInputSchedule } from './simulationParameters'
 import {
-  createProtocolId,
-  DIGITAL_TWIN_CAPABILITY,
-  DIGITAL_TWIN_MESSAGE,
-  DIGITAL_TWIN_PROTOCOL_VERSION,
-  isRecord,
-  isProtocolEnvelope,
-  isValidHostMessage,
-  isValidAppMessage,
-  isValidProtocolId,
-  makeProtocolMessage,
-  MAX_SAMPLE_BATCH_JSON_CHARS,
-  MAX_SAMPLES_PER_BATCH,
-  SAMPLE_ACK_TIMEOUT_MS,
+  DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidAppMessage,
+  isValidHostMessage, makeProtocolMessage, isRecord,
 } from './digitalTwinAppProtocol'
 
-const APP_READY_MESSAGE = DIGITAL_TWIN_MESSAGE.APP_READY
-const APP_ERROR_MESSAGE = DIGITAL_TWIN_MESSAGE.APP_ERROR
-const HOST_READY_MESSAGE = DIGITAL_TWIN_MESSAGE.HOST_READY
-const APP_MESSAGE_VERSION = DIGITAL_TWIN_PROTOCOL_VERSION
 const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
-const SAMPLE_ACK_CAPABILITY = DIGITAL_TWIN_CAPABILITY.SAMPLE_ACKNOWLEDGEMENT
-const PLAYBACK_CONTROL_POSITIONS = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
-const APP_READY_TIMEOUT_MS = 30_000
-const EMPTY_TIMES = []
 
-function currentValue(series, index) {
-  if (!Array.isArray(series) || series.length === 0) return undefined
-  return series[Math.min(Math.max(index, 0), series.length - 1)]
-}
-
-function reportProviderAppError(appStateRef, setAppState, setAppFailureReason, reason) {
-  appStateRef.current = 'error'
-  setAppFailureReason(reason)
-  setAppState('error')
-}
-
-export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule = false, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, activeRunId, simulationState, simulationError, onRunSimulation, onCancelSimulation, onModelChangeRequest, hostExtensions = {}, downloadError, fullScreen }) {
+export default function DigitalTwinAppViewer({
+  appUrl, title = 'Digital Twin', onConnect, modelVariables = [], enableInputSchedule = false,
+  inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stopTime = 1, stepSize,
+  onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
+}) {
   const iframeRef = useRef(null)
   const playbackTriggerRef = useRef(null)
   const playbackDialogRef = useRef(null)
-  const sentSampleCountRef = useRef(0)
-  const previousRunIdRef = useRef(undefined)
-  const pendingSampleBatchRef = useRef(null)
-  const sampleAckTimeoutRef = useRef(null)
-  const sampleContinuationTimeoutRef = useRef(null)
-  const initialSampleSentRef = useRef(false)
-  const lastSentStateRef = useRef('')
-  const resultsCompleteRef = useRef(false)
-  const runRequestPendingRef = useRef(false)
-  const onRunSimulationRef = useRef(onRunSimulation)
-  const onCancelSimulationRef = useRef(onCancelSimulation)
-  const onModelChangeRequestRef = useRef(onModelChangeRequest)
-  const hostExtensionsRef = useRef(hostExtensions)
-  const activeRunIdRef = useRef(activeRunId)
-  const appStateRef = useRef('loading')
-  const isRunningRef = useRef(isRunning)
-  onRunSimulationRef.current = onRunSimulation
-  onCancelSimulationRef.current = onCancelSimulation
-  onModelChangeRequestRef.current = onModelChangeRequest
-  hostExtensionsRef.current = hostExtensions
-  activeRunIdRef.current = activeRunId
-  isRunningRef.current = isRunning
+  const connectRef = useRef(onConnect)
+  const modelChangeRef = useRef(onModelChangeRequest)
+  const extensionRef = useRef(hostExtensions)
+  const grantRef = useRef(null)
+  const loadedDocumentRef = useRef(false)
+  const stateRef = useRef('loading')
+  connectRef.current = onConnect
+  modelChangeRef.current = onModelChangeRequest
+  extensionRef.current = hostExtensions
   const [appState, setAppState] = useState('loading')
   const [appFailureReason, setAppFailureReason] = useState('')
   const [frameLoaded, setFrameLoaded] = useState(false)
@@ -75,433 +36,123 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false)
   const [appCapabilities, setAppCapabilities] = useState([])
-  const [sampleAckVersion, setSampleAckVersion] = useState(0)
   const [playbackControlPosition, setPlaybackControlPosition] = useState(null)
   const [playbackRate, setPlaybackRate] = useState(1)
-  useEffect(() => {
-    if (!isRunning || ['completed', 'cancelled', 'error'].includes(simulationState)) {
-      runRequestPendingRef.current = false
-    }
-  }, [isRunning, simulationState])
-  const times = Array.isArray(results?.time) ? results.time : EMPTY_TIMES
-  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
-  const updateScheduledInputEvents = typeof onInputEventsChange === 'function' ? onInputEventsChange : () => {}
-  const sampleIndex = Math.max(times.length - 1, 0)
-  const modelDuration = times.length > 1
-    ? Number(times[times.length - 1]) - Number(times[0])
-    : Number(stopTime) - Number(startTime)
-  const outputNames = useMemo(() => modelVariables
-    .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
-    .map((variable) => variable.name), [modelVariables])
-  const outputDefaults = useMemo(() => {
-    const defaults = {}
-    for (const variable of modelVariables) {
-      if (variable?.causality !== 'output' || typeof variable.name !== 'string' || variable.start === undefined) continue
-      if (variable.type === 'Boolean' || typeof variable.start === 'boolean') {
-        defaults[variable.name] = variable.start === true || variable.start === 'true'
-      } else {
-        const numericStart = Number(variable.start)
-        if (Number.isFinite(numericStart)) defaults[variable.name] = numericStart
-      }
-    }
-    return defaults
-  }, [modelVariables])
-  const inputVariables = useMemo(() => modelVariables.filter((variable) => variable?.causality === 'input'), [modelVariables])
+  const [execution, setExecution] = useState({ state: 'idle' })
+  const isRunning = execution.state === 'running'
+  const activeRunId = execution.runId
+  const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
   const playbackRateLabel = Number(playbackRate).toLocaleString(undefined, { maximumFractionDigits: 2 })
+  const inputVariables = useMemo(() => modelVariables.filter((v) => v?.causality === 'input'), [modelVariables])
+  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
+  const updateScheduledInputEvents = onInputEventsChange || (() => {})
   let scheduleError = ''
-  if (enableInputSchedule && scheduledInputEvents.length > 0) {
-    try {
-      normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, startTime, stopTime, stepSize)
-    } catch (error) {
-      scheduleError = error.message
-    }
+  try {
+    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, startTime, stopTime, stepSize)
+  } catch (error) { scheduleError = error.message }
+
+  function send(type, payload = {}) {
+    const message = makeProtocolMessage(type, payload)
+    if (isValidHostMessage(message)) iframeRef.current?.contentWindow?.postMessage(message, '*')
   }
 
-  const sample = useMemo(() => {
-    const allowedOutputs = new Set(outputNames)
-    const outputs = { ...outputDefaults }
-    for (const [name, series] of Object.entries(results?.outputs || {})) {
-      if (!allowedOutputs.has(name)) continue
-      const value = currentValue(series, sampleIndex)
-      if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) outputs[name] = value
-    }
-    const timeValue = Number(times[sampleIndex])
-    return {
-      type: DIGITAL_TWIN_MESSAGE.SAMPLE,
-      version: APP_MESSAGE_VERSION,
-      ...(activeRunId ? { runId: activeRunId } : {}),
-      time: Number.isFinite(timeValue) ? timeValue : null,
-      outputs,
-    }
-  }, [activeRunId, outputDefaults, outputNames, results?.outputs, sampleIndex, times])
-
   useEffect(() => {
-    appStateRef.current = 'loading'
+    stateRef.current = 'loading'
+    loadedDocumentRef.current = false
     setAppState('loading')
     setAppFailureReason('')
     setFrameLoaded(false)
     setAppCapabilities([])
     setPlaybackControlPosition(null)
     setPlaybackRate(1)
-    sentSampleCountRef.current = 0
-    previousRunIdRef.current = undefined
-    pendingSampleBatchRef.current = null
-    initialSampleSentRef.current = false
-    lastSentStateRef.current = ''
-    resultsCompleteRef.current = false
-    window.clearTimeout(sampleAckTimeoutRef.current)
-    window.clearTimeout(sampleContinuationTimeoutRef.current)
-    sampleContinuationTimeoutRef.current = null
-    function notifyAppHostReady() {
-      iframeRef.current?.contentWindow?.postMessage({
-        ...(isRecord(hostExtensionsRef.current) && Object.keys(hostExtensionsRef.current).length
-          ? { extensions: hostExtensionsRef.current }
-          : {}),
-        type: HOST_READY_MESSAGE,
-        version: APP_MESSAGE_VERSION,
-      }, '*')
-    }
-    const handshake = window.setInterval(notifyAppHostReady, 500)
+    setExecution({ state: 'idle' })
     const timeout = window.setTimeout(() => {
-      window.clearInterval(handshake)
-      if (appStateRef.current !== 'ready') {
-        appStateRef.current = 'error'
-        setAppState('error')
-      }
-    }, APP_READY_TIMEOUT_MS)
-
-    function handleAppMessage(event) {
-      if (event.source !== iframeRef.current?.contentWindow) return
-      const message = event.data
-      if (!isProtocolEnvelope(message)) return
-      if (message.type === APP_READY_MESSAGE) {
-        if (!isValidAppMessage(message)) return
-        window.clearInterval(handshake)
-        window.clearTimeout(timeout)
-        const capabilities = Array.isArray(message.capabilities)
-          ? [...new Set(message.capabilities.filter((capability) => (
-            capability === PLAYBACK_RATE_CAPABILITY || capability === SAMPLE_ACK_CAPABILITY
-          )))]
-          : []
-        setAppCapabilities(capabilities)
-        setPlaybackControlPosition(
-          PLAYBACK_CONTROL_POSITIONS.has(message.playbackControlPosition)
-            ? message.playbackControlPosition
-            : null,
-        )
-        const defaultPlaybackRate = Number(message.defaultPlaybackRate)
-        if (capabilities.includes(PLAYBACK_RATE_CAPABILITY)
-            && Number.isFinite(defaultPlaybackRate)
-            && defaultPlaybackRate > 0
-            && defaultPlaybackRate <= 100_000) {
-          setPlaybackRate(defaultPlaybackRate)
-        }
-        appStateRef.current = 'ready'
-        setAppState('ready')
-      } else if (message.type === APP_ERROR_MESSAGE) {
-        if (!isValidAppMessage(message)) return
-        window.clearInterval(handshake)
-        window.clearTimeout(timeout)
-        setAppFailureReason(typeof message.code === 'string'
-          ? `The provider app reported startup error ${message.code}.`
-          : 'The provider app reported a startup error.')
-        appStateRef.current = 'error'
-        setAppState('error')
-      } else if (message.type === DIGITAL_TWIN_MESSAGE.RUN_REQUEST) {
-        const appSuppliedRequestId = isValidProtocolId(message.requestId)
-        const requestId = typeof message.requestId === 'string' ? message.requestId : createProtocolId('request')
-        const target = iframeRef.current?.contentWindow
-        if (!isValidAppMessage(message)) {
-          target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_REJECTED, {
-            ...(isValidProtocolId(message.requestId) ? { requestId: message.requestId } : {}),
-            code: 'INVALID_RUN_REQUEST',
-          }), '*')
-          return
-        }
-        if (appStateRef.current === 'error'
-            || isRunningRef.current
-            || runRequestPendingRef.current
-            || typeof onRunSimulationRef.current !== 'function') {
-          target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_REJECTED, {
-            requestId,
-            code: appStateRef.current === 'error'
-              ? 'APP_UNAVAILABLE'
-              : isRunningRef.current || runRequestPendingRef.current
-                ? 'SIMULATION_ALREADY_RUNNING'
-                : 'SIMULATION_UNAVAILABLE',
-          }), '*')
-          return
-        }
-        const requestedRunId = createProtocolId('run')
-        try {
-          runRequestPendingRef.current = true
-          let execution
-          if (appSuppliedRequestId) {
-            execution = onRunSimulationRef.current(message.parameters ?? {}, message.options ?? {}, {
-              requestId,
-              runId: requestedRunId,
-            })
-          } else {
-            execution = onRunSimulationRef.current(message.parameters ?? {}, message.options ?? {})
-          }
-          if (execution?.accepted === false) {
-            runRequestPendingRef.current = false
-            target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_REJECTED, {
-              requestId,
-              code: 'SIMULATION_ALREADY_RUNNING',
-            }), '*')
-            return
-          }
-          const runId = !appSuppliedRequestId && isValidProtocolId(execution?.runId)
-            ? execution.runId
-            : requestedRunId
-          activeRunIdRef.current = runId
-          target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_ACCEPTED, { requestId, runId }), '*')
-        } catch {
-          runRequestPendingRef.current = false
-          activeRunIdRef.current = null
-          target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_REJECTED, {
-            requestId,
-            code: 'SIMULATION_START_FAILED',
-          }), '*')
-        }
-      } else if (message.type === DIGITAL_TWIN_MESSAGE.RUN_CANCEL) {
-        const runId = activeRunIdRef.current
-        if (!isValidAppMessage(message) || message.runId !== runId) return
-        if (onCancelSimulationRef.current?.(runId)) {
-          iframeRef.current?.contentWindow?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_CANCELLED, { runId }), '*')
-        }
-      } else if (message.type === DIGITAL_TWIN_MESSAGE.SAMPLES_ACK) {
-        const pending = pendingSampleBatchRef.current
-        if (!pending || !isValidAppMessage(message)) return
-        if (
-          message.runId !== pending.runId
-          || message.batchId !== pending.batchId
-          || message.lastSampleIndex !== pending.lastSampleIndex
-        ) return
-        window.clearTimeout(sampleAckTimeoutRef.current)
-        pendingSampleBatchRef.current = null
-        setSampleAckVersion((version) => version + 1)
-      } else if (message.type === DIGITAL_TWIN_MESSAGE.MODEL_CHANGE) {
-        if (!isValidAppMessage(message)) return
-        onModelChangeRequestRef.current?.(message.modelId)
-      }
-    }
-
-    window.addEventListener('message', handleAppMessage)
-    notifyAppHostReady()
-    return () => {
-      window.clearInterval(handshake)
-      window.clearTimeout(timeout)
-      window.clearTimeout(sampleAckTimeoutRef.current)
-      window.clearTimeout(sampleContinuationTimeoutRef.current)
-      window.removeEventListener('message', handleAppMessage)
-    }
+      if (stateRef.current !== 'loading') return
+      stateRef.current = 'error'
+      setAppState('error')
+      setAppFailureReason('The provider application did not initialize successfully. Check its bundled assets and browser console errors.')
+    }, 30_000)
+    return () => { window.clearTimeout(timeout); grantRef.current?.abort(); grantRef.current = null }
   }, [appUrl, reloadKey])
 
   useEffect(() => {
-    if (appState !== 'ready') return
-    const target = iframeRef.current?.contentWindow
-    if (!target) return
-    const send = (type, payload = {}) => target.postMessage({
-      ...payload,
-      type,
-      version: APP_MESSAGE_VERSION,
-    }, '*')
-
-    const runId = activeRunId || null
-    let sentSampleCount = sentSampleCountRef.current
-    if (previousRunIdRef.current !== runId || times.length < sentSampleCount) {
-      window.clearTimeout(sampleAckTimeoutRef.current)
-      window.clearTimeout(sampleContinuationTimeoutRef.current)
-      sampleContinuationTimeoutRef.current = null
-      pendingSampleBatchRef.current = null
-      send(DIGITAL_TWIN_MESSAGE.RESET, { runId })
-      previousRunIdRef.current = runId
-      sentSampleCountRef.current = 0
-      sentSampleCount = 0
-      initialSampleSentRef.current = false
-      resultsCompleteRef.current = false
-      lastSentStateRef.current = ''
-    }
-
-    if (times.length === 0 && !initialSampleSentRef.current) {
-      if (!isValidHostMessage(sample)) {
-        reportProviderAppError(
-          appStateRef,
-          setAppState,
-          setAppFailureReason,
-          'The FMU outputs exceed the message limits supported by this provider app.',
-        )
-        return
-      }
-      target.postMessage(sample, '*')
-      initialSampleSentRef.current = true
-    } else if (times.length > sentSampleCount) {
-      if (pendingSampleBatchRef.current) return
-      if (sampleContinuationTimeoutRef.current) return
-      const batchEndLimit = Math.min(sentSampleCount + MAX_SAMPLES_PER_BATCH, times.length)
-      const supportsAcknowledgement = appCapabilities.includes(SAMPLE_ACK_CAPABILITY) && runId
-      const batchId = supportsAcknowledgement ? createProtocolId('batch') : undefined
-      const batchHeader = {
-        type: DIGITAL_TWIN_MESSAGE.SAMPLES,
-        version: APP_MESSAGE_VERSION,
-        ...(runId ? { runId } : {}),
-        ...(supportsAcknowledgement ? {
-          batchId,
-          firstSampleIndex: sentSampleCount,
-          lastSampleIndex: Number.MAX_SAFE_INTEGER,
-        } : {}),
-        samples: [],
-      }
-      let batchCharacters = JSON.stringify(batchHeader).length
-      const samples = []
-      let nextSampleIndex = sentSampleCount
-      for (let index = sentSampleCount; index < batchEndLimit; index += 1) {
-        const time = Number(times[index])
-        if (!Number.isFinite(time)) {
-          reportProviderAppError(
-            appStateRef,
-            setAppState,
-            setAppFailureReason,
-            'The FMU returned a non-finite sample time that this app cannot replay.',
-          )
+    async function receive(event) {
+      if (event.source !== iframeRef.current?.contentWindow || !isValidAppMessage(event.data)) return
+      const message = event.data
+      if (message.type === MESSAGE.APP_HELLO) {
+        send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
+      } else if (message.type === MESSAGE.APP_READY) {
+        if (stateRef.current !== 'loading') return
+        stateRef.current = 'ready'
+        setAppState('ready')
+        setAppCapabilities(message.capabilities || [])
+        setPlaybackControlPosition(message.playbackControlPosition || null)
+        setPlaybackRate(message.defaultPlaybackRate || 1)
+      } else if (message.type === MESSAGE.APP_ERROR) {
+        stateRef.current = 'error'
+        setAppState('error')
+      } else if (message.type === MESSAGE.EXECUTION_STATE && stateRef.current === 'ready') {
+        setExecution({ state: message.state, runId: message.runId, options: message.options })
+      } else if (message.type === MESSAGE.MODEL_CHANGE && stateRef.current === 'ready') {
+        modelChangeRef.current?.(message.modelId)
+      } else if (message.type === MESSAGE.CONNECTION_REQUEST && stateRef.current === 'ready') {
+        const target = event.source
+        const reply = (type, payload) => {
+          const response = makeProtocolMessage(type, { requestId: message.requestId, ...payload })
+          if (target === iframeRef.current?.contentWindow && isValidHostMessage(response)) target.postMessage(response, '*')
+        }
+        if (grantRef.current || typeof connectRef.current !== 'function') {
+          reply(MESSAGE.CONNECTION_ERROR, { code: 'CONNECTION_UNAVAILABLE' })
           return
         }
-        const outputs = { ...outputDefaults }
-        for (const name of outputNames) {
-          const value = results?.outputs?.[name]?.[index]
-          if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
-            outputs[name] = value
-          }
+        const controller = new AbortController()
+        grantRef.current = controller
+        try {
+          const interval = { startTime, stopTime, stepSize, ...message.options }
+          const schedule = enableInputSchedule
+            ? normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
+            : []
+          const connection = await connectRef.current({ options: message.options || {}, signal: controller.signal })
+          if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
+        } catch {
+          if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_ERROR, { code: 'CONNECTION_AUTHORIZATION_FAILED' })
+        } finally {
+          if (grantRef.current === controller) grantRef.current = null
         }
-        const entry = { time, outputs }
-        const entryCharacters = JSON.stringify(entry).length + (samples.length > 0 ? 1 : 0)
-        if (batchCharacters + entryCharacters > MAX_SAMPLE_BATCH_JSON_CHARS && samples.length > 0) break
-        if (batchCharacters + entryCharacters > MAX_SAMPLE_BATCH_JSON_CHARS) {
-          reportProviderAppError(
-            appStateRef,
-            setAppState,
-            setAppFailureReason,
-            'One FMU output sample exceeds the message limits supported by this provider app.',
-          )
-          return
-        }
-        samples.push(entry)
-        batchCharacters += entryCharacters
-        nextSampleIndex = index + 1
-      }
-      if (samples.length > 0) {
-        const lastSampleIndex = nextSampleIndex - 1
-        const batch = {
-          samples,
-          ...(runId ? { runId } : {}),
-          ...(supportsAcknowledgement ? {
-            batchId,
-            firstSampleIndex: sentSampleCount,
-            lastSampleIndex,
-          } : {}),
-        }
-        const message = { ...batch, type: DIGITAL_TWIN_MESSAGE.SAMPLES, version: APP_MESSAGE_VERSION }
-        if (!isValidHostMessage(message)) {
-          reportProviderAppError(
-            appStateRef,
-            setAppState,
-            setAppFailureReason,
-            'The FMU outputs exceed the message limits supported by this provider app.',
-          )
-          return
-        }
-        send(DIGITAL_TWIN_MESSAGE.SAMPLES, batch)
-        sentSampleCountRef.current = nextSampleIndex
-        if (supportsAcknowledgement) {
-          pendingSampleBatchRef.current = { runId, batchId, lastSampleIndex }
-          sampleAckTimeoutRef.current = window.setTimeout(() => {
-            if (pendingSampleBatchRef.current?.batchId !== batchId) return
-            pendingSampleBatchRef.current = null
-            reportProviderAppError(
-              appStateRef,
-              setAppState,
-              setAppFailureReason,
-              'The provider app stopped acknowledging FMU output batches. Reload the app and try again.',
-            )
-          }, SAMPLE_ACK_TIMEOUT_MS)
-        } else if (nextSampleIndex < times.length) {
-          sampleContinuationTimeoutRef.current = window.setTimeout(() => {
-            sampleContinuationTimeoutRef.current = null
-            setSampleAckVersion((version) => version + 1)
-          }, 50)
-        }
-      } else {
-        sentSampleCountRef.current = nextSampleIndex
       }
     }
-
-    const nextState = simulationState === 'error'
-      ? 'error'
-      : simulationState === 'cancelled'
-        ? 'cancelled'
-        : isRunning
-          ? 'running'
-          : times.length > 0
-            ? 'completed'
-            : 'idle'
-    const stateKey = `${runId || ''}:${nextState}`
-    if (lastSentStateRef.current !== stateKey) send(DIGITAL_TWIN_MESSAGE.SIMULATION_STATE, {
-      ...(runId ? { runId } : {}),
-      state: nextState,
-    })
-    lastSentStateRef.current = stateKey
-    if (['completed', 'cancelled', 'error'].includes(nextState)
-        && sentSampleCountRef.current === times.length
-        && !pendingSampleBatchRef.current && !resultsCompleteRef.current) {
-      send(DIGITAL_TWIN_MESSAGE.RESULTS_COMPLETE, {
-        ...(runId ? { runId } : {}), sampleCount: times.length, state: nextState,
-      })
-      resultsCompleteRef.current = true
-    }
-  }, [activeRunId, appCapabilities, appState, isRunning, outputDefaults, outputNames, results, sample, sampleAckVersion, simulationState, times])
+    window.addEventListener('message', receive)
+    return () => window.removeEventListener('message', receive)
+  }, [enableInputSchedule, inputVariables, modelVariables, inputEvents, startTime, stopTime, stepSize])
 
   useEffect(() => {
-    if (appState !== 'ready' || !appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) return
-    iframeRef.current?.contentWindow?.postMessage({
-      type: DIGITAL_TWIN_MESSAGE.PLAYBACK_CONTROL,
-      version: APP_MESSAGE_VERSION,
-      rate: playbackRate,
-      rateUnit: 'model-seconds-per-real-second',
-    }, '*')
+    if (appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) {
+      send(MESSAGE.PLAYBACK_CONTROL, { rate: playbackRate, rateUnit: 'model-seconds-per-real-second' })
+    }
   }, [appCapabilities, appState, playbackRate])
 
   useEffect(() => {
     if (!playbackControlsOpen) return undefined
     playbackDialogRef.current?.querySelector('select')?.focus()
-    function closeOnEscape(event) {
-      if (event.key === 'Escape') setPlaybackControlsOpen(false)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.removeEventListener('keydown', closeOnEscape)
-      playbackTriggerRef.current?.focus()
-    }
+    const close = (event) => { if (event.key === 'Escape') setPlaybackControlsOpen(false) }
+    window.addEventListener('keydown', close)
+    return () => { window.removeEventListener('keydown', close); playbackTriggerRef.current?.focus() }
   }, [playbackControlsOpen])
 
   function handleFrameLoad() {
-    setFrameLoaded(true)
-    iframeRef.current?.contentWindow?.postMessage({
-      ...(isRecord(hostExtensionsRef.current) && Object.keys(hostExtensionsRef.current).length
-        ? { extensions: hostExtensionsRef.current }
-        : {}),
-      type: HOST_READY_MESSAGE,
-      version: APP_MESSAGE_VERSION,
-    }, '*')
-  }
-
-  function cancelCurrentSimulation() {
-    if (activeRunId && onCancelSimulationRef.current?.(activeRunId)) {
-      iframeRef.current?.contentWindow?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_CANCELLED, {
-        runId: activeRunId,
-      }), '*')
+    if (loadedDocumentRef.current) {
+      grantRef.current?.abort()
+      grantRef.current = null
+      stateRef.current = 'loading'
+      setAppState('loading')
+      setExecution({ state: 'idle' })
     }
+    loadedDocumentRef.current = true
+    setFrameLoaded(true)
+    send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
+  }
+  function cancelCurrentSimulation() {
+    if (activeRunId) send(MESSAGE.EXECUTION_CANCEL, { runId: activeRunId })
   }
 
   return (
@@ -517,7 +168,8 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         referrerPolicy="no-referrer"
         onLoad={handleFrameLoad}
         onError={() => {
-          appStateRef.current = 'error'
+          grantRef.current?.abort()
+          stateRef.current = 'error'
           setAppState('error')
         }}
         className="absolute inset-0 h-full w-full border-0"
@@ -546,7 +198,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
           {downloadError}
         </div>
       )}
-      {isRunning && activeRunId && typeof onCancelSimulation === 'function' && (
+      {isRunning && activeRunId && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL) && (
         <button
           type="button"
           onClick={cancelCurrentSimulation}
@@ -649,47 +301,10 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
 }
 
 DigitalTwinAppViewer.propTypes = {
-  appUrl: PropTypes.string.isRequired,
-  title: PropTypes.string,
-  results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
-  modelVariables: PropTypes.arrayOf(PropTypes.object),
-  enableInputSchedule: PropTypes.bool,
-  inputValues: PropTypes.object,
-  inputEvents: PropTypes.arrayOf(PropTypes.object),
-  onInputEventsChange: PropTypes.func,
-  startTime: PropTypes.number,
-  stopTime: PropTypes.number,
-  stepSize: PropTypes.number,
-  isRunning: PropTypes.bool,
-  activeRunId: PropTypes.string,
-  simulationState: PropTypes.string,
-  simulationError: PropTypes.string,
-  onRunSimulation: PropTypes.func,
-  onCancelSimulation: PropTypes.func,
-  onModelChangeRequest: PropTypes.func,
-  hostExtensions: PropTypes.object,
-  downloadError: PropTypes.string,
-  fullScreen: PropTypes.bool,
-}
-
-DigitalTwinAppViewer.defaultProps = {
-  title: 'Digital Twin',
-  results: null,
-  modelVariables: [],
-  inputValues: {},
-  inputEvents: [],
-  onInputEventsChange: null,
-  startTime: 0,
-  stopTime: 1,
-  stepSize: 0.001,
-  isRunning: false,
-  activeRunId: null,
-  simulationState: 'idle',
-  simulationError: null,
-  onRunSimulation: null,
-  onCancelSimulation: null,
-  onModelChangeRequest: null,
-  hostExtensions: {},
-  downloadError: null,
-  fullScreen: false,
+  appUrl: PropTypes.string.isRequired, title: PropTypes.string, onConnect: PropTypes.func,
+  modelVariables: PropTypes.array, enableInputSchedule: PropTypes.bool, inputValues: PropTypes.object,
+  inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
+  startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,
+  onModelChangeRequest: PropTypes.func, hostExtensions: PropTypes.object,
+  downloadError: PropTypes.string, simulationError: PropTypes.string, fullScreen: PropTypes.bool,
 }

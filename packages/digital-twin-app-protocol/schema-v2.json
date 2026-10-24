@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://decentralabs.io/schemas/digital-twin-app-v2.json",
+  "title": "DecentraLabs host app authorization and HMI protocol v2",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/hostReady"
+    },
+    {
+      "$ref": "#/$defs/appReady"
+    },
+    {
+      "$ref": "#/$defs/appError"
+    },
+    {
+      "$ref": "#/$defs/connectionRequest"
+    },
+    {
+      "$ref": "#/$defs/connectionReady"
+    },
+    {
+      "$ref": "#/$defs/connectionError"
+    },
+    {
+      "$ref": "#/$defs/executionState"
+    },
+    {
+      "$ref": "#/$defs/executionCancel"
+    },
+    {
+      "$ref": "#/$defs/playbackControl"
+    },
+    {
+      "$ref": "#/$defs/modelChangeExtension"
+    },
+    {
+      "$ref": "#/$defs/appHello"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]*$"
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "startTime": {
+          "type": "number"
+        },
+        "stopTime": {
+          "type": "number"
+        },
+        "stepSize": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "parameters": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "string",
+            "maxLength": 1024
+          }
+        ]
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "gatewayWsUrl",
+        "labId",
+        "reservationKey",
+        "sessionTicket",
+        "ticketExpiresAt"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "gatewayWsUrl": {
+          "type": "string",
+          "pattern": "^(wss://[^/@?#]+|ws://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:[0-9]+)?)(/[^?#]*)?$"
+        },
+        "labId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "reservationKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "sessionTicket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "ticketExpiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "inputSchedule": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "time",
+          "values"
+        ],
+        "properties": {
+          "time": {
+            "type": "number"
+          },
+          "values": {
+            "$ref": "#/$defs/parameters"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hostReady": {
+      "type": "object",
+      "required": [
+        "type",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:digital-twin-host-ready"
+        },
+        "version": {
+          "const": 2
+        },
+        "extensions": {
+          "type": "object",
+          "maxProperties": 32
+        }
+      },
+      "additionalProperties": false
+    },
+    "appReady": {
+      "type": "object",
+      "required": [
+        "type",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:digital-twin-ready"
+        },
+        "version": {
+          "const": 2
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          }
+        },
+        "defaultPlaybackRate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100000
+        },
+        "playbackControlPosition": {
+          "enum": [
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "appError": {
+      "type": "object",
+      "required": [
+        "type",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:digital-twin-error"
+        },
+        "version": {
+          "const": 2
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "connectionRequest": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "requestId"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmu-connection-request"
+        },
+        "version": {
+          "const": 2
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "options": {
+          "$ref": "#/$defs/options"
+        }
+      },
+      "additionalProperties": false
+    },
+    "connectionReady": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "requestId",
+        "connection"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmu-connection-ready"
+        },
+        "version": {
+          "const": 2
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "connection": {
+          "$ref": "#/$defs/connection"
+        },
+        "inputSchedule": {
+          "$ref": "#/$defs/inputSchedule"
+        }
+      },
+      "additionalProperties": false
+    },
+    "connectionError": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "requestId",
+        "code"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmu-connection-error"
+        },
+        "version": {
+          "const": 2
+        },
+        "requestId": {
+          "$ref": "#/$defs/id"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "executionState": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "runId",
+        "state"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:execution-state"
+        },
+        "version": {
+          "const": 2
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "enum": [
+            "idle",
+            "running",
+            "completed",
+            "cancelled",
+            "error"
+          ]
+        },
+        "options": {
+          "$ref": "#/$defs/options"
+        }
+      },
+      "additionalProperties": false
+    },
+    "executionCancel": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "runId"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:execution-cancel"
+        },
+        "version": {
+          "const": 2
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": false
+    },
+    "playbackControl": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "rate",
+        "rateUnit"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmi-playback-control"
+        },
+        "version": {
+          "const": 2
+        },
+        "rate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100000
+        },
+        "rateUnit": {
+          "const": "model-seconds-per-real-second"
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelChangeExtension": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "modelId"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:digital-twin-model-change"
+        },
+        "version": {
+          "const": 2
+        },
+        "modelId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "appHello": {
+      "type": "object",
+      "required": [
+        "type",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:digital-twin-connect"
+        },
+        "version": {
+          "const": 2
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,410 +1,181 @@
----
-description: Marketplace postMessage contract for provider-supplied Three.js applications connected to FMU simulations.
----
+# Digital twin web app integration
 
-# Three.js digital twin app contract
+A complete provider app owns its HMI and connects directly from the user browser
+to the provider Gateway. The Gateway forwards execution to the private FMU
+Executor on Lab Station. Marketplace authorizes access and embeds the app;
+simulation inputs and output samples do not pass through Marketplace.
 
-This document defines the version 1 browser messaging contract between a
-provider's static Three.js application and Marketplace. The accompanying
-[JSON Schema](digital-twin-threejs-app-contract.schema.json) is the
-machine-readable message reference. The reusable, typed SDK is the workspace
-package [`@decentralabs/digital-twin-app-protocol`](../../packages/digital-twin-app-protocol/README.md).
-Marketplace imports its low-level protocol module. Provider apps may use the
-optional client module or implement these messages directly, with no SDK.
+```mermaid
+flowchart LR
+  Marketplace[Marketplace reservation and authorization] -->|one-use session grant| App[Provider app in isolated iframe]
+  App <-->|FMU session WebSocket| Gateway[Provider Gateway Full or Lite]
+  Gateway <-->|private connection| Station[Lab Station and FMU Executor]
+```
 
-For asset upload, AAS linking and Gateway delivery, see
-[Configure and publish your lab](../become-a-provider/configure-and-publish-your-lab.md)
-and the Lab Gateway AAS support documentation.
+There are two independent contracts:
 
-## Responsibilities and trust boundary
+* **Host integration v2**: app startup, a reservation-scoped connection grant
+  and optional visualization controls. The machine-readable reference is
+  [schema-v2.json](../../packages/digital-twin-app-protocol/schema-v2.json),
+  mirrored in [the documentation schema](digital-twin-threejs-app-contract.schema.json).
+* **FMU session protocol 1.0**: the existing Gateway WebSocket used by
+  `proxy.fmu`. It creates a protected session and executes FMI operations. See
+  [Gateway FMI/FMU support](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/fmi-fmu-support.md).
 
-- The provider app supplies the complete visual experience: scene, normal
-  input controls, run action, charts and other presentation.
-- Marketplace hosts the app in a sandboxed iframe, validates run requests,
-  executes the FMU through the lab's Gateway and streams declared model outputs.
-- Marketplace does not load the app's FMU or pass it a reservation token,
-  access key or other Gateway credential.
-- Marketplace may show a generic input-schedule editor outside the iframe.
-  Its events are applied to the next FMU run; scheduling is not an app message.
-- An app may opt into Marketplace's shared playback-rate control. It affects
-  visual playback only and does not change FMU execution.
+FMI defines the FMU and importer API; the Gateway supplies its network transport.
+The current session executor supports FMI 2/3 Co-Simulation. FMUs using Model
+Exchange or Scheduled Execution can continue using Marketplace's generated
+simulation interface and its existing execution API.
 
-The app remains a complete experience inside its viewer area. Marketplace does
-not wrap it in the GLB viewer or add the GLB viewer's output charts and table.
+## App packaging and isolation
 
-The iframe uses `sandbox="allow-scripts"` and a unique opaque origin. The host
-checks the app's `postMessage` source against the selected iframe's
-`contentWindow`; apps must check that `event.source === window.parent`. Since
-the iframe has an opaque origin, host-to-app messages use target origin `*`.
-The host accepts only version 1 messages and validates the shape and bounds of
-run requests, acknowledgements and advertised capabilities.
+Link a complete static ZIP to the lab's AAS shell through Lab Manager's Digital
+Twins tab. The provider supplies the entry HTML and all modules, WASM, charts,
+styles, fonts and images at bundled relative paths. Gateway validates the asset
+graph and stores the immutable bundle. Providers do not register individual
+filenames or add modules to an app-specific Marketplace allowlist.
 
-## Envelope, identifiers and limits
+Marketplace proxies the selected files and runs the entry page in an iframe
+with `sandbox="allow-scripts"`. The app has no Marketplace DOM, cookies or
+storage access. Its HTML CSP permits connections only to the canonical
+provider Gateway FMU WebSocket, plus its own bundled resources. HTML is not
+cached because the canonical Gateway endpoint may change; immutable modules
+and other bundle assets can be cached by digest.
 
-Every message is a JSON object with a string `type` and integer `version: 1`.
-Message names are namespaced with `decentralabs:`. Identifiers are opaque
-strings up to 128 characters. A `requestId` identifies one app request; a
-`runId` identifies the accepted execution and its output stream; `batchId`
-identifies one bounded output batch.
+The SDK is optional. An app can implement the documented messages directly or
+use its own FMU client. A GLB scene is a separate presentation mode with
+generated controls; it does not require this web app integration.
 
-Limits in the current contract:
+## Authorization and connection
 
-- At most 256 FMU parameters per run request.
-- Parameter names are at most 256 characters. Values are finite numbers,
-  booleans or strings up to 1,024 characters.
-- Run options are finite `startTime`, `stopTime` and `stepSize` numbers only.
-  Model metadata and execution type apply the additional FMU-specific checks.
-- At most 256 samples and 512 outputs per sample. A serialized
-  `fmi-samples` message is also capped at 1,000,000 JavaScript characters.
-  Sample output values are finite numbers or booleans.
-- Apps that advertise `sample-acknowledgement` must acknowledge each output
-  batch within 15 seconds. The host keeps at most one unacknowledged batch in
-  flight for that app.
+1. Marketplace establishes the authenticated reservation-scoped FMU access
+   context using its existing access-code flow.
+2. The app sends `decentralabs:digital-twin-connect` (version 2). Marketplace
+   responds with `decentralabs:digital-twin-host-ready`. The host also sends
+   this response after iframe load, so asynchronous React startup is supported.
+3. Once its view is ready, the app sends `decentralabs:digital-twin-ready`.
+4. To start execution, the app requests a connection with
+   `decentralabs:fmu-connection-request`, a unique `requestId` and optional
+   `options` containing finite `startTime`, `stopTime` and `stepSize` values.
+5. Marketplace calls `POST /api/simulations/connection`, forwarding only its
+   server-side resource credential to the authorized Gateway endpoint
+   `POST /fmu/api/v1/fmu/connection/{labId}?reservationKey=...`.
+6. Gateway uses the **same ticket issuance service and authorization checks as
+   proxy.fmu**. Full gateways use their issuer; Lite gateways use their configured
+   remote Full/standalone issuer. Marketplace validates the returned endpoint,
+   lab, reservation and ticket expiry before returning the grant to that iframe.
+7. The app opens the returned `gatewayWsUrl` and sends `session.create` with
+   the one-use ticket. Gateway redeems it with the existing issuer service,
+   rechecks the reservation and creates the Station session. Session-start
+   evidence, revocation, quotas and expiry use the existing proxy.fmu path.
 
-The schema is normative for message shape and field-level bounds. Runtime
-validation also enforces the serialized batch cap, source window and selected
-model's FMI metadata.
+Connection grants and API responses use `Cache-Control: no-store`. Keep a grant
+only in memory until used. Never place tickets in URLs, logs, local storage or
+app ZIPs. The app never receives the Marketplace session cookie, Gateway JWT
+or Station internal token. A new execution obtains a fresh grant; a consumed
+ticket must not be retried as a new session.
 
-The SDK package includes the browser-safe JavaScript implementation, TypeScript
-message types and canonical version 1 schema. The schema beside this document
-is a documentation copy; the protocol conformance test verifies that it is
-identical to the package schema and checks valid and malformed messages against
-both the schema and runtime validators. FMI-specific checks remain at the host
-because they depend on the selected model's metadata.
+A connection response has this shape:
 
-Static app ZIPs must include every local module and asset referenced by their
-HTML, JavaScript and CSS. The Smart Warehouse builder and Gateway's example
-sync validator check that dependency graph before packaging or syncing a demo.
-Create a local SDK tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`;
-this repository does not publish it automatically.
+```js
+{
+  type: 'decentralabs:fmu-connection-ready', version: 2, requestId: 'grant:example',
+  connection: {
+    protocolVersion: '1.0',
+    gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions',
+    labId: '42', reservationKey: 'reservation:example',
+    sessionTicket: '<one-use capability>', ticketExpiresAt: 1790000000,
+  },
+  inputSchedule: [],
+}
+```
 
-## Optional SDK client
+`decentralabs:fmu-connection-error` returns the same request ID and a bounded
+error code. No simulation parameters or output samples are carried by these
+host messages. Host messages must come from `window.parent`; the host accepts
+app messages only from the current iframe window. All field sets are closed.
+Unknown message types and optional capabilities are ignored. Namespaced
+`host-ready.extensions` allow explicitly configured host data.
 
-The SDK's `createDigitalTwinAppClient()` is the recommended app-side API. It
-owns the parent-window check, startup handshake, run request IDs, run
-acceptance/rejection, lifecycle messages, playback-rate delivery and sample
-acknowledgements. The provider still owns the HMI, maps its controls to FMI
-parameters and maps outputs to its scene or charts. A provider may instead
-implement the documented version 1 messages directly; the host contract does
-not require the SDK package or a Marketplace-specific app allowlist.
+## Optional SDK
+
+The package `@decentralabs/digital-twin-app-protocol` provides:
+
+* the root entry: host v2 constants, validators and types;
+* `/fmu-client`: `connectFmuSession(connection)`, independent of Marketplace;
+* `/client`: `createDigitalTwinAppClient()`, composing the direct FMU client
+  with optional host startup, authorization and visualization controls.
+
+With a bundler, import the desired entry. For a static app without a bundler,
+copy `index.js`, `fmu-client.js` and `client.js` together into `sdk/` in the ZIP.
+Create a package tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`.
+The workspace does not publish the npm package automatically.
 
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
-
 const twin = createDigitalTwinAppClient({
-  onSample(sample) {
-    updateLiveView(sample)
-  },
-  onSamples(samples) {
+  onSamples(samples, batch, { signal }) {
     appendReplaySamples(samples)
   },
-  onReset() {
-    clearReplay()
-  },
-  onSimulationState(state) {
-    updateRunStatus(state)
-  },
-  onResultsComplete({ state, sampleCount }) {
-    finishReceivingResults(state, sampleCount)
-  },
-  onPlaybackRate(rate) {
-    replay.setRate(rate)
-  },
+  onReset() { clearReplay() },
+  onSimulationState(state) { updateRunStatus(state) },
+  onResultsComplete({ state, sampleCount }) { finishTimeline(state, sampleCount) },
+  onPlaybackRate(rate) { replay.setRate(rate) },
   playbackControlPosition: 'bottom-right',
 })
-
-initializeScene()
-  .then(() => twin.reportReady())
-  .catch(() => twin.reportError('SCENE_INIT_FAILED'))
-
-runButton.addEventListener('click', async () => {
-  try {
-    const { runId } = await twin.run({
-      parameters: readFmiInputs(),
-      options: { startTime: 0, stopTime: 220, stepSize: 0.1 },
-    })
-    showRunId(runId)
-  } catch (error) {
-    showRunError(error.code)
-  }
-})
+initializeView().then(() => twin.reportReady()).catch(() => twin.reportError('APP_INIT_FAILED'))
+runButton.onclick = () => twin.run({ parameters: readFmuInputs(), options: { stopTime: 220 } }).catch(showRunError)
+window.addEventListener('pagehide', () => twin.dispose(), { once: true })
 ```
 
-The package root exports only protocol constants, types, validators and message
-helpers. The optional `@decentralabs/digital-twin-app-protocol/client` entry point
-exports `createDigitalTwinAppClient`. Without a bundler, copy both `index.js`
-and `client.js` into a `sdk/` directory in the ZIP, preserving their relative
-imports. A low-level integration needs only `index.js`.
+For independent hosting, supply `getConnection: async ({ options, signal }) =>
+connectionGrant` using the app's own authorized backend. That execution does
+not require a Marketplace parent. Low-level clients can call
+`connectFmuSession()` and use `session.request(type, expectedResponse, payload)`
+for any supported FMU session operation.
 
-The client infers `playback-rate` and `sample-acknowledgement` from the
-callbacks. If `onSamples` is provided, it receives the full batch. Otherwise,
-each entry is delivered to `onSample`. Sample callbacks may return promises;
-the client processes them in order and acknowledges only successful processing.
-Callback failures are reported through `onError` and stop processing that run.
+The convenience client resolves `run()` after session creation and initialization.
+It requires FMU Executor 0.3.2 or newer and the advertised `advanceSamples`
+capability. Upgrade the Gateway and Station runtime before publishing a rebuilt
+app that uses this runner.
+It reads model defaults with `model.describe` and `includeVariables: false`,
+then uses `sim.advance` to obtain up to 256 samples per response. The Executor
+bounds the encoded frame by output names and scalar sizes. The SDK accepts up
+to 512 outputs with names up to 256 characters, and a 1 MB frame limit.
 
-`onSimulationState` describes FMU computation, which may finish before delivery
-does. `onResultsComplete` runs after the final delivery notification and all
-preceding sample callbacks. Use it to finalize charts or enable a complete
-replay. It also reports the terminal outcome and received sample count.
+Sample callbacks may be asynchronous. The client requests another batch only
+after the preceding callback finishes, and respects the session's advertised
+output rate. With `onSamples`, batches are delivered once; otherwise each entry
+goes to `onSample`. `onResultsComplete` runs after the last callback, with the
+terminal state and sample count. Reset, cancellation and disposal abort the
+callback context; an asynchronous callback must check `signal.aborted` after
+awaiting and before committing UI changes. Callback failure stops execution.
 
-`onSample` receives a second context argument, and `onSamples` a third, with
-`runId` and an `AbortSignal` named `signal`. Reset, replacement by another run,
-and `dispose()` abort that context and discard queued work and acknowledgements.
-An asynchronous callback must check `signal.aborted` after awaiting and before
-committing changes to the scene or stored results; the SDK cannot undo app
-side effects. Use `dispose()` when an app tears down its view.
+`run({ inputSchedule })` applies bounded input events at their model times. An
+optional `inputController(sample, context)` callback returns changed runtime
+inputs for closed-loop apps. That mode advances one sample per request so
+feedback can affect the next step; network latency therefore limits controller
+speed. Water Tank owns its controller and fault logic in the app and uses this
+mode in one FMU execution.
 
-Marketplace serves each published app from its immutable bundle. Providers do
-not register individual filenames or add app-specific allowlist entries; the
-bundle may contain the static resources the app needs, within Gateway's size
-and file-count limits. Runtime dependencies must use bundled relative paths,
-and the iframe sandbox restricts external resources. A GLB scene is a separate,
-optional visualization path; a Three.js app supplies its own complete HMI.
+## Optional host visualization controls
 
-## Versioning and extension rules
+* `playback-rate` enables the floating Speed menu. `playbackControlPosition`
+  selects `top-left`, `top-right`, `bottom-left` or `bottom-right`.
+  `decentralabs:fmi-playback-control` changes visualization speed only.
+* `execution-control` allows the app to report `decentralabs:execution-state`
+  with run ID, lifecycle state and time options. Marketplace uses these values
+  for its cancel button and Fit to run duration. They are UI information, not
+  authorization or billing evidence. `decentralabs:execution-cancel` asks the
+  app to terminate its own direct session.
+* The optional host input-schedule editor adds validated `inputSchedule` events
+  to the connection response. The app applies them through its FMU client.
+* An explicitly configured host may support `decentralabs:digital-twin-model-change`.
+  Normal published labs remain bound to their configured FMU. The qFMU local
+  preview uses this extension to select among its four reference models.
 
-Version 1 messages have closed field sets. Unknown message types are ignored,
-and unknown capabilities are ignored. Apps should use documented capabilities
-for optional shared behavior and namespaced `extensions` for app-specific
-host-ready data; they should not add undocumented top-level fields. A change
-that makes a version 1 message shape incompatible requires a new protocol
-version and coordinated host/app support.
-
-## Startup handshake
-
-After the iframe document loads, Marketplace sends this message and retries it
-every 500 ms until the app reports ready or the 30-second startup timeout is
-reached:
-
-```js
-{
-  type: 'decentralabs:digital-twin-host-ready',
-  version: 1,
-}
-```
-
-The app registers its `message` listener before loading the scene, ignores
-messages unless they come from `window.parent`, and reports ready only after
-its scene and interactive controls work:
-
-```js
-window.parent.postMessage({
-  type: 'decentralabs:digital-twin-ready',
-  version: 1,
-  capabilities: ['playback-rate', 'sample-acknowledgement'],
-  playbackControlPosition: 'bottom-right',
-}, '*')
-```
-
-Recognized capabilities are:
-
-| Capability | Effect |
-| --- | --- |
-| `playback-rate` | Shows Marketplace's floating playback control and sends `fmi-playback-control`. |
-| `sample-acknowledgement` | Enables one-batch-at-a-time delivery; the app acknowledges after accepting a batch. |
-
-Unknown capabilities are ignored. `playbackControlPosition` is optional and
-may be `top-left`, `top-right`, `bottom-left` or `bottom-right`. Apps that do
-not advertise a position use the Marketplace default.
-
-If startup fails, the app may send `decentralabs:digital-twin-error` with an
-optional short `code`. Marketplace reports the startup failure and lets the
-user retry. The app should retain its startup result until it receives the
-host-ready handshake, since the iframe can load before scene initialization
-finishes.
-
-## Requesting and cancelling an FMU run
-
-The app asks Marketplace to run the FMU with `decentralabs:fmi-run-request`:
-
-```js
-window.parent.postMessage({
-  type: 'decentralabs:fmi-run-request',
-  version: 1,
-  requestId: 'request:unique-id',
-  parameters: { robotSpeed: 0.7 },
-  options: { startTime: 0, stopTime: 220, stepSize: 0.1 },
-}, '*')
-```
-
-`requestId` is recommended and is included in the host's response. It is
-optional for apps using the original v1 request shape. `parameters` is keyed
-by FMI variable name. Marketplace accepts inputs and non-constant tunable
-parameters, then validates each name and value against the selected model's
-FMI metadata. Send an empty object when there are no overrides.
-
-`options` is optional. Omitted fields keep the current Marketplace settings.
-The stop time must be greater than the start time and the step size positive.
-For FMI Scheduled Execution, `stepSize` is not accepted. Options describe FMU
-execution and are not variable names.
-
-Marketplace responds with `decentralabs:fmi-run-accepted` and a `runId` when
-it accepts the request, or `decentralabs:fmi-run-rejected` with a short `code`
-when the message is invalid or a run is already active. Accepted requests may
-still fail later during model validation or execution; the terminal
-`fmi-simulation-state` then reports `error` for that `runId`.
-
-An app may request cancellation for its active run:
-
-```js
-window.parent.postMessage({
-  type: 'decentralabs:fmi-run-cancel',
-  version: 1,
-  runId: 'run:unique-id',
-}, '*')
-```
-
-Marketplace ignores cancellation requests for a different or finished run.
-For the active run, it aborts the Marketplace stream request, propagates that
-abort to the Gateway request and reports `cancelled` for the matching `runId`.
-Already delivered samples remain available for inspection. Cancellation is
-scoped to the active stream; it does not expose a separate Gateway credential
-or cancellation endpoint to the app.
-
-## Receiving time and outputs
-
-Marketplace sends only the FMU's declared output variables. Each sample has a
-model `time` and an `outputs` object keyed by FMI output name. Values are
-finite numbers or booleans when present. When no timeline exists, the host
-sends the current/default output state as `decentralabs:fmi-sample`; its `time`
-may be `null`:
-
-```js
-{
-  type: 'decentralabs:fmi-sample',
-  version: 1,
-  runId: 'run:unique-id',
-  time: null,
-  outputs: { ordersCompleted: 0 },
-}
-```
-
-Incremental timeline entries arrive as bounded `decentralabs:fmi-samples`
-batches. `runId`, `batchId`, `firstSampleIndex` and `lastSampleIndex` are
-present when the app advertises sample acknowledgement:
-
-```js
-{
-  type: 'decentralabs:fmi-samples',
-  version: 1,
-  runId: 'run:unique-id',
-  batchId: 'batch:unique-id',
-  firstSampleIndex: 0,
-  lastSampleIndex: 1,
-  samples: [
-    { time: 0, outputs: { ordersCompleted: 0 } },
-    { time: 0.1, outputs: { ordersCompleted: 1 } },
-  ],
-}
-```
-
-After the app has appended the batch to its replay data, it acknowledges the
-last sample index:
-
-```js
-window.parent.postMessage({
-  type: 'decentralabs:fmi-samples-ack',
-  version: 1,
-  runId: 'run:unique-id',
-  batchId: 'batch:unique-id',
-  lastSampleIndex: 1,
-}, '*')
-```
-
-The host sends the next batch only after the matching acknowledgement. A stale
-or mismatched acknowledgement is ignored. If an app does not advertise the
-capability, the host still sends batches no larger than 256 samples but does
-not wait for an acknowledgement. Older v1 apps may ignore the optional run
-and batch fields and continue receiving the existing sample messages.
-
-For acknowledgement-enabled batches, `runId`, `batchId`, `firstSampleIndex` and
-`lastSampleIndex` are all required. Indices are zero-based and consecutive:
-`lastSampleIndex` must equal `firstSampleIndex + samples.length - 1`.
-
-When a new run replaces the timeline, Marketplace sends
-`decentralabs:fmi-reset` with the new `runId`; the app clears old replay data
-and associates subsequent samples and state with that run. The host sends
-`decentralabs:fmi-simulation-state` with one of these values:
-
-| State | Meaning |
-| --- | --- |
-| `idle` | No run is active and no completed timeline is available. |
-| `running` | The FMU is executing and more samples may arrive. |
-| `completed` | FMU computation ended successfully; result batches may still be in transit. |
-| `cancelled` | The active stream was aborted; already delivered samples remain available. |
-| `error` | The run failed. |
-
-Apps should ignore messages with a `runId` that does not match their active
-run, use sample timestamps instead of assuming a fixed interval and retain
-the timeline if they support replay.
-
-After a terminal state (`completed`, `cancelled` or `error`), the host sends
-`decentralabs:fmi-results-complete` once all available samples have been sent
-and any negotiated batch acknowledgements have arrived:
-
-```js
-{
-  type: 'decentralabs:fmi-results-complete',
-  version: 1,
-  runId: 'run:example',
-  sampleCount: 2201,
-  state: 'completed',
-}
-```
-
-`sampleCount` excludes the initial/default `fmi-sample` and includes partial
-results for cancelled or failed runs. Without sample acknowledgement, this
-notification confirms host delivery; the app must finish its own queued
-processing before presenting complete results. The optional SDK client does
-that sequencing for `onResultsComplete`.
-
-## Optional playback-rate control
-
-An app opts in by advertising `playback-rate`. Marketplace then sends
-`decentralabs:fmi-playback-control` when the selected rate changes:
-
-```js
-{
-  type: 'decentralabs:fmi-playback-control',
-  version: 1,
-  rate: 2,
-  rateUnit: 'model-seconds-per-real-second',
-}
-```
-
-`rate` is positive and means model seconds advanced per real second. The app
-should multiply elapsed wall-clock time by this rate when advancing its
-displayed model time. This does not alter FMU execution or calculated outputs.
-
-## Extensions
-
-Generic integrations should use the documented message types and capabilities.
-Host-ready messages may include an `extensions` object for explicitly
-namespaced app-specific data. Such fields are not interpreted by other apps.
-An explicitly configured host may handle `decentralabs:digital-twin-model-change`
-with a `modelId` string of 1 to 128 characters. This is an optional extension;
-normal published labs remain bound to their configured FMU. The SDK exposes
-`requestModelChange()` for hosts that advertise a model-selection extension.
-
-## Message summary
-
-| Message | Direction | Purpose |
-| --- | --- | --- |
-| `decentralabs:digital-twin-host-ready` | Marketplace → app | Startup handshake; may carry namespaced `extensions`. |
-| `decentralabs:digital-twin-ready` | App → Marketplace | Scene ready; may declare capabilities and playback-control position. |
-| `decentralabs:digital-twin-error` | App → Marketplace | Startup error with optional short code. |
-| `decentralabs:fmi-run-request` | App → Marketplace | Request a validated FMU run. |
-| `decentralabs:fmi-run-accepted` | Marketplace → app | Request accepted and assigned a `runId`. |
-| `decentralabs:fmi-run-rejected` | Marketplace → app | Request rejected with a short code. |
-| `decentralabs:fmi-run-cancel` | App → Marketplace | Cancel the matching active run stream. |
-| `decentralabs:fmi-run-cancelled` | Marketplace → app | Cancellation accepted for the matching run. |
-| `decentralabs:fmi-sample` | Marketplace → app | Current/default output sample when no timeline is available. |
-| `decentralabs:fmi-samples` | Marketplace → app | Incremental output samples, bounded to 256 per message. |
-| `decentralabs:fmi-samples-ack` | App → Marketplace | Acknowledge a processed sample batch. |
-| `decentralabs:fmi-results-complete` | Marketplace → app | All available results were sent and negotiated acknowledgements received. |
-| `decentralabs:fmi-reset` | Marketplace → app | Previous timeline has been replaced. |
-| `decentralabs:fmi-simulation-state` | Marketplace → app | Run lifecycle state. |
-| `decentralabs:fmi-playback-control` | Marketplace → app | Optional visual playback rate. |
-| `decentralabs:digital-twin-model-change` | App → configured host | Optional request to select another model, when the host supports it. |
+Marketplace apps use host integration protocol version 2. The native
+`proxy.fmu` WebSocket session protocol is version 1.0 and supports the bounded
+`sim.advance` operation for batched output samples.
 
 Last reviewed: 2026-10-24

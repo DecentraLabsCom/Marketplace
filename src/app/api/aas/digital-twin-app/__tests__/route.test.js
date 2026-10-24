@@ -43,6 +43,8 @@ describe('GET /api/aas/digital-twin-app/[labId]/[digest]/[...assetPath]', () => 
     expect(response.headers.get('x-frame-options')).toBe('SAMEORIGIN')
     expect(response.headers.get('content-security-policy')).toContain('sandbox allow-scripts')
     expect(response.headers.get('content-security-policy')).toContain("connect-src 'self'")
+    expect(response.headers.get('content-security-policy')).toContain('wss://gateway.example.test/fmu/api/v1/fmu/sessions')
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.text()).toBe(html)
     expect(gatewayFetch).toHaveBeenCalledWith(
       `${GATEWAY_ORIGIN}/digital-twin-apps/${LAB_ID}/${DIGEST}/index.html`,

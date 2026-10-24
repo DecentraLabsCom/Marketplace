@@ -1,8 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://decentralabs-marketplace.app/schemas/digital-twin-threejs-app-contract-v1.json",
-  "title": "DecentraLabs Three.js digital twin app messaging protocol v1",
-  "description": "JSON messages exchanged by a sandboxed provider app and Marketplace. Directions are identified by the message type tables in the accompanying contract.",
+  "$id": "https://decentralabs.io/schemas/digital-twin-app-v2.json",
+  "title": "DecentraLabs host app authorization and HMI protocol v2",
   "oneOf": [
     {
       "$ref": "#/$defs/hostReady"
@@ -14,34 +13,19 @@
       "$ref": "#/$defs/appError"
     },
     {
-      "$ref": "#/$defs/runRequest"
+      "$ref": "#/$defs/connectionRequest"
     },
     {
-      "$ref": "#/$defs/runAccepted"
+      "$ref": "#/$defs/connectionReady"
     },
     {
-      "$ref": "#/$defs/runRejected"
+      "$ref": "#/$defs/connectionError"
     },
     {
-      "$ref": "#/$defs/runCancel"
+      "$ref": "#/$defs/executionState"
     },
     {
-      "$ref": "#/$defs/runCancelled"
-    },
-    {
-      "$ref": "#/$defs/sample"
-    },
-    {
-      "$ref": "#/$defs/samples"
-    },
-    {
-      "$ref": "#/$defs/samplesAck"
-    },
-    {
-      "$ref": "#/$defs/reset"
-    },
-    {
-      "$ref": "#/$defs/simulationState"
+      "$ref": "#/$defs/executionCancel"
     },
     {
       "$ref": "#/$defs/playbackControl"
@@ -50,7 +34,7 @@
       "$ref": "#/$defs/modelChangeExtension"
     },
     {
-      "$ref": "#/$defs/resultsComplete"
+      "$ref": "#/$defs/appHello"
     }
   ],
   "$defs": {
@@ -60,42 +44,29 @@
       "maxLength": 128,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]*$"
     },
-    "base": {
+    "options": {
       "type": "object",
-      "required": [
-        "type",
-        "version"
-      ],
       "properties": {
-        "version": {
-          "const": 1
-        },
-        "type": {
-          "type": "string"
-        }
-      }
-    },
-    "scalar": {
-      "oneOf": [
-        {
+        "startTime": {
           "type": "number"
         },
-        {
-          "type": "boolean"
+        "stopTime": {
+          "type": "number"
         },
-        {
-          "type": "string",
-          "maxLength": 1024
+        "stepSize": {
+          "type": "number"
         }
-      ]
+      },
+      "additionalProperties": false
     },
-    "outputs": {
+    "parameters": {
       "type": "object",
-      "maxProperties": 512,
+      "maxProperties": 256,
       "propertyNames": {
+        "type": "string",
         "minLength": 1,
         "maxLength": 256,
-        "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
       },
       "additionalProperties": {
         "oneOf": [
@@ -104,63 +75,120 @@
           },
           {
             "type": "boolean"
+          },
+          {
+            "type": "string",
+            "maxLength": 1024
           }
         ]
       }
     },
-    "sampleEntry": {
+    "connection": {
       "type": "object",
       "required": [
-        "time",
-        "outputs"
+        "protocolVersion",
+        "gatewayWsUrl",
+        "labId",
+        "reservationKey",
+        "sessionTicket",
+        "ticketExpiresAt"
       ],
       "properties": {
-        "time": {
-          "type": "number"
+        "protocolVersion": {
+          "const": "1.0"
         },
-        "outputs": {
-          "$ref": "#/$defs/outputs"
+        "gatewayWsUrl": {
+          "type": "string",
+          "pattern": "^(wss://[^/@?#]+|ws://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:[0-9]+)?)(/[^?#]*)?$"
+        },
+        "labId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "reservationKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "sessionTicket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "ticketExpiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
         }
       },
       "additionalProperties": false
     },
+    "inputSchedule": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "time",
+          "values"
+        ],
+        "properties": {
+          "time": {
+            "type": "number"
+          },
+          "values": {
+            "$ref": "#/$defs/parameters"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "hostReady": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
+      "type": "object",
+      "required": [
+        "type",
+        "version"
       ],
       "properties": {
         "type": {
           "const": "decentralabs:digital-twin-host-ready"
         },
+        "version": {
+          "const": 2
+        },
         "extensions": {
           "type": "object",
-          "maxProperties": 32,
-          "additionalProperties": true
+          "maxProperties": 32
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
     "appReady": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
+      "type": "object",
+      "required": [
+        "type",
+        "version"
       ],
       "properties": {
         "type": {
           "const": "decentralabs:digital-twin-ready"
         },
+        "version": {
+          "const": 2
+        },
         "capabilities": {
           "type": "array",
-          "uniqueItems": true,
           "maxItems": 32,
+          "uniqueItems": true,
           "items": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128,
-            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
           }
         },
         "defaultPlaybackRate": {
@@ -177,321 +205,123 @@
           ]
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
     "appError": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
+      "type": "object",
+      "required": [
+        "type",
+        "version"
       ],
       "properties": {
         "type": {
           "const": "decentralabs:digital-twin-error"
         },
+        "version": {
+          "const": 2
+        },
         "code": {
           "type": "string",
-          "maxLength": 128
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
-    "runRequest": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
+    "connectionRequest": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "requestId"
       ],
       "properties": {
         "type": {
-          "const": "decentralabs:fmi-run-request"
+          "const": "decentralabs:fmu-connection-request"
+        },
+        "version": {
+          "const": 2
         },
         "requestId": {
           "$ref": "#/$defs/id"
-        },
-        "parameters": {
-          "type": "object",
-          "maxProperties": 256,
-          "propertyNames": {
-            "minLength": 1,
-            "maxLength": 256,
-            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/scalar"
-          }
         },
         "options": {
-          "type": "object",
-          "properties": {
-            "startTime": {
-              "type": "number"
-            },
-            "stopTime": {
-              "type": "number"
-            },
-            "stepSize": {
-              "type": "number"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/options"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
-    "runAccepted": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+    "connectionReady": {
+      "type": "object",
       "required": [
+        "type",
+        "version",
         "requestId",
-        "runId"
+        "connection"
       ],
       "properties": {
         "type": {
-          "const": "decentralabs:fmi-run-accepted"
+          "const": "decentralabs:fmu-connection-ready"
+        },
+        "version": {
+          "const": 2
         },
         "requestId": {
           "$ref": "#/$defs/id"
         },
-        "runId": {
-          "$ref": "#/$defs/id"
+        "connection": {
+          "$ref": "#/$defs/connection"
+        },
+        "inputSchedule": {
+          "$ref": "#/$defs/inputSchedule"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
-    "runRejected": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+    "connectionError": {
+      "type": "object",
       "required": [
+        "type",
+        "version",
+        "requestId",
         "code"
       ],
       "properties": {
         "type": {
-          "const": "decentralabs:fmi-run-rejected"
+          "const": "decentralabs:fmu-connection-error"
+        },
+        "version": {
+          "const": 2
         },
         "requestId": {
           "$ref": "#/$defs/id"
         },
         "code": {
           "type": "string",
-          "maxLength": 128
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
-    "runCancel": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+    "executionState": {
+      "type": "object",
       "required": [
-        "runId"
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-run-cancel"
-        },
-        "runId": {
-          "$ref": "#/$defs/id"
-        }
-      },
-      "unevaluatedProperties": false
-    },
-    "runCancelled": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
-      "required": [
-        "runId"
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-run-cancelled"
-        },
-        "runId": {
-          "$ref": "#/$defs/id"
-        }
-      },
-      "unevaluatedProperties": false
-    },
-    "sample": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
-      "required": [
-        "time",
-        "outputs"
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-sample"
-        },
-        "runId": {
-          "$ref": "#/$defs/id"
-        },
-        "time": {
-          "oneOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "outputs": {
-          "$ref": "#/$defs/outputs"
-        }
-      },
-      "unevaluatedProperties": false
-    },
-    "samples": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        },
-        {
-          "if": {
-            "anyOf": [
-              {
-                "required": [
-                  "batchId"
-                ]
-              },
-              {
-                "required": [
-                  "firstSampleIndex"
-                ]
-              },
-              {
-                "required": [
-                  "lastSampleIndex"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "required": [
-              "runId",
-              "batchId",
-              "firstSampleIndex",
-              "lastSampleIndex"
-            ]
-          }
-        }
-      ],
-      "required": [
-        "samples"
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-samples"
-        },
-        "runId": {
-          "$ref": "#/$defs/id"
-        },
-        "batchId": {
-          "$ref": "#/$defs/id"
-        },
-        "firstSampleIndex": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "lastSampleIndex": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "samples": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 256,
-          "items": {
-            "$ref": "#/$defs/sampleEntry"
-          }
-        }
-      },
-      "unevaluatedProperties": false,
-      "$comment": "Runtime validation also caps the serialized message at 1,000,000 JavaScript characters."
-    },
-    "samplesAck": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
-      "required": [
+        "type",
+        "version",
         "runId",
-        "batchId",
-        "lastSampleIndex"
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-samples-ack"
-        },
-        "runId": {
-          "$ref": "#/$defs/id"
-        },
-        "batchId": {
-          "$ref": "#/$defs/id"
-        },
-        "lastSampleIndex": {
-          "type": "integer",
-          "minimum": 0
-        }
-      },
-      "unevaluatedProperties": false
-    },
-    "reset": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
-      "properties": {
-        "type": {
-          "const": "decentralabs:fmi-reset"
-        },
-        "runId": {
-          "oneOf": [
-            {
-              "$ref": "#/$defs/id"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "unevaluatedProperties": false
-    },
-    "simulationState": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
-      "required": [
         "state"
       ],
       "properties": {
         "type": {
-          "const": "decentralabs:fmi-simulation-state"
+          "const": "decentralabs:execution-state"
+        },
+        "version": {
+          "const": 2
         },
         "runId": {
-          "$ref": "#/$defs/id"
-        },
-        "requestId": {
           "$ref": "#/$defs/id"
         },
         "state": {
@@ -502,23 +332,47 @@
             "cancelled",
             "error"
           ]
+        },
+        "options": {
+          "$ref": "#/$defs/options"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
+    },
+    "executionCancel": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "runId"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:execution-cancel"
+        },
+        "version": {
+          "const": 2
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "additionalProperties": false
     },
     "playbackControl": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+      "type": "object",
       "required": [
+        "type",
+        "version",
         "rate",
         "rateUnit"
       ],
       "properties": {
         "type": {
           "const": "decentralabs:fmi-playback-control"
+        },
+        "version": {
+          "const": 2
         },
         "rate": {
           "type": "number",
@@ -529,61 +383,46 @@
           "const": "model-seconds-per-real-second"
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
     "modelChangeExtension": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+      "type": "object",
       "required": [
+        "type",
+        "version",
         "modelId"
       ],
       "properties": {
         "type": {
           "const": "decentralabs:digital-twin-model-change"
         },
+        "version": {
+          "const": 2
+        },
         "modelId": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
         }
       },
-      "$comment": "Optional host-controlled model-selection extension. Published labs normally remain bound to their configured FMU.",
-      "unevaluatedProperties": false
+      "additionalProperties": false
     },
-    "resultsComplete": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/base"
-        }
-      ],
+    "appHello": {
+      "type": "object",
       "required": [
-        "sampleCount",
-        "state"
+        "type",
+        "version"
       ],
       "properties": {
         "type": {
-          "const": "decentralabs:fmi-results-complete"
+          "const": "decentralabs:digital-twin-connect"
         },
-        "runId": {
-          "$ref": "#/$defs/id"
-        },
-        "sampleCount": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "state": {
-          "enum": [
-            "completed",
-            "cancelled",
-            "error"
-          ]
+        "version": {
+          "const": 2
         }
       },
-      "unevaluatedProperties": false
+      "additionalProperties": false
     }
   }
 }

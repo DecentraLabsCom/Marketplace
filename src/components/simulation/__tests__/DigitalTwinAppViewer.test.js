@@ -1,168 +1,56 @@
 import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DigitalTwinAppViewer from '../DigitalTwinAppViewer'
+const connection = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions', labId: '42', reservationKey: 'res:1', sessionTicket: 'one-use-ticket', ticketExpiresAt: 4102444800 }
+function mount(onConnect, extra = {}) {
+  render(<DigitalTwinAppViewer title="Provider app" appUrl="/apps/index.html" onConnect={onConnect} {...extra} />)
+  const iframe = screen.getByTitle('Provider app digital twin application')
+  const post = jest.fn()
+  Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: post })
+  const send = (message, source = iframe.contentWindow) => act(() => window.dispatchEvent(new MessageEvent('message', { source, data: { version: 2, ...message } })))
+  fireEvent.load(iframe)
+  send({ type: 'decentralabs:digital-twin-ready', capabilities: ['execution-control'] })
+  return { iframe, post, send }
+}
+test('delivers only the scoped connection grant to the ready iframe', async () => {
+  const onConnect = jest.fn().mockResolvedValue(connection)
+  const { post, send } = mount(onConnect)
+  send({ type: 'decentralabs:fmu-connection-request', requestId: 'grant:1', options: { stopTime: 20 } })
+  await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: 'decentralabs:fmu-connection-ready', version: 2, connection }), '*'))
+  expect(onConnect).toHaveBeenCalledWith(expect.objectContaining({ options: { stopTime: 20 }, signal: expect.any(AbortSignal) }))
+})
+test('accepts current requests only from the iframe using the current protocol version', () => {
+  const onConnect = jest.fn()
+  const { send } = mount(onConnect)
+  send({ type: 'decentralabs:fmu-connection-request', requestId: 'grant:1' }, window)
+  send({ type: 'decentralabs:fmu-connection-request', requestId: 'grant:2', version: 3 })
+  expect(onConnect).not.toHaveBeenCalled()
+})
+test('reports authorization failure without disclosing provider credentials', async () => {
+  const { post, send } = mount(jest.fn().mockRejectedValue(new Error('private-token')))
+  send({ type: 'decentralabs:fmu-connection-request', requestId: 'grant:1' })
+  await waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'decentralabs:fmu-connection-error', version: 2, requestId: 'grant:1', code: 'CONNECTION_AUTHORIZATION_FAILED' }, '*'))
+  expect(JSON.stringify(post.mock.calls)).not.toContain('private-token')
+})
+test('cancellation requests travel to the app that owns the WS session', async () => {
+  const { post, send } = mount(jest.fn())
+  send({ type: 'decentralabs:execution-state', runId: 'run:1', state: 'running', options: { startTime: 0, stopTime: 20 } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Cancel simulation' }))
+  expect(post).toHaveBeenCalledWith({ type: 'decentralabs:execution-cancel', version: 2, runId: 'run:1' }, '*')
+})
 
-describe('DigitalTwinAppViewer', () => {
-  test('routes a versioned run request from the isolated app to Marketplace', () => {
-    const onRunSimulation = jest.fn()
-    render(
-      <DigitalTwinAppViewer
-        appUrl="/api/aas/digital-twin-app/42/abc/index.html"
-        title="Smart Warehouse"
-        results={{ time: [], outputs: {} }}
-        modelVariables={[]}
-        startTime={0}
-        stopTime={250}
-        stepSize={0.05}
-        isRunning={false}
-        onRunSimulation={onRunSimulation}
-      />,
-    )
+test('a late React startup can initiate the host handshake after iframe load', () => {
+  const { post, send } = mount(jest.fn())
+  post.mockClear()
+  send({ type: 'decentralabs:digital-twin-connect' })
+  expect(post).toHaveBeenCalledWith({ type: 'decentralabs:digital-twin-host-ready', version: 2 }, '*')
+})
 
-    const iframe = screen.getByTitle('Smart Warehouse digital twin application')
-    Object.defineProperty(iframe.contentWindow, 'postMessage', {
-      configurable: true,
-      value: jest.fn(),
-    })
-    fireEvent.load(iframe)
-
-    const parameters = { robotSpeed: 0.9, jam: true }
-    const options = { startTime: 0, stopTime: 40, stepSize: 0.05 }
-    window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters, options },
-      source: iframe.contentWindow,
-    }))
-
-    expect(onRunSimulation).toHaveBeenCalledTimes(1)
-    expect(onRunSimulation).toHaveBeenCalledWith(parameters, options)
-
-    window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters, options },
-      source: window,
-    }))
-    window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters: [], options },
-      source: iframe.contentWindow,
-    }))
-    expect(onRunSimulation).toHaveBeenCalledTimes(1)
-  })
-
-  test('sends versioned FMI output samples to the isolated app only after it is ready', async () => {
-    const results = {
-      time: [0, 0.1],
-      outputs: {
-        agvPosition: [0, 2.72],
-        ordersPicked: [0, 1],
-        alarm: [false, true],
-        jam: [false, true],
-        undeclaredOutput: ['secret', 'ignored'],
-      },
-    }
-    const modelVariables = [
-      { name: 'agvPosition', causality: 'output' },
-      { name: 'ordersPicked', causality: 'output' },
-      { name: 'alarm', causality: 'output' },
-      { name: 'packageOnAgv', causality: 'output', type: 'Boolean', start: 'false' },
-      { name: 'truckLoadCount', causality: 'output', type: 'Integer', start: '0' },
-      { name: 'jam', causality: 'input' },
-    ]
-
-    render(
-      <DigitalTwinAppViewer
-        appUrl="/api/aas/digital-twin-app/42/abc/index.html"
-        title="Smart Warehouse"
-        results={results}
-        modelVariables={modelVariables}
-      />,
-    )
-
-    const iframe = screen.getByTitle('Smart Warehouse digital twin application')
-    const postMessage = jest.fn()
-    Object.defineProperty(iframe.contentWindow, 'postMessage', {
-      configurable: true,
-      value: postMessage,
-    })
-
-    fireEvent.load(iframe)
-    expect(postMessage).toHaveBeenCalledWith({
-      type: 'decentralabs:digital-twin-host-ready',
-      version: 1,
-    }, '*')
-
-    window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'decentralabs:digital-twin-ready', version: 1 },
-      source: iframe.contentWindow,
-    }))
-
-    await waitFor(() => {
-      expect(postMessage).toHaveBeenCalledWith({
-        type: 'decentralabs:fmi-samples',
-        version: 1,
-        samples: [
-          { time: 0, outputs: { agvPosition: 0, ordersPicked: 0, alarm: false, packageOnAgv: false, truckLoadCount: 0 } },
-          { time: 0.1, outputs: { agvPosition: 2.72, ordersPicked: 1, alarm: true, packageOnAgv: false, truckLoadCount: 0 } },
-        ],
-      }, '*')
-    })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  })
-  test('supports a message-only app and confirms result delivery after the last acknowledged batch', async () => {
-    const times = Array.from({ length: 257 }, (_, index) => index)
-    render(<DigitalTwinAppViewer
-      appUrl="/api/aas/digital-twin-app/42/abc/index.html"
-      title="Custom provider app"
-      results={{ time: times, outputs: { speed: times } }}
-      modelVariables={[{ name: 'speed', causality: 'output' }]}
-      activeRunId="run:1"
-      simulationState="completed"
-      isRunning={false}
-    />)
-    const iframe = screen.getByTitle('Custom provider app digital twin application')
-    const postMessage = jest.fn()
-    Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: postMessage })
-    const send = (data) => act(() => {
-      window.dispatchEvent(new MessageEvent('message', { data: { version: 1, ...data }, source: iframe.contentWindow }))
-    })
-    const sent = (type) => postMessage.mock.calls.map(([message]) => message).filter((message) => message.type === type)
-    fireEvent.load(iframe)
-    send({ type: 'decentralabs:digital-twin-ready', capabilities: ['sample-acknowledgement'] })
-    await waitFor(() => expect(sent('decentralabs:fmi-samples')).toHaveLength(1))
-    expect(sent('decentralabs:fmi-simulation-state')).toContainEqual(expect.objectContaining({ state: 'completed' }))
-    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(0)
-    const first = sent('decentralabs:fmi-samples')[0]
-    send({ type: 'decentralabs:fmi-samples-ack', runId: first.runId, batchId: first.batchId, lastSampleIndex: first.lastSampleIndex - 1 })
-    expect(sent('decentralabs:fmi-samples')).toHaveLength(1)
-    send({ type: 'decentralabs:fmi-samples-ack', runId: first.runId, batchId: first.batchId, lastSampleIndex: first.lastSampleIndex })
-    await waitFor(() => expect(sent('decentralabs:fmi-samples')).toHaveLength(2))
-    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(0)
-    const last = sent('decentralabs:fmi-samples')[1]
-    send({ type: 'decentralabs:fmi-samples-ack', runId: last.runId, batchId: last.batchId, lastSampleIndex: last.lastSampleIndex })
-    await waitFor(() => expect(sent('decentralabs:fmi-results-complete')).toEqual([{
-      type: 'decentralabs:fmi-results-complete', version: 1, runId: 'run:1', sampleCount: 257, state: 'completed',
-    }]))
-    send({ type: 'decentralabs:fmi-samples-ack', runId: last.runId, batchId: last.batchId, lastSampleIndex: last.lastSampleIndex })
-    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(1)
-  })
-
-  test('confirms unacknowledged result delivery without requiring a caller-supplied run ID', async () => {
-    const times = Array.from({ length: 257 }, (_, index) => index)
-    render(<DigitalTwinAppViewer
-      appUrl="/custom/index.html" title="Direct messages"
-      results={{ time: times, outputs: {} }} modelVariables={[]} isRunning={false}
-    />)
-    const iframe = screen.getByTitle('Direct messages digital twin application')
-    const postMessage = jest.fn()
-    Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: postMessage })
-    fireEvent.load(iframe)
-    act(() => window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'decentralabs:digital-twin-ready', version: 1 }, source: iframe.contentWindow,
-    })))
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith({
-      type: 'decentralabs:fmi-results-complete', version: 1, sampleCount: 257, state: 'completed',
-    }, '*'))
-    const types = postMessage.mock.calls.map(([message]) => message.type)
-    expect(types.filter((type) => type === 'decentralabs:fmi-samples')).toHaveLength(2)
-    expect(types.lastIndexOf('decentralabs:fmi-samples')).toBeLessThan(types.indexOf('decentralabs:fmi-results-complete'))
-  })
-
+test('a navigation cannot receive an outstanding grant issued to the previous document', async () => {
+  let complete
+  const { post, send, iframe } = mount(() => new Promise((resolve) => { complete = resolve }))
+  send({ type: 'decentralabs:fmu-connection-request', requestId: 'grant:old' })
+  fireEvent.load(iframe)
+  await act(async () => complete(connection))
+  expect(post.mock.calls.some(([message]) => message.type === 'decentralabs:fmu-connection-ready')).toBe(false)
 })

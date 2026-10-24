@@ -1,7 +1,7 @@
 {
   "name": "@decentralabs/digital-twin-app-protocol",
-  "version": "1.0.0",
-  "description": "Browser-safe SDK and schema for the DecentraLabs Three.js digital twin app protocol.",
+  "version": "2.0.0",
+  "description": "Optional host authorization and direct FMU WebSocket clients for provider apps.",
   "browserBundleFile": "index.js",
   "type": "module",
   "main": "./index.js",
@@ -12,11 +12,16 @@
       "import": "./index.js",
       "default": "./index.js"
     },
-    "./schema-v1": "./schema-v1.json",
     "./client": {
       "types": "./client.d.ts",
       "import": "./client.js",
       "default": "./client.js"
+    },
+    "./schema-v2": "./schema-v2.json",
+    "./fmu-client": {
+      "types": "./fmu-client.d.ts",
+      "import": "./fmu-client.js",
+      "default": "./fmu-client.js"
     }
   },
   "files": [
@@ -24,8 +29,10 @@
     "index.d.ts",
     "client.js",
     "client.d.ts",
-    "schema-v1.json",
-    "README.md"
+    "README.md",
+    "schema-v2.json",
+    "fmu-client.js",
+    "fmu-client.d.ts"
   ],
   "sideEffects": false,
   "browserClientFile": "client.js"

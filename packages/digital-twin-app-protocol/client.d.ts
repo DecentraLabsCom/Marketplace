@@ -1,47 +1,32 @@
-import type {
-  AppReadyMessage, DigitalTwinProtocolId, DigitalTwinSample, PlaybackControlMessage,
-  ResultsCompleteMessage, RunRequestMessage, SampleMessage, SamplesMessage,
-  SimulationState, SimulationStateMessage,
-} from './index.js'
-
-export interface SampleProcessingContext {
-  runId?: DigitalTwinProtocolId
-  /** Aborted on reset, replacement by another run, or disposal. */
-  signal: AbortSignal
-}
-
+import type { AppReadyMessage, DigitalTwinSample, FmuConnectionConfig, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+export interface SampleProcessingContext { runId: string; signal: AbortSignal }
+export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number }
 export interface DigitalTwinAppClientOptions {
+  /** Supply this to use the app independently of a Marketplace parent window. */
+  getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[] }>
   onHostReady?: (extensions: Record<string, unknown>) => void
-  /** Also receives each batched sample when onSamples is omitted. */
-  onSample?: (sample: Pick<SampleMessage, 'time' | 'outputs'>, context: SampleProcessingContext) => void | Promise<void>
-  onSamples?: (samples: DigitalTwinSample[], batch: SamplesMessage, context: SampleProcessingContext) => void | Promise<void>
-  onReset?: (runId: DigitalTwinProtocolId | null) => void
-  onSimulationState?: (state: SimulationState, message: SimulationStateMessage) => void
-  /** Runs after the host sends all results and queued sample callbacks finish. */
-  onResultsComplete?: (message: ResultsCompleteMessage, context: SampleProcessingContext) => void | Promise<void>
+  onSample?: (sample: DigitalTwinSample, context: SampleProcessingContext) => void | Promise<void>
+  onSamples?: (samples: DigitalTwinSample[], batch: { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }, context: SampleProcessingContext) => void | Promise<void>
+  onReset?: (runId: string) => void
+  onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState }) => void
+  onResultsComplete?: (message: ResultCompletion, context: SampleProcessingContext) => void | Promise<void>
   onPlaybackRate?: (rate: number, message: PlaybackControlMessage) => void
-  onRunAccepted?: (result: { requestId: DigitalTwinProtocolId; runId: DigitalTwinProtocolId }) => void
-  onRunRejected?: (result: { requestId?: DigitalTwinProtocolId; code: string }) => void
-  onRunCancelled?: (runId: DigitalTwinProtocolId) => void
+  onRunAccepted?: (result: { runId: string }) => void
+  onRunRejected?: (result: { code: string }) => void
+  onRunCancelled?: (runId: string) => void
   onError?: (error: Error) => void
-  capabilities?: string[]
   defaultPlaybackRate?: number
-  playbackControlPosition?: NonNullable<AppReadyMessage['playbackControlPosition']>
+  playbackControlPosition?: AppReadyMessage['playbackControlPosition']
   runRequestTimeoutMs?: number
 }
-
 export interface DigitalTwinAppClient {
   reportReady(): boolean
   reportError(code?: string): boolean
-  run(request?: Pick<RunRequestMessage, 'parameters' | 'options'>): Promise<{
-    requestId: DigitalTwinProtocolId
-    runId: DigitalTwinProtocolId
-  }>
-  cancel(runId?: DigitalTwinProtocolId | null): boolean
+  run(request?: { parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]; inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined> }): Promise<{ runId: string }>
+  cancel(runId?: string): boolean
   requestModelChange(modelId: string): boolean
   dispose(): void
   readonly hostReady: boolean
-  readonly activeRunId: DigitalTwinProtocolId | null
+  readonly activeRunId: string | null
 }
-
 export declare function createDigitalTwinAppClient(options?: DigitalTwinAppClientOptions): DigitalTwinAppClient

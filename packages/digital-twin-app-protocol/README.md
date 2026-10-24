@@ -1,71 +1,69 @@
 # @decentralabs/digital-twin-app-protocol
 
-Browser-safe JavaScript, TypeScript declarations and JSON Schema for the
-version 1 messaging contract between provider apps and Marketplace. The
-package has no runtime dependencies and works in static, offline app bundles.
-The SDK is optional: implementing the documented messages is sufficient.
+Optional browser clients and schemas for provider web apps. Simulation traffic
+flows directly between the app and the provider Gateway, using the same
+reservation-ticket WebSocket as `proxy.fmu`. Marketplace only hands the app a
+one-use connection grant and optional visualization controls.
 
-## Two entry points
+## Entry points
 
-- `@decentralabs/digital-twin-app-protocol`: low-level message constants,
-  validators, types and `postMessage` helpers used by Marketplace.
-- `@decentralabs/digital-twin-app-protocol/client`: optional app-side client
-  for startup, requests, result reception, acknowledgements and playback rate.
+* Package root: host integration **v2** constants, validators and TypeScript types.
+* `/fmu-client`: `connectFmuSession(grant)`, a direct Gateway WS client with no
+  dependency on Marketplace or a parent window.
+* `/client`: `createDigitalTwinAppClient()`, composing direct execution with
+  optional Marketplace startup, authorization and visualization integration.
+* `/schema-v2`: the JSON Schema for the host messages.
 
-Once published, install the package in the app's build project with
-`npm install @decentralabs/digital-twin-app-protocol`. This workspace does not
-publish it automatically. Create a tarball before publication with
-`npm pack --workspace @decentralabs/digital-twin-app-protocol`.
-
-With a browser bundler, import the desired entry point and emit a self-contained
-app. Without a bundler, copy `index.js` and, if needed, `client.js` into `sdk/`
-inside the app ZIP. Keep them together so the client's relative import works:
+There are no runtime dependencies. Bundle the desired entry, or copy
+`index.js`, `fmu-client.js` and `client.js` into a static ZIP's `sdk/` directory.
+The package does not register modules or impose an SDK requirement on providers.
 
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
-
-const twin = createDigitalTwinAppClient({
-  onSample(sample) {
-    // Also receives each batched sample if onSamples is not supplied.
-    updateView(sample)
-  },
-  onResultsComplete({ state, sampleCount }) {
-    finishReceivingResults(state, sampleCount)
-  },
-  onPlaybackRate(rate) {
-    playback.setRate(rate)
-  },
+const app = createDigitalTwinAppClient({
+  onSamples(samples) { timeline.append(samples) },
+  onReset() { timeline.clear() },
+  onResultsComplete({ state }) { showResult(state) },
+  onPlaybackRate(rate) { replay.setRate(rate) },
 })
-
-initializeScene()
-  .then(() => twin.reportReady())
-  .catch(() => twin.reportError('SCENE_INIT_FAILED'))
-
-runButton.addEventListener('click', async () => {
-  try {
-    await twin.run({ parameters: readFmuInputs(), options: { stopTime: 60 } })
-  } catch (error) {
-    showRunError(error)
-  }
-})
-
-window.addEventListener('pagehide', () => twin.dispose(), { once: true })
+initializeView().then(() => app.reportReady())
+runButton.onclick = () => app.run({ parameters: readInputs(), options: { stopTime: 60 } }).catch(showError)
+window.addEventListener('pagehide', () => app.dispose(), { once: true })
 ```
 
-`run()` resolves on host acceptance, before computation and delivery finish.
-`onSimulationState` describes computation. `onResultsComplete` runs after the
-host's final delivery notification and all preceding sample callbacks.
+For standalone use, supply a `getConnection({ options, signal })` callback
+returning a connection grant from your own authorized backend. For direct FMI
+session operations without the host client:
 
-For batch processing, provide `onSamples(samples, batch, context)` instead of
-processing each entry through `onSample(sample, context)`. Either callback may
-be asynchronous. Processing is ordered; acknowledgements follow successful
-processing. Callback errors reach `onError` and stop that run's processing.
+```js
+import { connectFmuSession } from './sdk/fmu-client.js'
+const session = await connectFmuSession(grant, { signal })
+const model = await session.request('model.describe', 'model.description', { includeVariables: false })
+await session.request('sim.initialize', 'sim.state', { parameters, options })
+const batch = await session.request('sim.advance', 'sim.samples', { targetTime: 60, maxSamples: 256 })
+session.close()
+```
 
-Both sample callback forms receive `context.signal`, aborted on reset, run
-replacement or disposal. After awaiting work, check this signal before writing
-to the scene or results. The client discards obsolete queued work and replies,
-but cannot undo side effects inside an application callback.
+The current Gateway session runtime executes FMI 2/3 Co-Simulation. The
+convenience runner requires FMU Executor 0.3.2 or newer and its advertised `advanceSamples` capability.
+`run()` resolves after initialization. Samples are processed in order; the
+next batch is requested after successful callback completion. Callback failure
+stops the run. Cancellation/disposal aborts pending work and closes the session.
+Check `context.signal.aborted` after awaiting before committing app side effects.
+`onResultsComplete` follows the last successful sample callback.
 
-All message shapes and bounds are in `schema-v1.json`. The
-[full contract](../../docs/provider/digital-twin-threejs-app-contract.md)
-documents sequencing, capabilities and direct message integration.
+Input schedules are applied at model timestamps. An optional per-run
+`inputController(sample, context)` returns runtime input updates, using one-step
+batches for closed-loop feedback. Its throughput depends on network latency.
+
+A ticket is sent only in the first `session.create` frame. Keep it in memory;
+never place it in a URL, log, storage or app ZIP. Authorization, reservation
+checks, quotas, revocation, expiry and SessionStarted evidence remain on the
+provider's existing Gateway/issuer/Station paths.
+
+See the [full contract](../../docs/provider/digital-twin-threejs-app-contract.md)
+for startup, schema bounds, optional HMI and deployment details. The host
+integration uses protocol version 2; the native WS session protocol is version
+1.0.
+Use `npm pack --workspace @decentralabs/digital-twin-app-protocol` to create a
+tarball; this repository does not publish the npm package automatically.

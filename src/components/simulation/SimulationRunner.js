@@ -487,13 +487,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
       ? runSimulation(null, null, scheduledEvents)
       : runSimulation()
   ), [runSimulation])
-  const handleRunRequest = useCallback((requestedParameters, requestedOptions, executionContext) => {
-    if (simulationInFlightRef.current) return { accepted: false }
-    const context = executionContext || { runId: createProtocolId('run') }
-    void runSimulation(requestedParameters, requestedOptions, null, context)
-    return { accepted: true, runId: context.runId }
-  }, [runSimulation])
-
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
     const labId = String(lab.id ?? lab.tokenId ?? '')
@@ -607,10 +600,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
   }, [fetchGateway, lab.id, lab.tokenId, reservationKey, resolveProxyError])
 
   useEffect(() => {
-    if (!proxyAttemptKey || proxyAttemptRef.current === proxyAttemptKey) return
+    if (twinAssetState !== 'ready' || twinAsset?.type === 'threejs-app' || !proxyAttemptKey || proxyAttemptRef.current === proxyAttemptKey) return
     proxyAttemptRef.current = proxyAttemptKey
     void triggerProxyDownload()
-  }, [proxyAttemptKey, triggerProxyDownload])
+  }, [proxyAttemptKey, triggerProxyDownload, twinAsset, twinAssetState])
 
   if (!fmuMeta || !fmuMeta.fmuFileName) {
     return (
@@ -636,7 +629,15 @@ export default function SimulationRunner({ lab, reservationKey }) {
         <DigitalTwinAppViewer
           appUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
-          results={results}
+          onConnect={async ({ signal }) => {
+            const response = await fetchGateway('/api/simulations/connection', {
+              method: 'POST', credentials: 'include', signal,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ labId: String(lab.id ?? lab.tokenId), reservationKey }),
+            })
+            if (!response.ok) throw new Error('The provider FMU connection could not be authorized.')
+            return response.json()
+          }}
           modelVariables={modelVariables}
           enableInputSchedule={supportsInputSchedule}
           inputValues={parameters}
@@ -645,12 +646,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
           startTime={Number(options.startTime)}
           stopTime={Number(options.stopTime)}
           stepSize={Number(options.stepSize)}
-          isRunning={simState === SIM_STATE.RUNNING}
-          activeRunId={activeRunId}
-          simulationState={simState}
-          simulationError={simState === SIM_STATE.ERROR ? errorMsg : null}
-          onRunSimulation={handleRunRequest}
-          onCancelSimulation={cancelSimulation}
           downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
           fullScreen
         />
