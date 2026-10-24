@@ -48,6 +48,9 @@
     },
     {
       "$ref": "#/$defs/modelChangeExtension"
+    },
+    {
+      "$ref": "#/$defs/resultsComplete"
     }
   ],
   "$defs": {
@@ -134,17 +137,6 @@
         "extensions": {
           "type": "object",
           "maxProperties": 32,
-          "properties": {
-            "qfmu": {
-              "type": "object",
-              "properties": {
-                "enableModelSelection": {
-                  "type": "boolean"
-                }
-              },
-              "additionalProperties": true
-            }
-          },
           "additionalProperties": true
         }
       },
@@ -558,7 +550,39 @@
           "maxLength": 128
         }
       },
-      "$comment": "Optional qFMU learning-lab extension. It is not part of the generic Three.js capability set.",
+      "$comment": "Optional host-controlled model-selection extension. Published labs normally remain bound to their configured FMU.",
+      "unevaluatedProperties": false
+    },
+    "resultsComplete": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "sampleCount",
+        "state"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmi-results-complete"
+        },
+        "runId": {
+          "$ref": "#/$defs/id"
+        },
+        "sampleCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "state": {
+          "enum": [
+            "completed",
+            "cancelled",
+            "error"
+          ]
+        }
+      },
       "unevaluatedProperties": false
     }
   }

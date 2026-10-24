@@ -1,62 +1,71 @@
 # @decentralabs/digital-twin-app-protocol
 
-The browser-safe JavaScript SDK and JSON Schema for Marketplace's version 1
-Three.js digital twin messaging protocol. Marketplace and the Smart Warehouse
-example use this same package source. The package has no runtime dependencies
-and works in a static, offline app bundle.
+Browser-safe JavaScript, TypeScript declarations and JSON Schema for the
+version 1 messaging contract between provider apps and Marketplace. The
+package has no runtime dependencies and works in static, offline app bundles.
+The SDK is optional: implementing the documented messages is sufficient.
 
-## Install and use
+## Two entry points
 
-Once the package is published, install it in the app's build project:
+- `@decentralabs/digital-twin-app-protocol`: low-level message constants,
+  validators, types and `postMessage` helpers used by Marketplace.
+- `@decentralabs/digital-twin-app-protocol/client`: optional app-side client
+  for startup, requests, result reception, acknowledgements and playback rate.
 
-```sh
-npm install @decentralabs/digital-twin-app-protocol
-```
+Once published, install the package in the app's build project with
+`npm install @decentralabs/digital-twin-app-protocol`. This workspace does not
+publish it automatically. Create a tarball before publication with
+`npm pack --workspace @decentralabs/digital-twin-app-protocol`.
 
-Apps served as static ZIPs must bundle the SDK module beside the importing
-module. With a browser bundler, import the SDK from the package and emit a
-self-contained app. For a no-bundler app, copy `index.js` into the ZIP as
-`digitalTwinAppProtocol.js` and import it with a relative URL.
+With a browser bundler, import the desired entry point and emit a self-contained
+app. Without a bundler, copy `index.js` and, if needed, `client.js` into `sdk/`
+inside the app ZIP. Keep them together so the client's relative import works:
 
 ```js
-import {
-  DIGITAL_TWIN_MESSAGE,
-  isHostMessageEvent,
-  postToHost,
-  acknowledgeSampleBatch,
-} from '@decentralabs/digital-twin-app-protocol'
+import { createDigitalTwinAppClient } from './sdk/client.js'
 
-window.addEventListener('message', (event) => {
-  if (!isHostMessageEvent(event)) return
-  if (event.data.type === DIGITAL_TWIN_MESSAGE.HOST_READY) {
-    postToHost(DIGITAL_TWIN_MESSAGE.APP_READY, {
-      capabilities: ['sample-acknowledgement'],
-    })
-  }
-  if (event.data.type === DIGITAL_TWIN_MESSAGE.SAMPLES) {
-    // Append the batch to the app's replay timeline before acknowledging it.
-    acknowledgeSampleBatch(event.data)
+const twin = createDigitalTwinAppClient({
+  onSample(sample) {
+    // Also receives each batched sample if onSamples is not supplied.
+    updateView(sample)
+  },
+  onResultsComplete({ state, sampleCount }) {
+    finishReceivingResults(state, sampleCount)
+  },
+  onPlaybackRate(rate) {
+    playback.setRate(rate)
+  },
+})
+
+initializeScene()
+  .then(() => twin.reportReady())
+  .catch(() => twin.reportError('SCENE_INIT_FAILED'))
+
+runButton.addEventListener('click', async () => {
+  try {
+    await twin.run({ parameters: readFmuInputs(), options: { stopTime: 60 } })
+  } catch (error) {
+    showRunError(error)
   }
 })
+
+window.addEventListener('pagehide', () => twin.dispose(), { once: true })
 ```
 
-All message types and limits are in `schema-v1.json`. Structural validation is
-available through `isValidAppMessage` and `isValidHostMessage`; Marketplace
-also validates run parameter names and values against the selected FMU's
-metadata. Apps should ignore messages from any source other than
-`window.parent`.
+`run()` resolves on host acceptance, before computation and delivery finish.
+`onSimulationState` describes computation. `onResultsComplete` runs after the
+host's final delivery notification and all preceding sample callbacks.
 
-The Marketplace repository keeps a documentation copy of the schema. Its
-protocol conformance test asserts that the copy matches this package schema
-and checks representative messages against both the schema and SDK validators.
+For batch processing, provide `onSamples(samples, batch, context)` instead of
+processing each entry through `onSample(sample, context)`. Either callback may
+be asynchronous. Processing is ordered; acknowledgements follow successful
+processing. Callback errors reach `onError` and stop that run's processing.
 
-## Workspace package
+Both sample callback forms receive `context.signal`, aborted on reset, run
+replacement or disposal. After awaiting work, check this signal before writing
+to the scene or results. The client discards obsolete queued work and replies,
+but cannot undo side effects inside an application callback.
 
-The SDK source is versioned in Marketplace under `packages/`. To create a local
-tarball for an app builder before publication:
-
-```sh
-npm pack --workspace @decentralabs/digital-twin-app-protocol
-```
-
-This workspace does not publish the package automatically.
+All message shapes and bounds are in `schema-v1.json`. The
+[full contract](../../docs/provider/digital-twin-threejs-app-contract.md)
+documents sequencing, capabilities and direct message integration.

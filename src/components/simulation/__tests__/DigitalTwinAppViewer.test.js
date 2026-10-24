@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DigitalTwinAppViewer from '../DigitalTwinAppViewer'
 
 describe('DigitalTwinAppViewer', () => {
@@ -106,4 +106,63 @@ describe('DigitalTwinAppViewer', () => {
     })
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
+  test('supports a message-only app and confirms result delivery after the last acknowledged batch', async () => {
+    const times = Array.from({ length: 257 }, (_, index) => index)
+    render(<DigitalTwinAppViewer
+      appUrl="/api/aas/digital-twin-app/42/abc/index.html"
+      title="Custom provider app"
+      results={{ time: times, outputs: { speed: times } }}
+      modelVariables={[{ name: 'speed', causality: 'output' }]}
+      activeRunId="run:1"
+      simulationState="completed"
+      isRunning={false}
+    />)
+    const iframe = screen.getByTitle('Custom provider app digital twin application')
+    const postMessage = jest.fn()
+    Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: postMessage })
+    const send = (data) => act(() => {
+      window.dispatchEvent(new MessageEvent('message', { data: { version: 1, ...data }, source: iframe.contentWindow }))
+    })
+    const sent = (type) => postMessage.mock.calls.map(([message]) => message).filter((message) => message.type === type)
+    fireEvent.load(iframe)
+    send({ type: 'decentralabs:digital-twin-ready', capabilities: ['sample-acknowledgement'] })
+    await waitFor(() => expect(sent('decentralabs:fmi-samples')).toHaveLength(1))
+    expect(sent('decentralabs:fmi-simulation-state')).toContainEqual(expect.objectContaining({ state: 'completed' }))
+    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(0)
+    const first = sent('decentralabs:fmi-samples')[0]
+    send({ type: 'decentralabs:fmi-samples-ack', runId: first.runId, batchId: first.batchId, lastSampleIndex: first.lastSampleIndex - 1 })
+    expect(sent('decentralabs:fmi-samples')).toHaveLength(1)
+    send({ type: 'decentralabs:fmi-samples-ack', runId: first.runId, batchId: first.batchId, lastSampleIndex: first.lastSampleIndex })
+    await waitFor(() => expect(sent('decentralabs:fmi-samples')).toHaveLength(2))
+    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(0)
+    const last = sent('decentralabs:fmi-samples')[1]
+    send({ type: 'decentralabs:fmi-samples-ack', runId: last.runId, batchId: last.batchId, lastSampleIndex: last.lastSampleIndex })
+    await waitFor(() => expect(sent('decentralabs:fmi-results-complete')).toEqual([{
+      type: 'decentralabs:fmi-results-complete', version: 1, runId: 'run:1', sampleCount: 257, state: 'completed',
+    }]))
+    send({ type: 'decentralabs:fmi-samples-ack', runId: last.runId, batchId: last.batchId, lastSampleIndex: last.lastSampleIndex })
+    expect(sent('decentralabs:fmi-results-complete')).toHaveLength(1)
+  })
+
+  test('confirms unacknowledged result delivery without requiring a caller-supplied run ID', async () => {
+    const times = Array.from({ length: 257 }, (_, index) => index)
+    render(<DigitalTwinAppViewer
+      appUrl="/custom/index.html" title="Direct messages"
+      results={{ time: times, outputs: {} }} modelVariables={[]} isRunning={false}
+    />)
+    const iframe = screen.getByTitle('Direct messages digital twin application')
+    const postMessage = jest.fn()
+    Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: postMessage })
+    fireEvent.load(iframe)
+    act(() => window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'decentralabs:digital-twin-ready', version: 1 }, source: iframe.contentWindow,
+    })))
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith({
+      type: 'decentralabs:fmi-results-complete', version: 1, sampleCount: 257, state: 'completed',
+    }, '*'))
+    const types = postMessage.mock.calls.map(([message]) => message.type)
+    expect(types.filter((type) => type === 'decentralabs:fmi-samples')).toHaveLength(2)
+    expect(types.lastIndexOf('decentralabs:fmi-samples')).toBeLessThan(types.indexOf('decentralabs:fmi-results-complete'))
+  })
+
 })

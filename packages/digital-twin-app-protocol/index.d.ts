@@ -80,6 +80,12 @@ export interface SamplesAcknowledgementMessage extends ProtocolEnvelope<'decentr
   lastSampleIndex: number
 }
 
+export interface ResultsCompleteMessage extends ProtocolEnvelope<'decentralabs:fmi-results-complete'> {
+  runId?: DigitalTwinProtocolId
+  sampleCount: number
+  state: 'completed' | 'cancelled' | 'error'
+}
+
 export interface ResetMessage extends ProtocolEnvelope<'decentralabs:fmi-reset'> {
   runId?: DigitalTwinProtocolId | null
 }
@@ -116,6 +122,7 @@ export type HostToAppMessage =
   | RunCancelledMessage
   | SampleMessage
   | SamplesMessage
+  | ResultsCompleteMessage
   | ResetMessage
   | SimulationStateMessage
   | PlaybackControlMessage
@@ -123,7 +130,7 @@ export type HostToAppMessage =
 export type DigitalTwinProtocolMessage = AppToHostMessage | HostToAppMessage
 
 export declare const DIGITAL_TWIN_PROTOCOL_VERSION: 1
-export declare const DIGITAL_TWIN_APP_ASSET_FILENAME: 'digitalTwinAppProtocol.js'
+export declare const DIGITAL_TWIN_APP_ASSET_FILENAME: 'index.js'
 export declare const MAX_RUN_PARAMETERS: 256
 export declare const MAX_PARAMETER_NAME_LENGTH: 256
 export declare const MAX_PARAMETER_STRING_LENGTH: 1024
@@ -144,6 +151,7 @@ export declare const DIGITAL_TWIN_MESSAGE: Readonly<{
   SAMPLE: SampleMessage['type']
   SAMPLES: SamplesMessage['type']
   SAMPLES_ACK: SamplesAcknowledgementMessage['type']
+  RESULTS_COMPLETE: ResultsCompleteMessage['type']
   RESET: ResetMessage['type']
   SIMULATION_STATE: SimulationStateMessage['type']
   PLAYBACK_CONTROL: PlaybackControlMessage['type']

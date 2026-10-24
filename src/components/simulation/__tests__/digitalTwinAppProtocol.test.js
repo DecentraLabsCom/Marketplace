@@ -93,6 +93,10 @@ const validMessages = [
   },
   {
     direction: 'host',
+    value: { type: DIGITAL_TWIN_MESSAGE.RESULTS_COMPLETE, version: 1, runId: 'run:1', sampleCount: 2, state: 'completed' },
+  },
+  {
+    direction: 'host',
     value: { type: DIGITAL_TWIN_MESSAGE.PLAYBACK_CONTROL, version: 1, rate: 2, rateUnit: 'model-seconds-per-real-second' },
   },
   {
@@ -134,6 +138,8 @@ describe('digital twin protocol SDK', () => {
     [{ type: DIGITAL_TWIN_MESSAGE.APP_READY, version: 1, capabilities: ['playback-rate', 'playback-rate'] }, 'app'],
     [{ type: DIGITAL_TWIN_MESSAGE.SAMPLES_ACK, version: 1, runId: 'run:1', batchId: 'batch:1', lastSampleIndex: -1 }, 'app'],
     [{ type: DIGITAL_TWIN_MESSAGE.PLAYBACK_CONTROL, version: 1, rate: 0, rateUnit: 'model-seconds-per-real-second' }, 'host'],
+    [{ type: DIGITAL_TWIN_MESSAGE.RESULTS_COMPLETE, version: 1, sampleCount: -1, state: 'completed' }, 'host'],
+    [{ type: DIGITAL_TWIN_MESSAGE.RESULTS_COMPLETE, version: 1, sampleCount: 2, state: 'running' }, 'host'],
   ])('rejects malformed messages through both the schema and SDK validators', (message, direction) => {
     expect(validateSchema(message)).toBe(false)
     expect(direction === 'app' ? isValidAppMessage(message) : isValidHostMessage(message)).toBe(false)

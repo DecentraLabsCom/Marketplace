@@ -2,7 +2,7 @@
   "name": "@decentralabs/digital-twin-app-protocol",
   "version": "1.0.0",
   "description": "Browser-safe SDK and schema for the DecentraLabs Three.js digital twin app protocol.",
-  "browserBundleFile": "digitalTwinAppProtocol.js",
+  "browserBundleFile": "index.js",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
@@ -12,13 +12,21 @@
       "import": "./index.js",
       "default": "./index.js"
     },
-    "./schema-v1": "./schema-v1.json"
+    "./schema-v1": "./schema-v1.json",
+    "./client": {
+      "types": "./client.d.ts",
+      "import": "./client.js",
+      "default": "./client.js"
+    }
   },
   "files": [
     "index.js",
     "index.d.ts",
+    "client.js",
+    "client.d.ts",
     "schema-v1.json",
     "README.md"
   ],
-  "sideEffects": false
+  "sideEffects": false,
+  "browserClientFile": "client.js"
 }

@@ -9,8 +9,8 @@ provider's static Three.js application and Marketplace. The accompanying
 [JSON Schema](digital-twin-threejs-app-contract.schema.json) is the
 machine-readable message reference. The reusable, typed SDK is the workspace
 package [`@decentralabs/digital-twin-app-protocol`](../../packages/digital-twin-app-protocol/README.md).
-Marketplace imports that package directly; static app builders bundle its
-browser module into their offline archives.
+Marketplace imports its low-level protocol module. Provider apps may use the
+optional client module or implement these messages directly, with no SDK.
 
 For asset upload, AAS linking and Gateway delivery, see
 [Configure and publish your lab](../become-a-provider/configure-and-publish-your-lab.md)
@@ -77,6 +77,82 @@ HTML, JavaScript and CSS. The Smart Warehouse builder and Gateway's example
 sync validator check that dependency graph before packaging or syncing a demo.
 Create a local SDK tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`;
 this repository does not publish it automatically.
+
+## Optional SDK client
+
+The SDK's `createDigitalTwinAppClient()` is the recommended app-side API. It
+owns the parent-window check, startup handshake, run request IDs, run
+acceptance/rejection, lifecycle messages, playback-rate delivery and sample
+acknowledgements. The provider still owns the HMI, maps its controls to FMI
+parameters and maps outputs to its scene or charts. A provider may instead
+implement the documented version 1 messages directly; the host contract does
+not require the SDK package or a Marketplace-specific app allowlist.
+
+```js
+import { createDigitalTwinAppClient } from './sdk/client.js'
+
+const twin = createDigitalTwinAppClient({
+  onSample(sample) {
+    updateLiveView(sample)
+  },
+  onSamples(samples) {
+    appendReplaySamples(samples)
+  },
+  onReset() {
+    clearReplay()
+  },
+  onSimulationState(state) {
+    updateRunStatus(state)
+  },
+  onResultsComplete({ state, sampleCount }) {
+    finishReceivingResults(state, sampleCount)
+  },
+  onPlaybackRate(rate) {
+    replay.setRate(rate)
+  },
+  playbackControlPosition: 'bottom-right',
+})
+
+initializeScene()
+  .then(() => twin.reportReady())
+  .catch(() => twin.reportError('SCENE_INIT_FAILED'))
+
+runButton.addEventListener('click', async () => {
+  try {
+    const { runId } = await twin.run({
+      parameters: readFmiInputs(),
+      options: { startTime: 0, stopTime: 220, stepSize: 0.1 },
+    })
+    showRunId(runId)
+  } catch (error) {
+    showRunError(error.code)
+  }
+})
+```
+
+The package root exports only protocol constants, types, validators and message
+helpers. The optional `@decentralabs/digital-twin-app-protocol/client` entry point
+exports `createDigitalTwinAppClient`. Without a bundler, copy both `index.js`
+and `client.js` into a `sdk/` directory in the ZIP, preserving their relative
+imports. A low-level integration needs only `index.js`.
+
+The client infers `playback-rate` and `sample-acknowledgement` from the
+callbacks. If `onSamples` is provided, it receives the full batch. Otherwise,
+each entry is delivered to `onSample`. Sample callbacks may return promises;
+the client processes them in order and acknowledges only successful processing.
+Callback failures are reported through `onError` and stop processing that run.
+
+`onSimulationState` describes FMU computation, which may finish before delivery
+does. `onResultsComplete` runs after the final delivery notification and all
+preceding sample callbacks. Use it to finalize charts or enable a complete
+replay. It also reports the terminal outcome and received sample count.
+
+`onSample` receives a second context argument, and `onSamples` a third, with
+`runId` and an `AbortSignal` named `signal`. Reset, replacement by another run,
+and `dispose()` abort that context and discard queued work and acknowledgements.
+An asynchronous callback must check `signal.aborted` after awaiting and before
+committing changes to the scene or stored results; the SDK cannot undo app
+side effects. Use `dispose()` when an app tears down its view.
 
 Marketplace serves each published app from its immutable bundle. Providers do
 not register individual filenames or add app-specific allowlist entries; the
@@ -254,13 +330,33 @@ and associates subsequent samples and state with that run. The host sends
 | --- | --- |
 | `idle` | No run is active and no completed timeline is available. |
 | `running` | The FMU is executing and more samples may arrive. |
-| `completed` | The run ended and the timeline is available for replay. |
+| `completed` | FMU computation ended successfully; result batches may still be in transit. |
 | `cancelled` | The active stream was aborted; already delivered samples remain available. |
 | `error` | The run failed. |
 
 Apps should ignore messages with a `runId` that does not match their active
 run, use sample timestamps instead of assuming a fixed interval and retain
 the timeline if they support replay.
+
+After a terminal state (`completed`, `cancelled` or `error`), the host sends
+`decentralabs:fmi-results-complete` once all available samples have been sent
+and any negotiated batch acknowledgements have arrived:
+
+```js
+{
+  type: 'decentralabs:fmi-results-complete',
+  version: 1,
+  runId: 'run:example',
+  sampleCount: 2201,
+  state: 'completed',
+}
+```
+
+`sampleCount` excludes the initial/default `fmi-sample` and includes partial
+results for cancelled or failed runs. Without sample acknowledgement, this
+notification confirms host delivery; the app must finish its own queued
+processing before presenting complete results. The optional SDK client does
+that sequencing for `onResultsComplete`.
 
 ## Optional playback-rate control
 
@@ -285,10 +381,10 @@ displayed model time. This does not alter FMU execution or calculated outputs.
 Generic integrations should use the documented message types and capabilities.
 Host-ready messages may include an `extensions` object for explicitly
 namespaced app-specific data. Such fields are not interpreted by other apps.
-The qFMU learning lab uses `extensions.qfmu.enableModelSelection` in the
-host-ready message and sends `decentralabs:digital-twin-model-change` when its
-selected model changes. These are qFMU-specific extensions, not Three.js
-capabilities.
+An explicitly configured host may handle `decentralabs:digital-twin-model-change`
+with a `modelId` string of 1 to 128 characters. This is an optional extension;
+normal published labs remain bound to their configured FMU. The SDK exposes
+`requestModelChange()` for hosts that advertise a model-selection extension.
 
 ## Message summary
 
@@ -305,9 +401,10 @@ capabilities.
 | `decentralabs:fmi-sample` | Marketplace → app | Current/default output sample when no timeline is available. |
 | `decentralabs:fmi-samples` | Marketplace → app | Incremental output samples, bounded to 256 per message. |
 | `decentralabs:fmi-samples-ack` | App → Marketplace | Acknowledge a processed sample batch. |
+| `decentralabs:fmi-results-complete` | Marketplace → app | All available results were sent and negotiated acknowledgements received. |
 | `decentralabs:fmi-reset` | Marketplace → app | Previous timeline has been replaced. |
 | `decentralabs:fmi-simulation-state` | Marketplace → app | Run lifecycle state. |
 | `decentralabs:fmi-playback-control` | Marketplace → app | Optional visual playback rate. |
-| `decentralabs:digital-twin-model-change` | qFMU extension → Marketplace | Request the qFMU learning lab to select a different model. |
+| `decentralabs:digital-twin-model-change` | App → configured host | Optional request to select another model, when the host supports it. |
 
 Last reviewed: 2026-10-24

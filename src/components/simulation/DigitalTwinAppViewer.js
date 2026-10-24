@@ -53,6 +53,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   const sampleContinuationTimeoutRef = useRef(null)
   const initialSampleSentRef = useRef(false)
   const lastSentStateRef = useRef('')
+  const resultsCompleteRef = useRef(false)
   const runRequestPendingRef = useRef(false)
   const onRunSimulationRef = useRef(onRunSimulation)
   const onCancelSimulationRef = useRef(onCancelSimulation)
@@ -147,6 +148,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     pendingSampleBatchRef.current = null
     initialSampleSentRef.current = false
     lastSentStateRef.current = ''
+    resultsCompleteRef.current = false
     window.clearTimeout(sampleAckTimeoutRef.current)
     window.clearTimeout(sampleContinuationTimeoutRef.current)
     sampleContinuationTimeoutRef.current = null
@@ -319,6 +321,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       sentSampleCountRef.current = 0
       sentSampleCount = 0
       initialSampleSentRef.current = false
+      resultsCompleteRef.current = false
       lastSentStateRef.current = ''
     }
 
@@ -449,6 +452,14 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       state: nextState,
     })
     lastSentStateRef.current = stateKey
+    if (['completed', 'cancelled', 'error'].includes(nextState)
+        && sentSampleCountRef.current === times.length
+        && !pendingSampleBatchRef.current && !resultsCompleteRef.current) {
+      send(DIGITAL_TWIN_MESSAGE.RESULTS_COMPLETE, {
+        ...(runId ? { runId } : {}), sampleCount: times.length, state: nextState,
+      })
+      resultsCompleteRef.current = true
+    }
   }, [activeRunId, appCapabilities, appState, isRunning, outputDefaults, outputNames, results, sample, sampleAckVersion, simulationState, times])
 
   useEffect(() => {
