@@ -20,13 +20,17 @@ function currentValue(series, index) {
   return series[Math.min(Math.max(index, 0), series.length - 1)]
 }
 
-export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule = false, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, downloadError, fullScreen }) {
+export default function DigitalTwinAppViewer({ appUrl, title, results, modelVariables = [], enableInputSchedule = false, inputValues = {}, inputEvents = [], onInputEventsChange, startTime, stopTime, stepSize, isRunning, simulationState, simulationError, onRunSimulation, onModelChangeRequest, hostReadyPayload = {}, downloadError, fullScreen }) {
   const iframeRef = useRef(null)
   const playbackTriggerRef = useRef(null)
   const playbackDialogRef = useRef(null)
   const sentSampleCountRef = useRef(0)
   const onRunSimulationRef = useRef(onRunSimulation)
+  const onModelChangeRequestRef = useRef(onModelChangeRequest)
+  const hostReadyPayloadRef = useRef(hostReadyPayload)
   onRunSimulationRef.current = onRunSimulation
+  onModelChangeRequestRef.current = onModelChangeRequest
+  hostReadyPayloadRef.current = hostReadyPayload
   const [appState, setAppState] = useState('loading')
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -95,6 +99,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
     sentSampleCountRef.current = 0
     function notifyAppHostReady() {
       iframeRef.current?.contentWindow?.postMessage({
+        ...hostReadyPayloadRef.current,
         type: HOST_READY_MESSAGE,
         version: APP_MESSAGE_VERSION,
       }, '*')
@@ -142,6 +147,9 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
             : {}
           onRunSimulationRef.current?.(message.parameters ?? {}, options)
         }
+      } else if (message.type === 'decentralabs:digital-twin-model-change'
+          && typeof message.modelId === 'string') {
+        onModelChangeRequestRef.current?.(message.modelId)
       }
     }
 
@@ -222,6 +230,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
   function handleFrameLoad() {
     setFrameLoaded(true)
     iframeRef.current?.contentWindow?.postMessage({
+      ...hostReadyPayloadRef.current,
       type: HOST_READY_MESSAGE,
       version: APP_MESSAGE_VERSION,
     }, '*')
@@ -375,6 +384,8 @@ DigitalTwinAppViewer.propTypes = {
   simulationState: PropTypes.string,
   simulationError: PropTypes.string,
   onRunSimulation: PropTypes.func,
+  onModelChangeRequest: PropTypes.func,
+  hostReadyPayload: PropTypes.object,
   downloadError: PropTypes.string,
   fullScreen: PropTypes.bool,
 }
@@ -393,6 +404,8 @@ DigitalTwinAppViewer.defaultProps = {
   simulationState: 'idle',
   simulationError: null,
   onRunSimulation: null,
+  onModelChangeRequest: null,
+  hostReadyPayload: {},
   downloadError: null,
   fullScreen: false,
 }

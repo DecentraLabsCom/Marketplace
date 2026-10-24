@@ -41,6 +41,10 @@ Marketplace uses an opaque-origin sandbox for the iframe. Consequently it
 posts to the app with target origin `*`; this does not grant the app access to
 Marketplace credentials or APIs.
 
+The iframe sandbox allows scripts but does not allow form submission. Apps
+must start FMU runs from an explicit button or other script-driven control;
+they must not depend on an HTML form submit action.
+
 ## Startup handshake
 
 After the iframe document loads, Marketplace sends the handshake immediately
