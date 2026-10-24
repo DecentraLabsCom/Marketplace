@@ -323,7 +323,7 @@ export default function InputScheduleEditor({
         </div>
       ) : (
         <p className="rounded-lg border border-dashed border-[#26383f] px-3 py-3 text-xs text-[#829ba1]">
-          No input changes scheduled. The FMU will keep the starting values for the whole simulation.
+          No input changes scheduled. The model will keep the starting values for the whole simulation.
         </p>
       )}
 

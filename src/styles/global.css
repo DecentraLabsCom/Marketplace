@@ -792,3 +792,38 @@ body::-webkit-scrollbar-thumb:hover {
 .time-only-picker .react-datepicker__time-list {
   height: 200px !important;
 }
+
+.digital-twin-playback-rate-dock {
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+@media (min-width: 681px) {
+  .digital-twin-playback-rate-dock {
+    top: auto;
+    right: auto;
+    bottom: 0.25rem;
+    left: 1rem;
+  }
+}
+
+@media (max-width: 680px) {
+  .digital-twin-playback-rate-dock {
+    top: 0;
+    right: 0.5rem;
+  }
+
+  .digital-twin-playback-rate-dock > div {
+    padding: 0.375rem;
+  }
+
+  .digital-twin-playback-rate-dock label[for$='-preset'] {
+    font-size: 0.625rem;
+    line-height: 1;
+  }
+
+  .digital-twin-playback-rate-dock [aria-label='Playback speed preset'] {
+    min-height: 1.75rem;
+    font-size: 0.75rem;
+  }
+}

@@ -233,7 +233,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         </div>
       )}
       {appState === 'ready' && !scheduleOpen && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
-        <div className="absolute bottom-16 left-3 z-20 w-[min(11rem,calc(100%-2rem))] shadow-xl sm:bottom-5 sm:left-4">
+        <div data-testid="digital-twin-playback-rate" className="digital-twin-playback-rate-dock absolute z-20 w-[min(13rem,calc(100%-2rem))] shadow-xl">
           <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} compact />
         </div>
       )}

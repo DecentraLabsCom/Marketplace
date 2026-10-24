@@ -20,7 +20,7 @@ export default function SimulationOptions({ options, onChange, simulationType, d
       key: 'stepSize',
       label: 'Step Size (s)',
       description: simulationType === 'CoSimulation'
-        ? 'FMI default, when declared, is the preferred communication interval.'
+        ? 'Preferred communication interval.'
         : simulationType === 'ModelExchange'
           ? 'A preferred step for the solver; the solver may use its own strategy.'
           : 'Preferred simulation step, when supported by the FMU type.',

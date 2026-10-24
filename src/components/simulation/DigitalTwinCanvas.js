@@ -156,6 +156,55 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
     let gltfRoot = null
+    let gltfBounds = null
+    let autoFrame = true
+
+    // Fit the projected scene bounds so wide viewers can use their extra horizontal space.
+    const frameScene = () => {
+      if (!gltfBounds || gltfBounds.isEmpty()) return
+
+      const center = gltfBounds.getCenter(new THREE.Vector3())
+      const size = gltfBounds.getSize(new THREE.Vector3())
+      const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
+      const viewDirection = new THREE.Vector3(0.8, 0.6, 1).normalize()
+      const forward = viewDirection.clone().negate()
+      const cameraRight = new THREE.Vector3().crossVectors(forward, camera.up).normalize()
+      const cameraUp = new THREE.Vector3().crossVectors(cameraRight, forward).normalize()
+      const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov / 2)
+      const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(camera.aspect, 0.01))
+      const verticalTangent = Math.tan(verticalHalfFov)
+      const horizontalTangent = Math.tan(horizontalHalfFov)
+      let distance = 0
+
+      for (const x of [gltfBounds.min.x, gltfBounds.max.x]) {
+        for (const y of [gltfBounds.min.y, gltfBounds.max.y]) {
+          for (const z of [gltfBounds.min.z, gltfBounds.max.z]) {
+            const offset = new THREE.Vector3(x, y, z).sub(center)
+            const depthFromTarget = offset.dot(viewDirection)
+            distance = Math.max(
+              distance,
+              depthFromTarget + Math.abs(offset.dot(cameraRight)) / horizontalTangent,
+              depthFromTarget + Math.abs(offset.dot(cameraUp)) / verticalTangent,
+            )
+          }
+        }
+      }
+
+      distance = Math.max(distance, largestDimension * 0.5) * 1.08
+      camera.position.copy(center).addScaledVector(viewDirection, distance)
+      camera.near = Math.max(largestDimension / 1000, 0.01)
+      camera.far = Math.max(distance * 20, 100)
+      camera.lookAt(center)
+      camera.updateProjectionMatrix()
+      controls.target.copy(center)
+      controls.minDistance = Math.max(largestDimension * 0.08, 0.1)
+      controls.maxDistance = Math.max(distance * 8, 10)
+      controls.update()
+    }
+
+    controls.addEventListener('start', () => {
+      autoFrame = false
+    })
 
     const hideTooltip = () => {
       tooltip.style.display = 'none'
@@ -196,6 +245,7 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       if (!host.clientWidth || !host.clientHeight) return
       camera.aspect = host.clientWidth / host.clientHeight
       camera.updateProjectionMatrix()
+      if (autoFrame) frameScene()
       renderer.setSize(host.clientWidth, host.clientHeight, false)
     })
     resize.observe(host)
@@ -207,27 +257,13 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
         return
       }
       gltfRoot = gltf.scene
-      const bounds = new THREE.Box3().setFromObject(gltfRoot)
-      if (!bounds.isEmpty()) {
-        const center = bounds.getCenter(new THREE.Vector3())
-        const size = bounds.getSize(new THREE.Vector3())
+      gltfBounds = new THREE.Box3().setFromObject(gltfRoot)
+      if (!gltfBounds.isEmpty()) {
+        autoFrame = true
+        const center = gltfBounds.getCenter(new THREE.Vector3())
+        const size = gltfBounds.getSize(new THREE.Vector3())
         const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
-        const boundingRadius = Math.max(size.length() / 2, 0.1)
-        const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov / 2)
-        const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(camera.aspect, 0.01))
-        const effectiveHalfFov = Math.min(verticalHalfFov, horizontalHalfFov)
-        const distance = (boundingRadius / Math.sin(effectiveHalfFov)) * 1.2
-        const viewDirection = new THREE.Vector3(0.8, 0.6, 1).normalize()
-
-        camera.position.copy(center).addScaledVector(viewDirection, distance)
-        camera.near = Math.max(largestDimension / 1000, 0.01)
-        camera.far = Math.max(distance * 20, 100)
-        camera.lookAt(center)
-        camera.updateProjectionMatrix()
-        controls.target.copy(center)
-        controls.minDistance = Math.max(largestDimension * 0.08, 0.1)
-        controls.maxDistance = Math.max(distance * 8, 10)
-        controls.update()
+        frameScene()
 
         keyLight.position.set(
           center.x - largestDimension,

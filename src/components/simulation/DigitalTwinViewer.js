@@ -182,8 +182,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
         </div>
       </header>
 
-      <div className="grid items-stretch gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a]">
+      <div className="grid items-stretch gap-4 p-4 lg:h-[78vh] lg:min-h-[36rem] lg:max-h-[52rem] lg:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a] lg:min-h-0">
           <DigitalTwinCanvas
             sceneUrl={sceneUrl}
             values={values}
@@ -200,8 +200,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
           )}
         </div>
 
-        <aside className="flex flex-col gap-3 lg:h-128 lg:min-h-0">
-          <div className="max-h-128 min-h-0 space-y-2 overflow-y-auto pr-1 lg:flex-1">
+        <aside className="flex flex-col gap-3 lg:h-full lg:min-h-0">
+          <div className="max-h-128 min-h-0 space-y-2 overflow-y-auto pr-1 lg:max-h-none lg:flex-1">
             {stats.map(({ variable, value, description, displayName, displayUnit }) => (
               <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
                 <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={description || variable.name}>
@@ -226,7 +226,7 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
 
           <div className="rounded-xl border border-[#26383f] bg-[#142128] p-3">
             <div className="flex items-center justify-between text-xs text-[#a9bec2]">
-              <span>Simulation timeline</span>
+              <span>Execution timeline</span>
               <span className="font-mono text-white">{formatTime(times[displayedSampleIndex])}</span>
             </div>
             <input
