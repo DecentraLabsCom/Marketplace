@@ -57,7 +57,7 @@ the same; the files and the view presented to the user differ.
 | --- | --- | --- |
 | **Real Lab** | Access to the provider's physical equipment and its configured remote-control session. | The physical setup, its control application and Gateway/Station connection. No FMU or digital-twin scene is required. |
 | **Simulation** â€” FMU without a scene | Marketplace's standard FMU interface, generated from the model's FMI metadata: input controls, simulation run controls and output charts/results. | The FMU provisioned on the Gateway or Lab Station. No scene asset or AAS visual link is required. |
-| **Simulation** â€” FMU with a GLB scene | Marketplace's standard simulation controls and generated GLB viewer, which can animate the scene from FMU outputs. | The FMU, a GLB asset linked through the lab's AAS shell and, when animation is needed, bindings from scene elements to FMU outputs. |
+| **Simulation** â€” FMU with a GLB scene | Marketplace's standard simulation controls and generic viewer render the provider's GLB scene and apply its FMU output bindings. | The FMU, a provider-created GLB scene linked through the lab's AAS shell, and provider-authored `extras.fmiBindings` required to connect scene elements to FMU outputs. |
 | **Simulation** â€” FMU with a complete Three.js app | The provider's app as the complete experience. Marketplace embeds the app and grants a temporary connection to the provider Gateway; the app executes and receives outputs directly over WS. | The FMU and a self-contained Three.js web app package linked through the AAS shell and using the Marketplace app contract. |
 
 For all three simulation styles, Marketplace does not store or execute the
@@ -84,12 +84,14 @@ and model values are the intended way to inspect the simulation.
 
 ### Virtual lab: FMU with a GLB scene
 
-Choose **Simulation**, provision the FMU and link a GLB asset in the lab's AAS
-digital-twin shell. Marketplace supplies the surrounding controlsâ€”input form,
-run/replay controls, simulation timeline and output indicatorsâ€”and renders the
-linked scene. Prepare `extras.fmiBindings` on GLB nodes only when scene elements
-should react to FMU outputs; an unbound GLB can still be shown as a static
-scene. The detailed asset setup is described under [Configure a GLB scene](#configure-a-glb-scene).
+Choose **Simulation**, provision the FMU and link the provider-created GLB
+scene in the lab's AAS digital-twin shell. Marketplace supplies the surrounding
+controlsâ€”input form, run/replay controls, simulation timeline and output
+indicatorsâ€”and renders the linked scene in its generic viewer. The provider
+must also author `extras.fmiBindings` on the GLB nodes that respond to FMU
+outputs. Marketplace applies those mappings; it does not create the scene or
+its bindings. An unbound GLB may render as static geometry, but it does not
+function as an FMU-driven digital twin. See [Configure a GLB scene](#configure-a-glb-scene).
 
 ### Virtual lab: FMU with a complete Three.js app
 
@@ -99,6 +101,21 @@ scene, normal input controls, run action, charts and telemetry display. The
 user sees that app in Marketplace without the GLB viewer or its standard
 simulation wrapper. Marketplace authorizes a temporary connection grant. The app runs the FMU and receives outputs directly from the provider Gateway, using the same protected WS session as proxy.fmu. The optional SDK or a direct implementation of the startup and authorization messages connects the app; see [Configure a complete Three.js app](#configure-a-complete-threejs-app)
 and the [Three.js app contract](../provider/digital-twin-threejs-app-contract.md).
+
+The choice determines which part of the experience Marketplace generates and
+which part the provider supplies:
+
+~~~mermaid
+flowchart TD
+    FMU["Provider provisions an FMU"]
+    FMU --> Choice{"Visual asset type"}
+    Choice -->|No visual asset| Standard["Marketplace generates FMI controls and result views"]
+    Choice -->|GLB scene| ProviderScene["Provider creates and supplies the GLB scene and authors the required extras.fmiBindings"]
+    ProviderScene --> GLBViewer["Marketplace generates FMI controls, renders the provider's scene, and applies its bindings"]
+    Choice -->|Complete Three.js app| ProviderApp["Provider supplies the complete Three.js app with WS connection to the FMU"]
+    ProviderApp --> EmbeddedApp["Marketplace embeds the app and authorizes a one-use reservation grant"]
+    EmbeddedApp --> WSS["App connects directly to Gateway over FMU session WebSocket"]
+~~~
 
 ## Listing and unlisted labs
 
@@ -132,9 +149,11 @@ for the execution-side setup.
 
 ### Configure a GLB scene
 
-Prepare the GLB geometry and add `extras.fmiBindings` to nodes that should be
-animated by FMU outputs. In the provider Gateway's **Lab Manager â†’ Digital
-Twins** tab, synchronize the AAS shell and add/select the visual asset. The
+Prepare the provider-created GLB geometry and author `extras.fmiBindings` on
+nodes that must respond to FMU outputs. These bindings are required for the GLB
+to function as an FMU-driven digital twin; without them it is only static
+geometry. In the provider Gateway's **Lab Manager â†’ Digital Twins** tab,
+synchronize the AAS shell and add/select the visual asset. The
 Gateway stores and serves the file from its read-only asset route; the AAS
 stores its reference. Marketplace resolves the lab's on-chain Gateway and
 proxies managed GLBs through a same-origin API, so providers do not need to

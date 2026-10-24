@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import PlaybackRateControl from './PlaybackRateControl'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 import {
   getVariableDescription,
   getVariableDisplayName,
@@ -56,10 +57,13 @@ function sampleIndexAtOrBefore(times, time) {
 }
 
 export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning, startTime, stopTime }) {
+  const indicatorsId = useId()
   const [sampleIndex, setSampleIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
   const [loadState, setLoadState] = useState('loading')
+  const [pinnedOutputNames, setPinnedOutputNames] = useState(() => new Set())
+  const [outputsCollapsed, setOutputsCollapsed] = useState(false)
   const times = Array.isArray(results?.time) ? results.time : []
   const lastIndex = Math.max(times.length - 1, 0)
   const displayedSampleIndex = Math.min(sampleIndex, lastIndex)
@@ -78,6 +82,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   useEffect(() => {
     setSampleIndex(0)
     setPlaying(false)
+    setPinnedOutputNames(new Set())
+    setOutputsCollapsed(false)
     autoPlaybackRef.current = false
   }, [sceneUrl])
 
@@ -168,6 +174,21 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
       displayName: getVariableDisplayName(variable),
       displayUnit: getVariableDisplayUnit(variable),
     }))
+  const pinnedStats = []
+  const otherStats = []
+  stats.forEach((stat) => {
+    (pinnedOutputNames.has(stat.variable.name) ? pinnedStats : otherStats).push(stat)
+  })
+  const orderedStats = [...pinnedStats, ...otherStats]
+
+  const togglePinnedOutput = (name) => {
+    setPinnedOutputNames((current) => {
+      const next = new Set(current)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#283a42] bg-[#101a20] shadow-xl shadow-black/20">
@@ -201,24 +222,78 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
         </div>
 
         <aside className="flex flex-col gap-3 lg:h-full lg:min-h-0">
-          <div className="max-h-128 min-h-0 space-y-2 overflow-y-auto pr-1 lg:max-h-none lg:flex-1">
-            {stats.map(({ variable, value, description, displayName, displayUnit }) => (
-              <div key={variable.name} className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3">
-                <p className="truncate text-[10px] uppercase tracking-[0.13em] text-[#829ba1]" title={description || variable.name}>
-                  {displayName !== variable.name ? displayName : description || variable.name}
-                </p>
-                <p className="mt-1 wrap-break-words text-lg font-semibold tabular-nums text-white">
-                  {formatOutputValue(value, variable)}
-                  {displayUnit ? <span className="ml-1 text-xs font-normal text-[#91a7ac]">{displayUnit}</span> : null}
-                </p>
-              </div>
-            ))}
-            {stats.length === 0 && (
-              <p className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3 text-xs text-[#829ba1]">
-                This FMU does not declare output variables for the scene panel.
-              </p>
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#829ba1]">
+              Live outputs <span className="ml-1 font-mono text-[#b8d2d5]">{stats.length}</span>
+            </p>
+            <button
+              type="button"
+              aria-controls={outputsCollapsed ? undefined : indicatorsId}
+              aria-expanded={!outputsCollapsed}
+              aria-label={outputsCollapsed ? 'Expand live outputs' : 'Collapse live outputs'}
+              onClick={() => setOutputsCollapsed((collapsed) => !collapsed)}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[#30464d] text-[#a9bec2] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+            >
+              <svg className={`h-3.5 w-3.5 transition-transform ${outputsCollapsed ? '-rotate-90' : ''}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="m3 6 5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
+
+          {!outputsCollapsed && (
+            <div
+              id={indicatorsId}
+              className="max-h-128 min-h-0 flex-1 overflow-y-auto pr-1 lg:max-h-none"
+            >
+              {orderedStats.length > 0 ? (
+                <div className="grid grid-cols-2 content-start gap-2">
+                  {orderedStats.map(({ variable, value, description, displayName, displayUnit }) => {
+                    const isPinned = pinnedOutputNames.has(variable.name)
+                    return (
+                      <VariableDescriptionTooltip
+                        key={variable.name}
+                        name={variable.name}
+                        description={description}
+                        positionKey={pinnedOutputNames}
+                        portal
+                      >
+                        <div role="group" aria-label={variable.name} className="relative min-w-0 rounded-xl border border-[#26383f] bg-[#142128] px-2.5 pb-1.5 pt-5">
+                          <p className="min-w-0 truncate pr-0.5 text-[10px] uppercase tracking-[0.1em] text-[#a2b7bb]">
+                            {displayName}
+                          </p>
+                          <button
+                            type="button"
+                            aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${variable.name} indicator`}
+                            aria-pressed={isPinned}
+                            onClick={() => togglePinnedOutput(variable.name)}
+                            className={`absolute right-1.5 top-1 grid h-4 w-4 place-items-center rounded transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] ${isPinned ? 'text-[#67d7cf]' : 'text-[#718b90] hover:text-[#d6e9e9]'}`}
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                              <path
+                                d="m10 2.5 2.3 4.8 5.3.8-3.8 3.7.9 5.2-4.7-2.5-4.7 2.5.9-5.2-3.8-3.7 5.3-.8L10 2.5Z"
+                                fill={isPinned ? 'currentColor' : 'none'}
+                                stroke="currentColor"
+                                strokeWidth="1.4"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          <p className="mt-0.5 flex min-w-0 items-baseline gap-1 text-base font-semibold tabular-nums text-white">
+                            <span className="min-w-0 truncate">{formatOutputValue(value, variable)}</span>
+                            {displayUnit ? <span className="shrink-0 text-[10px] font-normal text-[#91a7ac]">{displayUnit}</span> : null}
+                          </p>
+                        </div>
+                      </VariableDescriptionTooltip>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-3 text-xs text-[#829ba1]">
+                  This FMU does not declare output variables for the scene panel.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} />

@@ -138,7 +138,7 @@ InputScheduleValue.propTypes = {
   disabled: PropTypes.bool,
 }
 
-function InputScheduleRow({ event, variables, modelVariables, initialValues, events, startTime, stopTime, timeStep, disabled, onChange, onRemove }) {
+function InputScheduleRow({ event, variables, modelVariables, initialValues, events, startTime, stopTime, timeStep, disabled, tooltipPortal, onChange, onRemove }) {
   const rowId = useId()
   const variable = variables.find((item) => item.name === event.variable) || variables[0]
   if (!variable) return null
@@ -156,7 +156,7 @@ function InputScheduleRow({ event, variables, modelVariables, initialValues, eve
       <div className="block text-[11px] text-[#a9bec2]">
         <span className="mb-1 flex items-center gap-1 font-medium text-[#dce9e9]">
           Input
-          <VariableDescriptionTooltip name={variable.name} description={variable.description} />
+          <VariableDescriptionTooltip name={variable.name} description={variable.description} portal={tooltipPortal} />
         </span>
         <select
           id={`${rowId}-variable`}
@@ -220,6 +220,7 @@ InputScheduleRow.propTypes = {
   stopTime: PropTypes.number.isRequired,
   timeStep: PropTypes.number.isRequired,
   disabled: PropTypes.bool,
+  tooltipPortal: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,
 }
@@ -234,6 +235,7 @@ export default function InputScheduleEditor({
   stepSize = 0.01,
   validationError = '',
   disabled = false,
+  tooltipPortal = false,
   onChange = () => {},
 }) {
   // Callers can omit the list or pass null; keep schedule operations on an array.
@@ -316,6 +318,7 @@ export default function InputScheduleEditor({
               stopTime={stopTime}
               timeStep={effectiveStep}
               disabled={disabled}
+              tooltipPortal={tooltipPortal}
               onChange={updateEvent}
               onRemove={removeEvent}
             />
@@ -345,6 +348,7 @@ InputScheduleEditor.propTypes = {
   stepSize: PropTypes.number,
   validationError: PropTypes.string,
   disabled: PropTypes.bool,
+  tooltipPortal: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
 }
 
@@ -354,4 +358,5 @@ InputScheduleEditor.defaultProps = {
   stepSize: 0.01,
   validationError: '',
   disabled: false,
+  tooltipPortal: false,
 }

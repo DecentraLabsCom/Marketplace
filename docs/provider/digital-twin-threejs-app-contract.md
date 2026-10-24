@@ -8,8 +8,39 @@ simulation inputs and output samples do not pass through Marketplace.
 ```mermaid
 flowchart LR
   Marketplace[Marketplace reservation and authorization] -->|one-use session grant| App[Provider app in isolated iframe]
-  App <-->|FMU session WebSocket| Gateway[Provider Gateway Full or Lite]
-  Gateway <-->|private connection| Station[Lab Station and FMU Executor]
+  App -->|FMU session WebSocket| Gateway[Provider Gateway Full or Lite]
+  Gateway -->|session responses| App
+  Gateway -->|private connection| Station[Lab Station and FMU Executor]
+  Station -->|session responses| Gateway
+```
+
+The sequence below shows how these responsibilities work together. Marketplace
+authorizes and issues the one-use grant; after that, the app's FMU session and
+all simulation traffic use the provider Gateway directly.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant M as Marketplace
+  participant A as Provider Three.js app
+  participant G as Provider Gateway
+  participant S as Lab Station FMU Executor
+  M->>A: Embed app and complete Host Integration v2 handshake
+  A->>M: Request reservation-scoped FMU connection grant
+  M->>G: Authorize through the existing proxy.fmu ticket issuer
+  G-->>M: Short-lived, one-use ticket and Gateway WSS endpoint
+  M-->>A: Return connection grant to the requesting iframe
+  A->>G: Open WSS and create session with ticket
+  G->>S: Redeem ticket and open private FMU session
+  S-->>G: Session ready
+  G-->>A: Session ready
+  loop FMI execution
+    A->>G: FMI operations and input values
+    G->>S: Forward operations to the FMU
+    S-->>G: Output samples
+    G-->>A: Output samples
+  end
+  Note over M,G: Marketplace authorizes access but does not relay simulation traffic.
 ```
 
 There are two independent contracts:

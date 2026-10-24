@@ -1,7 +1,8 @@
 'use client'
 
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import PropTypes from 'prop-types'
+import Modal from '@/components/ui/Modal'
 import {
   formatVariableDisplayValue,
   fromVariableDisplayValue,
@@ -59,12 +60,9 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
             className="h-4 w-4 accent-[#54d5c9]"
             aria-label={accessibleDescription}
           />
-          <span className="min-w-0">
-            <span className="block font-medium text-white" title={variable.name}>{displayName}</span>
-            {variableDescription ? <span className="text-[11px] text-[#829ba1]">{variableDescription}</span> : null}
-          </span>
+            <span className="block min-w-0 truncate font-medium text-white" title={variable.name}>{displayName}</span>
         </label>
-        <VariableDescriptionTooltip name={variable.name} description={variable.description} />
+        <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
       </div>
     )
   }
@@ -74,7 +72,7 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
       <div className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="font-medium text-white" title={variable.name}>{displayName}</span>
-          <VariableDescriptionTooltip name={variable.name} description={variable.description} />
+          <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
         </div>
         <select
           id={inputId}
@@ -90,7 +88,6 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
             </option>
           ))}
         </select>
-        {variableDescription ? <span className="mt-1 block text-[11px] text-[#829ba1]">{variableDescription}</span> : null}
       </div>
     )
   }
@@ -114,7 +111,7 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
             <span className="font-medium text-white" title={variable.name}>{displayName}</span>
             <span>{displayNumericValue(value, variable)} {displayUnit}</span>
           </label>
-          <VariableDescriptionTooltip name={variable.name} description={variable.description} />
+          <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
         </div>
         <input
           id={inputId}
@@ -128,7 +125,6 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
           disabled={disabled}
           className="mt-2 w-full accent-[#54d5c9] disabled:opacity-40"
         />
-        {variableDescription ? <span className="mt-1 block text-[11px] text-[#829ba1]">{variableDescription}</span> : null}
       </div>
     )
   }
@@ -141,7 +137,7 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
           <span className="font-medium text-white" title={variable.name}>{displayName}</span>
           {displayUnit ? <span>{displayUnit}</span> : null}
         </label>
-        <VariableDescriptionTooltip name={variable.name} description={variable.description} />
+        <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
       </div>
       <input
         id={inputId}
@@ -155,7 +151,6 @@ function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled 
         disabled={disabled}
         className="mt-2 w-full rounded-lg border border-[#26383f] bg-[#0c171c] px-2 py-1.5 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:opacity-40"
       />
-      {variableDescription ? <span className="mt-1 block text-[11px] text-[#829ba1]">{variableDescription}</span> : null}
     </div>
   )
 }
@@ -183,6 +178,7 @@ export default function DigitalTwinSimulationForm({
   onRun,
   children,
 }) {
+  const [activeDialog, setActiveDialog] = useState(null)
   const includeStepSize = simulationType !== 'ScheduledExecution'
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
   let inputScheduleError = ''
@@ -201,55 +197,145 @@ export default function DigitalTwinSimulationForm({
     }
   }
 
-  function handleSubmit(event) {
-    event.preventDefault()
-    if (!simulationOptionsError && !inputScheduleError) onRun(inputEvents)
+  function handleRun() {
+    if (simulationOptionsError) {
+      setActiveDialog('run-controls')
+      return
+    }
+    if (inputScheduleError) {
+      setActiveDialog('schedule')
+      return
+    }
+    setActiveDialog(null)
+    onRun(inputEvents)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-5 grid gap-4 rounded-2xl border border-[#263a42] bg-[#101a20] p-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {variables.map((variable) => (
-          <DigitalTwinInput
-            key={variable.name}
-            variable={variable}
-            modelVariables={modelVariables}
-            value={values[variable.name]}
-            onChange={onInputChange}
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#263a42] bg-[#101a20] p-3 sm:p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setActiveDialog('run-controls')}
             disabled={running}
-          />
-        ))}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span>Run Controls</span>
+            <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
+          </button>
+          {enableInputSchedule && variables.length > 0 ? (
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setActiveDialog('schedule')}
+              disabled={running}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>Schedule input changes</span>
+              <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{inputEvents.length}</span>
+            </button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {children}
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={running}
+            className="min-h-10 rounded-xl bg-[#20b7aa] px-5 py-2.5 text-sm font-bold text-[#061416] transition hover:bg-[#49d7c8] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {running ? 'Running…' : 'Run simulation'}
+          </button>
+        </div>
+        {!activeDialog && (simulationOptionsError || inputScheduleError) ? (
+          <p role="alert" className="w-full text-xs text-[#ffb5bd]">
+            {simulationOptionsError || inputScheduleError}
+          </p>
+        ) : null}
       </div>
 
-      <SimulationOptions
-        options={simulationOptions}
-        onChange={onSimulationOptionChange}
-        simulationType={simulationType}
-        disabled={running}
-      />
+      <Modal
+        isOpen={activeDialog === 'run-controls'}
+        onClose={() => setActiveDialog(null)}
+        title="Run Controls"
+        size="2xl"
+        theme="dark"
+        className="bg-[#101a20]! border border-[#263a42]"
+        portal
+      >
+        <p className="mb-4 text-xs text-[#829ba1]">Set model inputs and simulation time for the next run.</p>
+        <section className="mb-4 grid gap-3" aria-labelledby="digital-twin-run-inputs-title">
+          <h3 id="digital-twin-run-inputs-title" className="text-sm font-semibold text-white">Model inputs</h3>
+          {variables.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {variables.map((variable) => (
+                <DigitalTwinInput
+                  key={variable.name}
+                  variable={variable}
+                  modelVariables={modelVariables}
+                  value={values[variable.name]}
+                  onChange={onInputChange}
+                  disabled={running}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg border border-[#26383f] bg-[#0c171c] px-3 py-2 text-xs text-[#829ba1]">This FMU has no input variables.</p>
+          )}
+        </section>
+        <SimulationOptions
+          options={simulationOptions}
+          onChange={onSimulationOptionChange}
+          simulationType={simulationType}
+          disabled={running}
+        />
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setActiveDialog(null)}
+            className="min-h-10 rounded-lg border border-[#30464d] px-4 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
 
       {enableInputSchedule && variables.length > 0 ? (
-        <InputScheduleEditor
-          variables={variables}
-          modelVariables={modelVariables}
-          initialValues={values}
-          events={inputEvents}
-          startTime={Number(simulationOptions.startTime)}
-          stopTime={Number(simulationOptions.stopTime)}
-          stepSize={Number(simulationOptions.stepSize)}
-          validationError={inputScheduleError}
-          disabled={running}
-          onChange={onInputEventsChange}
-        />
+        <Modal
+          isOpen={activeDialog === 'schedule'}
+          onClose={() => setActiveDialog(null)}
+          title="Schedule input changes"
+          size="2xl"
+          theme="dark"
+          className="bg-[#101a20]! border border-[#263a42]"
+          portal
+        >
+          <InputScheduleEditor
+            variables={variables}
+            modelVariables={modelVariables}
+            initialValues={values}
+            events={inputEvents}
+            startTime={Number(simulationOptions.startTime)}
+            stopTime={Number(simulationOptions.stopTime)}
+            stepSize={Number(simulationOptions.stepSize)}
+            validationError={inputScheduleError}
+            disabled={running}
+            tooltipPortal
+            onChange={onInputEventsChange}
+          />
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveDialog(null)}
+              className="min-h-10 rounded-lg border border-[#30464d] px-4 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+            >
+              Done
+            </button>
+          </div>
+        </Modal>
       ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {children}
-        <button type="submit" disabled={running || Boolean(simulationOptionsError) || Boolean(inputScheduleError)} className="rounded-xl bg-[#20b7aa] px-5 py-3 text-sm font-bold text-[#061416] transition hover:bg-[#49d7c8] disabled:cursor-not-allowed disabled:opacity-50">
-          {running ? 'Running…' : 'Run simulation'}
-        </button>
-      </div>
-    </form>
+    </>
   )
 }
 
