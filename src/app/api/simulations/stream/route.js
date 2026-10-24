@@ -57,6 +57,7 @@ export async function POST(request) {
       },
       body: JSON.stringify(simulationBody),
       cache: 'no-store',
+      signal: request.signal,
     })
 
     if (!gatewayRes.ok) {

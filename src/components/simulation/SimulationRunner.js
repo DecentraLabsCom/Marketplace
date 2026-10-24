@@ -20,6 +20,7 @@ import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
 import { normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
 import { getInitialSimulationOptions, getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
 import { safeExternalHttpsUrl } from '@/utils/security/safeUrl'
+import { createProtocolId } from './digitalTwinAppProtocol'
 
 const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
@@ -28,6 +29,7 @@ const SIM_STATE = {
   IDLE: 'idle',
   RUNNING: 'running',
   COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
   ERROR: 'error',
 }
 
@@ -155,6 +157,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [inputEvents, setInputEvents] = useState([])
   const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
   const [simState, setSimState] = useState(SIM_STATE.IDLE)
+  const [activeRunId, setActiveRunId] = useState(null)
   const [results, setResults] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
@@ -168,6 +171,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const authPromiseRef = useRef(null)
   const proxyAttemptRef = useRef(null)
   const simulationInFlightRef = useRef(false)
+  const simulationControllerRef = useRef(null)
+  const activeRunIdRef = useRef(null)
+
+  useEffect(() => () => {
+    simulationControllerRef.current?.abort()
+  }, [])
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
@@ -300,8 +309,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   const fetchGateway = useCallback(async (path, init = {}) => {
     await ensureGatewaySession()
+    if (init.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
     let response = await fetch(path, init)
     if (response.status !== 401) return response
+    if (init.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
 
     setGatewaySessionOrigin(null)
     await reauthenticateGatewaySession()
@@ -309,9 +320,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return response
   }, [ensureGatewaySession, reauthenticateGatewaySession])
 
-  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null) => {
+  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, executionContext = null) => {
     if (simulationInFlightRef.current) return
     simulationInFlightRef.current = true
+    const runId = executionContext?.runId || createProtocolId('run')
+    activeRunIdRef.current = runId
+    const controller = new AbortController()
+    simulationControllerRef.current = controller
+    setActiveRunId(runId)
     setSimState(SIM_STATE.RUNNING)
     setErrorMsg(null)
     setResults(null)
@@ -384,6 +400,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const res = await fetchGateway('/api/simulations/stream', {
         method: 'POST',
         credentials: 'include',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -428,6 +445,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
         }
       })
 
+      if (controller.signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
+
       setResults({
         time: accTime,
         outputs: accOutputs,
@@ -438,22 +457,42 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setSimState(SIM_STATE.COMPLETED)
       devLog.log('Simulation completed', { outputKeys: Object.keys(accOutputs), fmiType: finalMeta.fmiType })
     } catch (err) {
-      devLog.error('Simulation error:', err)
-      setErrorMsg(err.message)
-      setSimState(SIM_STATE.ERROR)
+      if (controller.signal.aborted || err?.name === 'AbortError') {
+        setErrorMsg(null)
+        setSimState(SIM_STATE.CANCELLED)
+      } else {
+        devLog.error('Simulation error:', err)
+        setErrorMsg(err.message)
+        setSimState(SIM_STATE.ERROR)
+      }
     } finally {
-      simulationInFlightRef.current = false
+      if (simulationControllerRef.current === controller) {
+        simulationControllerRef.current = null
+        simulationInFlightRef.current = false
+      }
     }
   }, [fetchGateway, fmuMeta.simulationType, inputEvents, inputVars, isModelExchange, isScheduledExecution, lab, modelVariables, options, parameters, reservationKey, solver, supportsInputSchedule])
+
+  const cancelSimulation = useCallback((runId) => {
+    const controller = simulationControllerRef.current
+    if (!controller || !simulationInFlightRef.current || runId !== activeRunIdRef.current) return false
+    controller.abort()
+    setErrorMsg(null)
+    setSimState(SIM_STATE.CANCELLED)
+    return true
+  }, [])
 
   const handleRun = useCallback((scheduledEvents) => (
     Array.isArray(scheduledEvents)
       ? runSimulation(null, null, scheduledEvents)
       : runSimulation()
   ), [runSimulation])
-  const handleRunRequest = useCallback((requestedParameters, requestedOptions) => (
-    runSimulation(requestedParameters, requestedOptions)
-  ), [runSimulation])
+  const handleRunRequest = useCallback((requestedParameters, requestedOptions, executionContext) => {
+    if (simulationInFlightRef.current) return { accepted: false }
+    const context = executionContext || { runId: createProtocolId('run') }
+    void runSimulation(requestedParameters, requestedOptions, null, context)
+    return { accepted: true, runId: context.runId }
+  }, [runSimulation])
 
   const handleLoadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
@@ -607,9 +646,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
           stopTime={Number(options.stopTime)}
           stepSize={Number(options.stepSize)}
           isRunning={simState === SIM_STATE.RUNNING}
+          activeRunId={activeRunId}
           simulationState={simState}
           simulationError={simState === SIM_STATE.ERROR ? errorMsg : null}
           onRunSimulation={handleRunRequest}
+          onCancelSimulation={cancelSimulation}
           downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
           fullScreen
         />

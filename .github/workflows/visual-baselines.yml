@@ -29,7 +29,7 @@ jobs:
         run: npx cypress install
 
       - name: Start dev and run visual spec (create/update snapshots)
-        run: npx start-server-and-test dev http://localhost:3000 cypress run -- --spec cypress/e2e/visual/critical-pages.cy.js --env updateSnapshots=true
+        run: npx start-server-and-test dev http://localhost:3000 cypress run -- --browser chrome --spec cypress/e2e/visual/critical-pages.cy.js --env updateSnapshots=true
         timeout-minutes: 15
 
       - name: Upload generated snapshots

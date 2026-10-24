@@ -3,6 +3,50 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DigitalTwinAppViewer from '../DigitalTwinAppViewer'
 
 describe('DigitalTwinAppViewer', () => {
+  test('routes a versioned run request from the isolated app to Marketplace', () => {
+    const onRunSimulation = jest.fn()
+    render(
+      <DigitalTwinAppViewer
+        appUrl="/api/aas/digital-twin-app/42/abc/index.html"
+        title="Smart Warehouse"
+        results={{ time: [], outputs: {} }}
+        modelVariables={[]}
+        startTime={0}
+        stopTime={250}
+        stepSize={0.05}
+        isRunning={false}
+        onRunSimulation={onRunSimulation}
+      />,
+    )
+
+    const iframe = screen.getByTitle('Smart Warehouse digital twin application')
+    Object.defineProperty(iframe.contentWindow, 'postMessage', {
+      configurable: true,
+      value: jest.fn(),
+    })
+    fireEvent.load(iframe)
+
+    const parameters = { robotSpeed: 0.9, jam: true }
+    const options = { startTime: 0, stopTime: 40, stepSize: 0.05 }
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters, options },
+      source: iframe.contentWindow,
+    }))
+
+    expect(onRunSimulation).toHaveBeenCalledTimes(1)
+    expect(onRunSimulation).toHaveBeenCalledWith(parameters, options)
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters, options },
+      source: window,
+    }))
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'decentralabs:fmi-run-request', version: 1, parameters: [], options },
+      source: iframe.contentWindow,
+    }))
+    expect(onRunSimulation).toHaveBeenCalledTimes(1)
+  })
+
   test('sends versioned FMI output samples to the isolated app only after it is ready', async () => {
     const results = {
       time: [0, 0.1],

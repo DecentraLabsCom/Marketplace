@@ -2,6 +2,7 @@ import { defineConfig } from "cypress";
 import codeCoverageTask from "@cypress/code-coverage/task";
 
 export default defineConfig({
+  defaultBrowser: "chrome",
   expose: {
     liveIntegration: process.env.CYPRESS_LIVE_INTEGRATION === 'true',
     liveBooking: process.env.CYPRESS_LIVE_BOOKING === 'true',
