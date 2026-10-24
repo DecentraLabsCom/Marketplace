@@ -367,6 +367,9 @@
     "samples": {
       "allOf": [
         {
+          "$ref": "#/$defs/base"
+        },
+        {
           "if": {
             "anyOf": [
               {

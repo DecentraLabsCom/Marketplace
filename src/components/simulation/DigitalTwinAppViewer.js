@@ -13,13 +13,8 @@ import {
   isRecord,
   isProtocolEnvelope,
   isValidHostMessage,
-  isValidAppErrorMessage,
-  isValidAppReadyMessage,
-  isValidModelChangeRequest,
+  isValidAppMessage,
   isValidProtocolId,
-  isValidRunCancellation,
-  isValidRunRequest,
-  isValidSamplesAcknowledgement,
   makeProtocolMessage,
   MAX_SAMPLE_BATCH_JSON_CHARS,
   MAX_SAMPLES_PER_BATCH,
@@ -178,7 +173,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
       const message = event.data
       if (!isProtocolEnvelope(message)) return
       if (message.type === APP_READY_MESSAGE) {
-        if (!isValidAppReadyMessage(message)) return
+        if (!isValidAppMessage(message)) return
         window.clearInterval(handshake)
         window.clearTimeout(timeout)
         const capabilities = Array.isArray(message.capabilities)
@@ -202,7 +197,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         appStateRef.current = 'ready'
         setAppState('ready')
       } else if (message.type === APP_ERROR_MESSAGE) {
-        if (!isValidAppErrorMessage(message)) return
+        if (!isValidAppMessage(message)) return
         window.clearInterval(handshake)
         window.clearTimeout(timeout)
         setAppFailureReason(typeof message.code === 'string'
@@ -214,7 +209,7 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         const appSuppliedRequestId = isValidProtocolId(message.requestId)
         const requestId = typeof message.requestId === 'string' ? message.requestId : createProtocolId('request')
         const target = iframeRef.current?.contentWindow
-        if (!isValidRunRequest(message)) {
+        if (!isValidAppMessage(message)) {
           target?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_REJECTED, {
             ...(isValidProtocolId(message.requestId) ? { requestId: message.requestId } : {}),
             code: 'INVALID_RUN_REQUEST',
@@ -270,13 +265,13 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         }
       } else if (message.type === DIGITAL_TWIN_MESSAGE.RUN_CANCEL) {
         const runId = activeRunIdRef.current
-        if (!isValidRunCancellation(message) || message.runId !== runId) return
+        if (!isValidAppMessage(message) || message.runId !== runId) return
         if (onCancelSimulationRef.current?.(runId)) {
           iframeRef.current?.contentWindow?.postMessage(makeProtocolMessage(DIGITAL_TWIN_MESSAGE.RUN_CANCELLED, { runId }), '*')
         }
       } else if (message.type === DIGITAL_TWIN_MESSAGE.SAMPLES_ACK) {
         const pending = pendingSampleBatchRef.current
-        if (!pending || !isValidSamplesAcknowledgement(message)) return
+        if (!pending || !isValidAppMessage(message)) return
         if (
           message.runId !== pending.runId
           || message.batchId !== pending.batchId
@@ -285,8 +280,8 @@ export default function DigitalTwinAppViewer({ appUrl, title, results, modelVari
         window.clearTimeout(sampleAckTimeoutRef.current)
         pendingSampleBatchRef.current = null
         setSampleAckVersion((version) => version + 1)
-      } else if (message.type === DIGITAL_TWIN_MESSAGE.MODEL_CHANGE
-          && isValidModelChangeRequest(message)) {
+      } else if (message.type === DIGITAL_TWIN_MESSAGE.MODEL_CHANGE) {
+        if (!isValidAppMessage(message)) return
         onModelChangeRequestRef.current?.(message.modelId)
       }
     }

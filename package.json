@@ -7,8 +7,12 @@
     "node": "22.x",
     "npm": ">=10"
   },
+  "workspaces": [
+    "packages/digital-twin-app-protocol"
+  ],
   "scripts": {
     "test": "jest",
+    "test:digital-twin-protocol": "jest --runInBand src/components/simulation/__tests__/digitalTwinAppProtocol.test.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
@@ -83,6 +87,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "@cypress/code-coverage": "^4.0.3",
     "@eslint/compat": "^2.1.1",
     "@eslint/eslintrc": "^3",

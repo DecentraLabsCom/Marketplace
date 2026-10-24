@@ -33,6 +33,9 @@ const MIME_TYPES = Object.freeze({
   ico: 'image/x-icon',
   txt: 'text/plain; charset=utf-8',
 })
+const EXECUTABLE_ASSET_EXTENSIONS = new Set([
+  'app', 'bat', 'class', 'cmd', 'com', 'dll', 'dylib', 'exe', 'jar', 'msi', 'ps1', 'sh', 'so',
+])
 
 function boundedAssetPath(parts) {
   if (!Array.isArray(parts) || parts.length < 1 || parts.length > 8) return null
@@ -45,7 +48,11 @@ function boundedAssetPath(parts) {
   ))) return null
   const filename = parts[parts.length - 1]
   const extension = filename.includes('.') ? filename.split('.').pop().toLowerCase() : ''
-  return MIME_TYPES[extension] ? { path: parts.join('/'), mime: MIME_TYPES[extension] } : null
+  if (EXECUTABLE_ASSET_EXTENSIONS.has(extension)) return null
+  return {
+    path: parts.join('/'),
+    mime: MIME_TYPES[extension] || 'application/octet-stream',
+  }
 }
 
 function headersFor(mime, isHtml) {

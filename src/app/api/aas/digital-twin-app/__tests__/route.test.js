@@ -4,6 +4,7 @@
 
 import { clearRateLimitStoresForTests } from '@/utils/api/rateLimit'
 import { gatewayFetch, resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
+import { DIGITAL_TWIN_APP_ASSET_FILENAME } from '@/components/simulation/digitalTwinAppProtocol'
 import { GET, HEAD } from '../[labId]/[digest]/[...assetPath]/route'
 
 jest.mock('@/utils/api/gatewayProxy', () => {
@@ -49,7 +50,7 @@ describe('GET /api/aas/digital-twin-app/[labId]/[digest]/[...assetPath]', () => 
     )
   })
 
-  test('serves only supported nested static files with their expected MIME', async () => {
+  test('serves nested static files with their expected MIME', async () => {
     gatewayFetch.mockResolvedValueOnce(new Response('export default true'))
 
     const response = await GET(request(), {
@@ -60,6 +61,37 @@ describe('GET /api/aas/digital-twin-app/[labId]/[digest]/[...assetPath]', () => 
     expect(response.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
     expect(gatewayFetch).toHaveBeenCalledWith(
       `${GATEWAY_ORIGIN}/digital-twin-apps/${LAB_ID}/${DIGEST}/vendor/three.core.js`,
+      { method: 'GET', cache: 'no-store' },
+    )
+  })
+
+  test('serves provider-owned binary assets without per-extension registration', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])))
+
+    const response = await GET(request(), {
+      params: Promise.resolve({ labId: LAB_ID, digest: DIGEST, assetPath: ['textures', 'warehouse.ktx2'] }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('application/octet-stream')
+    expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([1, 2, 3])
+    expect(gatewayFetch).toHaveBeenCalledWith(
+      `${GATEWAY_ORIGIN}/digital-twin-apps/${LAB_ID}/${DIGEST}/textures/warehouse.ktx2`,
+      { method: 'GET', cache: 'no-store' },
+    )
+  })
+
+  test('serves the common protocol SDK as a JavaScript app asset', async () => {
+    gatewayFetch.mockResolvedValueOnce(new Response('export const DIGITAL_TWIN_PROTOCOL_VERSION = 1'))
+
+    const response = await GET(request(), {
+      params: Promise.resolve({ labId: LAB_ID, digest: DIGEST, assetPath: [DIGITAL_TWIN_APP_ASSET_FILENAME] }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+    expect(gatewayFetch).toHaveBeenCalledWith(
+      `${GATEWAY_ORIGIN}/digital-twin-apps/${LAB_ID}/${DIGEST}/${DIGITAL_TWIN_APP_ASSET_FILENAME}`,
       { method: 'GET', cache: 'no-store' },
     )
   })

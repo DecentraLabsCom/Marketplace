@@ -7,9 +7,10 @@ description: Marketplace postMessage contract for provider-supplied Three.js app
 This document defines the version 1 browser messaging contract between a
 provider's static Three.js application and Marketplace. The accompanying
 [JSON Schema](digital-twin-threejs-app-contract.schema.json) is the
-machine-readable message reference. Marketplace's protocol helpers live in
-`src/components/simulation/digitalTwinAppProtocol.js`; the maintained FMU
-example builders include that module in their offline app bundles.
+machine-readable message reference. The reusable, typed SDK is the workspace
+package [`@decentralabs/digital-twin-app-protocol`](../../packages/digital-twin-app-protocol/README.md).
+Marketplace imports that package directly; static app builders bundle its
+browser module into their offline archives.
 
 For asset upload, AAS linking and Gateway delivery, see
 [Configure and publish your lab](../become-a-provider/configure-and-publish-your-lab.md)
@@ -63,6 +64,26 @@ Limits in the current contract:
 The schema is normative for message shape and field-level bounds. Runtime
 validation also enforces the serialized batch cap, source window and selected
 model's FMI metadata.
+
+The SDK package includes the browser-safe JavaScript implementation, TypeScript
+message types and canonical version 1 schema. The schema beside this document
+is a documentation copy; the protocol conformance test verifies that it is
+identical to the package schema and checks valid and malformed messages against
+both the schema and runtime validators. FMI-specific checks remain at the host
+because they depend on the selected model's metadata.
+
+Static app ZIPs must include every local module and asset referenced by their
+HTML, JavaScript and CSS. The Smart Warehouse builder and Gateway's example
+sync validator check that dependency graph before packaging or syncing a demo.
+Create a local SDK tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`;
+this repository does not publish it automatically.
+
+Marketplace serves each published app from its immutable bundle. Providers do
+not register individual filenames or add app-specific allowlist entries; the
+bundle may contain the static resources the app needs, within Gateway's size
+and file-count limits. Runtime dependencies must use bundled relative paths,
+and the iframe sandbox restricts external resources. A GLB scene is a separate,
+optional visualization path; a Three.js app supplies its own complete HMI.
 
 ## Versioning and extension rules
 
