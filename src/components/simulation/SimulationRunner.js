@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
@@ -18,6 +18,7 @@ import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
 import { normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
+import { mergeAasSimulationVariables } from './aasSimulationVariables'
 import { getInitialSimulationOptions, getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
 import { safeExternalHttpsUrl } from '@/utils/security/safeUrl'
 import { createProtocolId } from './digitalTwinAppProtocol'
@@ -167,6 +168,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
   const [twinAsset, setTwinAsset] = useState(null)
   const [twinAssetState, setTwinAssetState] = useState('loading')
+  const [aasSimulationVariables, setAasSimulationVariables] = useState(null)
 
   const authPromiseRef = useRef(null)
   const proxyAttemptRef = useRef(null)
@@ -193,17 +195,43 @@ export default function SimulationRunner({ lab, reservationKey }) {
     }
   }
   const labId = String(lab.id ?? lab.tokenId ?? '')
+  const twinVariableResolution = useMemo(
+    () => mergeAasSimulationVariables(aasSimulationVariables, modelVariables),
+    [aasSimulationVariables, modelVariables],
+  )
+  const twinModelVariables = twinVariableResolution.variables
+  const twinEditableVariables = useMemo(() => twinModelVariables.filter(variable => (
+    variable?.causality === 'input'
+    || (variable?.causality === 'parameter' && variable?.variability !== 'constant')
+  )), [twinModelVariables])
+
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb') return
+    setParameters((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const variable of twinEditableVariables) {
+        if ((next[variable.name] === undefined || next[variable.name] === '') && variable.start != null) {
+          next[variable.name] = variable.start
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [twinAsset?.type, twinEditableVariables])
 
   useEffect(() => {
     if (!labId) {
       setTwinAsset(null)
       setTwinAssetState('ready')
+      setAasSimulationVariables(null)
       return undefined
     }
 
     const controller = new AbortController()
     setTwinAsset(null)
     setTwinAssetState('loading')
+    setAasSimulationVariables(null)
     fetch(`/api/aas/shell?${new URLSearchParams({ labId })}`, {
       cache: 'no-store',
       signal: controller.signal,
@@ -214,6 +242,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       })
       .then((data) => {
         if (controller.signal.aborted) return
+        setAasSimulationVariables(Array.isArray(data?.simulationVariables) ? data.simulationVariables : null)
         const visualAssets = Array.isArray(data?.visualAssets) ? data.visualAssets : []
         // A provider Three.js app is a complete experience and takes precedence
         // over a GLB when both are linked to the same AAS.
@@ -229,6 +258,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       .catch((error) => {
         if (!controller.signal.aborted) {
           devLog.warn('Digital twin visual asset discovery failed:', error?.message)
+          setAasSimulationVariables(null)
           setTwinAsset(null)
           setTwinAssetState('ready')
         }
@@ -236,6 +266,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
     return () => controller.abort()
   }, [labId, lab.accessURI])
+
+  useEffect(() => {
+    if (twinVariableResolution.conflicts.length > 0) {
+      devLog.warn('AAS simulation metadata disagrees with the FMU description; conflicting fields use FMU metadata.',
+        twinVariableResolution.conflicts.slice(0, 20))
+    }
+  }, [twinVariableResolution.conflicts])
 
   const proxyAttemptKey = reservationKey && fmuMeta?.fmuFileName
     ? `${labId}:${String(reservationKey).toLowerCase()}`
@@ -669,13 +706,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
             </div>
           </div>
 
-          {inputVars.length === 0 && (
-            <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no input variables. Run it with its default settings.</p>
+          {twinEditableVariables.length === 0 && (
+            <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no editable input variables or parameters. Run it with its declared defaults.</p>
           )}
 
           <DigitalTwinSimulationForm
-            variables={inputVars}
-            modelVariables={modelVariables}
+            variables={twinEditableVariables}
+            modelVariables={twinModelVariables}
             values={parameters}
             onInputChange={handleParamChange}
             simulationOptions={options}
@@ -817,7 +854,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           sceneUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
           results={results}
-          modelVariables={modelVariables}
+          modelVariables={twinModelVariables}
           isRunning={simState === SIM_STATE.RUNNING}
           startTime={Number(options.startTime)}
           stopTime={Number(options.stopTime)}

@@ -14,6 +14,8 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' }
 const MAX_SUBMODEL_REFERENCES = 64
 const MAX_IDENTIFIER_LENGTH = 2048
 const MAX_PROPERTY_VALUE_LENGTH = 4096
+const MAX_FMI_VARIABLE_METADATA_LENGTH = 262_144
+const MAX_AAS_SIMULATION_VARIABLES = 20_000
 const FALLBACK_SUBMODEL_SUFFIXES = [
   'nameplate',
   'simulationModels',
@@ -194,6 +196,180 @@ function buildSimulationInfo(submodel) {
     documentationUrls: [...new Set(documentationUrls)],
     contactEmail: firstProperty(props, ['ContactEmail']),
   }
+}
+
+function readSubmodelElementValue(element) {
+  if (element?.modelType === 'Property' || element?.modelType === 'Range') {
+    return safePropertyValue(element.value)
+  }
+  if (element?.modelType === 'MultiLanguageProperty') {
+    const languageValues = Array.isArray(element.value) ? element.value : []
+    const text = languageValues.find((item) => String(item?.language || '').toLowerCase() === 'en')?.text
+      ?? languageValues.find((item) => typeof item?.text === 'string')?.text
+    return safePropertyValue(text)
+  }
+  return null
+}
+
+function variableElementProperties(variableElement) {
+  const properties = {}
+  if (!Array.isArray(variableElement?.value)) return properties
+  for (const element of variableElement.value) {
+    if (typeof element?.idShort !== 'string') continue
+    const value = readSubmodelElementValue(element)
+    if (value !== null) properties[element.idShort] = value
+  }
+  return properties
+}
+
+function parseAasRange(value) {
+  if (typeof value !== 'string') return {}
+  const text = value.trim()
+  if (text.length < 5 || !['[', '('].includes(text[0]) || ![']', ')'].includes(text.at(-1))) return {}
+  const comma = text.indexOf(',')
+  if (comma < 0) return {}
+  const parseBound = (raw) => {
+    const text = raw.trim().replace(/[−﹣]/g, '-')
+    if (/^[+-]?(?:∞|inf(?:inity)?)$/i.test(text)) return null
+    const number = Number(text)
+    return Number.isFinite(number) ? number : null
+  }
+  const minimum = parseBound(text.slice(1, comma))
+  const maximum = parseBound(text.slice(comma + 1, -1))
+  return {
+    ...(minimum !== null ? { min: minimum } : {}),
+    ...(maximum !== null ? { max: maximum } : {}),
+  }
+}
+
+function normalizeFmiMetadataExtension(element) {
+  const extension = Array.isArray(element?.extensions)
+    ? element.extensions.find((candidate) => candidate?.name === 'decentralabs.fmi.variableMetadata.v1')
+    : null
+  if (typeof extension?.value !== 'string' || extension.value.length > MAX_FMI_VARIABLE_METADATA_LENGTH) return {}
+  try {
+    const metadata = JSON.parse(extension.value)
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {}
+    const normalized = {}
+    for (const field of ['type', 'causality', 'variability', 'initial', 'quantity', 'displayName']) {
+      const value = metadata[field]
+      if (typeof value === 'string' && value.trim()) normalized[field] = value.trim().slice(0, 4096)
+    }
+    if (Number.isInteger(metadata.valueReference) && metadata.valueReference >= 0) {
+      normalized.valueReference = metadata.valueReference
+    }
+    for (const field of ['nominal']) {
+      const value = Number(metadata[field])
+      if (metadata[field] != null && Number.isFinite(value) && value > 0) normalized[field] = value
+    }
+    if (typeof metadata.start === 'string' || typeof metadata.start === 'number' || typeof metadata.start === 'boolean') {
+      normalized.start = metadata.start
+    } else if (Array.isArray(metadata.start) && metadata.start.length <= 4096) {
+      const isScalarArray = (value, depth = 0) => depth <= 4 && Array.isArray(value)
+        ? value.every((item) => Array.isArray(item)
+          ? isScalarArray(item, depth + 1)
+          : (item === null || ['string', 'number', 'boolean'].includes(typeof item)))
+        : value === null || ['string', 'number', 'boolean'].includes(typeof value)
+      if (isScalarArray(metadata.start)) normalized.start = metadata.start
+    }
+    if (metadata.displayUnit && typeof metadata.displayUnit === 'object' && !Array.isArray(metadata.displayUnit)) {
+      const name = typeof metadata.displayUnit.name === 'string' ? metadata.displayUnit.name.trim().slice(0, 64) : ''
+      const factor = Number(metadata.displayUnit.factor ?? 1)
+      const offset = Number(metadata.displayUnit.offset ?? 0)
+      const inverse = metadata.displayUnit.inverse === true
+      if (name && Number.isFinite(factor) && factor !== 0 && Number.isFinite(offset) && (!inverse || offset === 0)) {
+        normalized.displayUnit = { name, factor, offset, ...(inverse ? { inverse: true } : {}) }
+      }
+    }
+    if (Array.isArray(metadata.dimensions) && metadata.dimensions.length <= 64) {
+      normalized.dimensions = metadata.dimensions.flatMap((dimension) => {
+        if (!dimension || typeof dimension !== 'object' || Array.isArray(dimension)) return []
+        const item = {}
+        for (const field of ['start', 'valueReference']) {
+          if (Number.isInteger(dimension[field]) && dimension[field] >= 0) item[field] = dimension[field]
+        }
+        if (typeof dimension.variableName === 'string' && dimension.variableName.trim()) {
+          item.variableName = dimension.variableName.trim().slice(0, 256)
+        }
+        return Object.keys(item).length ? [item] : []
+      })
+    }
+    if (Array.isArray(metadata.enumItems) && metadata.enumItems.length <= 256) {
+      normalized.enumItems = metadata.enumItems.flatMap((item) => {
+        if (!item || typeof item.name !== 'string' || !Number.isInteger(Number(item.value))) return []
+        const option = { name: item.name.trim().slice(0, 256), value: Number(item.value) }
+        if (typeof item.description === 'string' && item.description.trim()) {
+          option.description = item.description.trim().slice(0, 1024)
+        }
+        return option.name ? [option] : []
+      })
+    }
+    if (metadata.declaredType && typeof metadata.declaredType === 'object' && !Array.isArray(metadata.declaredType)) {
+      const declaredType = {}
+      for (const field of ['name', 'type', 'description', 'unit', 'quantity', 'displayUnit']) {
+        const value = metadata.declaredType[field]
+        if (typeof value === 'string' && value.trim()) declaredType[field] = value.trim().slice(0, 4096)
+      }
+      for (const field of ['min', 'max']) {
+        const value = Number(metadata.declaredType[field])
+        if (metadata.declaredType[field] != null && Number.isFinite(value)) declaredType[field] = value
+      }
+      if (Array.isArray(metadata.declaredType.items) && metadata.declaredType.items.length <= 256) {
+        declaredType.items = metadata.declaredType.items.flatMap((item) => {
+          if (!item || typeof item.name !== 'string' || !Number.isInteger(Number(item.value))) return []
+          const option = { name: item.name.trim().slice(0, 256), value: Number(item.value) }
+          if (typeof item.description === 'string' && item.description.trim()) {
+            option.description = item.description.trim().slice(0, 1024)
+          }
+          return option.name ? [option] : []
+        })
+      }
+      if (Object.keys(declaredType).length) normalized.declaredType = declaredType
+    }
+    return normalized
+  } catch {
+    return {}
+  }
+}
+
+function buildSimulationVariables(submodel) {
+  const submodelElements = Array.isArray(submodel?.submodelElements) ? submodel.submodelElements : []
+  const simulationModel = submodelElements.find((element) => (
+    element?.modelType === 'SubmodelElementCollection' && element.idShort === 'SimulationModel'
+  ))
+  const simulationModelElements = Array.isArray(simulationModel?.value) ? simulationModel.value : []
+  const ports = simulationModelElements.find((element) => (
+    element?.modelType === 'SubmodelElementCollection' && element.idShort === 'Ports'
+  ))
+  const variables = []
+  const connectors = Array.isArray(ports?.value) ? ports.value : []
+  for (const connector of connectors) {
+    if (connector?.modelType !== 'SubmodelElementCollection' || !Array.isArray(connector.value)) continue
+    for (const element of connector.value) {
+      if (element?.modelType !== 'SubmodelElementCollection') continue
+      const properties = variableElementProperties(element)
+      const name = properties.VariableName
+      const standardCausality = String(properties.VariableCausality || '').toLowerCase()
+      const metadata = normalizeFmiMetadataExtension(element)
+      const causality = metadata.causality || ({ input: 'input', output: 'output', acausal: 'acausal' })[standardCausality]
+      if (typeof name !== 'string' || !name || typeof causality !== 'string') continue
+      if (variables.length >= MAX_AAS_SIMULATION_VARIABLES) return { variables: [], complete: false }
+      const rawType = String(properties.VariableType || 'Real')
+      const variable = {
+        name,
+        type: rawType.toUpperCase() === 'ENUM' ? 'Enumeration' : rawType,
+        causality,
+        ...(typeof properties.VariableDescription === 'string' ? { description: properties.VariableDescription } : {}),
+        ...(typeof properties.UnitList === 'string' && properties.UnitList.toLowerCase() !== 'others'
+          ? { unit: properties.UnitList }
+          : (typeof properties.UnitDescription === 'string' ? { unit: properties.UnitDescription } : {})),
+        ...parseAasRange(properties.Range),
+        ...metadata,
+      }
+      variables.push(variable)
+    }
+  }
+  return { variables, complete: true }
 }
 
 function buildContactInfo(submodel) {
@@ -393,6 +569,7 @@ export async function GET(request) {
 
     let nameplate = null
     let simulationInfo = null
+    let simulationVariables = null
     let operationalInfo = null
     let executionInfo = null
     let interfaceInfo = null
@@ -404,6 +581,10 @@ export async function GET(request) {
         nameplate = extractProperties(submodel?.submodelElements)
       } else if (kind === 'simulation' && simulationInfo === null) {
         simulationInfo = buildSimulationInfo(submodel)
+        const parsedVariables = buildSimulationVariables(submodel)
+        if (parsedVariables.complete && parsedVariables.variables.length) {
+          simulationVariables = parsedVariables.variables
+        }
       } else if (kind === 'operational' && operationalInfo === null) {
         operationalInfo = buildOperationalInfo(submodel, submodelId)
       } else if (kind === 'execution' && executionInfo === null) {
@@ -444,6 +625,7 @@ export async function GET(request) {
         shell,
         nameplate,
         simulationInfo,
+        ...(simulationVariables ? { simulationVariables } : {}),
         operationalInfo,
         executionInfo,
         ...(handoverInfo?.visualAssets?.length

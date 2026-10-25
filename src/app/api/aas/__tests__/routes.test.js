@@ -198,6 +198,78 @@ describe('GET /api/aas/shell', () => {
     )
   })
 
+  test('returns standard AAS FMI ports enriched with the versioned FMI metadata extension', async () => {
+    const fmiMetadata = {
+      type: 'Float32',
+      causality: 'input',
+      valueReference: 7,
+      variability: 'continuous',
+      start: 0.25,
+      min: 0,
+      max: 1,
+      unit: 'm/s',
+      displayUnit: { name: 'km/h', factor: 3.6, offset: 0 },
+    }
+    const variable = {
+      modelType: 'SubmodelElementCollection',
+      idShort: 'speed',
+      extensions: [{
+        name: 'decentralabs.fmi.variableMetadata.v1',
+        valueType: 'xs:string',
+        value: JSON.stringify(fmiMetadata),
+      }],
+      value: [
+        { modelType: 'Property', idShort: 'VariableName', value: 'speed' },
+        { modelType: 'Property', idShort: 'VariableType', value: 'Real' },
+        { modelType: 'Property', idShort: 'VariableCausality', value: 'Input' },
+        { modelType: 'Property', idShort: 'Range', value: '[0, 1]' },
+        { modelType: 'Property', idShort: 'UnitList', value: 'others' },
+        { modelType: 'MultiLanguageProperty', idShort: 'UnitDescription', value: [{ language: 'en', text: 'm/s' }] },
+        { modelType: 'MultiLanguageProperty', idShort: 'VariableDescription', value: [{ language: 'en', text: 'Vehicle speed' }] },
+      ],
+    }
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: shellId,
+        submodels: [{ keys: [{ type: 'Submodel', value: simulationModelsId }] }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: simulationModelsId,
+        idShort: 'SimulationModels',
+        submodelElements: [{
+          modelType: 'SubmodelElementCollection',
+          idShort: 'SimulationModel',
+          value: [{
+            modelType: 'SubmodelElementCollection',
+            idShort: 'Ports',
+            value: [{
+              modelType: 'SubmodelElementCollection',
+              idShort: 'Input',
+              value: [variable],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.simulationVariables).toEqual([{
+      name: 'speed',
+      type: 'Float32',
+      causality: 'input',
+      description: 'Vehicle speed',
+      unit: 'm/s',
+      min: 0,
+      max: 1,
+      valueReference: 7,
+      variability: 'continuous',
+      start: 0.25,
+      displayUnit: { name: 'km/h', factor: 3.6, offset: 0 },
+    }])
+  })
+
   test.each([
     [
       'managed GLB scene',

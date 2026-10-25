@@ -180,13 +180,15 @@ export default function DigitalTwinSimulationForm({
 }) {
   const [activeDialog, setActiveDialog] = useState(null)
   const includeStepSize = simulationType !== 'ScheduledExecution'
+  const scheduleVariables = variables.filter((variable) => variable?.causality === 'input')
+  const canScheduleInputChanges = enableInputSchedule && scheduleVariables.length > 0
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
   let inputScheduleError = ''
-  if (enableInputSchedule && !simulationOptionsError) {
+  if (canScheduleInputChanges && !simulationOptionsError) {
     try {
       normalizeInputSchedule(
         inputEvents,
-        variables,
+        scheduleVariables,
         modelVariables,
         Number(simulationOptions.startTime),
         Number(simulationOptions.stopTime),
@@ -224,7 +226,7 @@ export default function DigitalTwinSimulationForm({
             <span>Run Controls</span>
             <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
           </button>
-          {enableInputSchedule && variables.length > 0 ? (
+          {canScheduleInputChanges ? (
             <button
               type="button"
               aria-haspopup="dialog"
@@ -266,7 +268,7 @@ export default function DigitalTwinSimulationForm({
       >
         <p className="mb-4 text-xs text-[#829ba1]">Set model inputs and simulation time for the next run.</p>
         <section className="mb-4 grid gap-3" aria-labelledby="digital-twin-run-inputs-title">
-          <h3 id="digital-twin-run-inputs-title" className="text-sm font-semibold text-white">Model inputs</h3>
+          <h3 id="digital-twin-run-inputs-title" className="text-sm font-semibold text-white">Inputs and tunable parameters</h3>
           {variables.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {variables.map((variable) => (
@@ -281,7 +283,7 @@ export default function DigitalTwinSimulationForm({
               ))}
             </div>
           ) : (
-            <p className="rounded-lg border border-[#26383f] bg-[#0c171c] px-3 py-2 text-xs text-[#829ba1]">This FMU has no input variables.</p>
+            <p className="rounded-lg border border-[#26383f] bg-[#0c171c] px-3 py-2 text-xs text-[#829ba1]">This FMU has no editable input variables or parameters.</p>
           )}
         </section>
         <SimulationOptions
@@ -301,7 +303,7 @@ export default function DigitalTwinSimulationForm({
         </div>
       </Modal>
 
-      {enableInputSchedule && variables.length > 0 ? (
+      {canScheduleInputChanges ? (
         <Modal
           isOpen={activeDialog === 'schedule'}
           onClose={() => setActiveDialog(null)}
@@ -312,7 +314,7 @@ export default function DigitalTwinSimulationForm({
           portal
         >
           <InputScheduleEditor
-            variables={variables}
+            variables={scheduleVariables}
             modelVariables={modelVariables}
             initialValues={values}
             events={inputEvents}
