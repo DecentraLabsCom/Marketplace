@@ -45,7 +45,10 @@ export function buildContentSecurityPolicy({ nonce, isDevelopment = false } = {}
     isDevelopment ? "style-src-elem 'self' 'unsafe-inline'" : `style-src-elem 'self' 'nonce-${nonce}'`,
     "style-src-attr 'unsafe-inline'",
     `img-src ${defaultImageSources().join(' ')}`,
-    `connect-src ${defaultConnectSources().join(' ')}`,
+    `connect-src ${unique([
+      ...defaultConnectSources(),
+      ...(isDevelopment ? ['ws://127.0.0.1:8081'] : []),
+    ]).join(' ')}`,
     `frame-src ${frameSources().join(' ')}`,
     "frame-ancestors 'none'",
     "font-src 'self' data:",
