@@ -22,6 +22,11 @@ import { mergeAasSimulationVariables } from './aasSimulationVariables'
 import { getInitialSimulationOptions, getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
 import { safeExternalHttpsUrl } from '@/utils/security/safeUrl'
 import { createProtocolId } from './digitalTwinAppProtocol'
+import {
+  filterModelVariablesByAccess,
+  getInitializationEditableVariables,
+  getRuntimeWritableVariables,
+} from './simulationVariableAccess'
 
 const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
@@ -146,15 +151,9 @@ function resolveDigitalTwinSimulationOptions(baseOptions, requestedOptions, simu
 
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
-  const modelVariables = fmuMeta?.modelVariables || []
-  const inputVars = modelVariables.filter(v => v.causality === 'input')
   const isSSO = useGetIsSSO()
 
-  const [parameters, setParameters] = useState(() => {
-    const params = {}
-    inputVars.forEach(v => { params[v.name] = v.start ?? '' })
-    return params
-  })
+  const [parameters, setParameters] = useState({})
   const [inputEvents, setInputEvents] = useState([])
   const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
   const [simState, setSimState] = useState(SIM_STATE.IDLE)
@@ -169,6 +168,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [twinAsset, setTwinAsset] = useState(null)
   const [twinAssetState, setTwinAssetState] = useState('loading')
   const [aasSimulationVariables, setAasSimulationVariables] = useState(null)
+  const [variableAccess, setVariableAccess] = useState(null)
+  const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
+  const modelVariables = Array.isArray(variableAccess?.modelVariables) ? variableAccess.modelVariables : []
 
   const authPromiseRef = useRef(null)
   const proxyAttemptRef = useRef(null)
@@ -185,25 +187,64 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const supportsInputSchedule = !isModelExchange && !isScheduledExecution
   const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
   const [solver, setSolver] = useState('Euler')
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+  const accessibleModelVariables = useMemo(
+    () => filterModelVariablesByAccess(modelVariables, variableAccess),
+    [modelVariables, variableAccess],
+  )
+  const editableVariables = useMemo(
+    () => getInitializationEditableVariables(accessibleModelVariables, variableAccess),
+    [accessibleModelVariables, variableAccess],
+  )
+  const scheduledRuntimeVariables = useMemo(
+    () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
+    [accessibleModelVariables, variableAccess],
+  )
   let inputScheduleError = ''
   const simulationOptionsError = getSimulationOptionsError(options, { includeStepSize: !isScheduledExecution })
   if (supportsInputSchedule && inputEvents.length > 0 && !simulationOptionsError) {
     try {
-      normalizeInputSchedule(inputEvents, inputVars, modelVariables, options.startTime, options.stopTime, options.stepSize)
+      normalizeInputSchedule(inputEvents, scheduledRuntimeVariables, accessibleModelVariables, options.startTime, options.stopTime, options.stepSize)
     } catch (error) {
       inputScheduleError = error.message
     }
   }
-  const labId = String(lab.id ?? lab.tokenId ?? '')
   const twinVariableResolution = useMemo(
     () => mergeAasSimulationVariables(aasSimulationVariables, modelVariables),
     [aasSimulationVariables, modelVariables],
   )
-  const twinModelVariables = twinVariableResolution.variables
-  const twinEditableVariables = useMemo(() => twinModelVariables.filter(variable => (
-    variable?.causality === 'input'
-    || (variable?.causality === 'parameter' && variable?.variability !== 'constant')
-  )), [twinModelVariables])
+  const twinModelVariables = useMemo(
+    () => filterModelVariablesByAccess(twinVariableResolution.variables, variableAccess),
+    [twinVariableResolution.variables, variableAccess],
+  )
+  const twinEditableVariables = useMemo(
+    () => getInitializationEditableVariables(twinModelVariables, variableAccess),
+    [twinModelVariables, variableAccess],
+  )
+  const twinScheduledRuntimeVariables = useMemo(
+    () => getRuntimeWritableVariables(twinModelVariables, variableAccess),
+    [twinModelVariables, variableAccess],
+  )
+
+  useEffect(() => {
+    if (variableAccessState !== 'ready') return
+    setParameters((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const variable of editableVariables) {
+        if (next[variable.name] === undefined || next[variable.name] === '') {
+          const permission = variableAccess.variables?.[variable.name]
+          const defaultValue = permission?.read === true
+            ? variable.start
+            : variable.type === 'Boolean' ? false : undefined
+          if (defaultValue === undefined || defaultValue === null) continue
+          next[variable.name] = defaultValue
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [editableVariables, variableAccess, variableAccessState])
 
   useEffect(() => {
     if (twinAsset?.type !== 'glb') return
@@ -357,7 +398,54 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return response
   }, [ensureGatewaySession, reauthenticateGatewaySession])
 
+  useEffect(() => {
+    if (!labId || !reservationKey) {
+      setVariableAccess(null)
+      setVariableAccessState('unavailable')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setVariableAccess(null)
+    setVariableAccessState('loading')
+    fetchGateway('/api/simulations/access', {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || 'Variable access could not be resolved for this reservation.')
+        }
+        return response.json()
+      })
+      .then((access) => {
+        if (controller.signal.aborted) return
+        if (!access?.variables || typeof access.variables !== 'object' || Array.isArray(access.variables)
+          || !Array.isArray(access.modelVariables)) {
+          throw new Error('The provider returned an invalid variable access policy.')
+        }
+        setVariableAccess(access)
+        setVariableAccessState('ready')
+        setErrorMsg(null)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setVariableAccessState('error')
+        setErrorMsg(error?.message || 'Variable access could not be resolved for this reservation.')
+      })
+    return () => controller.abort()
+  }, [fetchGateway, labId, reservationKey])
+
   const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, executionContext = null) => {
+    if (variableAccessState !== 'ready' || !variableAccess) {
+      setErrorMsg('Variable access is not ready for this reservation.')
+      setSimState(SIM_STATE.ERROR)
+      return
+    }
     if (simulationInFlightRef.current) return
     simulationInFlightRef.current = true
     const runId = executionContext?.runId || createProtocolId('run')
@@ -376,11 +464,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         if (!requestedParameters || typeof requestedParameters !== 'object' || Array.isArray(requestedParameters)) {
           throw new Error('The digital twin requested invalid simulation inputs.')
         }
-        const allowedInitializationNames = new Set(modelVariables
-          .filter((variable) => (
-            variable?.causality === 'input'
-            || (variable?.causality === 'parameter' && variable?.variability !== 'constant')
-          ))
+        const allowedInitializationNames = new Set(editableVariables
           .map((variable) => variable.name))
         if (Object.keys(requestedParameters).some((name) => !allowedInitializationNames.has(name))) {
           throw new Error('The digital twin requested an FMU input or tunable parameter that this model does not expose.')
@@ -406,8 +490,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const inputSchedule = supportsInputSchedule
         ? normalizeInputSchedule(
           activeInputEvents,
-          inputVars,
-          modelVariables,
+          scheduledRuntimeVariables,
+          accessibleModelVariables,
           resolvedActiveOptions.startTime,
           resolvedActiveOptions.stopTime,
           resolvedActiveOptions.stepSize,
@@ -424,7 +508,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
         reqOptions.solver = solver
       }
 
-      const normalizedParameters = normalizeSimulationParameters(activeParameters, modelVariables)
+      const writableInitializationNames = new Set(editableVariables.map((variable) => variable.name))
+      const initializationValues = Object.fromEntries(Object.entries(activeParameters).filter(([name, value]) => (
+        writableInitializationNames.has(name) && value !== '' && value !== null && value !== undefined
+      )))
+      const normalizedParameters = normalizeSimulationParameters(initializationValues, accessibleModelVariables)
 
       const body = {
         labId: String(lab.id ?? lab.tokenId ?? ''),
@@ -508,7 +596,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         simulationInFlightRef.current = false
       }
     }
-  }, [fetchGateway, fmuMeta.simulationType, inputEvents, inputVars, isModelExchange, isScheduledExecution, lab, modelVariables, options, parameters, reservationKey, solver, supportsInputSchedule])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, solver, supportsInputSchedule, variableAccess, variableAccessState])
 
   const cancelSimulation = useCallback((runId) => {
     const controller = simulationControllerRef.current
@@ -650,6 +738,30 @@ export default function SimulationRunner({ lab, reservationKey }) {
     )
   }
 
+  if (variableAccessState === 'unavailable') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-center text-sm text-[#bad0d2]" role="alert">
+        An active reservation is required to access this simulation.
+      </div>
+    )
+  }
+
+  if (variableAccessState === 'loading') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-sm text-[#bad0d2]" role="status">
+        Checking simulation access…
+      </div>
+    )
+  }
+
+  if (variableAccessState === 'error') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-error-border bg-error-bg p-8 text-center text-sm text-error-text" role="alert">
+        {errorMsg || 'Variable access could not be resolved for this reservation.'}
+      </div>
+    )
+  }
+
   const gatewayUrl = lab.accessURI || ''
 
   if (twinAssetState === 'loading') {
@@ -675,7 +787,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
             if (!response.ok) throw new Error('The provider FMU connection could not be authorized.')
             return response.json()
           }}
-          modelVariables={modelVariables}
+          modelVariables={accessibleModelVariables}
+          scheduleVariables={twinScheduledRuntimeVariables}
           enableInputSchedule={supportsInputSchedule}
           inputValues={parameters}
           inputEvents={inputEvents}
@@ -713,6 +826,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           <DigitalTwinSimulationForm
             variables={twinEditableVariables}
             modelVariables={twinModelVariables}
+            scheduleVariables={twinScheduledRuntimeVariables}
             values={parameters}
             onInputChange={handleParamChange}
             simulationOptions={options}
@@ -763,20 +877,20 @@ export default function SimulationRunner({ lab, reservationKey }) {
             />
           )}
 
-          {inputVars.length > 0 && (
+          {editableVariables.length > 0 && (
             <ParameterForm
-              variables={inputVars}
-              modelVariables={modelVariables}
+              variables={editableVariables}
+              modelVariables={accessibleModelVariables}
               values={parameters}
               onChange={handleParamChange}
               disabled={simState === SIM_STATE.RUNNING}
             />
           )}
 
-          {supportsInputSchedule && inputVars.length > 0 && (
+          {supportsInputSchedule && scheduledRuntimeVariables.length > 0 && (
             <InputScheduleEditor
-              variables={inputVars}
-              modelVariables={modelVariables}
+              variables={scheduledRuntimeVariables}
+              modelVariables={accessibleModelVariables}
               initialValues={parameters}
               events={inputEvents}
               startTime={Number(options.startTime)}
@@ -836,13 +950,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
                 {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
               </h3>
               {results.outputs && Object.keys(results.outputs).length > 0 && (
-                <ResultsChart outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />
+                <ResultsChart outputs={results.outputs} time={results.time} variableMetadata={accessibleModelVariables} />
               )}
               {simState === SIM_STATE.COMPLETED && results.outputs && (
-                <ResultsTable outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />
+                <ResultsTable outputs={results.outputs} time={results.time} variableMetadata={accessibleModelVariables} />
               )}
               {simState === SIM_STATE.COMPLETED && (
-                <DownloadButtons results={results} labName={lab?.name} variableMetadata={modelVariables} />
+                <DownloadButtons results={results} labName={lab?.name} variableMetadata={accessibleModelVariables} />
               )}
             </div>
           )}

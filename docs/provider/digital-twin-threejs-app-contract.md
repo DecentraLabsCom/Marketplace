@@ -100,6 +100,14 @@ generated controls; it does not require this web app integration.
    rechecks the reservation and creates the Station session. Session-start
    evidence, revocation, quotas and expiry use the existing proxy.fmu path.
 
+When the FMU has an AAS variable-access policy, Gateway also enforces the
+effective permissions on this WebSocket session. It rejects unauthorized
+initialization/runtime writes, filters unreadable values from session replies,
+and returns only permitted variables from `model.describe`. Three.js apps must
+handle a Gateway `VARIABLE_ACCESS_DENIED` error when an operation is not
+allowed. The Marketplace host connection messages and schema do not carry the
+policy or replace this Gateway enforcement.
+
 Connection grants and API responses use `Cache-Control: no-store`. Keep a grant
 only in memory until used. Never place tickets in URLs, logs, local storage or
 app ZIPs. The app never receives the Marketplace session cookie, Gateway JWT
@@ -182,12 +190,16 @@ terminal state and sample count. Reset, cancellation and disposal abort the
 callback context; an asynchronous callback must check `signal.aborted` after
 awaiting and before committing UI changes. Callback failure stops execution.
 
-`run({ inputSchedule })` applies bounded input events at their model times. An
-optional `inputController(sample, context)` callback returns changed runtime
-inputs for closed-loop apps. That mode advances one sample per request so
-feedback can affect the next step; network latency therefore limits controller
-speed. Water Tank owns its controller and fault logic in the app and uses this
-mode in one FMU execution.
+`run({ inputSchedule })` applies bounded runtime variable changes at their
+model times. The host schedule may contain FMU inputs and, for FMI 3
+Co-Simulation models, parameters declared `tunable` when the effective access
+policy grants runtime writes. Those changes take effect at a communication
+point. An optional `inputController(sample, context)` callback returns changed
+runtime-writable variables for closed-loop apps, including FMI 2.0 and FMI 3.0
+Co-Simulation tunable parameters when permitted. That mode advances one sample
+per request so feedback can affect the next step; network latency therefore
+limits controller speed. Water Tank owns its controller and fault logic in the
+app and uses this mode in one FMU execution.
 
 ## Optional host visualization controls
 
@@ -199,8 +211,11 @@ mode in one FMU execution.
   for its cancel button and Fit to run duration. They are UI information, not
   authorization or billing evidence. `decentralabs:execution-cancel` asks the
   app to terminate its own direct session.
-* The optional host input-schedule editor adds validated `inputSchedule` events
-  to the connection response. The app applies them through its FMU client.
+* The optional host schedule editor adds validated `inputSchedule` events to
+  the connection response. The app applies them through its FMU client.
+  Events may change runtime-writable FMI inputs or FMI 2.0/FMI 3.0
+  Co-Simulation tunable parameters; the Gateway remains authoritative for the
+  effective access policy.
 * An explicitly configured host may support `decentralabs:digital-twin-model-change`.
   Normal published labs remain bound to their configured FMU. The qFMU local
   preview uses this extension to select among its four reference models.
@@ -209,4 +224,4 @@ Marketplace apps use host integration protocol version 2. The native
 `proxy.fmu` WebSocket session protocol is version 1.0 and supports the bounded
 `sim.advance` operation for batched output samples.
 
-Last reviewed: 2026-10-24
+Last reviewed: 2026-10-25

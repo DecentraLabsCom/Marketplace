@@ -172,6 +172,7 @@ export default function DigitalTwinSimulationForm({
   onSimulationOptionChange,
   simulationType,
   enableInputSchedule = true,
+  scheduleVariables,
   inputEvents = [],
   onInputEventsChange = () => {},
   running = false,
@@ -180,15 +181,17 @@ export default function DigitalTwinSimulationForm({
 }) {
   const [activeDialog, setActiveDialog] = useState(null)
   const includeStepSize = simulationType !== 'ScheduledExecution'
-  const scheduleVariables = variables.filter((variable) => variable?.causality === 'input')
-  const canScheduleInputChanges = enableInputSchedule && scheduleVariables.length > 0
+  const availableScheduleVariables = Array.isArray(scheduleVariables)
+    ? scheduleVariables
+    : variables.filter((variable) => variable?.causality === 'input')
+  const canScheduleInputChanges = enableInputSchedule && availableScheduleVariables.length > 0
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
   let inputScheduleError = ''
   if (canScheduleInputChanges && !simulationOptionsError) {
     try {
       normalizeInputSchedule(
         inputEvents,
-        scheduleVariables,
+        availableScheduleVariables,
         modelVariables,
         Number(simulationOptions.startTime),
         Number(simulationOptions.stopTime),
@@ -234,7 +237,7 @@ export default function DigitalTwinSimulationForm({
               disabled={running}
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span>Schedule input changes</span>
+              <span>Schedule changes</span>
               <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{inputEvents.length}</span>
             </button>
           ) : null}
@@ -307,14 +310,14 @@ export default function DigitalTwinSimulationForm({
         <Modal
           isOpen={activeDialog === 'schedule'}
           onClose={() => setActiveDialog(null)}
-          title="Schedule input changes"
+          title="Schedule variable changes"
           size="2xl"
           theme="dark"
           className="bg-[#101a20]! border border-[#263a42]"
           portal
         >
           <InputScheduleEditor
-            variables={scheduleVariables}
+            variables={availableScheduleVariables}
             modelVariables={modelVariables}
             initialValues={values}
             events={inputEvents}
@@ -354,6 +357,7 @@ DigitalTwinSimulationForm.propTypes = {
   onSimulationOptionChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
   enableInputSchedule: PropTypes.bool,
+  scheduleVariables: PropTypes.arrayOf(PropTypes.object),
   inputEvents: PropTypes.arrayOf(PropTypes.object),
   onInputEventsChange: PropTypes.func,
   running: PropTypes.bool,

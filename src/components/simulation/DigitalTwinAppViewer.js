@@ -14,6 +14,7 @@ const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
 
 export default function DigitalTwinAppViewer({
   appUrl, title = 'Digital Twin', onConnect, modelVariables = [], enableInputSchedule = false,
+  scheduleVariables,
   inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stopTime = 1, stepSize,
   onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
@@ -43,12 +44,17 @@ export default function DigitalTwinAppViewer({
   const activeRunId = execution.runId
   const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
   const playbackRateLabel = Number(playbackRate).toLocaleString(undefined, { maximumFractionDigits: 2 })
-  const inputVariables = useMemo(() => modelVariables.filter((v) => v?.causality === 'input'), [modelVariables])
+  const scheduledVariables = useMemo(
+    () => (Array.isArray(scheduleVariables)
+      ? scheduleVariables
+      : modelVariables.filter((variable) => variable?.causality === 'input')),
+    [modelVariables, scheduleVariables],
+  )
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
   let scheduleError = ''
   try {
-    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, startTime, stopTime, stepSize)
+    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, startTime, stopTime, stepSize)
   } catch (error) { scheduleError = error.message }
 
   function send(type, payload = {}) {
@@ -110,7 +116,7 @@ export default function DigitalTwinAppViewer({
         try {
           const interval = { startTime, stopTime, stepSize, ...message.options }
           const schedule = enableInputSchedule
-            ? normalizeInputSchedule(scheduledInputEvents, inputVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
+            ? normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
             : []
           const connection = await connectRef.current({ options: message.options || {}, signal: controller.signal })
           if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
@@ -123,7 +129,7 @@ export default function DigitalTwinAppViewer({
     }
     window.addEventListener('message', receive)
     return () => window.removeEventListener('message', receive)
-  }, [enableInputSchedule, inputVariables, modelVariables, inputEvents, startTime, stopTime, stepSize])
+  }, [enableInputSchedule, scheduledVariables, modelVariables, inputEvents, startTime, stopTime, stepSize])
 
   useEffect(() => {
     if (appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) {
@@ -261,7 +267,7 @@ export default function DigitalTwinAppViewer({
           {simulationError}
         </div>
       )}
-      {enableInputSchedule && inputVariables.length > 0 && appState === 'ready' && (
+      {enableInputSchedule && scheduledVariables.length > 0 && appState === 'ready' && (
         <>
           <button
             type="button"
@@ -272,7 +278,7 @@ export default function DigitalTwinAppViewer({
             className="absolute right-[312px] top-[20.5px] z-10 grid h-[29px] min-h-[29px] place-items-center rounded-md border border-[rgba(93,231,205,0.4)] bg-[rgba(14,62,58,0.78)] px-[10px] py-0 font-mono text-[7px] leading-none font-bold tracking-[0.09em] text-[#b9fff0] uppercase shadow-lg backdrop-blur transition hover:border-[#8bffe4] hover:bg-[rgba(22,91,81,0.92)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 max-[680px]:right-[239px] max-[680px]:top-[16.5px] max-[680px]:h-[27px] max-[680px]:min-h-[27px] max-[680px]:px-[7px] max-[680px]:text-[6px]"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
-            {scheduleOpen ? 'Hide input schedule' : 'Schedule input changes'}
+            {scheduleOpen ? 'Hide scheduled changes' : 'Schedule changes'}
           </button>
           {scheduleOpen && (
             <div
@@ -281,7 +287,7 @@ export default function DigitalTwinAppViewer({
               style={{ width: 'min(44rem, calc(100% - 2rem))', maxHeight: 'min(76vh, 52rem, calc(100% - 76px))' }}
             >
               <InputScheduleEditor
-                variables={inputVariables}
+                variables={scheduledVariables}
                 modelVariables={modelVariables}
                 initialValues={inputValues}
                 events={scheduledInputEvents}
@@ -302,7 +308,8 @@ export default function DigitalTwinAppViewer({
 
 DigitalTwinAppViewer.propTypes = {
   appUrl: PropTypes.string.isRequired, title: PropTypes.string, onConnect: PropTypes.func,
-  modelVariables: PropTypes.array, enableInputSchedule: PropTypes.bool, inputValues: PropTypes.object,
+  modelVariables: PropTypes.array, enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
+  inputValues: PropTypes.object,
   inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
   startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,
   onModelChangeRequest: PropTypes.func, hostExtensions: PropTypes.object,

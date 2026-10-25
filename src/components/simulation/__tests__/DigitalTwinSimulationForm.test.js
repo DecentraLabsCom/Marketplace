@@ -38,6 +38,8 @@ describe('DigitalTwinSimulationForm', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: /Run Controls/ }))
+
     expect(screen.getByLabelText(variables[0].description)).toHaveAttribute('type', 'range')
     expect(screen.getByLabelText(variables[1].description)).toHaveAttribute('type', 'checkbox')
     expect(screen.getByLabelText(variables[2].description)).toHaveAttribute('type', 'checkbox')

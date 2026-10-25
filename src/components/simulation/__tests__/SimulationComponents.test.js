@@ -408,12 +408,22 @@ function mockNdjsonResponse(events) {
 
 describe("SimulationRunner", () => {
   let gatewayResponses;
+  let proxyResponses;
+  let nextAccessPolicy;
 
   beforeEach(() => {
     gatewayResponses = [];
+    proxyResponses = [];
+    nextAccessPolicy = null;
     global.fetch = jest.fn((url) => {
       if (String(url).startsWith('/api/aas/shell?')) {
         return Promise.resolve({ ok: false, status: 404 });
+      }
+      if (url === '/api/simulations/access') {
+        return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
+      }
+      if (String(url).startsWith('/api/simulations/proxy?')) {
+        return Promise.resolve(proxyResponses.shift() || successfulProxyResponse());
       }
       return Promise.resolve(gatewayResponses.shift() || {
         ok: false,
@@ -427,6 +437,35 @@ describe("SimulationRunner", () => {
 
   function queueGatewayResponses(...responses) {
     gatewayResponses.push(...responses);
+  }
+
+  function queueProxyResponses(...responses) {
+    proxyResponses.push(...responses);
+  }
+
+  function successfulProxyResponse() {
+    return {
+      ok: true,
+      blob: async () => new Blob(['proxy']),
+      headers: new Headers({ 'content-disposition': 'attachment; filename="reservation-proxy.fmu"' }),
+    };
+  }
+
+  function accessPolicyForLab(lab) {
+    const variables = Object.fromEntries((lab.modelVariables || []).map((variable) => {
+      const causality = variable.causality || 'local';
+      const variability = variable.variability || 'continuous';
+      const writeAt = causality === 'input'
+        ? ['initialization', ...(variability === 'constant' ? [] : ['runtime'])]
+        : causality === 'parameter' && ['fixed', 'tunable'].includes(variability) ? ['initialization'] : [];
+      return [variable.name, { read: causality !== 'local', writeAt }];
+    }));
+    return { policySource: 'fmi-default', policyVersion: 'test', variables, modelVariables: lab.modelVariables || [] };
+  }
+
+  function renderReservedSimulationRunner(lab = fmuLab, reservationKey = '0xabc', accessPolicy = null) {
+    nextAccessPolicy = accessPolicy || accessPolicyForLab(lab);
+    return render(<SimulationRunner lab={lab} reservationKey={reservationKey} />);
   }
 
   async function waitForStandardSimulationView() {
@@ -462,10 +501,16 @@ describe("SimulationRunner", () => {
           json: async () => ({ visualAssets: [{ url: assetUrl, contentType }] }),
         });
       }
+      if (url === '/api/simulations/access') {
+        return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
+      }
+      if (String(url).startsWith('/api/simulations/proxy?')) {
+        return Promise.resolve(successfulProxyResponse());
+      }
       return Promise.resolve({ ok: false, status: 404 });
     });
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
 
     const viewer = await screen.findByTestId(testId);
     expect(viewer).toHaveAttribute("data-url", expectedUrl);
@@ -477,10 +522,16 @@ describe("SimulationRunner", () => {
       if (String(url).startsWith("/api/aas/shell?")) {
         return Promise.resolve({ ok: true, json: async () => ({ visualAssets: [] }) });
       }
+      if (url === '/api/simulations/access') {
+        return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
+      }
+      if (String(url).startsWith('/api/simulations/proxy?')) {
+        return Promise.resolve(successfulProxyResponse());
+      }
       return Promise.resolve({ ok: false, status: 404 });
     });
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
       "/api/aas/shell?labId=42",
@@ -490,30 +541,52 @@ describe("SimulationRunner", () => {
     expect(screen.queryByTestId("digital-twin-app")).not.toBeInTheDocument();
   });
 
+  test("does not render readable inputs or parameters as editable without initialization write permission", async () => {
+    const lab = {
+      ...fmuLab,
+      modelVariables: [
+        { name: 'readOnlyCommand', causality: 'input', start: 1 },
+        { name: 'readOnlyGain', causality: 'parameter', variability: 'tunable', start: 2 },
+        { name: 'writableCommand', causality: 'input', start: 3 },
+      ],
+    };
+    const accessPolicy = {
+      policySource: 'aas',
+      modelVariables: lab.modelVariables,
+      variables: {
+        readOnlyCommand: { read: true, writeAt: [] },
+        readOnlyGain: { read: true, writeAt: [] },
+        writableCommand: { read: false, writeAt: ['initialization'] },
+      },
+    };
+
+    renderReservedSimulationRunner(lab, '0xabc', accessPolicy);
+
+    expect(await screen.findByLabelText('Parameter writableCommand')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Parameter readOnlyCommand')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Parameter readOnlyGain')).not.toBeInTheDocument();
+  });
+
   test("renders simulation header with lab name", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     expect(await screen.findByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
   });
 
   test("does not show the redundant compatibility label", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     expect(screen.queryByText("Compatible with FMI 2.0 Co-Simulation")).not.toBeInTheDocument();
   });
 
   test("automatically downloads the reservation FMU and removes the manual action", async () => {
-    queueGatewayResponses({
+    queueProxyResponses({
       ok: true,
       blob: async () => new Blob(["proxy"]),
       headers: new Headers({
         "content-disposition": 'attachment; filename="fmu-proxy-lab-42.fmu"',
       }),
     });
-    const { rerender } = render(<SimulationRunner lab={fmuLab} />);
-    await waitForStandardSimulationView();
-    expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
-
-    rerender(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
+    renderReservedSimulationRunner();
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining("/api/simulations/proxy?"),
@@ -535,7 +608,7 @@ describe("SimulationRunner", () => {
         details: JSON.stringify({ code: "SESSION_TICKET_ALREADY_USED", error: "ticket already used" }),
       }),
     };
-    queueGatewayResponses(expiredResponse, expiredResponse);
+    queueProxyResponses(expiredResponse, expiredResponse);
 
     render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
 
@@ -546,21 +619,21 @@ describe("SimulationRunner", () => {
   });
 
   test("renders input parameter form for input variables only", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     expect(await screen.findByLabelText("Parameter mass")).toBeInTheDocument();
     // output variable should not have a parameter input
     expect(screen.queryByLabelText("Parameter position")).toBeNull();
   });
 
   test("renders simulation options with default values", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     expect(await screen.findByLabelText("Start Time (s)")).toHaveValue(0);
     expect(screen.getByLabelText("Stop Time (s)")).toHaveValue(10);
     expect(screen.getByLabelText("Step Size (s)")).toHaveValue(0.01);
   });
 
   test("shows 'Run Simulation' button in idle state", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     expect(await screen.findByText("Run Simulation")).toBeInTheDocument();
   });
 
@@ -573,7 +646,7 @@ describe("SimulationRunner", () => {
       ])
     );
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
@@ -595,7 +668,7 @@ describe("SimulationRunner", () => {
       ])
     );
 
-    render(<SimulationRunner lab={{ ...fmuLab, id: 1 }} />);
+    renderReservedSimulationRunner({ ...fmuLab, id: 1 });
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
@@ -635,7 +708,7 @@ describe("SimulationRunner", () => {
       ],
     };
 
-    render(<SimulationRunner lab={stateSpaceLab} />);
+    renderReservedSimulationRunner(stateSpaceLab);
     fireEvent.change(await screen.findByLabelText("Parameter u"), { target: { value: "4" } });
     fireEvent.click(screen.getByText("Run Simulation"));
 
@@ -644,7 +717,7 @@ describe("SimulationRunner", () => {
   });
 
   test("reauthenticates once with the canonical lab auth context after a 401", async () => {
-    queueGatewayResponses({
+    queueProxyResponses({
       ok: true,
       blob: async () => new Blob(["proxy"]),
       headers: new Headers({
@@ -684,7 +757,7 @@ describe("SimulationRunner", () => {
       ])
     );
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
@@ -700,7 +773,7 @@ describe("SimulationRunner", () => {
       json: async () => ({ error: "Simulation exploded" }),
     });
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Run Simulation"));
 
@@ -721,7 +794,7 @@ describe("SimulationRunner", () => {
   });
 
   test("shows history toggle button", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     expect(await screen.findByText("Show History")).toBeInTheDocument();
   });
 
@@ -735,7 +808,7 @@ describe("SimulationRunner", () => {
       }),
     });
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Show History"));
 
@@ -773,7 +846,7 @@ describe("SimulationRunner", () => {
       },
     );
 
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     fireEvent.click(screen.getByText("Show History"));
 
@@ -790,12 +863,12 @@ describe("SimulationRunner", () => {
 
   test("shows solver selector for ModelExchange FMUs", async () => {
     const meLab = { ...fmuLab, simulationType: "ModelExchange" };
-    render(<SimulationRunner lab={meLab} />);
+    renderReservedSimulationRunner(meLab);
     expect(await screen.findByLabelText("ODE Solver:")).toBeInTheDocument();
   });
 
   test("does not show solver selector for CoSimulation FMUs", async () => {
-    render(<SimulationRunner lab={fmuLab} />);
+    renderReservedSimulationRunner();
     await waitForStandardSimulationView();
     expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
   });

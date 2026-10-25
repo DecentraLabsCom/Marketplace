@@ -304,12 +304,12 @@ export function normalizeSimulationParameters(parameters, modelVariables = []) {
   ]))
 }
 
-export function normalizeInputSchedule(events, inputVariables, modelVariables = [], startTime = 0, stopTime, stepSize) {
+export function normalizeInputSchedule(events, scheduledVariables, modelVariables = [], startTime = 0, stopTime, stepSize) {
   if (!Array.isArray(events) || events.length > 128) {
-    throw new Error('A simulation can contain at most 128 scheduled input changes.')
+    throw new Error('A simulation can contain at most 128 scheduled changes.')
   }
 
-  const allowedVariables = new Map(inputVariables.map((variable) => [variable.name, variable]))
+  const allowedVariables = new Map(scheduledVariables.map((variable) => [variable.name, variable]))
   const groupedEvents = new Map()
   const start = Number(startTime)
   const stop = Number(stopTime)
@@ -318,7 +318,7 @@ export function normalizeInputSchedule(events, inputVariables, modelVariables = 
   for (const event of events) {
     const time = Number(event?.time)
     const variable = allowedVariables.get(event?.variable)
-    if (!variable) throw new Error('A scheduled change refers to an input that is not available in this FMU.')
+    if (!variable) throw new Error('A scheduled change refers to a variable that is not available for runtime changes in this FMU.')
     if (!Number.isFinite(time) || !Number.isFinite(start) || !Number.isFinite(stop) || time < start || time >= stop) {
       throw new Error(`The scheduled change for ${variable.name} must occur between ${start} s and the end of the simulation.`)
     }
@@ -342,7 +342,7 @@ export function normalizeInputSchedule(events, inputVariables, modelVariables = 
     const timeKey = String(time)
     const values = groupedEvents.get(timeKey) || { time, values: {} }
     if (Object.prototype.hasOwnProperty.call(values.values, variable.name)) {
-      throw new Error(`There is more than one scheduled value for ${variable.name} at ${time} s.`)
+      throw new Error(`There is more than one scheduled change for ${variable.name} at ${time} s.`)
     }
     values.values[variable.name] = normalizedValue
     groupedEvents.set(timeKey, values)

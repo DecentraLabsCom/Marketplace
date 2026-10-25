@@ -155,12 +155,12 @@ function InputScheduleRow({ event, variables, modelVariables, initialValues, eve
     <div className="grid items-end gap-3 rounded-xl border border-[#26383f] bg-[#142128] p-3 sm:grid-cols-[minmax(10rem,1.15fr)_minmax(8rem,0.75fr)_minmax(10rem,1fr)_auto]">
       <div className="block text-[11px] text-[#a9bec2]">
         <span className="mb-1 flex items-center gap-1 font-medium text-[#dce9e9]">
-          Input
+          Variable
           <VariableDescriptionTooltip name={variable.name} description={variable.description} portal={tooltipPortal} />
         </span>
         <select
           id={`${rowId}-variable`}
-          aria-label={`Input variable for scheduled change at ${event.time} seconds`}
+          aria-label={`Variable for scheduled change at ${event.time} seconds`}
           value={variable.name}
           onChange={(change) => changeVariable(change.target.value)}
           disabled={disabled}
@@ -292,7 +292,7 @@ export default function InputScheduleEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id="input-schedule-title" className="text-sm font-semibold text-white">Changes during simulation</h3>
-          <p className="mt-1 text-xs text-[#829ba1]">Schedule as many input changes as you need. Each value takes effect at its simulation time.</p>
+          <p className="mt-1 text-xs text-[#829ba1]">Schedule changes to inputs and supported tunable parameters. Each value takes effect at its simulation time.</p>
         </div>
         <button
           type="button"
@@ -326,7 +326,7 @@ export default function InputScheduleEditor({
         </div>
       ) : (
         <p className="rounded-lg border border-dashed border-[#26383f] px-3 py-3 text-xs text-[#829ba1]">
-          No input changes scheduled. The model will keep the starting values for the whole simulation.
+          No changes scheduled. The model will keep the starting values for the whole simulation.
         </p>
       )}
 
