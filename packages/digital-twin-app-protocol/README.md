@@ -49,6 +49,9 @@ The current Gateway session runtime executes FMI 2/3 Co-Simulation. The
 convenience runner requires FMU Executor 0.3.2 or newer and its advertised
 `advanceSamples` capability. Direct session connections also require the
 runtime to advertise its complete `inputUpdateQuota` capability.
+`null` update-count or daily-byte limits mean the provider imposes no quota for
+that dimension; payload and per-advance bounds remain advertised as positive
+integers.
 `run()` resolves after initialization. Samples are processed in order; the
 next batch is requested after successful callback completion. Callback failure
 stops the run. Cancellation/disposal aborts pending work and closes the session.

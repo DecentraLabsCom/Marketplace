@@ -1,9 +1,11 @@
 export interface InputUpdateQuota {
-  maxUpdatesPerWindow: number
+  /** null means there is no sliding-window update quota. */
+  maxUpdatesPerWindow: number | null
   windowMs: number
   maxUpdateBytes: number
-  maxUpdatesPerDay: number
-  maxUpdateBytesPerDay: number
+  /** null means there is no daily update quota. */
+  maxUpdatesPerDay: number | null
+  maxUpdateBytesPerDay: number | null
   maxScheduledEventsPerAdvance: number
   maxScheduleBytesPerAdvance: number
 }
