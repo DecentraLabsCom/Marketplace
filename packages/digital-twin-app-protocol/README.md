@@ -77,7 +77,7 @@ presentation time stays unknown and the controller keeps its reserve rather than
 treating the batch as instantly displayed.
 
 Each returned sample may include a monotonically increasing `sequence` plus event,
-early-return and termination flags. The sequence preserves order when FMI reports
+event-handling, early-return and termination flags. The sequence preserves order when FMI reports
 multiple meaningful states at the same model time. `sim.advance` also reports
 `computeMs`, `sampleBytes`, `samplesReturned`, `stepsExecuted`, `stopReason`, and
 `inputEventsApplied` so clients can distinguish response size, partial progress,

@@ -237,7 +237,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         sampleMetadata: [
           ...previousSampleMetadata,
           ...samples.map((sample) => Object.fromEntries(
-            ['sequence', 'eventOccurred', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason']
+            ['sequence', 'eventOccurred', 'eventHandlingNeeded', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason']
               .filter((key) => sample[key] !== undefined)
               .map((key) => [key, sample[key]]),
           )),

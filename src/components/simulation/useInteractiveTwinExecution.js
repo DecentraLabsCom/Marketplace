@@ -19,7 +19,7 @@ const VALID_ADVANCE_STOP_REASONS = new Set([
   'target_reached', 'max_samples', 'compute_budget', 'early_return', 'simulation_finished',
 ])
 const STEP_SAMPLE_METADATA_KEYS = [
-  'eventOccurred', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason',
+  'eventOccurred', 'eventHandlingNeeded', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason',
 ]
 
 function hasValidAdvanceMetrics(response, samples) {

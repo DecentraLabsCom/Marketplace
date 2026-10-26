@@ -4,7 +4,7 @@ export type SimulationState = 'idle' | 'running' | 'completed' | 'cancelled' | '
 export interface RunOptions { startTime?: number; stopTime?: number; stepSize?: number }
 export interface DigitalTwinSample {
   time: number; outputs: Record<string, number | boolean>; sequence?: number
-  eventOccurred?: boolean; earlyReturn?: boolean; terminateSimulation?: boolean; finished?: boolean; finishReason?: string
+  eventOccurred?: boolean; eventHandlingNeeded?: boolean; earlyReturn?: boolean; terminateSimulation?: boolean; finished?: boolean; finishReason?: string
 }
 export interface InputEvent { time: number; values: Record<string, DigitalTwinScalar> }
 export interface FmuConnectionConfig {
