@@ -52,4 +52,49 @@ describe('DigitalTwinSimulationForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run simulation' }))
     expect(onRun).toHaveBeenCalledWith([])
   })
+
+  test('interactive modes do not expose scheduled batch changes and can start despite an unused schedule', () => {
+    const variables = [{ name: 'speed', causality: 'input', type: 'Real', start: '1' }]
+    const onRun = jest.fn()
+
+    render(
+      <DigitalTwinSimulationForm
+        variables={variables}
+        modelVariables={variables}
+        values={{ speed: 1 }}
+        onInputChange={jest.fn()}
+        simulationOptions={{ startTime: 0, stopTime: 10, stepSize: 1 }}
+        onSimulationOptionChange={jest.fn()}
+        simulationType="CoSimulation"
+        executionMode="step"
+        inputEvents={[{ time: 20, values: { speed: 2 } }]}
+        onInputEventsChange={jest.fn()}
+        onRun={onRun}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Schedule changes/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start step-by-step' }))
+    expect(onRun).toHaveBeenCalledWith([{ time: 20, values: { speed: 2 } }])
+  })
+
+  test('can hide the form run button when interactive execution owns start and stop controls', () => {
+    render(
+      <DigitalTwinSimulationForm
+        variables={[]}
+        modelVariables={[]}
+        values={{}}
+        onInputChange={jest.fn()}
+        simulationOptions={{ startTime: 0, stopTime: 10, stepSize: 1 }}
+        onSimulationOptionChange={jest.fn()}
+        simulationType="CoSimulation"
+        executionMode="continuous"
+        showRunButton={false}
+        onRun={jest.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Start continuous' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Run Controls/ })).toBeInTheDocument()
+  })
 })

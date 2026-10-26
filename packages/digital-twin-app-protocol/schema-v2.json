@@ -130,6 +130,7 @@
     "inputSchedule": {
       "type": "array",
       "maxItems": 128,
+      "description": "Scheduled FMI variable changes. Entries may include runtime-writable inputs or FMI 2.0/FMI 3.0 Co-Simulation tunable parameters when permitted by the effective access policy.",
       "items": {
         "type": "object",
         "required": [

@@ -19,6 +19,7 @@ browser behavior.
 
 ### Simulation
 
+- Added batch, step-by-step and continuous live execution modes to generated GLB digital-twin views. Runtime edits are sent at the next step for variables the Gateway permits.
 - Added configurable simulation result visualizations: time series, arbitrary
   2D plots, projected 3D trajectories and state-space projections, with
   selectable vector components, axes, colour variable and point tooltips.

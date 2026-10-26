@@ -56,6 +56,9 @@ jest.mock("@/utils/auth/labAuth", () => ({
 jest.mock("@/utils/auth/fmuAccess", () => ({
   establishFmuGatewaySession: jest.fn(async () => "https://gateway.example.com"),
 }));
+jest.mock("@decentralabs/digital-twin-app-protocol/fmu-client", () => ({
+  connectFmuSession: jest.fn(),
+}));
 
 // â”€â”€â”€ ParameterForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -361,6 +364,7 @@ describe("DownloadButtons", () => {
 // â”€â”€â”€ SimulationRunner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import SimulationRunner from "../SimulationRunner";
+import { connectFmuSession } from "@decentralabs/digital-twin-app-protocol/fmu-client";
 import { authenticateLabAccessSSO } from "@/utils/auth/labAuth";
 import { establishFmuGatewaySession } from "@/utils/auth/fmuAccess";
 
@@ -431,6 +435,7 @@ describe("SimulationRunner", () => {
         json: async () => ({ error: 'Unexpected fetch in test' }),
       });
     });
+    connectFmuSession.mockReset();
     authenticateLabAccessSSO.mockClear();
     establishFmuGatewaySession.mockClear();
   });
@@ -515,6 +520,73 @@ describe("SimulationRunner", () => {
     const viewer = await screen.findByTestId(testId);
     expect(viewer).toHaveAttribute("data-url", expectedUrl);
     expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
+  });
+
+  test("starts reserved GLB twins through the interactive FMU session when step mode is selected", async () => {
+    const session = {
+      close: jest.fn(),
+      request: jest.fn(async (type, _expectedType, payload) => {
+        if (type === "sim.getOutputs") return { simTime: 0, values: { position: 0 } };
+        if (type === "sim.step") {
+          return {
+            simTime: payload.currentCommunicationPoint + payload.deltaT,
+            values: { position: 0.5 },
+          };
+        }
+        return {};
+      }),
+    };
+    connectFmuSession.mockResolvedValue(session);
+    global.fetch = jest.fn((url) => {
+      if (String(url).startsWith("/api/aas/shell?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            visualAssets: [{
+              contentType: "model/gltf-binary",
+              url: `/digital-twin-scenes/42/${"a".repeat(64)}.glb`,
+            }],
+          }),
+        });
+      }
+      if (url === "/api/simulations/access") {
+        return Promise.resolve({ ok: true, json: async () => accessPolicyForLab(fmuLab) });
+      }
+      if (String(url).startsWith("/api/simulations/proxy?")) {
+        return Promise.resolve(successfulProxyResponse());
+      }
+      if (url === "/api/simulations/connection") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            protocolVersion: "1.0",
+            gatewayWsUrl: "wss://gateway.example.com/fmu/api/v1/fmu/sessions",
+            labId: "42",
+            reservationKey: "0xabc",
+            sessionTicket: "one-use-ticket",
+            ticketExpiresAt: 4102444800,
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+
+    renderReservedSimulationRunner();
+    await screen.findByTestId("digital-twin-glb");
+    fireEvent.change(await screen.findByLabelText("Execution mode"), { target: { value: "step" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start step-by-step" }));
+
+    await waitFor(() => expect(connectFmuSession).toHaveBeenCalledWith(
+      expect.objectContaining({ labId: "42", reservationKey: "0xabc" }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ));
+    fireEvent.click(await screen.findByRole("button", { name: "Advance one step" }));
+    await waitFor(() => expect(session.request).toHaveBeenCalledWith(
+      "sim.step",
+      "sim.outputs",
+      { currentCommunicationPoint: 0, deltaT: 0.01 },
+    ));
+    expect(await screen.findByText("t = 0.010 s")).toBeInTheDocument();
   });
 
   test("keeps the standard FMI view when AAS has no visual asset", async () => {

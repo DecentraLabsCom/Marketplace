@@ -170,6 +170,26 @@ During the reserved window:
 * you may reconnect while the reservation remains active, depending on provider policy;
 * you should save any work before the reservation end time.
 
+For a simulation with a linked GLB scene, the generated viewer offers three
+execution modes when the FMU supports interactive sessions:
+
+* **Batch** runs the full simulation. Set any input changes on the simulation
+  timeline before starting.
+* **Step by step** waits after each communication step. You can change
+  runtime-writable inputs before advancing again.
+* **Continuous (live)** advances as soon as each Gateway response arrives. You
+  can change runtime-writable inputs while it runs; pending values are applied
+  before the next step request, so the network and model response time set the
+  pace.
+
+All three modes use the same starting inputs and simulation-time settings. The
+Gateway enforces the provider's variable-write permissions. Interactive modes
+are available for FMI 2/3 Co-Simulation models; other simulation types keep the
+batch controls. Interactive modes connect from the browser to the provider
+Gateway, so the Marketplace operator must allow that Gateway's WebSocket origin
+in `CSP_CONNECT_SRC`, and the provider must allow the Marketplace page origin in
+the Gateway CORS configuration.
+
 At the end of the reservation window, access is closed automatically by the provider-side access controls.
 
 ---

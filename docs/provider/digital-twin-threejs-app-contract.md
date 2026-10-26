@@ -77,6 +77,31 @@ The SDK is optional. An app can implement the documented messages directly or
 use its own FMU client. A GLB scene is a separate presentation mode with
 generated controls; it does not require this web app integration.
 
+## Generated GLB viewer execution modes
+
+For a reserved FMI 2/3 Co-Simulation lab linked to a GLB scene, the generated
+Marketplace viewer offers three execution modes. They share the same starting
+inputs and simulation-time settings:
+
+| Mode | Runtime behavior | Runtime input changes |
+| --- | --- | --- |
+| **Batch** | Runs the complete simulation through the existing Marketplace stream and displays the returned samples for replay. | Schedule input or tunable-parameter changes at model times before starting. |
+| **Step by step** | Opens a reservation-scoped FMU session in external time mode and sends one `sim.step` request when the user advances. | Edit runtime-writable variables while paused; the new values are sent before the next step. |
+| **Continuous (live)** | Repeats one `sim.step` request as soon as the previous request and response complete. | Edit runtime-writable variables at any time; pending values are sent before the next step request. Network and model response time determine the pace. |
+
+The Gateway enforces the effective AAS/FMI variable-access policy for every
+runtime write and filters output values. Interactive modes use a short-lived
+connection grant and the Gateway WebSocket directly; Marketplace does not relay
+step requests or samples. Models outside FMI 2/3 Co-Simulation continue to use
+the batch interface. The provider Gateway must allow the exact Marketplace page
+origin for its FMU WebSocket. The Marketplace deployment must also include each
+provider Gateway's exact WebSocket origin (for example, `wss://gateway.example`)
+in `CSP_CONNECT_SRC`; its restrictive `connect-src` policy otherwise blocks the
+browser connection. Production Gateway configuration supplies the Marketplace
+origin by default; Preview deployments should set their Preview origin explicitly
+in the Gateway CORS allowlist and the corresponding Gateway WebSocket origin in
+the Marketplace CSP configuration.
+
 ## Authorization and connection
 
 1. Marketplace establishes the authenticated reservation-scoped FMU access
