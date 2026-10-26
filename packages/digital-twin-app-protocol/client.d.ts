@@ -5,6 +5,10 @@ export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firs
 export interface AdaptiveBatchOptions {
   targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
 }
+export interface FmuAdvanceOptions {
+  outputSampleEverySteps?: number
+  outputVariables?: string[]
+}
 export interface DigitalTwinAppClientOptions {
   /** Supply this to use the app independently of a Marketplace parent window. */
   getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[] }>
@@ -28,7 +32,15 @@ export interface DigitalTwinAppClientOptions {
 export interface DigitalTwinAppClient {
   reportReady(): boolean
   reportError(code?: string): boolean
-  run(request?: { parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]; inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>; batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions }): Promise<{ runId: string }>
+  run(request?: {
+    parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]
+    inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
+    inputControllerInterval?: number; inputControllerTimes?: number[]
+    batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
+    advanceOptions?: FmuAdvanceOptions; includeModelVariables?: boolean
+    validateModel?: (model: Record<string, unknown>) => boolean | void | Promise<boolean | void>
+    parametersFromModel?: (model: Record<string, unknown>) => Record<string, number | boolean | string> | Promise<Record<string, number | boolean | string>>
+  }): Promise<{ runId: string }>
   cancel(runId?: string): boolean
   requestModelChange(modelId: string): boolean
   dispose(): void

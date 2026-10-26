@@ -88,15 +88,30 @@ client.run({ parameters, options, batchPolicy: 'adaptive', maxBatchSamples: 1 })
 ```
 
 Session creation advertises the provider's input update quota, including its
-sliding window and maximum scheduled events per advance. The high-level client
-paces `sim.setInputs`; the direct WebSocket client retries input writes and
-schedule-bearing `sim.advance` calls after pre-execution
-`INPUT_UPDATE_RATE_LIMIT` responses with a valid `retryAfterMs`. Batch-size and
-daily quota errors remain visible to the app. Input schedules are applied at
-model timestamps. An optional per-run
-`inputController(sample, context)` returns runtime input updates, using one-step
-batches for closed-loop feedback. Its throughput depends on network latency
-and the provider's published write quota.
+sliding window and maximum scheduled events and bytes per advance. The
+high-level client splits large `inputSchedule` values to fit those limits,
+tracks the applied event prefix, and retries schedule-bearing advances after
+pre-execution `INPUT_UPDATE_RATE_LIMIT` responses. It paces individual
+`sim.setInputs` calls as well. Daily quota errors remain visible to the app.
+Input schedules are applied at model timestamps. An optional per-run
+`inputController(sample, context)` returns runtime input updates for closed-loop
+feedback; by default it receives every sample, or an app can set
+`inputControllerInterval` and `inputControllerTimes` to wake at chosen model
+times while the SDK advances in bounded batches. Its throughput depends on
+network latency and the provider's published write quota.
+
+Apps can pass `advanceOptions.outputSampleEverySteps` and
+`advanceOptions.outputVariables` to request sparse, focused output while the
+SDK manages the advance loop. Scheduled-input runs can also use adaptive
+batching:
+
+```js
+client.run({
+  inputSchedule,
+  batchPolicy: 'adaptive',
+  advanceOptions: { outputSampleEverySteps: 500, outputVariables },
+})
+```
 
 A ticket is sent only in the first `session.create` frame. Keep it in memory;
 never place it in a URL, log, storage or app ZIP. Authorization, reservation
