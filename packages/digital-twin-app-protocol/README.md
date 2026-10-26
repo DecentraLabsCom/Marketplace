@@ -88,9 +88,12 @@ client.run({ parameters, options, batchPolicy: 'adaptive', maxBatchSamples: 1 })
 ```
 
 Session creation advertises the provider's input update quota, including its
-sliding window. The SDK paces `sim.setInputs` requests to that limit and retries
-temporary `INPUT_UPDATE_RATE_LIMIT` responses after `retryAfterMs`. Input
-schedules are applied at model timestamps. An optional per-run
+sliding window and maximum scheduled events per advance. The high-level client
+paces `sim.setInputs`; the direct WebSocket client retries input writes and
+schedule-bearing `sim.advance` calls after pre-execution
+`INPUT_UPDATE_RATE_LIMIT` responses with a valid `retryAfterMs`. Batch-size and
+daily quota errors remain visible to the app. Input schedules are applied at
+model timestamps. An optional per-run
 `inputController(sample, context)` returns runtime input updates, using one-step
 batches for closed-loop feedback. Its throughput depends on network latency
 and the provider's published write quota.
