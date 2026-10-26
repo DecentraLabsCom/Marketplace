@@ -2,7 +2,17 @@
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 
 const grant = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions', labId: '42', reservationKey: 'res:1', sessionTicket: 'one-use-ticket', ticketExpiresAt: 4102444800 }
+const inputUpdateQuota = {
+  maxUpdatesPerWindow: 30,
+  windowMs: 10_000,
+  maxUpdateBytes: 65_536,
+  maxUpdatesPerDay: 100_000,
+  maxUpdateBytesPerDay: 67_108_864,
+  maxScheduledEventsPerAdvance: 30,
+  maxScheduleBytesPerAdvance: 262_144,
+}
 let original
+let capabilities
 class Socket extends EventTarget {
   static OPEN = 1
   static instances = []
@@ -10,12 +20,22 @@ class Socket extends EventTarget {
   send(raw) {
     const message = JSON.parse(raw)
     this.sent.push(message)
-    if (message.type === 'session.create') this.reply({ type: 'session.created', sessionId: 'session:1', requestId: message.requestId, capabilities: { advanceSamples: true } })
+    if (message.type === 'session.create') this.reply({
+      type: 'session.created',
+      sessionId: 'session:1',
+      requestId: message.requestId,
+      capabilities,
+    })
   }
   reply(response) { this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(response) })) }
   close() { this.readyState = 3; this.dispatchEvent(new Event('close')) }
 }
-beforeEach(() => { original = global.WebSocket; global.WebSocket = Socket; Socket.instances = [] })
+beforeEach(() => {
+  original = global.WebSocket
+  global.WebSocket = Socket
+  Socket.instances = []
+  capabilities = { advanceSamples: true, inputUpdateQuota }
+})
 afterEach(() => { global.WebSocket = original })
 test('uses the native session.create ticket exchange without a token in the URL', async () => {
   const session = await connectFmuSession(grant)
@@ -44,6 +64,35 @@ test('rejects responses for another session', async () => {
   const socket = Socket.instances[0]
   socket.reply({ type: 'sim.samples', requestId: socket.sent.at(-1).requestId, sessionId: 'other-session', samples: [] })
   await expect(result).rejects.toThrow('another session')
+})
+test('requires the executor to advertise its input update quota', async () => {
+  capabilities = { advanceSamples: true }
+  await expect(connectFmuSession(grant)).rejects.toMatchObject({ code: 'UNSUPPORTED_INPUT_UPDATE_QUOTA' })
+  expect(Socket.instances[0].readyState).toBe(3)
+})
+test('preserves input quota retry and batch details from the executor', async () => {
+  const session = await connectFmuSession(grant)
+  const result = session.request('sim.setInputs', 'sim.inputs.updated', { values: { x: 1 } })
+  const socket = Socket.instances[0]
+  socket.reply({
+    type: 'error',
+    requestId: socket.sent.at(-1).requestId,
+    sessionId: 'session:1',
+    code: 'INPUT_UPDATE_RATE_LIMIT',
+    message: 'Input update quota exceeded',
+    retryable: true,
+    retryAfterMs: 500,
+    remaining: 0,
+    maxBatchSize: 30,
+  })
+  await expect(result).rejects.toMatchObject({
+    code: 'INPUT_UPDATE_RATE_LIMIT',
+    retryable: true,
+    retryAfterMs: 500,
+    remaining: 0,
+    maxBatchSize: 30,
+  })
+  session.close()
 })
 test('an expired grant cannot open a socket', async () => {
   await expect(connectFmuSession({ ...grant, ticketExpiresAt: 1 })).rejects.toMatchObject({ code: 'INVALID_CONNECTION_GRANT' })

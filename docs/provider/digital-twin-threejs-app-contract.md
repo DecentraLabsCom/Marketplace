@@ -187,7 +187,8 @@ The package `@decentralabs/digital-twin-app-protocol` provides:
   with optional host startup, authorization and visualization controls.
 
 With a bundler, import the desired entry. For a static app without a bundler,
-copy `index.js`, `fmu-client.js` and `client.js` together into `sdk/` in the ZIP.
+copy `index.js`, `fmu-client.js`, `batch-controller.js`,
+`input-update-quota.js` and `client.js` together into `sdk/` in the ZIP.
 Create a package tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`.
 The workspace does not publish the npm package automatically.
 

@@ -8,10 +8,24 @@ jest.mock('@decentralabs/digital-twin-app-protocol/fmu-client', () => ({
 
 const inputVariable = { name: 'speed', causality: 'input', type: 'Real', start: 1 }
 const outputVariable = { name: 'position', causality: 'output', type: 'Real' }
+const inputUpdateQuota = {
+  maxUpdatesPerWindow: 30,
+  windowMs: 10_000,
+  maxUpdateBytes: 65_536,
+  maxUpdatesPerDay: 100_000,
+  maxUpdateBytesPerDay: 67_108_864,
+  maxScheduledEventsPerAdvance: 30,
+  maxScheduleBytesPerAdvance: 262_144,
+}
 
 function makeSession(stepResponse, advanceResponse) {
   return {
-    capabilities: { advanceSamples: true, advanceComputeBudget: true, advanceSampleSequences: true },
+    capabilities: {
+      advanceSamples: true,
+      advanceComputeBudget: true,
+      advanceSampleSequences: true,
+      inputUpdateQuota,
+    },
     close: jest.fn(),
     request: jest.fn(async (type, _expectedType, payload) => {
       if (type === 'sim.getOutputs') return { simTime: 0, values: { position: 0 } }
@@ -105,6 +119,46 @@ describe('useInteractiveTwinExecution', () => {
     expect(result.current.status).toBe('completed')
     expect(session.close).toHaveBeenCalledTimes(1)
     expect(callbacks.onRunFinish).toHaveBeenCalledWith({ state: 'completed', message: null, parameters: { speed: 3 } })
+  })
+
+  test('a quota retry writes the latest runtime value while retaining the paused session', async () => {
+    let writes = 0
+    const session = makeSession()
+    session.request.mockImplementation(async (type, _expectedType, payload) => {
+      if (type === 'sim.getOutputs') return { simTime: 0, values: { position: 0 } }
+      if (type === 'sim.setInputs') {
+        writes += 1
+        if (writes === 1) {
+          const error = new Error('Input updates are rate limited')
+          error.code = 'INPUT_UPDATE_RATE_LIMIT'
+          error.retryAfterMs = 25
+          throw error
+        }
+        return {}
+      }
+      if (type === 'sim.step') {
+        return { simTime: payload.currentCommunicationPoint + payload.deltaT, values: { position: 1 } }
+      }
+      return {}
+    })
+    const { result } = setup({ session })
+
+    await act(async () => result.current.start('step'))
+    act(() => result.current.handleInputChange('speed', 3))
+
+    await act(async () => {
+      const advance = result.current.advanceStep()
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      result.current.handleInputChange('speed', 4)
+      await advance
+    })
+
+    const writesSent = session.request.mock.calls
+      .filter(([type]) => type === 'sim.setInputs')
+      .map(([, , payload]) => payload.values.speed)
+    expect(writesSent).toEqual([3, 4])
+    expect(session.request.mock.calls.at(-1)[0]).toBe('sim.step')
+    expect(result.current.status).toBe('paused')
   })
 
   test('continuous mode advances in batches until the configured stop time', async () => {

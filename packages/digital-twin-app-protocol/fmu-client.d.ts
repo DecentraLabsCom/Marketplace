@@ -1,4 +1,5 @@
 import type { FmuConnectionConfig } from './index.js'
+import type { InputUpdateQuota } from './input-update-quota.js'
 
 export interface FmuSession {
   readonly sessionId: string
@@ -7,6 +8,7 @@ export interface FmuSession {
     advanceComputeBudget?: boolean
     advanceSampleSequences?: boolean
     maxOutputHz?: number
+    inputUpdateQuota: InputUpdateQuota
   }
   request(type: string, expected: string, payload?: Record<string, unknown>): Promise<Record<string, any>>
   close(): void

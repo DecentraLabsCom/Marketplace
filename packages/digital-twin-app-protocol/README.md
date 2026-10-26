@@ -15,8 +15,8 @@ one-use connection grant and optional visualization controls.
 * `/schema-v2`: the JSON Schema for the host messages.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
-`index.js`, `fmu-client.js`, `batch-controller.js` and `client.js` into a static
-ZIP's `sdk/` directory.
+`index.js`, `fmu-client.js`, `batch-controller.js`, `input-update-quota.js` and
+`client.js` into a static ZIP's `sdk/` directory.
 The package does not register modules or impose an SDK requirement on providers.
 
 ```js
@@ -46,7 +46,9 @@ session.close()
 ```
 
 The current Gateway session runtime executes FMI 2/3 Co-Simulation. The
-convenience runner requires FMU Executor 0.3.2 or newer and its advertised `advanceSamples` capability.
+convenience runner requires FMU Executor 0.3.2 or newer and its advertised
+`advanceSamples` capability. Direct session connections also require the
+runtime to advertise its complete `inputUpdateQuota` capability.
 `run()` resolves after initialization. Samples are processed in order; the
 next batch is requested after successful callback completion. Callback failure
 stops the run. Cancellation/disposal aborts pending work and closes the session.
@@ -85,9 +87,13 @@ compute-budget returns and consumed scheduled inputs.
 client.run({ parameters, options, batchPolicy: 'adaptive', maxBatchSamples: 1 })
 ```
 
-Input schedules are applied at model timestamps. An optional per-run
+Session creation advertises the provider's input update quota, including its
+sliding window. The SDK paces `sim.setInputs` requests to that limit and retries
+temporary `INPUT_UPDATE_RATE_LIMIT` responses after `retryAfterMs`. Input
+schedules are applied at model timestamps. An optional per-run
 `inputController(sample, context)` returns runtime input updates, using one-step
-batches for closed-loop feedback. Its throughput depends on network latency.
+batches for closed-loop feedback. Its throughput depends on network latency
+and the provider's published write quota.
 
 A ticket is sent only in the first `session.create` frame. Keep it in memory;
 never place it in a URL, log, storage or app ZIP. Authorization, reservation

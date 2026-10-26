@@ -3,11 +3,23 @@ import { createDigitalTwinAppClient } from '@decentralabs/digital-twin-app-proto
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 jest.mock('@decentralabs/digital-twin-app-protocol/fmu-client', () => ({ connectFmuSession: jest.fn() }))
 const connection = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions', labId: '42', reservationKey: 'res:1', sessionTicket: 'one-use-ticket', ticketExpiresAt: 4102444800 }
+const inputUpdateQuota = {
+  maxUpdatesPerWindow: 30,
+  windowMs: 10_000,
+  maxUpdateBytes: 65_536,
+  maxUpdatesPerDay: 100_000,
+  maxUpdateBytesPerDay: 67_108_864,
+  maxScheduledEventsPerAdvance: 30,
+  maxScheduleBytesPerAdvance: 262_144,
+}
 let clients = []
 afterEach(() => { clients.forEach((c) => c.dispose()); clients = []; jest.clearAllMocks() })
 function runtime() {
   let time = 0
-  const session = { capabilities: { advanceSamples: true }, close: jest.fn(), request: jest.fn(async (type, expected, payload) => {
+  const session = { capabilities: {
+    advanceSamples: true,
+    inputUpdateQuota,
+  }, close: jest.fn(), request: jest.fn(async (type, expected, payload) => {
     if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 2, defaultStepSize: 1 }
     if (type === 'sim.getOutputs') return { simTime: 0, values: { x: 0 } }
     if (type === 'sim.advance') { time += 1; return { samples: [{ time, outputs: { x: time } }], simTime: time, finished: time >= 2 } }
@@ -82,5 +94,34 @@ test('keeps the run active until asynchronous result finalization finishes', asy
   await expect(client.run()).rejects.toMatchObject({ code: 'RUN_UNAVAILABLE' })
   complete()
   await flush()
+  expect(client.activeRunId).toBeNull()
+})
+
+test('retries a temporarily rate-limited input update using the session quota capability', async () => {
+  const session = runtime()
+  let attempts = 0
+  session.request.mockImplementation(async (type, expected, payload) => {
+    if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 1, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return { simTime: 0, values: { x: 0 } }
+    if (type === 'sim.setInputs') {
+      attempts += 1
+      if (attempts === 1) {
+        const error = new Error('Input updates are rate limited')
+        error.code = 'INPUT_UPDATE_RATE_LIMIT'
+        error.retryAfterMs = 1
+        throw error
+      }
+      return { type: expected, values: payload.values }
+    }
+    if (type === 'sim.advance') return { samples: [{ time: 1, outputs: { x: 1 } }], simTime: 1, finished: true }
+    return {}
+  })
+  const client = create({ getConnection: async () => connection })
+
+  await client.run({ inputController: () => ({ x: 4 }) })
+  await flush()
+
+  expect(session.request.mock.calls.filter(([type]) => type === 'sim.setInputs')).toHaveLength(2)
+  expect(session.request.mock.calls.filter(([type]) => type === 'sim.advance')).toHaveLength(1)
   expect(client.activeRunId).toBeNull()
 })

@@ -9,6 +9,11 @@ import {
   getInteractiveBatchPlan,
   observeInteractiveBatch,
 } from './interactiveBatchController'
+import {
+  getInputUpdateIntervalMs,
+  getInputUpdateRetryDelayMs,
+  getInputUpdateQuota,
+} from '@decentralabs/digital-twin-app-protocol/input-update-quota'
 
 const VALID_ADVANCE_STOP_REASONS = new Set([
   'target_reached', 'max_samples', 'compute_budget', 'early_return', 'simulation_finished',
@@ -37,8 +42,8 @@ function getReadableOutputNames(modelVariables, access) {
     .map((variable) => variable.name)
 }
 
-async function waitForRealtimeRetry(delayMs, signal) {
-  if (!Number.isFinite(delayMs) || delayMs < 1 || delayMs > 10_000) {
+async function waitForRealtimeRetry(delayMs, signal, maxDelayMs = 10_000) {
+  if (!Number.isFinite(delayMs) || delayMs < 1 || delayMs > maxDelayMs) {
     throw new Error('The FMU runtime returned an invalid retry delay.')
   }
   await new Promise((resolve, reject) => {
@@ -121,6 +126,7 @@ export default function useInteractiveTwinExecution({
   const liveParametersRef = useRef({})
   const appliedRuntimeParametersRef = useRef({})
   const pendingRuntimeInputChangedAtRef = useRef(null)
+  const lastInputUpdateAtRef = useRef(null)
   const mountedRef = useRef(false)
 
   useEffect(() => {
@@ -206,18 +212,41 @@ export default function useInteractiveTwinExecution({
         )))
       }
 
-      let inputChangedAt = continuous ? pendingRuntimeInputChangedAtRef.current : null
+      let inputChangedAt = null
       let changedValues = getChangedRuntimeValues()
       if (Object.keys(changedValues).length > 0) {
-        await session.request('sim.setInputs', 'sim.inputs.updated', { values: changedValues })
-        ensureCurrentSession()
-        appliedRuntimeParametersRef.current = { ...appliedRuntimeParametersRef.current, ...changedValues }
-        if (!continuous && pendingRuntimeInputChangedAtRef.current !== null) {
-          pendingRuntimeInputChangedAtRef.current = null
+        const quota = getInputUpdateQuota(session.capabilities)
+        for (;;) {
+          ensureCurrentSession()
+          const intervalMs = getInputUpdateIntervalMs(session.capabilities)
+          const waitMs = lastInputUpdateAtRef.current === null
+            ? 0
+            : lastInputUpdateAtRef.current + intervalMs - performance.now()
+          if (waitMs > 0) await waitForRealtimeRetry(waitMs, controller.signal, quota.windowMs + 1000)
+          ensureCurrentSession()
+          changedValues = getChangedRuntimeValues()
+          if (Object.keys(changedValues).length === 0) break
+          const submittedInputChangedAt = pendingRuntimeInputChangedAtRef.current
+          try {
+            await session.request('sim.setInputs', 'sim.inputs.updated', { values: changedValues })
+            ensureCurrentSession()
+            lastInputUpdateAtRef.current = performance.now()
+            appliedRuntimeParametersRef.current = { ...appliedRuntimeParametersRef.current, ...changedValues }
+            inputChangedAt = submittedInputChangedAt
+            if (pendingRuntimeInputChangedAtRef.current === submittedInputChangedAt) {
+              pendingRuntimeInputChangedAtRef.current = null
+            }
+          } catch (error) {
+            const retryAfterMs = getInputUpdateRetryDelayMs(error, session.capabilities)
+            if (retryAfterMs === null) throw error
+            await waitForRealtimeRetry(retryAfterMs, controller.signal, quota.windowMs + 1000)
+            ensureCurrentSession()
+            continue
+          }
+          if (Object.keys(getChangedRuntimeValues()).length === 0) break
         }
       } else if (pendingRuntimeInputChangedAtRef.current !== null) {
         pendingRuntimeInputChangedAtRef.current = null
-        inputChangedAt = null
       }
 
       const currentTime = simulationTimeRef.current
@@ -501,6 +530,7 @@ export default function useInteractiveTwinExecution({
       pendingPresentationSampleIndexRef.current = null
       lastSampleSequenceRef.current = null
       pendingRuntimeInputChangedAtRef.current = null
+      lastInputUpdateAtRef.current = null
       renderDelayRef.current = null
       if (mountedRef.current) setBatchMetrics(null)
 

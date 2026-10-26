@@ -22,6 +22,11 @@
       "import": "./batch-controller.js",
       "default": "./batch-controller.js"
     },
+    "./input-update-quota": {
+      "types": "./input-update-quota.d.ts",
+      "import": "./input-update-quota.js",
+      "default": "./input-update-quota.js"
+    },
     "./schema-v2": "./schema-v2.json",
     "./fmu-client": {
       "types": "./fmu-client.d.ts",
@@ -36,6 +41,8 @@
     "client.d.ts",
     "batch-controller.js",
     "batch-controller.d.ts",
+    "input-update-quota.js",
+    "input-update-quota.d.ts",
     "README.md",
     "schema-v2.json",
     "fmu-client.js",
