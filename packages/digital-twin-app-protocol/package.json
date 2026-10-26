@@ -17,6 +17,11 @@
       "import": "./client.js",
       "default": "./client.js"
     },
+    "./batch-controller": {
+      "types": "./batch-controller.d.ts",
+      "import": "./batch-controller.js",
+      "default": "./batch-controller.js"
+    },
     "./schema-v2": "./schema-v2.json",
     "./fmu-client": {
       "types": "./fmu-client.d.ts",
@@ -29,6 +34,8 @@
     "index.d.ts",
     "client.js",
     "client.d.ts",
+    "batch-controller.js",
+    "batch-controller.d.ts",
     "README.md",
     "schema-v2.json",
     "fmu-client.js",

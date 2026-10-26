@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { normalizeSimulationParameters } from './simulationParameters'
 import { getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
+import {
+  createInteractiveBatchController,
+  getInteractiveBatchPlan,
+  observeInteractiveBatch,
+} from './interactiveBatchController'
 
 const MIN_RUNTIME_INPUT_UPDATE_INTERVAL_MS = 400
 
@@ -35,12 +40,16 @@ async function waitForRealtimeRetry(delayMs, signal) {
   })
 }
 
-async function requestRealtimeStep(session, payload, signal) {
+async function requestRealtimeOperation(session, type, expectedType, payload, signal, onRequestAttempt) {
   for (;;) {
     signal?.throwIfAborted()
+    const requestStartedAt = performance.now()
     try {
-      return await session.request('sim.step', 'sim.outputs', payload)
+      const response = await session.request(type, expectedType, payload)
+      onRequestAttempt?.(performance.now() - requestStartedAt)
+      return response
     } catch (error) {
+      onRequestAttempt?.(performance.now() - requestStartedAt)
       if (error?.code !== 'OUTPUT_READ_RATE_LIMITED') throw error
       await waitForRealtimeRetry(Number(error.retryAfterMs), signal)
     }
@@ -61,6 +70,7 @@ export default function useInteractiveTwinExecution({
   supported,
   onRunStart,
   onSample,
+  onSamples,
   onRunFinish,
   onParameterChange,
 }) {
@@ -68,13 +78,20 @@ export default function useInteractiveTwinExecution({
   const [mode, setMode] = useState(null)
   const [simulationTime, setSimulationTime] = useState(0)
   const [liveParameters, setLiveParameters] = useState({})
+  const [batchMetrics, setBatchMetrics] = useState(null)
 
   const sessionRef = useRef(null)
   const controllerRef = useRef(null)
-  const stepInFlightRef = useRef(false)
+  const advanceInFlightRef = useRef(false)
   const continuousRequestedRef = useRef(false)
-  const endAfterStepRef = useRef(false)
+  const endAfterAdvanceRef = useRef(false)
   const simulationTimeRef = useRef(0)
+  const latestSampleIndexRef = useRef(-1)
+  const latestBatchReceivedAtRef = useRef(null)
+  const renderedSampleIndexRef = useRef(-1)
+  const observedRenderedSampleIndexRef = useRef(-1)
+  const renderDelayRef = useRef(null)
+  const batchControllerRef = useRef(null)
   const liveParametersRef = useRef({})
   const appliedRuntimeParametersRef = useRef({})
   const lastRuntimeInputUpdateAtRef = useRef(0)
@@ -91,19 +108,42 @@ export default function useInteractiveTwinExecution({
     }
   }, [])
 
-  const appendSample = useCallback((time, outputs) => {
-    onSample(time, outputs)
-  }, [onSample])
+  const appendSamples = useCallback((samples) => {
+    if (!Array.isArray(samples) || samples.length === 0) return
+    latestSampleIndexRef.current += samples.length
+    latestBatchReceivedAtRef.current = performance.now()
+    if (typeof onSamples === 'function') {
+      onSamples(samples)
+      return
+    }
+    for (const sample of samples) onSample?.(sample.time, sample.outputs)
+  }, [onSample, onSamples])
+
+  const reportDisplayedSample = useCallback((sampleIndex, frameTime) => {
+    const displayedIndex = Number(sampleIndex)
+    if (!Number.isFinite(displayedIndex)) return
+    if (displayedIndex < latestSampleIndexRef.current || latestBatchReceivedAtRef.current === null) return
+
+    const renderedAt = Number.isFinite(frameTime) ? frameTime : performance.now()
+    const renderDelayMs = Math.max(0, renderedAt - latestBatchReceivedAtRef.current)
+    renderedSampleIndexRef.current = latestSampleIndexRef.current
+    latestBatchReceivedAtRef.current = null
+    renderDelayRef.current = renderDelayMs
+    if (mountedRef.current) {
+      setBatchMetrics((current) => current ? { ...current, renderDelayMs } : current)
+    }
+  }, [])
 
   const finishSession = useCallback((nextState, message = null, controller = controllerRef.current) => {
     if (!controller || controllerRef.current !== controller) return false
 
     continuousRequestedRef.current = false
-    endAfterStepRef.current = false
+    endAfterAdvanceRef.current = false
+    batchControllerRef.current = null
     sessionRef.current?.close()
     sessionRef.current = null
     controllerRef.current = null
-    stepInFlightRef.current = false
+    advanceInFlightRef.current = false
 
     if (!mountedRef.current) return true
     setMode(null)
@@ -115,7 +155,7 @@ export default function useInteractiveTwinExecution({
   const advanceStep = useCallback(async ({ continuous = false } = {}) => {
     const session = sessionRef.current
     const controller = controllerRef.current
-    if (!session || !controller || controller.signal.aborted || stepInFlightRef.current) return false
+    if (!session || !controller || controller.signal.aborted || advanceInFlightRef.current) return false
 
     const ensureCurrentSession = () => {
       controller.signal.throwIfAborted()
@@ -124,7 +164,7 @@ export default function useInteractiveTwinExecution({
       }
     }
 
-    stepInFlightRef.current = true
+    advanceInFlightRef.current = true
     if (!continuous && mountedRef.current) setStatus('stepping')
     try {
       const getChangedRuntimeValues = () => {
@@ -161,8 +201,75 @@ export default function useInteractiveTwinExecution({
         finishSession('completed')
         return false
       }
+
+      if (continuous) {
+        const batchController = batchControllerRef.current
+        if (!batchController) throw new Error('The continuous batch controller is unavailable.')
+        const plan = getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
+        let responseLatencyMs = 0
+        const response = await requestRealtimeOperation(session, 'sim.advance', 'sim.samples', {
+          targetTime: plan.targetTime,
+          maxSamples: plan.maxSamples,
+          stepSize,
+        }, controller.signal, (attemptMs) => { responseLatencyMs += attemptMs })
+        ensureCurrentSession()
+
+        const samples = response.samples
+        const nextTime = Number(response.simTime)
+        const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
+        if (!Array.isArray(samples) || samples.length < 1 || samples.length > plan.maxSamples
+          || !Number.isFinite(nextTime) || nextTime <= currentTime || nextTime > plan.targetTime + tolerance) {
+          throw new Error('The FMU returned an invalid sample batch for the requested advance.')
+        }
+        let previousTime = currentTime
+        for (const sample of samples) {
+          const sampleTime = Number(sample?.time)
+          if (!Number.isFinite(sampleTime) || sampleTime <= previousTime || sampleTime > nextTime + tolerance
+            || !sample.outputs || typeof sample.outputs !== 'object' || Array.isArray(sample.outputs)) {
+            throw new Error('The FMU returned an invalid timeline in the sample batch.')
+          }
+          previousTime = sampleTime
+        }
+        if (Math.abs(previousTime - nextTime) > tolerance) {
+          throw new Error('The FMU returned an incomplete timeline for the requested advance.')
+        }
+
+        simulationTimeRef.current = nextTime
+        if (mountedRef.current) setSimulationTime(nextTime)
+        appendSamples(samples)
+
+        const hasFreshRenderDelay = renderedSampleIndexRef.current > observedRenderedSampleIndexRef.current
+        const renderDelayMs = hasFreshRenderDelay ? renderDelayRef.current : null
+        if (hasFreshRenderDelay) observedRenderedSampleIndexRef.current = renderedSampleIndexRef.current
+
+        const nextController = observeInteractiveBatch(batchController, {
+          responseMs: responseLatencyMs,
+          renderDelayMs,
+        })
+        batchControllerRef.current = nextController
+        if (mountedRef.current) {
+          setBatchMetrics({
+            responseMs: nextController.responseEwmaMs,
+            renderDelayMs: nextController.consumerDelayEwmaMs,
+            simulationDelta: nextTime - currentTime,
+            nextBatchSamples: nextController.sampleCount,
+            samples: samples.length,
+          })
+        }
+
+        if (nextTime >= stopTime - 1e-12 || response.finished === true) {
+          finishSession('completed')
+          return false
+        }
+        if (endAfterAdvanceRef.current) {
+          finishSession('completed')
+          return false
+        }
+        return true
+      }
+
       const deltaT = Math.min(stepSize, remainingTime)
-      const response = await requestRealtimeStep(session, {
+      const response = await requestRealtimeOperation(session, 'sim.step', 'sim.outputs', {
         currentCommunicationPoint: currentTime,
         deltaT,
       }, controller.signal)
@@ -173,31 +280,31 @@ export default function useInteractiveTwinExecution({
       }
       simulationTimeRef.current = nextTime
       if (mountedRef.current) setSimulationTime(nextTime)
-      appendSample(nextTime, response.values || response.outputs || {})
+      appendSamples([{ time: nextTime, outputs: response.values || response.outputs || {} }])
 
       if (nextTime >= stopTime - 1e-12 || response.terminated === true || response.finished === true) {
         finishSession('completed')
         return false
       }
-      if (endAfterStepRef.current) {
+      if (endAfterAdvanceRef.current) {
         finishSession('completed')
         return false
       }
-      if (!continuous && mountedRef.current) setStatus('paused')
+      if (mountedRef.current) setStatus('paused')
       return true
     } catch (error) {
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
       return false
     } finally {
-      stepInFlightRef.current = false
+      advanceInFlightRef.current = false
     }
-  }, [appendSample, finishSession, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
+  }, [appendSamples, finishSession, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
 
   const startContinuous = useCallback(async () => {
     if (!sessionRef.current || continuousRequestedRef.current) return
     continuousRequestedRef.current = true
-    endAfterStepRef.current = false
+    endAfterAdvanceRef.current = false
     if (mountedRef.current) setStatus('continuous')
     while (continuousRequestedRef.current && sessionRef.current) {
       const canContinue = await advanceStep({ continuous: true })
@@ -208,7 +315,7 @@ export default function useInteractiveTwinExecution({
 
   const pauseContinuous = useCallback(() => {
     continuousRequestedRef.current = false
-    if (mountedRef.current) setStatus(stepInFlightRef.current ? 'pausing' : 'paused')
+    if (mountedRef.current) setStatus(advanceInFlightRef.current ? 'pausing' : 'paused')
   }, [])
 
   const end = useCallback(() => {
@@ -219,8 +326,8 @@ export default function useInteractiveTwinExecution({
       return
     }
     continuousRequestedRef.current = false
-    if (stepInFlightRef.current) {
-      endAfterStepRef.current = true
+    if (advanceInFlightRef.current) {
+      endAfterAdvanceRef.current = true
       if (mountedRef.current) setStatus('stopping')
       return
     }
@@ -244,8 +351,8 @@ export default function useInteractiveTwinExecution({
     if (controllerRef.current) return
 
     continuousRequestedRef.current = false
-    endAfterStepRef.current = false
-    stepInFlightRef.current = false
+    endAfterAdvanceRef.current = false
+    advanceInFlightRef.current = false
     const controller = new AbortController()
     controllerRef.current = controller
     const ensureCurrentRun = () => {
@@ -286,6 +393,19 @@ export default function useInteractiveTwinExecution({
       appliedRuntimeParametersRef.current = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
         runtimeVariables.some((variable) => variable.name === name)
       )))
+      batchControllerRef.current = requestedMode === 'continuous'
+        ? createInteractiveBatchController({
+          startTime: activeOptions.startTime,
+          stopTime: activeOptions.stopTime,
+          stepSize: activeOptions.stepSize,
+        })
+        : null
+      latestSampleIndexRef.current = -1
+      latestBatchReceivedAtRef.current = null
+      renderedSampleIndexRef.current = -1
+      observedRenderedSampleIndexRef.current = -1
+      renderDelayRef.current = null
+      if (mountedRef.current) setBatchMetrics(null)
 
       const connectionResponse = await fetchGateway('/api/simulations/connection', {
         method: 'POST',
@@ -307,9 +427,12 @@ export default function useInteractiveTwinExecution({
         throw new DOMException('The operation was aborted.', 'AbortError')
       }
       sessionRef.current = session
+      if (requestedMode === 'continuous' && session.capabilities?.advanceSamples !== true) {
+        throw new Error('The provider FMU runtime does not support batched simulation advances.')
+      }
       await session.request('sim.initialize', 'sim.state', {
         parameters: normalizedParameters,
-        options: { ...activeOptions, timeMode: 'external' },
+        options: { ...activeOptions, timeMode: requestedMode === 'continuous' ? 'simtime' : 'external' },
       })
       ensureCurrentRun()
 
@@ -327,13 +450,13 @@ export default function useInteractiveTwinExecution({
         setSimulationTime(initialTime)
         setStatus('paused')
       }
-      appendSample(initialTime, initialOutputs)
+      appendSamples([{ time: initialTime, outputs: initialOutputs }])
       if (requestedMode === 'continuous') void startContinuous()
     } catch (error) {
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
     }
-  }, [appendSample, editableVariables, fetchGateway, finishSession, labId, modelVariables, onRunFinish, onRunStart, options, parameters, reservationKey, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+  }, [appendSamples, editableVariables, fetchGateway, finishSession, labId, modelVariables, onRunFinish, onRunStart, options, parameters, reservationKey, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
 
   const handleInputChange = useCallback((name, value) => {
     if (sessionRef.current) {
@@ -354,6 +477,7 @@ export default function useInteractiveTwinExecution({
     mode,
     simulationTime,
     liveParameters,
+    batchMetrics,
     hasActiveSession,
     runtimeInputEditing,
     start,
@@ -362,5 +486,6 @@ export default function useInteractiveTwinExecution({
     pauseContinuous,
     end,
     handleInputChange,
+    reportDisplayedSample,
   }
 }

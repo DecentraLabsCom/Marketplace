@@ -56,7 +56,7 @@ function sampleIndexAtOrBefore(times, time) {
   return low
 }
 
-export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning, startTime, stopTime }) {
+export default function DigitalTwinViewer({ sceneUrl, title, results, modelVariables, isRunning, startTime, stopTime, followLatest, onDisplayedSampleChange }) {
   const indicatorsId = useId()
   const [sampleIndex, setSampleIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -66,7 +66,7 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
   const [outputsCollapsed, setOutputsCollapsed] = useState(false)
   const times = Array.isArray(results?.time) ? results.time : []
   const lastIndex = Math.max(times.length - 1, 0)
-  const displayedSampleIndex = Math.min(sampleIndex, lastIndex)
+  const displayedSampleIndex = isRunning && followLatest ? lastIndex : Math.min(sampleIndex, lastIndex)
   const timesRef = useRef(times)
   const sampleIndexRef = useRef(sampleIndex)
   const isRunningRef = useRef(isRunning)
@@ -89,12 +89,15 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
 
   useEffect(() => {
     if (isRunning && !wasRunningRef.current) {
-      autoPlaybackRef.current = true
-      setSampleIndex(0)
-      setPlaying(true)
+      autoPlaybackRef.current = !followLatest
+      setSampleIndex(followLatest ? lastIndex : 0)
+      setPlaying(!followLatest)
+    } else if (isRunning && followLatest) {
+      autoPlaybackRef.current = false
+      setPlaying(false)
     }
     wasRunningRef.current = isRunning
-  }, [isRunning])
+  }, [followLatest, isRunning, lastIndex])
 
   useEffect(() => {
     if (isRunning || autoPlaybackRef.current) return
@@ -210,6 +213,8 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
             values={values}
             modelVariables={modelVariables}
             onStatus={setLoadState}
+            sampleIndex={displayedSampleIndex}
+            onSampleRendered={isRunning && followLatest ? onDisplayedSampleChange : undefined}
           />
           <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-white/10 bg-[#071014]/80 px-3 py-2 text-[11px] text-[#a9c0c4] backdrop-blur">
             Drag to orbit · scroll to zoom
@@ -295,9 +300,13 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
             </div>
           )}
 
-          <div>
-            <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} />
-          </div>
+          {isRunning && followLatest ? (
+            <p className="text-[10px] text-[#829ba1]">Showing the latest interactive sample.</p>
+          ) : (
+            <div>
+              <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} />
+            </div>
+          )}
 
           <div className="rounded-xl border border-[#26383f] bg-[#142128] p-3">
             <div className="flex items-center justify-between text-xs text-[#a9bec2]">
@@ -324,14 +333,16 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={togglePlayback}
-            disabled={times.length < 2}
-            className="w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {playing ? 'Pause replay' : 'Replay simulation'}
-          </button>
+          {!(isRunning && followLatest) ? (
+            <button
+              type="button"
+              onClick={togglePlayback}
+              disabled={times.length < 2}
+              className="w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {playing ? 'Pause replay' : 'Replay simulation'}
+            </button>
+          ) : null}
         </aside>
       </div>
     </section>
@@ -346,6 +357,8 @@ DigitalTwinViewer.propTypes = {
   isRunning: PropTypes.bool,
   startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   stopTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  followLatest: PropTypes.bool,
+  onDisplayedSampleChange: PropTypes.func,
 }
 
 DigitalTwinViewer.defaultProps = {
@@ -353,6 +366,7 @@ DigitalTwinViewer.defaultProps = {
   results: null,
   modelVariables: [],
   isRunning: false,
+  followLatest: false,
   startTime: 0,
   stopTime: 1,
 }

@@ -87,7 +87,18 @@ inputs and simulation-time settings:
 | --- | --- | --- |
 | **Batch** | Runs the complete simulation through the existing Marketplace stream and displays the returned samples for replay. | Schedule input or tunable-parameter changes at model times before starting. |
 | **Step by step** | Opens a reservation-scoped FMU session in external time mode and sends one `sim.step` request when the user advances. | Edit runtime-writable variables while paused; the new values are sent before the next step. |
-| **Continuous (live)** | Repeats one `sim.step` request as soon as the previous request and response complete. | Edit runtime-writable variables at any time; pending values are sent before the next step request. Network and model response time determine the pace. |
+| **Continuous (live)** | Uses `sim.advance` to return bounded batches of intermediate samples. It starts with one communication sample and adapts up to the lower of 256 samples or 2% of the configured run's communication-step count, rounded down with a one-step minimum. | Edit runtime-writable variables at any time; pending values are sent before the next batch. The current batch must finish before a new value can be applied. |
+
+The continuous batch controller smooths FMU request response time and the delay
+from receiving a batch to rendering its latest sample. It halves the sample count
+when either delay is high, then grows it gradually after several responsive
+batches, without exceeding the model-horizon limit. This dimensionless limit
+is based on communication-step count, not the unit of the independent variable.
+During
+interactive execution, the GLB viewer follows the latest sample instead of
+replaying a queue at one simulation second per wall-clock second; all collected
+samples remain available for replay after the run. The viewer shows the last and
+planned batch sizes, model-time delta, response time and visual delay.
 
 The Gateway enforces the effective AAS/FMI variable-access policy for every
 runtime write and filters output values. Interactive modes use a short-lived
@@ -206,6 +217,21 @@ It reads model defaults with `model.describe` and `includeVariables: false`,
 then uses `sim.advance` to obtain up to 256 samples per response. The Executor
 bounds the encoded frame by output names and scalar sizes. The SDK accepts up
 to 512 outputs with names up to 256 characters, and a 1 MB frame limit.
+
+The convenience client keeps the provider app's fixed batch behavior by default.
+An app may explicitly request `batchPolicy: 'adaptive'` to adjust the next
+`sim.advance` batch from FMU request response time and app processing/presentation
+delay. The app can set `maxBatchSamples` to choose its maximum number of communication
+steps per request. The adaptive ceiling is also limited to 2% of the configured
+run's communication-step count (rounded down, with a one-step minimum), regardless
+of the independent variable's unit. This option cannot be combined with
+`inputController`, which advances one sample at a time for closed-loop feedback.
+To include actual presentation time, an app can provide `onBatchRendered`; the
+client awaits it after `onSamples` and the app resolves it after its Three.js
+renderer has drawn the batch's last sample. Without that callback, the client
+measures sample-processing time only.
+Apps that implement the protocol without the convenience client manage their own
+batching.
 
 Sample callbacks may be asynchronous. The client requests another batch only
 after the preceding callback finishes, and respects the session's advertised

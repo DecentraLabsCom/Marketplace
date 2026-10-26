@@ -11,6 +11,7 @@ export default function DigitalTwinExecutionControls({
   status,
   mode,
   simulationTime,
+  batchMetrics,
   values,
   modelVariables,
   runtimeVariables,
@@ -55,8 +56,13 @@ export default function DigitalTwinExecutionControls({
           {hasInteractiveSession && status !== 'connecting' ? (
             <>
               <span role="status" className="text-xs text-[#b8d2d5]">
-                {status === 'stepping' ? 'Advancing…' : status === 'pausing' ? 'Pausing…' : status === 'stopping' ? 'Ending after the current step…' : `t = ${simulationTime.toFixed(3)} s`}
+                {status === 'stepping' ? 'Advancing…' : status === 'pausing' ? 'Pausing…' : status === 'stopping' ? `Ending after the current ${mode === 'continuous' ? 'batch' : 'step'}…` : `t = ${simulationTime.toFixed(3)} s`}
               </span>
+              {mode === 'continuous' && batchMetrics ? (
+                <span className="text-[10px] text-[#8da9ae]" title="FMU response time and the delay before the rendered frame are smoothed to adjust the next batch size.">
+                  Last batch {batchMetrics.samples} samples ({batchMetrics.simulationDelta.toLocaleString(undefined, { maximumFractionDigits: 3 })} model units) · next {batchMetrics.nextBatchSamples} samples · response {Math.round(batchMetrics.responseMs)} ms · visual delay {batchMetrics.renderDelayMs === null ? 'measuring' : `${Math.round(batchMetrics.renderDelayMs)} ms`}
+                </span>
+              ) : null}
               {mode === 'step' ? (
                 <button
                   type="button"
@@ -96,7 +102,7 @@ export default function DigitalTwinExecutionControls({
             <p className="mt-1 text-xs text-[#9ab8bd]">
               {mode === 'step'
                 ? 'Changes are sent before the next step.'
-                : 'Changes are sent before the next step request; network and model response time determine when they take effect.'}
+                : 'Changes are sent before the next batch; network and model response time determine when they take effect.'}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -125,6 +131,13 @@ DigitalTwinExecutionControls.propTypes = {
   status: PropTypes.string.isRequired,
   mode: PropTypes.oneOf(['step', 'continuous']),
   simulationTime: PropTypes.number.isRequired,
+  batchMetrics: PropTypes.shape({
+    responseMs: PropTypes.number,
+    renderDelayMs: PropTypes.number,
+    simulationDelta: PropTypes.number.isRequired,
+    nextBatchSamples: PropTypes.number.isRequired,
+    samples: PropTypes.number.isRequired,
+  }),
   values: PropTypes.object.isRequired,
   modelVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
   runtimeVariables: PropTypes.arrayOf(PropTypes.object).isRequired,

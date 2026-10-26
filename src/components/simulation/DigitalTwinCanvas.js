@@ -65,21 +65,27 @@ function setTooltipContent(tooltip, bindings) {
   }
 }
 
-export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, onStatus }) {
+export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, onStatus, sampleIndex, onSampleRendered }) {
   const hostRef = useRef(null)
   const valuesRef = useRef(values)
   const variablesRef = useRef(modelVariables)
   const onStatusRef = useRef(onStatus)
+  const sampleIndexRef = useRef(sampleIndex)
+  const onSampleRenderedRef = useRef(onSampleRendered)
+  const renderedSampleIndexRef = useRef(null)
 
   valuesRef.current = values
   variablesRef.current = modelVariables
   onStatusRef.current = onStatus
+  sampleIndexRef.current = sampleIndex
+  onSampleRenderedRef.current = onSampleRendered
 
   useEffect(() => {
     const host = hostRef.current
     if (!host || !sceneUrl) return undefined
 
     let disposed = false
+    renderedSampleIndexRef.current = null
     let frameId = 0
     let mixer = null
     const scene = new THREE.Scene()
@@ -358,6 +364,10 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       }
       controls.update()
       renderer.render(scene, camera)
+      if (gltfRoot && renderedSampleIndexRef.current !== sampleIndexRef.current) {
+        renderedSampleIndexRef.current = sampleIndexRef.current
+        onSampleRenderedRef.current?.(sampleIndexRef.current, performance.now())
+      }
     }
     animate()
     onStatusRef.current?.('loading')

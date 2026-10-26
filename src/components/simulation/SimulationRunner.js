@@ -207,21 +207,27 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
 
-  const appendInteractiveSample = useCallback((time, outputs) => {
-    const sampleValues = outputs && typeof outputs === 'object' && !Array.isArray(outputs) ? outputs : {}
+  const appendInteractiveSamples = useCallback((samples) => {
+    if (!Array.isArray(samples) || samples.length === 0) return
     setResults((current) => {
       const previousTimes = Array.isArray(current?.time) ? current.time : []
       const previousOutputs = current?.outputs || {}
-      const outputNames = new Set([...Object.keys(previousOutputs), ...Object.keys(sampleValues)])
+      const outputNames = new Set([
+        ...Object.keys(previousOutputs),
+        ...samples.flatMap((sample) => Object.keys(sample.outputs || {})),
+      ])
       const nextOutputs = Object.fromEntries([...outputNames].map((name) => {
         const previousValues = Array.isArray(previousOutputs[name])
           ? previousOutputs[name]
           : Array(previousTimes.length).fill(null)
-        const sampleValue = Object.prototype.hasOwnProperty.call(sampleValues, name) ? sampleValues[name] : null
-        return [name, [...previousValues, sampleValue]]
+        const sampleValues = samples.map((sample) => (
+          Object.prototype.hasOwnProperty.call(sample.outputs || {}, name) ? sample.outputs[name] : null
+        ))
+        return [name, [...previousValues, ...sampleValues]]
       }))
+      const time = samples[samples.length - 1].time
       return {
-        time: [...previousTimes, time],
+        time: [...previousTimes, ...samples.map((sample) => sample.time)],
         outputs: nextOutputs,
         outputVariables: [...outputNames],
         simulationTime: time,
@@ -260,7 +266,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     variableAccessState,
     supported: supportsInteractiveTwinModes,
     onRunStart: handleInteractiveRunStart,
-    onSample: appendInteractiveSample,
+    onSamples: appendInteractiveSamples,
     onRunFinish: handleInteractiveRunFinish,
     onParameterChange: handleParamChange,
   })
@@ -691,6 +697,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
               status={interactiveExecution.status}
               mode={interactiveExecution.mode}
               simulationTime={interactiveExecution.simulationTime}
+              batchMetrics={interactiveExecution.batchMetrics}
               values={interactiveExecution.hasActiveSession ? interactiveExecution.liveParameters : parameters}
               modelVariables={twinModelVariables}
               runtimeVariables={twinScheduledRuntimeVariables}
@@ -856,6 +863,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           isRunning={simState === SIM_STATE.RUNNING}
           startTime={Number(options.startTime)}
           stopTime={Number(options.stopTime)}
+          followLatest={interactiveExecution.mode !== null}
+          onDisplayedSampleChange={interactiveExecution.reportDisplayedSample}
         />
       )}
     </div>

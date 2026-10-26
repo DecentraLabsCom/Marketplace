@@ -177,10 +177,14 @@ execution modes when the FMU supports interactive sessions:
   timeline before starting.
 * **Step by step** waits after each communication step. You can change
   runtime-writable inputs before advancing again.
-* **Continuous (live)** advances as soon as each Gateway response arrives. You
-  can change runtime-writable inputs while it runs; pending values are applied
-  before the next step request, so the network and model response time set the
-  pace.
+* **Continuous (live)** advances in bounded batches of FMU output samples. The
+  viewer adjusts the batch size using request response time and the delay until
+  the latest sample is rendered. A model-time horizon cap keeps batches at or
+  below 2% of the configured run, rounded to whole communication steps. It
+  follows the latest sample while interactive and keeps the full timeline for
+  replay afterward. You can change
+  runtime-writable inputs while it runs; pending values are applied before the
+  next batch, after the current batch completes.
 
 All three modes use the same starting inputs and simulation-time settings. The
 Gateway enforces the provider's variable-write permissions. Interactive modes

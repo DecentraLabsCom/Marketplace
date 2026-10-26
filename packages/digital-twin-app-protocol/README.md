@@ -52,6 +52,24 @@ stops the run. Cancellation/disposal aborts pending work and closes the session.
 Check `context.signal.aborted` after awaiting before committing app side effects.
 `onResultsComplete` follows the last successful sample callback.
 
+`run()` keeps the provider app's existing fixed batch behavior by default: up to
+256 samples per response, or one sample when `inputController` performs
+per-sample feedback. A provider may set `maxBatchSamples` to cap that number, or
+explicitly request `batchPolicy: 'adaptive'` to let the SDK adjust the next
+`sim.advance` batch from FMU request response time and app processing/presentation
+delay. The adaptive ceiling is the lower of `maxBatchSamples` and 2% of the configured
+communication-step count, rounded down with a one-step minimum. It is based on
+sample count, so the independent variable may use seconds, hours, or another
+unit. Adaptive mode cannot be combined with `inputController`, because feedback
+must run after every sample. If the app supplies `onBatchRendered`, the SDK waits
+for it after `onSamples` and includes its delay in the adaptive measurement.
+The app can resolve it after its Three.js renderer draws the batch's last sample.
+Without that callback, the SDK measures app sample-processing time.
+
+```js
+client.run({ parameters, options, batchPolicy: 'adaptive', maxBatchSamples: 1 })
+```
+
 Input schedules are applied at model timestamps. An optional per-run
 `inputController(sample, context)` returns runtime input updates, using one-step
 batches for closed-loop feedback. Its throughput depends on network latency.
