@@ -1,7 +1,8 @@
+// Keep these simulation-tool fallbacks aligned with FMU-Executor/app/simulation_defaults.py.
 const FALLBACK_SIMULATION_OPTIONS = Object.freeze({
   startTime: 0,
-  stopTime: 10,
-  stepSize: 0.01,
+  stopDuration: 1,
+  stepSize: 0.001,
 })
 
 function parseOptionalFiniteNumber(value) {
@@ -18,11 +19,11 @@ export function getInitialSimulationOptions(fmuMetadata = {}) {
   const startTime = parseOptionalFiniteNumber(fmuMetadata.defaultStartTime)
     ?? FALLBACK_SIMULATION_OPTIONS.startTime
   const declaredStopTime = parseOptionalFiniteNumber(fmuMetadata.defaultStopTime)
-  const stopTime = declaredStopTime !== null
+  const stopTime = declaredStopTime !== null && declaredStopTime > startTime
     ? declaredStopTime
-    : startTime + FALLBACK_SIMULATION_OPTIONS.stopTime
+    : startTime + FALLBACK_SIMULATION_OPTIONS.stopDuration
   const declaredStepSize = parseOptionalFiniteNumber(fmuMetadata.defaultStepSize)
-  const stepSize = declaredStepSize !== null
+  const stepSize = declaredStepSize !== null && declaredStepSize > 0
     ? declaredStepSize
     : FALLBACK_SIMULATION_OPTIONS.stepSize
 

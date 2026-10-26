@@ -56,7 +56,13 @@ function makeSession(stepResponse, advanceResponse) {
   }
 }
 
-function setup({ session = makeSession(), variableAccessState = 'ready', variableAccess = { variables: { position: { read: true } } } } = {}) {
+function setup({
+  session = makeSession(),
+  variableAccessState = 'ready',
+  variableAccess = { variables: { position: { read: true } } },
+  options = { startTime: 0, stopTime: 2, stepSize: 1 },
+  parameters = {},
+} = {}) {
   connectFmuSession.mockResolvedValue(session)
   const callbacks = {
     onRunStart: jest.fn(),
@@ -67,8 +73,8 @@ function setup({ session = makeSession(), variableAccessState = 'ready', variabl
   const getConnection = jest.fn(async () => ({ sessionTicket: 'ticket' }))
   const hook = renderHook(() => useInteractiveTwinExecution({
     getConnection,
-    options: { startTime: 0, stopTime: 2, stepSize: 1 },
-    parameters: {},
+    options,
+    parameters,
     modelVariables: [inputVariable, outputVariable],
     editableVariables: [inputVariable],
     runtimeVariables: [inputVariable],
@@ -177,6 +183,69 @@ describe('useInteractiveTwinExecution', () => {
     expect(advanceCalls.map(([, , payload]) => payload.maxComputeMs)).toEqual([50, 50])
     expect(callbacks.onRunFinish).toHaveBeenCalledWith({ state: 'completed', message: null, parameters: { speed: 1 } })
     expect(session.close).toHaveBeenCalledTimes(1)
+  })
+
+  test('continuous mode advances after one successful write and applies newer input next cycle', async () => {
+    let releaseFirstAdvance
+    let releaseFirstWrite
+    let currentTime = 0
+    let advanceCount = 0
+    let writeCount = 0
+    const firstAdvance = new Promise((resolve) => { releaseFirstAdvance = resolve })
+    const firstWrite = new Promise((resolve) => { releaseFirstWrite = resolve })
+    const operations = []
+    const session = makeSession()
+    session.request.mockImplementation(async (type, _expectedType, payload) => {
+      if (type === 'sim.getOutputs') return { simTime: 0, values: { position: 0 } }
+      if (type === 'sim.setInputs') {
+        writeCount += 1
+        operations.push(`write:${payload.values.speed}`)
+        if (writeCount === 1) await firstWrite
+        return {}
+      }
+      if (type === 'sim.advance') {
+        advanceCount += 1
+        operations.push(`advance:${payload.targetTime}`)
+        if (advanceCount === 1) await firstAdvance
+        const samples = []
+        for (let time = currentTime + 1; time <= payload.targetTime; time += 1) {
+          samples.push({ time, outputs: { position: time }, sequence: time })
+        }
+        currentTime = payload.targetTime
+        return {
+          simTime: currentTime,
+          samples,
+          finished: currentTime >= 3,
+          stopReason: currentTime >= 3 ? 'simulation_finished' : 'target_reached',
+          stepsExecuted: samples.length,
+          inputEventsApplied: 0,
+          samplesReturned: samples.length,
+          sampleBytes: samples.length * 48,
+          computeMs: samples.length * 50,
+          computeBudgetOverrunMs: 0,
+          maxComputeMs: payload.maxComputeMs,
+        }
+      }
+      return {}
+    })
+    const { result } = setup({
+      session,
+      options: { startTime: 0, stopTime: 3, stepSize: 1 },
+      parameters: { speed: 1 },
+    })
+
+    await act(async () => result.current.start('continuous'))
+    await waitFor(() => expect(advanceCount).toBe(1))
+    act(() => result.current.handleInputChange('speed', 3))
+    releaseFirstAdvance()
+    await waitFor(() => expect(writeCount).toBe(1))
+    act(() => result.current.handleInputChange('speed', 4))
+    releaseFirstWrite()
+    await waitFor(() => expect(result.current.status).toBe('completed'))
+
+    expect(operations[0]).toBe('advance:1')
+    expect(operations.slice(1, 3)).toEqual(['write:3', expect.stringMatching(/^advance:/)])
+    expect(operations.indexOf('write:4')).toBeGreaterThan(operations.indexOf('advance:'))
   })
 
   test('does not open a runtime session before variable access is ready', async () => {

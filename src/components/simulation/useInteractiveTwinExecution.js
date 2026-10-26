@@ -243,7 +243,9 @@ export default function useInteractiveTwinExecution({
             ensureCurrentSession()
             continue
           }
-          if (Object.keys(getChangedRuntimeValues()).length === 0) break
+          // Send one successful write per advance cycle. Newer edits remain
+          // pending and are applied before the next batch.
+          break
         }
       } else if (pendingRuntimeInputChangedAtRef.current !== null) {
         pendingRuntimeInputChangedAtRef.current = null
