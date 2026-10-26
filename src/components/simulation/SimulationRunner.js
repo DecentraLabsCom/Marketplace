@@ -22,7 +22,10 @@ import {
   getInitializationEditableVariables,
   getRuntimeWritableVariables,
 } from './simulationVariableAccess'
-import DigitalTwinExecutionControls from './DigitalTwinExecutionControls'
+import {
+  DigitalTwinExecutionModeSelector,
+  DigitalTwinExecutionSessionActions,
+} from './DigitalTwinExecutionControls'
 import useInteractiveTwinExecution from './useInteractiveTwinExecution'
 import useSimulationGatewaySession from './useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './useDigitalTwinAssetDiscovery'
@@ -712,30 +715,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
             <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no editable input variables or parameters. Run it with its declared defaults.</p>
           )}
 
-          {supportsInteractiveTwinModes ? (
-            <DigitalTwinExecutionControls
-              executionMode={executionMode}
-              onExecutionModeChange={setExecutionMode}
-              executionModes={['batch', 'step', 'continuous']}
-              running={simState === SIM_STATE.RUNNING}
-              status={interactiveExecution.status}
-              mode={interactiveExecution.mode}
-              simulationTime={interactiveExecution.simulationTime}
-              batchMetrics={interactiveExecution.batchMetrics}
-              values={interactiveExecution.hasActiveSession ? interactiveExecution.liveParameters : parameters}
-              modelVariables={twinModelVariables}
-              runtimeVariables={twinScheduledRuntimeVariables}
-              runtimeInputEditing={interactiveExecution.runtimeInputEditing}
-              onInputChange={interactiveExecution.handleInputChange}
-              onAdvanceStep={() => void interactiveExecution.advanceStep()}
-              onToggleContinuous={() => interactiveExecution.status === 'continuous'
-                ? interactiveExecution.pauseContinuous()
-                : void interactiveExecution.startContinuous()}
-              onEnd={interactiveExecution.end}
-              onCancel={interactiveExecution.end}
-            />
-          ) : null}
-
           <DigitalTwinSimulationForm
             variables={twinEditableVariables}
             modelVariables={twinModelVariables}
@@ -746,6 +725,36 @@ export default function SimulationRunner({ lab, reservationKey }) {
             onSimulationOptionChange={handleOptionChange}
             simulationType={fmuMeta.simulationType}
             executionMode={executionMode}
+            continuousMetrics={interactiveExecution.mode === 'continuous' && interactiveExecution.hasActiveSession ? interactiveExecution.batchMetrics : null}
+            executionModeControl={supportsInteractiveTwinModes ? (
+              <DigitalTwinExecutionModeSelector
+                executionMode={executionMode}
+                onExecutionModeChange={setExecutionMode}
+                executionModes={['batch', 'step', 'continuous']}
+                running={simState === SIM_STATE.RUNNING}
+                status={interactiveExecution.status}
+              />
+            ) : null}
+            executionSessionControls={supportsInteractiveTwinModes ? (
+              <DigitalTwinExecutionSessionActions
+                status={interactiveExecution.status}
+                mode={interactiveExecution.mode}
+                simulationTime={interactiveExecution.simulationTime}
+                onAdvanceStep={() => void interactiveExecution.advanceStep()}
+                onToggleContinuous={() => interactiveExecution.status === 'continuous'
+                  ? interactiveExecution.pauseContinuous()
+                  : void interactiveExecution.startContinuous()}
+                onEnd={interactiveExecution.end}
+                onCancel={interactiveExecution.end}
+                runtimeVariables={twinScheduledRuntimeVariables}
+                modelVariables={twinModelVariables}
+                values={interactiveExecution.liveParameters}
+                runtimeInputEditing={interactiveExecution.runtimeInputEditing}
+                onInputChange={interactiveExecution.handleInputChange}
+              />
+            ) : null}
+            stickyToolbar
+            stickyToolbarOffset={80}
             enableInputSchedule={supportsInputSchedule && executionMode === 'batch'}
             inputEvents={inputEvents}
             onInputEventsChange={setInputEvents}

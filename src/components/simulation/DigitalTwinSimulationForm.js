@@ -4,7 +4,8 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
 import { normalizeInputSchedule } from './simulationParameters'
-import DigitalTwinInput from './DigitalTwinInput'
+import { DigitalTwinContinuousMetrics } from './DigitalTwinExecutionControls'
+import DigitalTwinInputGrid from './DigitalTwinInputGrid'
 import InputScheduleEditor from './InputScheduleEditor'
 import SimulationOptions from './SimulationOptions'
 import { getSimulationOptionsError } from './simulationTime'
@@ -18,6 +19,11 @@ export default function DigitalTwinSimulationForm({
   onSimulationOptionChange,
   simulationType,
   executionMode = 'batch',
+  executionModeControl = null,
+  executionSessionControls = null,
+  continuousMetrics = null,
+  stickyToolbar = false,
+  stickyToolbarOffset = 0,
   enableInputSchedule = true,
   scheduleVariables,
   inputEvents = [],
@@ -48,6 +54,10 @@ export default function DigitalTwinSimulationForm({
       inputScheduleError = error.message
     }
   }
+  const toolbarClassName = [
+    'mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#263a42] bg-[#101a20] p-3 sm:p-4',
+    stickyToolbar ? 'sticky z-40 shadow-lg' : '',
+  ].filter(Boolean).join(' ')
 
   function handleRun() {
     if (simulationOptionsError) {
@@ -64,8 +74,13 @@ export default function DigitalTwinSimulationForm({
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#263a42] bg-[#101a20] p-3 sm:p-4">
+      <section
+        className={toolbarClassName}
+        style={stickyToolbar ? { top: `${stickyToolbarOffset}px` } : undefined}
+        aria-label="Simulation controls"
+      >
         <div className="flex flex-wrap items-center gap-2">
+          {executionModeControl}
           <button
             type="button"
             aria-haspopup="dialog"
@@ -90,6 +105,7 @@ export default function DigitalTwinSimulationForm({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {executionSessionControls}
           {showRunButton ? (
             <button
               type="button"
@@ -106,7 +122,13 @@ export default function DigitalTwinSimulationForm({
             {simulationOptionsError || (executionMode === 'batch' ? inputScheduleError : '')}
           </p>
         ) : null}
-      </div>
+      </section>
+
+      {executionMode === 'continuous' && continuousMetrics ? (
+        <div className="-mt-3 mb-4">
+          <DigitalTwinContinuousMetrics metrics={continuousMetrics} />
+        </div>
+      ) : null}
 
       <Modal
         isOpen={activeDialog === 'run-controls'}
@@ -120,22 +142,14 @@ export default function DigitalTwinSimulationForm({
         <p className="mb-4 text-xs text-[#829ba1]">Set model inputs and simulation time for the next run.</p>
         <section className="mb-4 grid gap-3" aria-labelledby="digital-twin-run-inputs-title">
           <h3 id="digital-twin-run-inputs-title" className="text-sm font-semibold text-white">Inputs and tunable parameters</h3>
-          {variables.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {variables.map((variable) => (
-                <DigitalTwinInput
-                  key={variable.name}
-                  variable={variable}
-                  modelVariables={modelVariables}
-                  value={values[variable.name]}
-                  onChange={onInputChange}
-                  disabled={running}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-lg border border-[#26383f] bg-[#0c171c] px-3 py-2 text-xs text-[#829ba1]">This FMU has no editable input variables or parameters.</p>
-          )}
+          <DigitalTwinInputGrid
+            variables={variables}
+            modelVariables={modelVariables}
+            values={values}
+            onChange={onInputChange}
+            disabled={running}
+            emptyMessage="This FMU has no editable input variables or parameters."
+          />
         </section>
         <SimulationOptions
           options={simulationOptions}
@@ -205,6 +219,11 @@ DigitalTwinSimulationForm.propTypes = {
   onSimulationOptionChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']),
+  executionModeControl: PropTypes.node,
+  executionSessionControls: PropTypes.node,
+  continuousMetrics: PropTypes.object,
+  stickyToolbar: PropTypes.bool,
+  stickyToolbarOffset: PropTypes.number,
   enableInputSchedule: PropTypes.bool,
   scheduleVariables: PropTypes.arrayOf(PropTypes.object),
   inputEvents: PropTypes.arrayOf(PropTypes.object),

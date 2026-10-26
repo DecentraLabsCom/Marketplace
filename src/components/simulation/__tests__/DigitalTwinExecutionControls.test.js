@@ -33,17 +33,21 @@ describe('DigitalTwinExecutionControls', () => {
 
     expect(screen.getByLabelText('Execution mode')).toHaveValue('step')
     expect(screen.getByRole('button', { name: 'Advance one step' })).toBeEnabled()
-    expect(screen.getByLabelText('Motor speed')).toBeEnabled()
+    expect(screen.queryByLabelText('Motor speed')).not.toBeInTheDocument()
     expect(screen.getByText('t = 1.250 s')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Execution mode'), { target: { value: 'continuous' } })
     expect(props.onExecutionModeChange).toHaveBeenCalledWith('continuous')
 
+    fireEvent.click(screen.getByRole('button', { name: 'Change variables' }))
+    expect(screen.getByLabelText('Motor speed')).toBeEnabled()
+
     rerender(<DigitalTwinExecutionControls {...props} status="stepping" running runtimeInputEditing={false} />)
 
     expect(screen.getByLabelText('Execution mode')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Advancing…' })).toBeDisabled()
-    expect(screen.queryByLabelText('Motor speed')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change variables' })).toBeDisabled()
+    expect(screen.getByLabelText('Motor speed')).toBeDisabled()
   })
 
   test('offers pause while continuous execution is active', () => {
