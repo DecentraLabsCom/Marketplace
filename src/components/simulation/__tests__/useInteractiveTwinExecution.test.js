@@ -42,11 +42,9 @@ function setup({ session = makeSession(), variableAccessState = 'ready', variabl
     onRunFinish: jest.fn(),
     onParameterChange: jest.fn(),
   }
-  const fetchGateway = jest.fn(async () => ({ ok: true, json: async () => ({ sessionTicket: 'ticket' }) }))
+  const getConnection = jest.fn(async () => ({ sessionTicket: 'ticket' }))
   const hook = renderHook(() => useInteractiveTwinExecution({
-    labId: '42',
-    reservationKey: 'reservation-1',
-    fetchGateway,
+    getConnection,
     options: { startTime: 0, stopTime: 2, stepSize: 1 },
     parameters: {},
     modelVariables: [inputVariable, outputVariable],
@@ -57,7 +55,7 @@ function setup({ session = makeSession(), variableAccessState = 'ready', variabl
     supported: true,
     ...callbacks,
   }))
-  return { ...hook, callbacks, fetchGateway, session }
+  return { ...hook, callbacks, getConnection, session }
 }
 
 describe('useInteractiveTwinExecution', () => {
@@ -75,15 +73,11 @@ describe('useInteractiveTwinExecution', () => {
       }
       return { simTime: payload.currentCommunicationPoint + payload.deltaT, values: { position: 1 } }
     })
-    const { result, callbacks, fetchGateway } = setup({ session })
+    const { result, callbacks, getConnection } = setup({ session })
 
     await act(async () => result.current.start('step'))
     expect(result.current.status).toBe('paused')
-    expect(fetchGateway).toHaveBeenCalledWith('/api/simulations/connection', expect.objectContaining({
-      method: 'POST',
-      credentials: 'include',
-      body: JSON.stringify({ labId: '42', reservationKey: 'reservation-1' }),
-    }))
+    expect(getConnection).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) })
 
     act(() => result.current.handleInputChange('speed', 3))
     await act(async () => {
@@ -123,11 +117,11 @@ describe('useInteractiveTwinExecution', () => {
   })
 
   test('does not open a runtime session before variable access is ready', async () => {
-    const { result, callbacks, fetchGateway } = setup({ variableAccessState: 'loading', variableAccess: null })
+    const { result, callbacks, getConnection } = setup({ variableAccessState: 'loading', variableAccess: null })
 
     await act(async () => result.current.start('step'))
 
-    expect(fetchGateway).not.toHaveBeenCalled()
+    expect(getConnection).not.toHaveBeenCalled()
     expect(connectFmuSession).not.toHaveBeenCalled()
     expect(callbacks.onRunStart).not.toHaveBeenCalled()
     expect(callbacks.onRunFinish).toHaveBeenCalledWith({

@@ -57,9 +57,7 @@ async function requestRealtimeOperation(session, type, expectedType, payload, si
 }
 
 export default function useInteractiveTwinExecution({
-  labId,
-  reservationKey,
-  fetchGateway,
+  getConnection,
   options,
   parameters,
   modelVariables,
@@ -407,19 +405,7 @@ export default function useInteractiveTwinExecution({
       renderDelayRef.current = null
       if (mountedRef.current) setBatchMetrics(null)
 
-      const connectionResponse = await fetchGateway('/api/simulations/connection', {
-        method: 'POST',
-        credentials: 'include',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, reservationKey }),
-      })
-      ensureCurrentRun()
-      if (!connectionResponse.ok) {
-        const payload = await connectionResponse.json().catch(() => ({}))
-        throw new Error(payload.error || `The FMU session could not be authorized (${connectionResponse.status}).`)
-      }
-      const connection = await connectionResponse.json()
+      const connection = await getConnection({ signal: controller.signal })
       ensureCurrentRun()
       const session = await connectFmuSession(connection, { signal: controller.signal })
       if (controller.signal.aborted || controllerRef.current !== controller) {
@@ -456,7 +442,7 @@ export default function useInteractiveTwinExecution({
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
     }
-  }, [appendSamples, editableVariables, fetchGateway, finishSession, labId, modelVariables, onRunFinish, onRunStart, options, parameters, reservationKey, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+  }, [appendSamples, editableVariables, finishSession, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
 
   const handleInputChange = useCallback((name, value) => {
     if (sessionRef.current) {

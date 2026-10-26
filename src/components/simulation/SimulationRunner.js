@@ -253,10 +253,23 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setSimState(state)
   }, [])
 
+  const getInteractiveConnection = useCallback(async ({ signal }) => {
+    const response = await fetchGateway('/api/simulations/connection', {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload.error || `The FMU session could not be authorized (${response.status}).`)
+    }
+    return response.json()
+  }, [fetchGateway, labId, reservationKey])
+
   const interactiveExecution = useInteractiveTwinExecution({
-    labId,
-    reservationKey,
-    fetchGateway,
+    getConnection: getInteractiveConnection,
     options,
     parameters,
     modelVariables: twinModelVariables,
