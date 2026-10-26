@@ -14,7 +14,7 @@ describe('Next.js security headers', () => {
 
   test.each([
     '/api/aas/digital-twin-app/:path*',
-    '/api/dev/smart-warehouse/app/:path*',
+    '/api/dev/:demo/app/:path*',
   ])('allows the sandboxed digital twin app document to render in its iframe (%s)', async (source) => {
     const rules = await nextConfig.headers()
     const appRule = rules.find(({ source: ruleSource }) => ruleSource === source)

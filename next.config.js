@@ -57,8 +57,7 @@ const nextConfig = {
     const sameOriginDocumentSources = [
       '/api/metadata/document',
       '/api/aas/digital-twin-app/:path*',
-      '/api/dev/smart-warehouse/app/:path*',
-      '/api/dev/dc-motor/app/:path*',
+      '/api/dev/:demo/app/:path*',
     ];
     return [
       {
