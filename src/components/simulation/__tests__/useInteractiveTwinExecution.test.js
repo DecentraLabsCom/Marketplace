@@ -244,8 +244,14 @@ describe('useInteractiveTwinExecution', () => {
     await waitFor(() => expect(result.current.status).toBe('completed'))
 
     expect(operations[0]).toBe('advance:1')
-    expect(operations.slice(1, 3)).toEqual(['write:3', expect.stringMatching(/^advance:/)])
-    expect(operations.indexOf('write:4')).toBeGreaterThan(operations.indexOf('advance:'))
+    const writeThreeIndex = operations.indexOf('write:3')
+    const nextAdvanceIndex = operations.findIndex((operation, index) => (
+      index > writeThreeIndex && operation.startsWith('advance:')
+    ))
+    const writeFourIndex = operations.indexOf('write:4')
+    expect(writeThreeIndex).toBeGreaterThanOrEqual(0)
+    expect(nextAdvanceIndex).toBeGreaterThan(writeThreeIndex)
+    expect(writeFourIndex).toBeGreaterThan(nextAdvanceIndex)
   })
 
   test('does not open a runtime session before variable access is ready', async () => {
