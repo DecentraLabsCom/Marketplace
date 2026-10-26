@@ -54,7 +54,7 @@ export function DigitalTwinContinuousMetrics({ metrics }) {
   if (!metrics) return null
 
   return (
-    <p className="mt-1 text-[11px] leading-relaxed text-[#8da9ae]" title="Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.">
+    <p className="mt-1 text-center text-[11px] leading-relaxed text-[#8da9ae]" title="Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.">
       {metrics.samples} samples · {formatPayloadBytes(metrics.sampleBytes)} · cycle {Math.round(metrics.responseMs)} ms · Executor {Number.isFinite(metrics.computeMs) ? `${Math.round(metrics.computeMs)} ms` : 'measuring'} · display {metrics.presentationConfirmed ? `${Math.round(metrics.renderDelayMs ?? 0)} ms` : 'unconfirmed'} · input-to-sample {Number.isFinite(metrics.interactionDelayEwmaMs) ? `${Math.round(metrics.interactionDelayEwmaMs)} ms` : 'not measured'} · next {metrics.nextBatchSamples} · {metrics.targetReachable === false ? 'latency target unreachable' : metrics.batchConstraint} · {metrics.stopReason.replaceAll('_', ' ')}{metrics.computeBudgetOverrunMs > 0 ? ` (+${Math.round(metrics.computeBudgetOverrunMs)} ms over budget)` : ''}
     </p>
   )
