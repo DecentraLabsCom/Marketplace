@@ -212,6 +212,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setResults((current) => {
       const previousTimes = Array.isArray(current?.time) ? current.time : []
       const previousOutputs = current?.outputs || {}
+      const previousSampleMetadata = Array.isArray(current?.sampleMetadata)
+        ? current.sampleMetadata
+        : Array(previousTimes.length).fill({})
       const outputNames = new Set([
         ...Object.keys(previousOutputs),
         ...samples.flatMap((sample) => Object.keys(sample.outputs || {})),
@@ -228,6 +231,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const time = samples[samples.length - 1].time
       return {
         time: [...previousTimes, ...samples.map((sample) => sample.time)],
+        sampleMetadata: [
+          ...previousSampleMetadata,
+          ...samples.map((sample) => Object.fromEntries(
+            ['sequence', 'eventOccurred', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason']
+              .filter((key) => sample[key] !== undefined)
+              .map((key) => [key, sample[key]]),
+          )),
+        ],
         outputs: nextOutputs,
         outputVariables: [...outputNames],
         simulationTime: time,

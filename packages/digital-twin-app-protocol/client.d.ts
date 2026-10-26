@@ -2,6 +2,9 @@ import type { AppReadyMessage, DigitalTwinSample, FmuConnectionConfig, InputEven
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
 export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
+export interface AdaptiveBatchOptions {
+  targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
+}
 export interface DigitalTwinAppClientOptions {
   /** Supply this to use the app independently of a Marketplace parent window. */
   getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[] }>
@@ -25,7 +28,7 @@ export interface DigitalTwinAppClientOptions {
 export interface DigitalTwinAppClient {
   reportReady(): boolean
   reportError(code?: string): boolean
-  run(request?: { parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]; inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>; batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number }): Promise<{ runId: string }>
+  run(request?: { parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]; inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>; batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions }): Promise<{ runId: string }>
   cancel(runId?: string): boolean
   requestModelChange(modelId: string): boolean
   dispose(): void

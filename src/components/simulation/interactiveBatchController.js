@@ -11,9 +11,19 @@ export function getInteractiveBatchPlan(controller, currentTime, stopTime, stepS
   return {
     targetTime: Math.min(stopTime, currentTime + stepSize * maxSamples),
     maxSamples,
+    maxComputeMs: controller.maxComputeMs,
   }
 }
 
-export function observeInteractiveBatch(controller, { responseMs, renderDelayMs }) {
-  return observeAdaptiveBatch(controller, { responseMs, consumerDelayMs: renderDelayMs })
+export function observeInteractiveBatch(controller, measurements) {
+  return observeAdaptiveBatch(controller, {
+    responseMs: measurements.responseMs,
+    computeMs: measurements.computeMs,
+    sampleCount: measurements.sampleCount,
+    payloadBytes: measurements.payloadBytes,
+    consumerDelayMs: measurements.renderDelayMs,
+    rateLimitWaitMs: measurements.rateLimitWaitMs,
+    interactionDelayMs: measurements.interactionDelayMs,
+    stopReason: measurements.stopReason,
+  })
 }

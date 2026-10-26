@@ -3,6 +3,11 @@
 import PropTypes from 'prop-types'
 import DigitalTwinInput from './DigitalTwinInput'
 
+function formatPayloadBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'unknown size'
+  return bytes < 1024 ? `${Math.round(bytes)} B` : `${(bytes / 1024).toFixed(1)} KB`
+}
+
 export default function DigitalTwinExecutionControls({
   executionMode,
   onExecutionModeChange,
@@ -59,8 +64,8 @@ export default function DigitalTwinExecutionControls({
                 {status === 'stepping' ? 'Advancing…' : status === 'pausing' ? 'Pausing…' : status === 'stopping' ? `Ending after the current ${mode === 'continuous' ? 'batch' : 'step'}…` : `t = ${simulationTime.toFixed(3)} s`}
               </span>
               {mode === 'continuous' && batchMetrics ? (
-                <span className="text-[10px] text-[#8da9ae]" title="FMU response time and the delay before the rendered frame are smoothed to adjust the next batch size.">
-                  Last batch {batchMetrics.samples} samples ({batchMetrics.simulationDelta.toLocaleString(undefined, { maximumFractionDigits: 3 })} model units) · next {batchMetrics.nextBatchSamples} samples · response {Math.round(batchMetrics.responseMs)} ms · visual delay {batchMetrics.renderDelayMs === null ? 'measuring' : `${Math.round(batchMetrics.renderDelayMs)} ms`}
+                <span className="text-[10px] text-[#8da9ae]" title="Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.">
+                  {batchMetrics.samples} samples · {formatPayloadBytes(batchMetrics.sampleBytes)} · cycle {Math.round(batchMetrics.responseMs)} ms · Executor {Number.isFinite(batchMetrics.computeMs) ? `${Math.round(batchMetrics.computeMs)} ms` : 'measuring'} · display {batchMetrics.presentationConfirmed ? `${Math.round(batchMetrics.renderDelayMs ?? 0)} ms` : 'unconfirmed'} · input-to-sample {Number.isFinite(batchMetrics.interactionDelayEwmaMs) ? `${Math.round(batchMetrics.interactionDelayEwmaMs)} ms` : 'not measured'} · next {batchMetrics.nextBatchSamples} · {batchMetrics.targetReachable === false ? 'latency target unreachable' : batchMetrics.batchConstraint} · {batchMetrics.stopReason.replaceAll('_', ' ')}{batchMetrics.computeBudgetOverrunMs > 0 ? ` (+${Math.round(batchMetrics.computeBudgetOverrunMs)} ms over budget)` : ''}
                 </span>
               ) : null}
               {mode === 'step' ? (
@@ -133,10 +138,20 @@ DigitalTwinExecutionControls.propTypes = {
   simulationTime: PropTypes.number.isRequired,
   batchMetrics: PropTypes.shape({
     responseMs: PropTypes.number,
+    computeMs: PropTypes.number,
     renderDelayMs: PropTypes.number,
+    presentationConfirmed: PropTypes.bool,
+    interactionDelayMs: PropTypes.number,
+    interactionDelayEwmaMs: PropTypes.number,
     simulationDelta: PropTypes.number.isRequired,
     nextBatchSamples: PropTypes.number.isRequired,
     samples: PropTypes.number.isRequired,
+    sampleBytes: PropTypes.number,
+    computeBudgetOverrunMs: PropTypes.number,
+    stopReason: PropTypes.string,
+    targetReachable: PropTypes.bool,
+    batchConstraint: PropTypes.string,
+    rateLimitWaitMs: PropTypes.number,
   }),
   values: PropTypes.object.isRequired,
   modelVariables: PropTypes.arrayOf(PropTypes.object).isRequired,

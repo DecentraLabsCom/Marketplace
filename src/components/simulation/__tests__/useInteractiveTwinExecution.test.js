@@ -11,7 +11,7 @@ const outputVariable = { name: 'position', causality: 'output', type: 'Real' }
 
 function makeSession(stepResponse, advanceResponse) {
   return {
-    capabilities: { advanceSamples: true },
+    capabilities: { advanceSamples: true, advanceComputeBudget: true, advanceSampleSequences: true },
     close: jest.fn(),
     request: jest.fn(async (type, _expectedType, payload) => {
       if (type === 'sim.getOutputs') return { simTime: 0, values: { position: 0 } }
@@ -25,8 +25,16 @@ function makeSession(stepResponse, advanceResponse) {
           ? advanceResponse(payload)
           : {
             simTime: payload.targetTime,
-            samples: [{ time: payload.targetTime, outputs: { position: 1 } }],
+            samples: [{ time: payload.targetTime, outputs: { position: 1 }, sequence: Math.round(payload.targetTime) }],
             finished: payload.targetTime >= 2,
+            stopReason: payload.targetTime >= 2 ? 'simulation_finished' : 'target_reached',
+            stepsExecuted: 1,
+            inputEventsApplied: 0,
+            samplesReturned: 1,
+            sampleBytes: 48,
+            computeMs: 1,
+            computeBudgetOverrunMs: 0,
+            maxComputeMs: payload.maxComputeMs,
           }
       }
       return {}
@@ -110,8 +118,9 @@ describe('useInteractiveTwinExecution', () => {
     expect(initializeCall[2].options.timeMode).toBe('simtime')
     const advanceCalls = session.request.mock.calls.filter(([type]) => type === 'sim.advance')
     expect(advanceCalls.map(([, , payload]) => payload.targetTime)).toEqual([1, 2])
-    expect(advanceCalls.map(([, , payload]) => payload.maxSamples)).toEqual([1, 1])
+    expect(advanceCalls.map(([, , payload]) => payload.maxSamples)).toEqual([1, 2])
     expect(advanceCalls.map(([, , payload]) => payload.stepSize)).toEqual([1, 1])
+    expect(advanceCalls.map(([, , payload]) => payload.maxComputeMs)).toEqual([50, 50])
     expect(callbacks.onRunFinish).toHaveBeenCalledWith({ state: 'completed', message: null, parameters: { speed: 1 } })
     expect(session.close).toHaveBeenCalledTimes(1)
   })

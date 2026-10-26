@@ -2,7 +2,10 @@ export type DigitalTwinProtocolId = string
 export type DigitalTwinScalar = number | boolean | string
 export type SimulationState = 'idle' | 'running' | 'completed' | 'cancelled' | 'error'
 export interface RunOptions { startTime?: number; stopTime?: number; stepSize?: number }
-export interface DigitalTwinSample { time: number; outputs: Record<string, number | boolean> }
+export interface DigitalTwinSample {
+  time: number; outputs: Record<string, number | boolean>; sequence?: number
+  eventOccurred?: boolean; earlyReturn?: boolean; terminateSimulation?: boolean; finished?: boolean; finishReason?: string
+}
 export interface InputEvent { time: number; values: Record<string, DigitalTwinScalar> }
 export interface FmuConnectionConfig {
   protocolVersion: '1.0'; gatewayWsUrl: string; labId: string; reservationKey: string

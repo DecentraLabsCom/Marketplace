@@ -15,7 +15,8 @@ one-use connection grant and optional visualization controls.
 * `/schema-v2`: the JSON Schema for the host messages.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
-`index.js`, `fmu-client.js` and `client.js` into a static ZIP's `sdk/` directory.
+`index.js`, `fmu-client.js`, `batch-controller.js` and `client.js` into a static
+ZIP's `sdk/` directory.
 The package does not register modules or impose an SDK requirement on providers.
 
 ```js
@@ -55,16 +56,30 @@ Check `context.signal.aborted` after awaiting before committing app side effects
 `run()` keeps the provider app's existing fixed batch behavior by default: up to
 256 samples per response, or one sample when `inputController` performs
 per-sample feedback. A provider may set `maxBatchSamples` to cap that number, or
-explicitly request `batchPolicy: 'adaptive'` to let the SDK adjust the next
-`sim.advance` batch from FMU request response time and app processing/presentation
-delay. The adaptive ceiling is the lower of `maxBatchSamples` and 2% of the configured
-communication-step count, rounded down with a one-step minimum. It is based on
-sample count, so the independent variable may use seconds, hours, or another
-unit. Adaptive mode cannot be combined with `inputController`, because feedback
-must run after every sample. If the app supplies `onBatchRendered`, the SDK waits
-for it after `onSamples` and includes its delay in the adaptive measurement.
-The app can resolve it after its Three.js renderer draws the batch's last sample.
-Without that callback, the SDK measures app sample-processing time.
+explicitly request `batchPolicy: 'adaptive'` to let the SDK size each `sim.advance`
+request from the model's measured per-sample compute cost, transport overhead,
+payload size and an optional presentation acknowledgement. It does not change the
+FMI step size, and its maximum batch is independent of the configured horizon.
+The initial policy targets a 200 ms request cycle and a soft 50 ms Executor compute
+budget, with a 50 ms presentation reserve when the app has not confirmed rendering.
+Apps can tune these with `adaptiveBatchOptions`; `maxBatchSamples` and the Executor's
+frame limit remain hard caps. The Executor checks the compute budget between FMI
+steps, so a single slow `doStep()` can exceed it; the response reports the overrun.
+Adaptive mode requires the session capabilities `advanceComputeBudget` and
+`advanceSampleSequences`; fixed execution remains available without them.
+Adaptive mode cannot be combined with `inputController`, because feedback must run
+after every sample. If the app supplies `onBatchRendered`, the SDK waits for it
+after `onSamples` and uses that acknowledgement as presentation telemetry. The app
+can resolve it after its renderer draws the last sample. Without an acknowledgement,
+presentation time stays unknown and the controller keeps its reserve rather than
+treating the batch as instantly displayed.
+
+Each returned sample may include a monotonically increasing `sequence` plus event,
+early-return and termination flags. The sequence preserves order when FMI reports
+multiple meaningful states at the same model time. `sim.advance` also reports
+`computeMs`, `sampleBytes`, `samplesReturned`, `stepsExecuted`, `stopReason`, and
+`inputEventsApplied` so clients can distinguish response size, partial progress,
+compute-budget returns and consumed scheduled inputs.
 
 ```js
 client.run({ parameters, options, batchPolicy: 'adaptive', maxBatchSamples: 1 })

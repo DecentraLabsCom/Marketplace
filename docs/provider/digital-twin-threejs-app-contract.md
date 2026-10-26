@@ -87,18 +87,23 @@ inputs and simulation-time settings:
 | --- | --- | --- |
 | **Batch** | Runs the complete simulation through the existing Marketplace stream and displays the returned samples for replay. | Schedule input or tunable-parameter changes at model times before starting. |
 | **Step by step** | Opens a reservation-scoped FMU session in external time mode and sends one `sim.step` request when the user advances. | Edit runtime-writable variables while paused; the new values are sent before the next step. |
-| **Continuous (live)** | Uses `sim.advance` to return bounded batches of intermediate samples. It starts with one communication sample and adapts up to the lower of 256 samples or 2% of the configured run's communication-step count, rounded down with a one-step minimum. | Edit runtime-writable variables at any time; pending values are sent before the next batch. The current batch must finish before a new value can be applied. |
+| **Continuous (live)** | Uses `sim.advance` to return bounded batches of intermediate samples. It starts with one sample and adapts from measured Executor compute cost, request cycle, payload size and confirmed presentation delay. It never changes the configured FMI step size. | Edit runtime-writable variables at any time; pending values are sent before the next batch. The current batch must finish before a new value can be applied. |
 
-The continuous batch controller smooths FMU request response time and the delay
-from receiving a batch to rendering its latest sample. It halves the sample count
-when either delay is high, then grows it gradually after several responsive
-batches, without exceeding the model-horizon limit. This dimensionless limit
-is based on communication-step count, not the unit of the independent variable.
+The continuous batch controller targets a 200 ms full request cycle and a soft
+50 ms Executor compute budget by default. Its compute budget is checked between
+FMI steps, so one slow `doStep()` can exceed the budget; the response reports
+that overrun. The response also includes measured compute time, sample count,
+payload bytes, stop reason and the number of timed inputs applied. A latency floor
+above the target is reported as unreachable instead of being mistaken for model
+compute. When the app has not confirmed a rendered sample, the controller reserves
+presentation time rather than treating the missing acknowledgement as zero.
 During
 interactive execution, the GLB viewer follows the latest sample instead of
 replaying a queue at one simulation second per wall-clock second; all collected
 samples remain available for replay after the run. The viewer shows the last and
-planned batch sizes, model-time delta, response time and visual delay.
+planned batch sizes, model-time delta, request cycle, compute time, payload size,
+presentation acknowledgement and stop reason. The batch limit is independent of
+the configured simulation horizon.
 
 The Gateway enforces the effective AAS/FMI variable-access policy for every
 runtime write and filters output values. Interactive modes use a short-lived
@@ -220,16 +225,17 @@ to 512 outputs with names up to 256 characters, and a 1 MB frame limit.
 
 The convenience client keeps the provider app's fixed batch behavior by default.
 An app may explicitly request `batchPolicy: 'adaptive'` to adjust the next
-`sim.advance` batch from FMU request response time and app processing/presentation
-delay. The app can set `maxBatchSamples` to choose its maximum number of communication
-steps per request. The adaptive ceiling is also limited to 2% of the configured
-run's communication-step count (rounded down, with a one-step minimum), regardless
-of the independent variable's unit. This option cannot be combined with
-`inputController`, which advances one sample at a time for closed-loop feedback.
-To include actual presentation time, an app can provide `onBatchRendered`; the
-client awaits it after `onSamples` and the app resolves it after its Three.js
-renderer has drawn the batch's last sample. Without that callback, the client
-measures sample-processing time only.
+`sim.advance` batch from measured per-sample compute, full request cycle, payload
+size and confirmed presentation delay. Defaults target a 200 ms request cycle, a
+soft 50 ms compute budget and a 50 ms presentation reserve when there is no render
+acknowledgement. The app can tune these with `adaptiveBatchOptions` and set
+`maxBatchSamples` as a hard cap. Adaptive mode requires the runtime's
+`advanceComputeBudget` and `advanceSampleSequences` capabilities; it cannot be
+combined with `inputController`, which advances one sample at a time for closed-
+loop feedback. To include actual presentation time, an app can provide
+`onBatchRendered`; the client awaits it after `onSamples` and the app resolves it
+after its renderer has drawn the batch's last sample. Without that callback,
+presentation remains unknown and the controller uses its reserve.
 Apps that implement the protocol without the convenience client manage their own
 batching.
 

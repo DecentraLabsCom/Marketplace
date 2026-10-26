@@ -10,7 +10,22 @@ import {
   observeInteractiveBatch,
 } from './interactiveBatchController'
 
-const MIN_RUNTIME_INPUT_UPDATE_INTERVAL_MS = 400
+const VALID_ADVANCE_STOP_REASONS = new Set([
+  'target_reached', 'max_samples', 'compute_budget', 'early_return', 'simulation_finished',
+])
+const STEP_SAMPLE_METADATA_KEYS = [
+  'eventOccurred', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason',
+]
+
+function hasValidAdvanceMetrics(response, samples) {
+  return Number.isFinite(response?.computeMs) && response.computeMs >= 0
+    && response.samplesReturned === samples.length
+    && Number.isFinite(response.sampleBytes) && response.sampleBytes >= 0
+    && Number.isSafeInteger(response.stepsExecuted) && response.stepsExecuted > 0
+    && Number.isSafeInteger(response.inputEventsApplied) && response.inputEventsApplied >= 0
+    && Number.isFinite(response.computeBudgetOverrunMs) && response.computeBudgetOverrunMs >= 0
+    && VALID_ADVANCE_STOP_REASONS.has(response.stopReason)
+}
 
 function sameParameterValue(left, right) {
   return JSON.stringify(left) === JSON.stringify(right)
@@ -40,18 +55,29 @@ async function waitForRealtimeRetry(delayMs, signal) {
   })
 }
 
-async function requestRealtimeOperation(session, type, expectedType, payload, signal, onRequestAttempt) {
+async function requestRealtimeOperation(session, type, expectedType, payload, signal, onRequestComplete) {
+  const operationStartedAt = performance.now()
+  let rateLimitWaitMs = 0
   for (;;) {
     signal?.throwIfAborted()
-    const requestStartedAt = performance.now()
     try {
       const response = await session.request(type, expectedType, payload)
-      onRequestAttempt?.(performance.now() - requestStartedAt)
+      onRequestComplete?.({
+        responseMs: performance.now() - operationStartedAt,
+        rateLimitWaitMs,
+      })
       return response
     } catch (error) {
-      onRequestAttempt?.(performance.now() - requestStartedAt)
-      if (error?.code !== 'OUTPUT_READ_RATE_LIMITED') throw error
+      if (error?.code !== 'OUTPUT_READ_RATE_LIMITED') {
+        onRequestComplete?.({
+          responseMs: performance.now() - operationStartedAt,
+          rateLimitWaitMs,
+        })
+        throw error
+      }
+      const retryStartedAt = performance.now()
       await waitForRealtimeRetry(Number(error.retryAfterMs), signal)
+      rateLimitWaitMs += performance.now() - retryStartedAt
     }
   }
 }
@@ -88,11 +114,13 @@ export default function useInteractiveTwinExecution({
   const latestBatchReceivedAtRef = useRef(null)
   const renderedSampleIndexRef = useRef(-1)
   const observedRenderedSampleIndexRef = useRef(-1)
+  const pendingPresentationSampleIndexRef = useRef(null)
+  const lastSampleSequenceRef = useRef(null)
   const renderDelayRef = useRef(null)
   const batchControllerRef = useRef(null)
   const liveParametersRef = useRef({})
   const appliedRuntimeParametersRef = useRef({})
-  const lastRuntimeInputUpdateAtRef = useRef(0)
+  const pendingRuntimeInputChangedAtRef = useRef(null)
   const mountedRef = useRef(false)
 
   useEffect(() => {
@@ -109,7 +137,6 @@ export default function useInteractiveTwinExecution({
   const appendSamples = useCallback((samples) => {
     if (!Array.isArray(samples) || samples.length === 0) return
     latestSampleIndexRef.current += samples.length
-    latestBatchReceivedAtRef.current = performance.now()
     if (typeof onSamples === 'function') {
       onSamples(samples)
       return
@@ -120,15 +147,17 @@ export default function useInteractiveTwinExecution({
   const reportDisplayedSample = useCallback((sampleIndex, frameTime) => {
     const displayedIndex = Number(sampleIndex)
     if (!Number.isFinite(displayedIndex)) return
-    if (displayedIndex < latestSampleIndexRef.current || latestBatchReceivedAtRef.current === null) return
+    const pendingSampleIndex = pendingPresentationSampleIndexRef.current
+    if (pendingSampleIndex === null || displayedIndex < pendingSampleIndex || latestBatchReceivedAtRef.current === null) return
 
     const renderedAt = Number.isFinite(frameTime) ? frameTime : performance.now()
     const renderDelayMs = Math.max(0, renderedAt - latestBatchReceivedAtRef.current)
-    renderedSampleIndexRef.current = latestSampleIndexRef.current
+    renderedSampleIndexRef.current = pendingSampleIndex
+    pendingPresentationSampleIndexRef.current = null
     latestBatchReceivedAtRef.current = null
     renderDelayRef.current = renderDelayMs
     if (mountedRef.current) {
-      setBatchMetrics((current) => current ? { ...current, renderDelayMs } : current)
+      setBatchMetrics((current) => current ? { ...current, renderDelayMs, presentationConfirmed: true } : current)
     }
   }, [])
 
@@ -177,18 +206,18 @@ export default function useInteractiveTwinExecution({
         )))
       }
 
+      let inputChangedAt = continuous ? pendingRuntimeInputChangedAtRef.current : null
       let changedValues = getChangedRuntimeValues()
       if (Object.keys(changedValues).length > 0) {
-        const waitMs = MIN_RUNTIME_INPUT_UPDATE_INTERVAL_MS - (Date.now() - lastRuntimeInputUpdateAtRef.current)
-        if (waitMs > 0) await waitForRealtimeRetry(waitMs, controller.signal)
+        await session.request('sim.setInputs', 'sim.inputs.updated', { values: changedValues })
         ensureCurrentSession()
-        changedValues = getChangedRuntimeValues()
-        if (Object.keys(changedValues).length > 0) {
-          await session.request('sim.setInputs', 'sim.inputs.updated', { values: changedValues })
-          ensureCurrentSession()
-          appliedRuntimeParametersRef.current = { ...appliedRuntimeParametersRef.current, ...changedValues }
-          lastRuntimeInputUpdateAtRef.current = Date.now()
+        appliedRuntimeParametersRef.current = { ...appliedRuntimeParametersRef.current, ...changedValues }
+        if (!continuous && pendingRuntimeInputChangedAtRef.current !== null) {
+          pendingRuntimeInputChangedAtRef.current = null
         }
+      } else if (pendingRuntimeInputChangedAtRef.current !== null) {
+        pendingRuntimeInputChangedAtRef.current = null
+        inputChangedAt = null
       }
 
       const currentTime = simulationTimeRef.current
@@ -204,54 +233,102 @@ export default function useInteractiveTwinExecution({
         const batchController = batchControllerRef.current
         if (!batchController) throw new Error('The continuous batch controller is unavailable.')
         const plan = getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
-        let responseLatencyMs = 0
+        let responseMetrics = null
         const response = await requestRealtimeOperation(session, 'sim.advance', 'sim.samples', {
           targetTime: plan.targetTime,
           maxSamples: plan.maxSamples,
           stepSize,
-        }, controller.signal, (attemptMs) => { responseLatencyMs += attemptMs })
+          maxComputeMs: plan.maxComputeMs,
+        }, controller.signal, (metrics) => { responseMetrics = metrics })
         ensureCurrentSession()
 
         const samples = response.samples
         const nextTime = Number(response.simTime)
         const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
         if (!Array.isArray(samples) || samples.length < 1 || samples.length > plan.maxSamples
-          || !Number.isFinite(nextTime) || nextTime <= currentTime || nextTime > plan.targetTime + tolerance) {
+          || !Number.isFinite(nextTime) || nextTime < currentTime - tolerance || nextTime > plan.targetTime + tolerance) {
           throw new Error('The FMU returned an invalid sample batch for the requested advance.')
         }
+        if (!hasValidAdvanceMetrics(response, samples)
+          || response.maxComputeMs !== plan.maxComputeMs
+          || samples.some((sample) => !Number.isSafeInteger(sample?.sequence) || sample.sequence < 1)) {
+          throw new Error('The FMU runtime returned invalid compute-budget or event-sequence metadata.')
+        }
         let previousTime = currentTime
+        let previousSequence = lastSampleSequenceRef.current
         for (const sample of samples) {
           const sampleTime = Number(sample?.time)
-          if (!Number.isFinite(sampleTime) || sampleTime <= previousTime || sampleTime > nextTime + tolerance
+          const sequence = sample?.sequence
+          const hasSequence = Number.isSafeInteger(sequence) && sequence > 0
+          const sameTime = Math.abs(sampleTime - previousTime) <= tolerance
+          if (!Number.isFinite(sampleTime) || sampleTime < previousTime - tolerance || sampleTime > nextTime + tolerance
             || !sample.outputs || typeof sample.outputs !== 'object' || Array.isArray(sample.outputs)) {
             throw new Error('The FMU returned an invalid timeline in the sample batch.')
           }
+          if ((sameTime && (!hasSequence || (Number.isSafeInteger(previousSequence) && sequence <= previousSequence)))
+            || (hasSequence && Number.isSafeInteger(previousSequence) && sequence <= previousSequence)) {
+            throw new Error('The FMU returned unordered or unsequenced same-time event samples.')
+          }
+          if (!sameTime && !hasSequence && Number.isSafeInteger(previousSequence)) {
+            throw new Error('The FMU returned a sample timeline with inconsistent sequence metadata.')
+          }
           previousTime = sampleTime
+          if (hasSequence) previousSequence = sequence
         }
         if (Math.abs(previousTime - nextTime) > tolerance) {
           throw new Error('The FMU returned an incomplete timeline for the requested advance.')
         }
+        if (Math.abs(nextTime - currentTime) <= tolerance
+          && (!Number.isSafeInteger(previousSequence) || previousSequence <= (lastSampleSequenceRef.current ?? 0))) {
+          throw new Error('The FMU returned an advance without a new simulation step or event.')
+        }
+        lastSampleSequenceRef.current = Number.isSafeInteger(previousSequence) ? previousSequence : null
+        const interactionDelayMs = inputChangedAt === null ? null : performance.now() - inputChangedAt
+        if (inputChangedAt !== null && pendingRuntimeInputChangedAtRef.current === inputChangedAt) {
+          pendingRuntimeInputChangedAtRef.current = null
+        }
 
         simulationTimeRef.current = nextTime
         if (mountedRef.current) setSimulationTime(nextTime)
+        const batchReceivedAt = performance.now()
         appendSamples(samples)
+        latestBatchReceivedAtRef.current = batchReceivedAt
+        pendingPresentationSampleIndexRef.current = latestSampleIndexRef.current
 
         const hasFreshRenderDelay = renderedSampleIndexRef.current > observedRenderedSampleIndexRef.current
         const renderDelayMs = hasFreshRenderDelay ? renderDelayRef.current : null
         if (hasFreshRenderDelay) observedRenderedSampleIndexRef.current = renderedSampleIndexRef.current
 
         const nextController = observeInteractiveBatch(batchController, {
-          responseMs: responseLatencyMs,
+          responseMs: responseMetrics?.responseMs,
+          computeMs: response.computeMs,
+          sampleCount: response.samplesReturned ?? samples.length,
+          payloadBytes: response.sampleBytes,
           renderDelayMs,
+          rateLimitWaitMs: responseMetrics?.rateLimitWaitMs,
+          interactionDelayMs,
+          stopReason: response.stopReason,
         })
         batchControllerRef.current = nextController
         if (mountedRef.current) {
           setBatchMetrics({
-            responseMs: nextController.responseEwmaMs,
+            responseMs: nextController.responseEwmaMs ?? responseMetrics?.responseMs ?? 0,
+            computeMs: nextController.computeEwmaMs,
             renderDelayMs: nextController.consumerDelayEwmaMs,
+            presentationConfirmed: hasFreshRenderDelay,
+            interactionDelayMs,
+            interactionDelayEwmaMs: nextController.interactionDelayEwmaMs,
             simulationDelta: nextTime - currentTime,
             nextBatchSamples: nextController.sampleCount,
             samples: samples.length,
+            sampleBytes: response.sampleBytes,
+            maxComputeMs: plan.maxComputeMs,
+            computeBudgetOverrunMs: response.computeBudgetOverrunMs ?? 0,
+            stopReason: response.stopReason || 'unknown',
+            targetReachable: nextController.targetReachable,
+            estimatedBatchResponseMs: nextController.estimatedBatchResponseMs,
+            batchConstraint: nextController.batchConstraint,
+            rateLimitWaitMs: responseMetrics?.rateLimitWaitMs ?? 0,
           })
         }
 
@@ -273,14 +350,34 @@ export default function useInteractiveTwinExecution({
       }, controller.signal)
       ensureCurrentSession()
       const nextTime = Number(response.simTime ?? response.time)
-      if (!Number.isFinite(nextTime) || nextTime <= currentTime || nextTime > stopTime + Math.max(1e-9, Math.abs(stepSize) * 1e-7)) {
+      const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
+      const sequence = response.sequence
+      const hasSequence = Number.isSafeInteger(sequence) && sequence > 0
+      const sameTime = Math.abs(nextTime - currentTime) <= tolerance
+      if (!Number.isFinite(nextTime) || nextTime < currentTime - tolerance
+        || nextTime > stopTime + tolerance
+        || (sameTime && (!hasSequence || (Number.isSafeInteger(lastSampleSequenceRef.current)
+          && sequence <= lastSampleSequenceRef.current)))
+        || (hasSequence && Number.isSafeInteger(lastSampleSequenceRef.current)
+          && sequence <= lastSampleSequenceRef.current)
+        || (!hasSequence && Number.isSafeInteger(lastSampleSequenceRef.current))) {
         throw new Error('The FMU returned an invalid simulation time for the requested step.')
       }
+      if (hasSequence) lastSampleSequenceRef.current = sequence
       simulationTimeRef.current = nextTime
       if (mountedRef.current) setSimulationTime(nextTime)
-      appendSamples([{ time: nextTime, outputs: response.values || response.outputs || {} }])
+      const sample = {
+        time: nextTime,
+        outputs: response.values || response.outputs || {},
+      }
+      if (hasSequence) sample.sequence = sequence
+      for (const key of STEP_SAMPLE_METADATA_KEYS) {
+        if (response[key] !== undefined) sample[key] = response[key]
+      }
+      appendSamples([sample])
 
-      if (nextTime >= stopTime - 1e-12 || response.terminated === true || response.finished === true) {
+      if (nextTime >= stopTime - 1e-12 || response.terminated === true
+        || response.terminateSimulation === true || response.finished === true) {
         finishSession('completed')
         return false
       }
@@ -387,7 +484,6 @@ export default function useInteractiveTwinExecution({
         setSimulationTime(activeOptions.startTime)
       }
       simulationTimeRef.current = activeOptions.startTime
-      lastRuntimeInputUpdateAtRef.current = 0
       appliedRuntimeParametersRef.current = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
         runtimeVariables.some((variable) => variable.name === name)
       )))
@@ -402,6 +498,9 @@ export default function useInteractiveTwinExecution({
       latestBatchReceivedAtRef.current = null
       renderedSampleIndexRef.current = -1
       observedRenderedSampleIndexRef.current = -1
+      pendingPresentationSampleIndexRef.current = null
+      lastSampleSequenceRef.current = null
+      pendingRuntimeInputChangedAtRef.current = null
       renderDelayRef.current = null
       if (mountedRef.current) setBatchMetrics(null)
 
@@ -415,6 +514,12 @@ export default function useInteractiveTwinExecution({
       sessionRef.current = session
       if (requestedMode === 'continuous' && session.capabilities?.advanceSamples !== true) {
         throw new Error('The provider FMU runtime does not support batched simulation advances.')
+      }
+      if (requestedMode === 'continuous' && session.capabilities?.advanceComputeBudget !== true) {
+        throw new Error('The provider FMU runtime does not support compute-bounded simulation advances.')
+      }
+      if (requestedMode === 'continuous' && session.capabilities?.advanceSampleSequences !== true) {
+        throw new Error('The provider FMU runtime does not preserve ordered same-time event samples.')
       }
       await session.request('sim.initialize', 'sim.state', {
         parameters: normalizedParameters,
@@ -449,6 +554,7 @@ export default function useInteractiveTwinExecution({
       if (!runtimeVariables.some((variable) => variable.name === name)) return
       const next = { ...liveParametersRef.current, [name]: value }
       liveParametersRef.current = next
+      pendingRuntimeInputChangedAtRef.current = performance.now()
       if (mountedRef.current) setLiveParameters(next)
       return
     }
