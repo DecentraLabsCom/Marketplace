@@ -49,7 +49,7 @@ describe('DigitalTwinSimulationForm', () => {
     expect(screen.getByLabelText('Stop Time (s)')).toHaveValue(250)
     expect(screen.getByLabelText('Step Size (s)')).toHaveValue(0.05)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Run simulation' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run model' }))
     expect(onRun).toHaveBeenCalledWith([])
   })
 
@@ -74,7 +74,7 @@ describe('DigitalTwinSimulationForm', () => {
     )
 
     expect(screen.queryByRole('button', { name: /Schedule changes/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Start step-by-step' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run model' }))
     expect(onRun).toHaveBeenCalledWith([{ time: 20, values: { speed: 2 } }])
   })
 
@@ -94,7 +94,7 @@ describe('DigitalTwinSimulationForm', () => {
       />,
     )
 
-    expect(screen.queryByRole('button', { name: 'Start continuous' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run model' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run Controls/ })).toBeInTheDocument()
   })
 })

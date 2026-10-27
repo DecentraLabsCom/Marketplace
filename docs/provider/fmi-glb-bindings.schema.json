@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:decentralabs:glb-fmi-bindings:1.0.0",
+  "title": "DecentraLabs FMI bindings for glTF nodes, version 1.0.0",
+  "description": "Schema for the value of nodes[*].extras.fmiBindings in a glTF 2.0 or GLB asset. FMU-dependent semantics are validated separately.",
+  "$comment": "Apply this schema to the fmiBindings value on a glTF node. Unknown properties are ignored by version 1.0.0 readers. See fmi-glb-bindings-contract.md for normative semantics.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/binding"
+  },
+  "examples": [
+    [
+      {
+        "variable": "gatePosition",
+        "target": "position.x",
+        "scale": 1,
+        "offset": 0
+      },
+      {
+        "variable": "gateOpen",
+        "target": "visible"
+      },
+      {
+        "variable": "gateOpen",
+        "target": "material.color",
+        "trueColor": "#42d392",
+        "falseColor": "#62343b"
+      }
+    ]
+  ],
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "required": [
+        "variable",
+        "target"
+      ],
+      "properties": {
+        "variable": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact FMI variable name declared by the selected FMU."
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "position.x",
+            "position.y",
+            "position.z",
+            "rotation.x",
+            "rotation.y",
+            "rotation.z",
+            "scale.x",
+            "scale.y",
+            "scale.z",
+            "visible",
+            "material.color"
+          ]
+        },
+        "scale": {
+          "type": "number",
+          "default": 1,
+          "description": "Multiplier in sceneValue = fmiValue * scale + offset. Draggable inputs require a non-zero value."
+        },
+        "offset": {
+          "type": "number",
+          "default": 0,
+          "description": "Offset in sceneValue = fmiValue * scale + offset."
+        },
+        "visibleWhenGreaterThanOrEqual": {
+          "type": "number",
+          "description": "Optional numeric threshold used only with target visible."
+        },
+        "trueColor": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16777215
+            }
+          ],
+          "description": "Optional Three.js color string or 24-bit hexadecimal color integer used for a true-like FMI value."
+        },
+        "falseColor": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16777215
+            }
+          ],
+          "description": "Optional Three.js color string or 24-bit hexadecimal color integer used for a false-like FMI value."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

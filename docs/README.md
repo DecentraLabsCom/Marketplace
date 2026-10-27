@@ -33,6 +33,8 @@ Lab-Metadata documentation for the parts owned by those projects.
 
 Providers creating a self-contained Three.js application for an FMU can also
 refer to the [Three.js app contract](provider/digital-twin-threejs-app-contract.md).
+Providers creating a GLB scene can use the [FMI bindings contract](provider/fmi-glb-bindings-contract.md)
+and its published JSON Schema.
 
 The provider path depends on a working Lab Gateway, institutional backend and,
 where applicable, Lab Station. Marketplace does not replace those components.

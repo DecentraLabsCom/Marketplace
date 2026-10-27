@@ -38,6 +38,11 @@ jest.mock("next/dynamic", () => {
       return (props) => React.createElement("div", {
         "data-testid": testId,
         "data-url": props.sceneUrl || props.appUrl,
+        ...(testId === "digital-twin-glb" ? {
+          "data-input-editing-enabled": String(props.inputEditingEnabled),
+          "data-interactive-inputs": JSON.stringify((props.interactiveInputVariables || []).map(({ name }) => name)),
+          "data-model-variables": JSON.stringify((props.modelVariables || []).map(({ name }) => name)),
+        } : {}),
       });
     },
   };
@@ -522,8 +527,48 @@ describe("SimulationRunner", () => {
     expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
   });
 
+  test("does not expose scene dragging for inputs the Gateway does not permit writing", async () => {
+    const accessPolicy = accessPolicyForLab(fmuLab);
+    accessPolicy.variables.mass.writeAt = [];
+    global.fetch = jest.fn((url) => {
+      if (String(url).startsWith("/api/aas/shell?")) {
+        return Promise.resolve({ ok: true, json: async () => ({ visualAssets: [{
+          contentType: "model/gltf-binary",
+          url: `/digital-twin-scenes/42/${"a".repeat(64)}.glb`,
+        }] }) });
+      }
+      if (url === "/api/simulations/access") {
+        return Promise.resolve({ ok: true, json: async () => accessPolicy });
+      }
+      if (String(url).startsWith("/api/simulations/proxy?")) {
+        return Promise.resolve(successfulProxyResponse());
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    renderReservedSimulationRunner(fmuLab, "0xabc", accessPolicy);
+    const viewer = await screen.findByTestId("digital-twin-glb");
+    await waitFor(() => expect(viewer).toHaveAttribute("data-model-variables", '["mass","position"]'));
+
+    expect(viewer).toHaveAttribute("data-interactive-inputs", "[]");
+    expect(viewer).toHaveAttribute("data-input-editing-enabled", "false");
+  });
+
   test("starts reserved GLB twins through the interactive FMU session when step mode is selected", async () => {
+    const accessPolicy = accessPolicyForLab(fmuLab);
+    accessPolicy.variables.mass.writeAt = ["runtime"];
     const session = {
+      capabilities: {
+        inputUpdateQuota: {
+          maxUpdatesPerWindow: 30,
+          windowMs: 10_000,
+          maxUpdateBytes: 65_536,
+          maxUpdatesPerDay: 100_000,
+          maxUpdateBytesPerDay: 67_108_864,
+          maxScheduledEventsPerAdvance: 30,
+          maxScheduleBytesPerAdvance: 262_144,
+        },
+      },
       close: jest.fn(),
       request: jest.fn(async (type, _expectedType, payload) => {
         if (type === "sim.getOutputs") return { simTime: 0, values: { position: 0 } };
@@ -550,7 +595,7 @@ describe("SimulationRunner", () => {
         });
       }
       if (url === "/api/simulations/access") {
-        return Promise.resolve({ ok: true, json: async () => accessPolicyForLab(fmuLab) });
+        return Promise.resolve({ ok: true, json: async () => accessPolicy });
       }
       if (String(url).startsWith("/api/simulations/proxy?")) {
         return Promise.resolve(successfulProxyResponse());
@@ -571,15 +616,20 @@ describe("SimulationRunner", () => {
       return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
     });
 
-    renderReservedSimulationRunner();
-    await screen.findByTestId("digital-twin-glb");
+    renderReservedSimulationRunner(fmuLab, "0xabc", accessPolicy);
+    const viewer = await screen.findByTestId("digital-twin-glb");
+    await waitFor(() => expect(viewer).toHaveAttribute("data-model-variables", '["mass","position"]'));
+    expect(viewer).toHaveAttribute("data-interactive-inputs", "[]");
+    expect(viewer).toHaveAttribute("data-input-editing-enabled", "false");
     fireEvent.change(await screen.findByLabelText("Execution mode"), { target: { value: "step" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start step-by-step" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run model" }));
 
     await waitFor(() => expect(connectFmuSession).toHaveBeenCalledWith(
       expect.objectContaining({ labId: "42", reservationKey: "0xabc" }),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ));
+    await waitFor(() => expect(viewer).toHaveAttribute("data-interactive-inputs", '["mass"]'));
+    expect(viewer).toHaveAttribute("data-input-editing-enabled", "true");
     fireEvent.click(await screen.findByRole("button", { name: "Advance one step" }));
     await waitFor(() => expect(session.request).toHaveBeenCalledWith(
       "sim.step",

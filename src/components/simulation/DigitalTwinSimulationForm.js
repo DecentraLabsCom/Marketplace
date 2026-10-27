@@ -113,7 +113,7 @@ export default function DigitalTwinSimulationForm({
               disabled={running}
               className="min-h-10 rounded-xl bg-[#20b7aa] px-5 py-2.5 text-sm font-bold text-[#061416] transition hover:bg-[#49d7c8] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {running ? 'Running...' : executionMode === 'batch' ? 'Run simulation' : executionMode === 'step' ? 'Start step-by-step' : 'Start continuous'}
+              {running ? 'Running...' : 'Run model'}
             </button>
           ) : null}
         </div>

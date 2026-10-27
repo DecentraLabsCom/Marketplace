@@ -6,15 +6,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
+import {
+  getFmiSceneBoundValue,
+  getFmiSceneInputValueFromPosition,
+  isDraggableFmiSceneBinding,
+  normalizeFmiSceneBinding,
+} from './fmiSceneBindings'
+import { createAxisDragContext, getAxisCoordinateFromRay } from './fmiSceneInteraction'
 import { getVariableDescription } from './simulationParameters'
-
-const ALLOWED_TARGETS = new Set([
-  'position.x', 'position.y', 'position.z',
-  'rotation.x', 'rotation.y', 'rotation.z',
-  'scale.x', 'scale.y', 'scale.z',
-  'visible',
-  'material.color',
-])
 
 function disposeObject(object) {
   object.traverse((node) => {
@@ -24,10 +23,12 @@ function disposeObject(object) {
   })
 }
 
-function numericValue(value) {
-  if (typeof value === 'boolean') return value ? 1 : 0
-  const number = Number(value)
-  return Number.isFinite(number) ? number : null
+function getBindingColor(value, fallback) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffff) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) return value
+  return fallback
 }
 
 function findBindingsForObject(object, bindingsByNode) {
@@ -43,6 +44,110 @@ function isVisibleInScene(object) {
     if (!node.visible) return false
   }
   return true
+}
+
+function getBoxGap(left, right) {
+  const x = Math.max(0, left.min.x - right.max.x, right.min.x - left.max.x)
+  const y = Math.max(0, left.min.y - right.max.y, right.min.y - left.max.y)
+  const z = Math.max(0, left.min.z - right.max.z, right.min.z - left.max.z)
+  return Math.sqrt(x * x + y * y + z * z)
+}
+
+function clusterNearbyBindings(entries, maximumGap) {
+  if (entries.length < 2) return entries.length ? [entries] : []
+
+  const roots = entries.map((_, index) => index)
+  const findRoot = (index) => {
+    let root = index
+    while (roots[root] !== root) root = roots[root]
+    while (roots[index] !== index) {
+      const next = roots[index]
+      roots[index] = root
+      index = next
+    }
+    return root
+  }
+  const join = (left, right) => {
+    const leftRoot = findRoot(left)
+    const rightRoot = findRoot(right)
+    if (leftRoot !== rightRoot) roots[rightRoot] = leftRoot
+  }
+
+  const cellSize = Math.max(maximumGap, 1e-6)
+  const maximumCellsPerEntry = 128
+  const cells = new Map()
+  const largeEntries = []
+  const cellKey = (x, y, z) => `${x}:${y}:${z}`
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const { bounds } = entries[index]
+    const minX = Math.floor((bounds.min.x - maximumGap) / cellSize)
+    const minY = Math.floor((bounds.min.y - maximumGap) / cellSize)
+    const minZ = Math.floor((bounds.min.z - maximumGap) / cellSize)
+    const maxX = Math.floor((bounds.max.x + maximumGap) / cellSize)
+    const maxY = Math.floor((bounds.max.y + maximumGap) / cellSize)
+    const maxZ = Math.floor((bounds.max.z + maximumGap) / cellSize)
+    const cellCount = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1)
+    if (cellCount > maximumCellsPerEntry) {
+      largeEntries.push(index)
+      continue
+    }
+
+    const candidates = new Set()
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let z = minZ; z <= maxZ; z += 1) {
+          const key = cellKey(x, y, z)
+          for (const candidate of cells.get(key) || []) candidates.add(candidate)
+        }
+      }
+    }
+    for (const candidate of candidates) {
+      if (findRoot(index) === findRoot(candidate)) continue
+      if (getBoxGap(bounds, entries[candidate].bounds) <= maximumGap) join(index, candidate)
+    }
+
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let z = minZ; z <= maxZ; z += 1) {
+          const key = cellKey(x, y, z)
+          const bucket = cells.get(key) || []
+          bucket.push(index)
+          cells.set(key, bucket)
+        }
+      }
+    }
+  }
+
+  for (const index of largeEntries) {
+    for (let candidate = 0; candidate < entries.length; candidate += 1) {
+      if (index === candidate || findRoot(index) === findRoot(candidate)) continue
+      if (getBoxGap(entries[index].bounds, entries[candidate].bounds) <= maximumGap) join(index, candidate)
+    }
+  }
+
+  const clusters = new Map()
+  entries.forEach((entry, index) => {
+    const root = findRoot(index)
+    const cluster = clusters.get(root) || []
+    cluster.push(entry)
+    clusters.set(root, cluster)
+  })
+  return [...clusters.values()]
+}
+
+function getBoxCorners(bounds) {
+  const { min, max } = bounds
+  return [
+    new THREE.Vector3(min.x, min.y, min.z),
+    new THREE.Vector3(min.x, min.y, max.z),
+    new THREE.Vector3(min.x, max.y, min.z),
+    new THREE.Vector3(min.x, max.y, max.z),
+    new THREE.Vector3(max.x, min.y, min.z),
+    new THREE.Vector3(max.x, min.y, max.z),
+    new THREE.Vector3(max.x, max.y, min.z),
+    new THREE.Vector3(max.x, max.y, max.z),
+  ]
 }
 
 function setTooltipContent(tooltip, bindings) {
@@ -65,10 +170,29 @@ function setTooltipContent(tooltip, bindings) {
   }
 }
 
-export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, onStatus, sampleIndex, onSampleRendered }) {
+export default function DigitalTwinCanvas({
+  sceneUrl,
+  values,
+  modelVariables,
+  interactiveInputVariables = [],
+  inputEditingEnabled = false,
+  onInputChange,
+  onSceneInputBindingsReady,
+  showOutputMarkers = false,
+  showInputMarkers = false,
+  onStatus,
+  sampleIndex,
+  onSampleRendered,
+}) {
   const hostRef = useRef(null)
   const valuesRef = useRef(values)
   const variablesRef = useRef(modelVariables)
+  const interactiveInputVariablesRef = useRef(interactiveInputVariables)
+  const inputEditingEnabledRef = useRef(inputEditingEnabled)
+  const onInputChangeRef = useRef(onInputChange)
+  const onSceneInputBindingsReadyRef = useRef(onSceneInputBindingsReady)
+  const showOutputMarkersRef = useRef(showOutputMarkers)
+  const showInputMarkersRef = useRef(showInputMarkers)
   const onStatusRef = useRef(onStatus)
   const sampleIndexRef = useRef(sampleIndex)
   const onSampleRenderedRef = useRef(onSampleRendered)
@@ -76,6 +200,12 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
 
   valuesRef.current = values
   variablesRef.current = modelVariables
+  interactiveInputVariablesRef.current = interactiveInputVariables
+  inputEditingEnabledRef.current = inputEditingEnabled
+  onInputChangeRef.current = onInputChange
+  onSceneInputBindingsReadyRef.current = onSceneInputBindingsReady
+  showOutputMarkersRef.current = showOutputMarkers
+  showInputMarkersRef.current = showInputMarkers
   onStatusRef.current = onStatus
   sampleIndexRef.current = sampleIndex
   onSampleRenderedRef.current = onSampleRendered
@@ -86,8 +216,12 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
 
     let disposed = false
     renderedSampleIndexRef.current = null
+    onSceneInputBindingsReadyRef.current?.([])
     let frameId = 0
     let mixer = null
+    let markerPulseTime = 0
+    const sceneMarkers = []
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#0b141a')
 
@@ -118,7 +252,7 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     const tooltip = document.createElement('div')
     tooltip.setAttribute('role', 'tooltip')
     tooltip.style.position = 'absolute'
-    tooltip.style.zIndex = '10'
+    tooltip.style.zIndex = '20'
     tooltip.style.display = 'none'
     tooltip.style.maxWidth = '280px'
     tooltip.style.maxHeight = 'min(70%, 240px)'
@@ -159,11 +293,14 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     const boundObjects = []
     const bindingsByNode = new WeakMap()
     const raycastTargets = new Set()
+    const interactiveBindingsByNode = new WeakMap()
+    const interactiveRaycastTargets = new Set()
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
     let gltfRoot = null
     let gltfBounds = null
     let autoFrame = true
+    let activeDrag = null
 
     // Fit the projected scene bounds so wide viewers can use their extra horizontal space.
     const frameScene = () => {
@@ -214,28 +351,179 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
 
     const hideTooltip = () => {
       tooltip.style.display = 'none'
+      renderer.domElement.style.cursor = 'auto'
     }
-    const showBoundVariableTooltip = (event) => {
-      if (!gltfRoot) return hideTooltip()
-
+    const setPointerRay = (event) => {
       const canvasBounds = renderer.domElement.getBoundingClientRect()
-      if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return hideTooltip()
-      const hostBounds = host.getBoundingClientRect()
+      if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return false
       pointer.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1
       pointer.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1
+      camera.updateMatrixWorld()
       raycaster.setFromCamera(pointer, camera)
-
-      const intersections = raycaster.intersectObjects([...raycastTargets], false)
-      const bindings = intersections
+      return true
+    }
+    const findInteractiveBinding = (object, allowedNames) => {
+      for (let node = object; node; node = node.parent) {
+        const candidates = interactiveBindingsByNode.get(node) || []
+        const candidate = candidates.find(({ variable, normalizedBinding }) => (
+          allowedNames.has(variable.name) && isDraggableFmiSceneBinding(normalizedBinding)
+        ))
+        if (candidate) return { node, ...candidate }
+      }
+      return null
+    }
+    const getInteractiveBindingFromCurrentRay = () => {
+      if (!inputEditingEnabledRef.current || !showInputMarkersRef.current || !gltfRoot) return null
+      const allowedNames = new Set((interactiveInputVariablesRef.current || [])
+        .filter((variable) => variable?.causality === 'input' && typeof variable.name === 'string')
+        .map((variable) => variable.name))
+      return raycaster.intersectObjects([...interactiveRaycastTargets], false)
         .filter(({ object }) => isVisibleInScene(object))
-        .map(({ object }) => findBindingsForObject(object, bindingsByNode))
-        .map((nodeBindings) => nodeBindings.filter(({ variable }) => getVariableDescription(variable)))
-        .find((nodeBindings) => nodeBindings.length) || []
-      const uniqueBindings = [...new Map(bindings.map((entry) => [entry.variable.name, entry])).values()]
-      if (uniqueBindings.length === 0) return hideTooltip()
+        .map(({ object }) => findInteractiveBinding(object, allowedNames))
+        .find(Boolean) || null
+    }
+    const getInteractiveBindingAtPointer = (event) => (
+      setPointerRay(event) ? getInteractiveBindingFromCurrentRay() : null
+    )
+    const getNodeAxisDragContext = (node, axis) => {
+      node.updateWorldMatrix(true, false)
+      const parentWorld = node.parent?.matrixWorld || new THREE.Matrix4()
+      const parentWorldOrigin = new THREE.Vector3().setFromMatrixPosition(parentWorld)
+      const axisUnit = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
+      const worldAxisVector = axisUnit.clone().applyMatrix4(parentWorld).sub(parentWorldOrigin)
+      const worldUnitsPerLocalUnit = worldAxisVector.length()
+      if (!Number.isFinite(worldUnitsPerLocalUnit) || worldUnitsPerLocalUnit <= 1e-8) return null
+
+      const axisOriginLocal = node.position.clone()
+      axisOriginLocal[axis] = 0
+      const axisOrigin = axisOriginLocal.applyMatrix4(parentWorld)
+      const cameraQuaternion = camera.getWorldQuaternion(new THREE.Quaternion())
+      const cameraDirection = camera.getWorldDirection(new THREE.Vector3())
+      const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cameraQuaternion)
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraQuaternion)
+      const worldAxisDirection = worldAxisVector.normalize()
+
+      return createAxisDragContext({
+        axisOrigin: axisOrigin.toArray(),
+        axisDirection: worldAxisDirection.toArray(),
+        cameraDirection: cameraDirection.toArray(),
+        cameraUp: cameraUp.toArray(),
+        cameraRight: cameraRight.toArray(),
+        worldUnitsPerLocalUnit,
+      })
+    }
+    const handlePointerDown = (event) => {
+      const match = getInteractiveBindingAtPointer(event)
+      if (!match) return
+
+      const { node, variable, normalizedBinding } = match
+      const context = getNodeAxisDragContext(node, normalizedBinding.axis)
+      const pointerCoordinate = getAxisCoordinateFromRay(raycaster.ray, context)
+      if (pointerCoordinate === null) return
+
+      activeDrag = {
+        pointerId: event.pointerId,
+        node,
+        variable,
+        normalizedBinding,
+        context,
+        pointerCoordinate,
+        sceneCoordinate: node.position[normalizedBinding.axis],
+        lastInputValue: Number(valuesRef.current?.[variable.name]),
+        controlsWereEnabled: controls.enabled,
+      }
+      controls.enabled = false
+      renderer.domElement.style.cursor = 'grabbing'
+      tooltip.style.display = 'none'
+      try {
+        renderer.domElement.setPointerCapture(event.pointerId)
+      } catch {
+        // Synthetic pointer events may not implement pointer capture.
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handlePointerMove = (event) => {
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+      const canEditVariable = inputEditingEnabledRef.current
+        && showInputMarkersRef.current
+        && (interactiveInputVariablesRef.current || []).some((variable) => variable?.name === activeDrag.variable.name)
+      if (!canEditVariable) {
+        handlePointerUp(event)
+        return
+      }
+      if (!setPointerRay(event)) return
+      const coordinate = getAxisCoordinateFromRay(raycaster.ray, activeDrag.context)
+      if (coordinate === null) return
+
+      const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinate - activeDrag.pointerCoordinate
+      const nextInputValue = getFmiSceneInputValueFromPosition(nextSceneCoordinate, activeDrag.normalizedBinding)
+      if (nextInputValue === null || Object.is(nextInputValue, activeDrag.lastInputValue)) return
+
+      activeDrag.lastInputValue = nextInputValue
+      onInputChangeRef.current?.(activeDrag.variable.name, nextInputValue)
+      renderer.domElement.style.cursor = 'grabbing'
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handlePointerUp = (event) => {
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+      const { controlsWereEnabled } = activeDrag
+      activeDrag = null
+      controls.enabled = controlsWereEnabled
+      renderer.domElement.style.cursor = 'auto'
+      try {
+        if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+          renderer.domElement.releasePointerCapture(event.pointerId)
+        }
+      } catch {
+        // Ignore release errors from browsers that already dropped pointer capture.
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const showBoundVariableTooltip = (event) => {
+      if (activeDrag) return
+      if (!gltfRoot) return hideTooltip()
+
+      if (!setPointerRay(event)) return hideTooltip()
+      const hostBounds = host.getBoundingClientRect()
+      const interactiveBinding = getInteractiveBindingFromCurrentRay()
+      let nearestMarker = null
+      let nearestMarkerDistance = Infinity
+      for (const descriptionMarker of sceneMarkers) {
+        const { visible, variable, screenX, screenY, hitRadius } = descriptionMarker
+        if (!visible || !variable) continue
+        const markerX = hostBounds.left + screenX
+        const markerY = hostBounds.top + screenY
+        const distance = Math.hypot(event.clientX - markerX, event.clientY - markerY)
+        if (distance <= hitRadius && distance < nearestMarkerDistance) {
+          nearestMarker = descriptionMarker
+          nearestMarkerDistance = distance
+        }
+      }
+
+      let uniqueBindings
+      if (nearestMarker) {
+        uniqueBindings = [{ variable: nearestMarker.variable }]
+      } else {
+        const intersections = raycaster.intersectObjects([...raycastTargets], false)
+        const bindings = intersections
+          .filter(({ object }) => isVisibleInScene(object))
+          .map(({ object }) => findBindingsForObject(object, bindingsByNode))
+          .map((nodeBindings) => nodeBindings.filter(({ variable }) => getVariableDescription(variable)))
+          .find((nodeBindings) => nodeBindings.length) || []
+        uniqueBindings = [...new Map(bindings.map((entry) => [entry.variable.name, entry])).values()]
+      }
+      if (uniqueBindings.length === 0) {
+        hideTooltip()
+        if (interactiveBinding) renderer.domElement.style.cursor = 'grab'
+        return
+      }
 
       setTooltipContent(tooltip, uniqueBindings)
       tooltip.style.display = 'block'
+      renderer.domElement.style.cursor = interactiveBinding ? 'grab' : 'help'
       const x = event.clientX - hostBounds.left
       const y = event.clientY - hostBounds.top
       const left = Math.max(8, Math.min(x + 14, host.clientWidth - tooltip.offsetWidth - 8))
@@ -244,8 +532,17 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       tooltip.style.top = `${top}px`
     }
 
+    renderer.domElement.style.touchAction = 'none'
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown, true)
+    renderer.domElement.addEventListener('pointermove', handlePointerMove, true)
+    renderer.domElement.addEventListener('pointerup', handlePointerUp, true)
+    renderer.domElement.addEventListener('pointercancel', handlePointerUp, true)
+    renderer.domElement.addEventListener('lostpointercapture', handlePointerUp, true)
     renderer.domElement.addEventListener('pointermove', showBoundVariableTooltip)
-    renderer.domElement.addEventListener('pointerleave', hideTooltip)
+    const handlePointerLeave = () => {
+      if (!activeDrag) hideTooltip()
+    }
+    renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
 
     const resize = new ResizeObserver(() => {
       if (!host.clientWidth || !host.clientHeight) return
@@ -283,11 +580,12 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
           center.z - largestDimension * 1.5,
         )
       }
-      const outputVariables = new Map(
+      const modelVariablesByName = new Map(
         (Array.isArray(variablesRef.current) ? variablesRef.current : [])
-          .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
+          .filter((variable) => typeof variable?.name === 'string')
           .map((variable) => [variable.name, variable]),
       )
+      const sceneBindingsByNode = new Map()
       gltfRoot.traverse((node) => {
         if (node.isMesh) {
           node.castShadow = true
@@ -300,25 +598,185 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
         if (!Array.isArray(declaredBindings)) return
 
         for (const binding of declaredBindings) {
-          if (!binding || typeof binding.variable !== 'string' || !ALLOWED_TARGETS.has(binding.target)) continue
-          const outputVariable = outputVariables.get(binding.variable)
-          if (!outputVariable) continue
-          const nodeBindings = bindingsByNode.get(node) || []
-          nodeBindings.push({ binding, variable: outputVariable })
-          bindingsByNode.set(node, nodeBindings)
-          if (binding.target === 'visible') {
-            const initialValue = valuesRef.current?.[binding.variable] ?? getFmiInitialValue(outputVariable)
-            if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
-          }
-          boundObjects.push({ node, binding })
+          if (!binding || typeof binding.variable !== 'string') continue
+          const variable = modelVariablesByName.get(binding.variable)
+          const normalizedBinding = normalizeFmiSceneBinding(binding, variable)
+          const isOutputBinding = variable?.causality === 'output'
+          const isInputPositionBinding = isDraggableFmiSceneBinding(normalizedBinding)
+          if (!normalizedBinding || (!isOutputBinding && !isInputPositionBinding)) continue
+
+          const nodeBindings = sceneBindingsByNode.get(node) || []
+          nodeBindings.push({ node, binding, variable, normalizedBinding, isOutputBinding })
+          sceneBindingsByNode.set(node, nodeBindings)
         }
       })
+
+      const interactiveNodes = new Set()
+      const sceneInputBindingNames = new Set()
+      for (const [node, nodeBindings] of sceneBindingsByNode) {
+        const bindingCountsByTarget = new Map()
+        for (const { binding } of nodeBindings) {
+          bindingCountsByTarget.set(binding.target, (bindingCountsByTarget.get(binding.target) || 0) + 1)
+        }
+        for (const boundObject of nodeBindings) {
+          const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
+          if (!isOutputBinding && bindingCountsByTarget.get(binding.target) !== 1) continue
+
+          const tooltipBindings = bindingsByNode.get(node) || []
+          tooltipBindings.push({ binding, variable, normalizedBinding })
+          bindingsByNode.set(node, tooltipBindings)
+          if (isOutputBinding && binding.target === 'visible') {
+            const initialValue = valuesRef.current?.[binding.variable] ?? getFmiInitialValue(variable)
+            if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
+          }
+          boundObjects.push(boundObject)
+          if (isDraggableFmiSceneBinding(normalizedBinding)) {
+            const interactiveBindings = interactiveBindingsByNode.get(node) || []
+            interactiveBindings.push(boundObject)
+            interactiveBindingsByNode.set(node, interactiveBindings)
+            interactiveNodes.add(node)
+            sceneInputBindingNames.add(variable.name)
+          }
+        }
+      }
       for (const { node } of boundObjects) {
         if (node.isMesh) {
           raycastTargets.add(node)
         } else {
           node.traverse((child) => {
             if (child.isMesh) raycastTargets.add(child)
+          })
+        }
+      }
+      for (const node of interactiveNodes) {
+        if (node.isMesh) {
+          interactiveRaycastTargets.add(node)
+        } else {
+          node.traverse((child) => {
+            if (child.isMesh) interactiveRaycastTargets.add(child)
+          })
+        }
+      }
+      onSceneInputBindingsReadyRef.current?.([...sceneInputBindingNames])
+      gltfRoot.updateMatrixWorld(true)
+      const markerEntriesByVariable = new Map()
+      const markerNodes = [...new Set(boundObjects.map(({ node }) => node))]
+      for (const node of markerNodes) {
+        const variables = [...new Map((bindingsByNode.get(node) || [])
+          .filter(({ variable, normalizedBinding }) => (
+            (variable.causality === 'output' && getVariableDescription(variable))
+            || isDraggableFmiSceneBinding(normalizedBinding)
+          ))
+          .map(({ variable, normalizedBinding }) => {
+            const kind = variable.causality === 'output' ? 'output' : 'input'
+            return [`${kind}:${variable.name}`, { variable, kind }]
+          })).values()]
+        if (variables.length === 0) continue
+
+        const bounds = new THREE.Box3().setFromObject(node)
+        if (bounds.isEmpty()) continue
+        node.updateWorldMatrix(true, false)
+        const worldCorners = getBoxCorners(bounds)
+        const localCorners = worldCorners.map((corner) => node.worldToLocal(corner.clone()))
+        const entry = {
+          node,
+          bounds,
+          localCorners,
+          worldCorners: localCorners.map(() => new THREE.Vector3()),
+        }
+
+        for (const { variable, kind } of variables) {
+          const key = `${kind}:${variable.name}`
+          const group = markerEntriesByVariable.get(key) || { variable, kind, entries: [] }
+          group.entries.push(entry)
+          markerEntriesByVariable.set(key, group)
+        }
+      }
+      if (markerEntriesByVariable.size > 0) {
+        const sceneSize = gltfBounds.getSize(new THREE.Vector3())
+        const largestSceneDimension = Math.max(sceneSize.x, sceneSize.y, sceneSize.z, 0.1)
+        const clusterScale = Math.min(Math.max(largestSceneDimension * 0.006, 0.004), 0.12)
+        const maximumClusterGap = Math.max(largestSceneDimension * 0.012, clusterScale * 2)
+        const markerClusters = [...markerEntriesByVariable.values()]
+          .flatMap(({ variable, kind, entries }) => clusterNearbyBindings(entries, maximumClusterGap)
+            .map((members) => ({ members, variable, kind })))
+
+        for (const { members, variable, kind } of markerClusters) {
+          const markerStyle = kind === 'input'
+            ? {
+              waveBorder: 'rgba(255, 209, 102, 0.9)',
+              waveShadow: '0 0 6px rgba(255, 209, 102, 0.5)',
+              coreBorder: 'rgba(255, 241, 189, 0.95)',
+              coreBackground: '#ffd166',
+              coreShadow: '0 0 9px 2px rgba(255, 209, 102, 0.65)',
+            }
+            : {
+              waveBorder: 'rgba(114, 243, 228, 0.9)',
+              waveShadow: '0 0 6px rgba(84, 213, 201, 0.5)',
+              coreBorder: 'rgba(156, 247, 235, 0.95)',
+              coreBackground: '#72f3e4',
+              coreShadow: '0 0 9px 2px rgba(84, 213, 201, 0.65)',
+            }
+          const marker = document.createElement('div')
+          marker.setAttribute('aria-hidden', 'true')
+          marker.style.position = 'absolute'
+          marker.style.left = '0'
+          marker.style.top = '0'
+          marker.style.width = '12px'
+          marker.style.height = '12px'
+          marker.style.zIndex = '12'
+          marker.style.transform = 'translate(-50%, -50%)'
+          marker.style.pointerEvents = 'none'
+          marker.style.display = 'none'
+          marker.style.willChange = 'left, top'
+
+          const waves = [0, 0.5].map((phaseOffset) => {
+            const wave = document.createElement('span')
+            wave.style.position = 'absolute'
+            wave.style.left = '50%'
+            wave.style.top = '50%'
+            wave.style.width = '10px'
+            wave.style.height = '10px'
+            wave.style.boxSizing = 'border-box'
+            wave.style.border = `1px solid ${markerStyle.waveBorder}`
+            wave.style.borderRadius = '50%'
+            wave.style.boxShadow = markerStyle.waveShadow
+            wave.style.transform = 'translate(-50%, -50%) scale(1.15)'
+            wave.style.opacity = '0'
+            wave.style.display = 'none'
+            wave.style.willChange = 'transform, opacity'
+            marker.appendChild(wave)
+            return { element: wave, phaseOffset }
+          })
+
+          const core = document.createElement('span')
+          core.style.position = 'absolute'
+          core.style.left = '50%'
+          core.style.top = '50%'
+          core.style.width = '10px'
+          core.style.height = '10px'
+          core.style.boxSizing = 'border-box'
+          core.style.border = `1px solid ${markerStyle.coreBorder}`
+          core.style.borderRadius = '50%'
+          core.style.background = markerStyle.coreBackground
+          core.style.boxShadow = markerStyle.coreShadow
+          core.style.transform = 'translate(-50%, -50%)'
+          marker.appendChild(core)
+          host.appendChild(marker)
+
+          sceneMarkers.push({
+            element: marker,
+            members,
+            waves,
+            variable,
+            kind,
+            worldPosition: new THREE.Vector3(),
+            projectedPosition: new THREE.Vector3(),
+            screenX: 0,
+            baseScreenX: 0,
+            screenY: 0,
+            hitRadius: 16,
+            visible: false,
           })
         }
       }
@@ -333,9 +791,11 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
     const animate = () => {
       frameId = window.requestAnimationFrame(animate)
       const delta = clock.getDelta()
+      markerPulseTime += delta
       if (mixer) mixer.update(delta)
-      for (const { node, binding } of boundObjects) {
-        const rawValue = valuesRef.current?.[binding.variable]
+      for (const { node, binding, variable, normalizedBinding, isOutputBinding } of boundObjects) {
+        const currentValue = valuesRef.current?.[binding.variable]
+        const rawValue = currentValue ?? (!isOutputBinding ? getFmiInitialValue(variable) : undefined)
         if (rawValue === undefined || rawValue === null) continue
 
         if (binding.target === 'visible') {
@@ -344,25 +804,90 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
         }
         if (binding.target === 'material.color') {
           if (!node.material?.color) continue
-          node.material.color.set(rawValue ? binding.trueColor || '#ff2738' : binding.falseColor || '#4f2028')
+          const trueColor = getBindingColor(binding.trueColor, '#ff2738')
+          const falseColor = getBindingColor(binding.falseColor, '#4f2028')
+          node.material.color.set(rawValue ? trueColor : falseColor)
           if (node.material.emissive) {
-            node.material.emissive.set(rawValue ? binding.trueColor || '#ff2738' : '#160b0d')
+            node.material.emissive.set(rawValue ? trueColor : '#160b0d')
           }
           continue
         }
 
-        const numeric = numericValue(rawValue)
-        if (numeric === null) continue
-        const scale = Number.isFinite(Number(binding.scale)) ? Number(binding.scale) : 1
-        const offset = Number.isFinite(Number(binding.offset)) ? Number(binding.offset) : 0
-        const mapped = numeric * scale + offset
+        const mapped = getFmiSceneBoundValue(rawValue, normalizedBinding)
+        if (mapped === null) continue
         if (Math.abs(mapped) > 100_000) continue
-        const [property, axis] = binding.target.split('.')
+        const { property, axis } = normalizedBinding
         if (['position', 'rotation', 'scale'].includes(property) && ['x', 'y', 'z'].includes(axis)) {
           node[property][axis] = mapped
         }
       }
       controls.update()
+      camera.updateMatrixWorld()
+      if (sceneMarkers.length > 0) {
+        const waveCycleSeconds = 4.4
+        const hostWidth = host.clientWidth
+        const hostHeight = host.clientHeight
+        for (const marker of sceneMarkers) {
+          const { element, members, waves, worldPosition, projectedPosition } = marker
+          const markerEnabled = marker.kind === 'output'
+            ? showOutputMarkersRef.current
+            : showInputMarkersRef.current
+              && inputEditingEnabledRef.current
+              && interactiveInputVariablesRef.current.some((variable) => variable?.name === marker.variable.name)
+          if (markerEnabled) {
+            const bounds = new THREE.Box3().makeEmpty()
+            for (const member of members) {
+              if (!isVisibleInScene(member.node)) continue
+              member.node.updateWorldMatrix(true, false)
+              for (let index = 0; index < member.localCorners.length; index += 1) {
+                const worldCorner = member.worldCorners[index]
+                  .copy(member.localCorners[index])
+                  .applyMatrix4(member.node.matrixWorld)
+                bounds.expandByPoint(worldCorner)
+              }
+            }
+            if (!bounds.isEmpty()) {
+              bounds.getCenter(worldPosition)
+              projectedPosition.copy(worldPosition).project(camera)
+              const screenX = (projectedPosition.x + 1) * 0.5 * hostWidth
+              const screenY = (1 - projectedPosition.y) * 0.5 * hostHeight
+              marker.baseScreenX = screenX
+              marker.screenX = screenX
+              marker.screenY = screenY
+              marker.visible = projectedPosition.z >= -1 && projectedPosition.z <= 1
+                && screenX >= 0 && screenX <= hostWidth
+                && screenY >= 0 && screenY <= hostHeight
+              element.style.display = marker.visible ? 'block' : 'none'
+            } else {
+              marker.visible = false
+              element.style.display = 'none'
+            }
+          } else {
+            marker.visible = false
+            element.style.display = 'none'
+          }
+          for (const wave of waves) {
+            const waveVisible = marker.visible && !prefersReducedMotion
+            wave.element.style.display = waveVisible ? 'block' : 'none'
+            if (!waveVisible) continue
+            const phase = ((markerPulseTime / waveCycleSeconds) + wave.phaseOffset) % 1
+            wave.element.style.transform = `translate(-50%, -50%) scale(${1.15 + phase * 3.4})`
+            wave.element.style.opacity = String((1 - phase) * 0.48)
+          }
+        }
+        for (const marker of sceneMarkers) {
+          if (!marker.visible) continue
+          const overlapsOtherKind = sceneMarkers.some((other) => (
+            other.visible
+            && other.kind !== marker.kind
+            && Math.hypot(other.baseScreenX - marker.baseScreenX, other.screenY - marker.screenY) < 12
+          ))
+          const offsetX = overlapsOtherKind ? (marker.kind === 'input' ? 7 : -7) : 0
+          marker.screenX = marker.baseScreenX + offsetX
+          marker.element.style.left = `${marker.screenX}px`
+          marker.element.style.top = `${marker.screenY}px`
+        }
+      }
       renderer.render(scene, camera)
       if (gltfRoot && renderedSampleIndexRef.current !== sampleIndexRef.current) {
         renderedSampleIndexRef.current = sampleIndexRef.current
@@ -376,18 +901,24 @@ export default function DigitalTwinCanvas({ sceneUrl, values, modelVariables, on
       disposed = true
       window.cancelAnimationFrame(frameId)
       resize.disconnect()
+      renderer.domElement.removeEventListener('pointerdown', handlePointerDown, true)
+      renderer.domElement.removeEventListener('pointermove', handlePointerMove, true)
+      renderer.domElement.removeEventListener('pointerup', handlePointerUp, true)
+      renderer.domElement.removeEventListener('pointercancel', handlePointerUp, true)
+      renderer.domElement.removeEventListener('lostpointercapture', handlePointerUp, true)
       renderer.domElement.removeEventListener('pointermove', showBoundVariableTooltip)
-      renderer.domElement.removeEventListener('pointerleave', hideTooltip)
+      renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
       controls.dispose()
       tooltip.remove()
       if (gltfRoot) disposeObject(gltfRoot)
+      for (const { element } of sceneMarkers) element.remove()
       environmentTarget?.dispose()
       pmremGenerator?.dispose()
       renderer.dispose()
       renderer.forceContextLoss()
       renderer.domElement.remove()
     }
-  }, [sceneUrl])
+  }, [modelVariables, sceneUrl])
 
-  return <div ref={hostRef} className="h-full w-full" />
+  return <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
 }

@@ -302,6 +302,17 @@ export default function SimulationRunner({ lab, reservationKey }) {
     onRunFinish: handleInteractiveRunFinish,
     onParameterChange: handleParamChange,
   })
+  const liveSceneInputEditing = interactiveExecution.hasActiveSession
+    && ['step', 'continuous'].includes(interactiveExecution.mode)
+    && interactiveExecution.runtimeInputEditing
+  const sceneInputVariables = useMemo(() => (
+    liveSceneInputEditing
+      ? twinScheduledRuntimeVariables.filter((variable) => variable.causality === 'input')
+      : []
+  ), [liveSceneInputEditing, twinScheduledRuntimeVariables])
+  const sceneInputValues = interactiveExecution.hasActiveSession
+    ? interactiveExecution.liveParameters
+    : parameters
 
   useEffect(() => {
     if (!labId || !reservationKey) {
@@ -902,6 +913,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
           title={lab?.name || 'Digital Twin'}
           results={results}
           modelVariables={twinModelVariables}
+          inputValues={sceneInputValues}
+          interactiveInputVariables={sceneInputVariables}
+          inputEditingEnabled={sceneInputVariables.length > 0}
+          onInputChange={interactiveExecution.handleInputChange}
           isRunning={simState === SIM_STATE.RUNNING}
           startTime={Number(options.startTime)}
           stopTime={Number(options.stopTime)}
