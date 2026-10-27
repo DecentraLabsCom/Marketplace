@@ -12,7 +12,7 @@ const FMI_SCENE_BINDING_TARGETS = new Set([
   'material.color',
 ])
 
-const POSITION_TARGET_PATTERN = /^position\.([xyz])$/
+const TRANSFORM_TARGET_PATTERN = /^(?:position|rotation|scale)\.([xyz])$/
 const NUMERIC_INPUT_TYPES = new Set([
   'real', 'integer', 'float32', 'float64',
   'int8', 'int16', 'int32', 'int64',
@@ -72,7 +72,7 @@ export function normalizeFmiSceneBinding(binding, variable) {
     || !hasValidBindingFields(binding)
     || !FMI_SCENE_BINDING_TARGETS.has(binding.target)) return null
 
-  const positionMatch = POSITION_TARGET_PATTERN.exec(binding.target)
+  const transformMatch = TRANSFORM_TARGET_PATTERN.exec(binding.target)
   const [property, axis] = binding.target.split('.')
 
   return {
@@ -80,7 +80,7 @@ export function normalizeFmiSceneBinding(binding, variable) {
     variable,
     target: binding.target,
     property,
-    axis: positionMatch?.[1] || null,
+    axis: transformMatch?.[1] || null,
     scale: getBindingNumber(binding.scale, 1),
     offset: getBindingNumber(binding.offset, 0),
   }
