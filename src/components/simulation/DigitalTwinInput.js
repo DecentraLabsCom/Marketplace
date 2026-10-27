@@ -45,10 +45,11 @@ function getWheelAdjustedValue(currentValue, direction, step, min, max, integer)
 }
 
 function VariableNameAndUnit({ variable, displayName, displayUnit, className = '' }) {
+  const hasDescription = Boolean(getVariableDescription(variable))
   return (
     <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
       <VariableDescriptionTooltip name={variable.name} description={variable.description}>
-        <span className="block min-w-0 truncate cursor-help font-medium text-white" title={variable.name}>
+        <span className={`block min-w-0 truncate font-medium text-white ${hasDescription ? 'cursor-help' : 'cursor-default'}`}>
           {displayName}
         </span>
       </VariableDescriptionTooltip>
