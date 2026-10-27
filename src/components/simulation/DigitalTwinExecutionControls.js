@@ -3,50 +3,143 @@
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import Modal from '@/components/ui/Modal'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 function formatPayloadBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return 'unknown size'
   return bytes < 1024 ? `${Math.round(bytes)} B` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
+const EXECUTION_MODE_HELP = {
+  batch: {
+    name: 'Batch mode',
+    description: 'Runs the full simulation automatically and returns the complete result.',
+  },
+  step: {
+    name: 'Step-by-step mode',
+    description: 'Advance one model step at a time and change inputs between steps.',
+  },
+  continuous: {
+    name: 'Continuous mode',
+    description: 'Advances automatically in batches while allowing live input changes.',
+  },
+}
+
 export function DigitalTwinExecutionModeSelector({
   executionMode,
   onExecutionModeChange,
   executionModes,
+  batchPolicy = 'adaptive',
+  onBatchPolicyChange = () => {},
+  fixedBatchSamples = MAX_SAMPLES_PER_BATCH,
+  onFixedBatchSamplesChange = () => {},
   running,
   status,
 }) {
   const hasInteractiveSession = ['connecting', 'paused', 'stepping', 'continuous', 'pausing', 'stopping'].includes(status)
+  const controlsDisabled = running || hasInteractiveSession
+  const executionModeHelp = EXECUTION_MODE_HELP[executionMode]
 
   if (executionModes.length <= 1) return null
 
   return (
-    <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
-      <span>Execution mode</span>
-      <span className="relative inline-flex min-h-8 items-center">
-        <select
-          aria-label="Execution mode"
-          value={executionMode}
-          onChange={(event) => onExecutionModeChange(event.target.value)}
-          disabled={running || hasInteractiveSession}
-          style={{
-            colorScheme: 'dark',
-            appearance: 'none',
-            WebkitAppearance: 'none',
-            MozAppearance: 'none',
-            backgroundImage: 'none',
-          }}
-          className="h-8 min-w-[8.5rem] max-w-44 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
+        <VariableDescriptionTooltip
+          name={executionModeHelp.name}
+          description={executionModeHelp.description}
         >
-          <option value="batch" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Batch</option>
-          <option value="step" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Step by step</option>
-          <option value="continuous" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Continuous</option>
-        </select>
-        <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
-      </span>
-    </label>
+          <label htmlFor="execution-mode" className="cursor-help">Execution mode</label>
+        </VariableDescriptionTooltip>
+        <span className="relative inline-flex min-h-8 items-center">
+          <select
+            id="execution-mode"
+            aria-label="Execution mode"
+            value={executionMode}
+            onChange={(event) => onExecutionModeChange(event.target.value)}
+            disabled={controlsDisabled}
+            style={{
+              colorScheme: 'dark',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              backgroundImage: 'none',
+            }}
+            className="h-8 min-w-[8.5rem] max-w-44 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option title={EXECUTION_MODE_HELP.batch.description} value="batch" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Batch</option>
+            <option title={EXECUTION_MODE_HELP.step.description} value="step" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Step by step</option>
+            <option title={EXECUTION_MODE_HELP.continuous.description} value="continuous" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Continuous</option>
+          </select>
+          <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
+        </span>
+      </div>
+      {executionMode === 'continuous' && executionModes.includes('continuous') ? (
+        <>
+          <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
+            <VariableDescriptionTooltip
+              name={batchPolicy === 'adaptive' ? 'Adaptive batches' : 'Fixed batches'}
+              description={batchPolicy === 'adaptive'
+                ? 'Adjusts batch size to measured runtime and display performance.'
+                : 'Uses your selected sample cap for each request.'}
+            >
+              <label htmlFor="continuous-batch-strategy" className="cursor-help">Batch strategy</label>
+            </VariableDescriptionTooltip>
+            <span className="relative inline-flex min-h-8 items-center">
+              <select
+                id="continuous-batch-strategy"
+                aria-label="Continuous batch strategy"
+                value={batchPolicy}
+                onChange={(event) => onBatchPolicyChange(event.target.value)}
+                disabled={controlsDisabled}
+                style={{
+                  colorScheme: 'dark',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  backgroundImage: 'none',
+                }}
+                className="h-8 min-w-[10rem] appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="adaptive" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Adaptive (recommended)</option>
+                <option value="fixed" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Fixed sample cap</option>
+              </select>
+              <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
+            </span>
+          </div>
+          {batchPolicy === 'fixed' ? (
+            <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
+              <label htmlFor="maximum-fixed-batch-samples">Max samples</label>
+              <VariableDescriptionTooltip
+                name="Fixed batch size"
+                description={`Caps each request at this many samples (up to ${MAX_SAMPLES_PER_BATCH}). The Executor may stop earlier at its compute limit or an FMU event.`}
+              >
+                <input
+                  id="maximum-fixed-batch-samples"
+                  aria-label="Maximum samples per fixed batch"
+                  type="number"
+                  min="1"
+                  max={MAX_SAMPLES_PER_BATCH}
+                  step="1"
+                  value={fixedBatchSamples}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isInteger(value) && value >= 1 && value <= MAX_SAMPLES_PER_BATCH) {
+                      onFixedBatchSamplesChange(value)
+                    }
+                  }}
+                  disabled={controlsDisabled}
+                  className="h-8 w-20 rounded-md border border-[#30464d] bg-[#101a20] px-2 text-xs font-semibold text-[#f1f7f8] outline-none focus:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </VariableDescriptionTooltip>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
   )
 }
 
@@ -54,8 +147,10 @@ export function DigitalTwinContinuousMetrics({ metrics }) {
   if (!metrics) return null
 
   return (
-    <p className="mt-1 text-center text-[11px] leading-relaxed text-[#8da9ae]" title="Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.">
-      {metrics.samples} samples · {formatPayloadBytes(metrics.sampleBytes)} · cycle {Math.round(metrics.responseMs)} ms · Executor {Number.isFinite(metrics.computeMs) ? `${Math.round(metrics.computeMs)} ms` : 'measuring'} · display {metrics.presentationConfirmed ? `${Math.round(metrics.renderDelayMs ?? 0)} ms` : 'unconfirmed'} · input-to-sample {Number.isFinite(metrics.interactionDelayEwmaMs) ? `${Math.round(metrics.interactionDelayEwmaMs)} ms` : 'not measured'} · next {metrics.nextBatchSamples} · {metrics.targetReachable === false ? 'latency target unreachable' : metrics.batchConstraint} · {metrics.stopReason.replaceAll('_', ' ')}{metrics.computeBudgetOverrunMs > 0 ? ` (+${Math.round(metrics.computeBudgetOverrunMs)} ms over budget)` : ''}
+    <p className="mt-1 text-center text-[11px] leading-relaxed text-[#8da9ae]" title={metrics.policy === 'fixed'
+      ? 'The request uses a fixed sample cap and the Executor compute budget. The model step size stays fixed.'
+      : 'Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.'}>
+      {metrics.policy === 'fixed' ? `Fixed cap ${metrics.nextBatchSamples} · ` : 'Adaptive · '}{metrics.samples} samples · {formatPayloadBytes(metrics.sampleBytes)} · cycle {Math.round(metrics.responseMs)} ms · Executor {Number.isFinite(metrics.computeMs) ? `${Math.round(metrics.computeMs)} ms` : 'measuring'} · display {metrics.presentationConfirmed ? `${Math.round(metrics.renderDelayMs ?? 0)} ms` : 'unconfirmed'} · input-to-sample {Number.isFinite(metrics.interactionDelayEwmaMs) ? `${Math.round(metrics.interactionDelayEwmaMs)} ms` : 'not measured'}{metrics.policy === 'adaptive' ? ` · next ${metrics.nextBatchSamples} · ${metrics.targetReachable === false ? 'latency target unreachable' : metrics.batchConstraint}` : ''} · {metrics.stopReason.replaceAll('_', ' ')}{metrics.computeBudgetOverrunMs > 0 ? ` (+${Math.round(metrics.computeBudgetOverrunMs)} ms over budget)` : ''}
     </p>
   )
 }
@@ -64,6 +159,7 @@ DigitalTwinContinuousMetrics.propTypes = {
   metrics: PropTypes.shape({
     samples: PropTypes.number,
     sampleBytes: PropTypes.number,
+    policy: PropTypes.oneOf(['adaptive', 'fixed']),
     responseMs: PropTypes.number,
     computeMs: PropTypes.number,
     presentationConfirmed: PropTypes.bool,
@@ -193,6 +289,10 @@ export default function DigitalTwinExecutionControls({
   executionMode,
   onExecutionModeChange,
   executionModes,
+  batchPolicy,
+  onBatchPolicyChange,
+  fixedBatchSamples,
+  onFixedBatchSamplesChange,
   running,
   status,
   mode,
@@ -217,6 +317,10 @@ export default function DigitalTwinExecutionControls({
               executionMode={executionMode}
               onExecutionModeChange={onExecutionModeChange}
               executionModes={executionModes}
+              batchPolicy={batchPolicy}
+              onBatchPolicyChange={onBatchPolicyChange}
+              fixedBatchSamples={fixedBatchSamples}
+              onFixedBatchSamplesChange={onFixedBatchSamplesChange}
               running={running}
               status={status}
             />
@@ -248,6 +352,10 @@ DigitalTwinExecutionModeSelector.propTypes = {
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']).isRequired,
   onExecutionModeChange: PropTypes.func.isRequired,
   executionModes: PropTypes.arrayOf(PropTypes.oneOf(['batch', 'step', 'continuous'])).isRequired,
+  batchPolicy: PropTypes.oneOf(['adaptive', 'fixed']),
+  onBatchPolicyChange: PropTypes.func,
+  fixedBatchSamples: PropTypes.number,
+  onFixedBatchSamplesChange: PropTypes.func,
   running: PropTypes.bool.isRequired,
   status: PropTypes.string.isRequired,
 }
@@ -271,6 +379,10 @@ DigitalTwinExecutionControls.propTypes = {
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']).isRequired,
   onExecutionModeChange: PropTypes.func.isRequired,
   executionModes: PropTypes.arrayOf(PropTypes.oneOf(['batch', 'step', 'continuous'])).isRequired,
+  batchPolicy: PropTypes.oneOf(['adaptive', 'fixed']),
+  onBatchPolicyChange: PropTypes.func,
+  fixedBatchSamples: PropTypes.number,
+  onFixedBatchSamplesChange: PropTypes.func,
   running: PropTypes.bool.isRequired,
   status: PropTypes.string.isRequired,
   mode: PropTypes.oneOf(['step', 'continuous']),

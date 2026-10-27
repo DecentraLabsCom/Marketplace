@@ -55,9 +55,10 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
             className="h-4 w-4 accent-[#54d5c9]"
             aria-label={accessibleDescription}
           />
-          <span className="block min-w-0 truncate font-medium text-white" title={variable.name}>{displayName}</span>
+          <VariableDescriptionTooltip name={variable.name} description={variable.description}>
+            <span className="block min-w-0 truncate cursor-help font-medium text-white" title={variable.name}>{displayName}</span>
+          </VariableDescriptionTooltip>
         </label>
-        <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
       </div>
     )
   }
@@ -65,9 +66,10 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
   if (String(variable.type || '').toLowerCase() === 'enumeration' && enumItems.length > 0) {
     return (
       <div className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="font-medium text-white" title={variable.name}>{displayName}</span>
-          <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
+        <div className="mb-2 flex items-center gap-2">
+          <VariableDescriptionTooltip name={variable.name} description={variable.description}>
+            <span className="cursor-help font-medium text-white" title={variable.name}>{displayName}</span>
+          </VariableDescriptionTooltip>
         </div>
         <select
           id={inputId}
@@ -108,10 +110,11 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
       <div className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor={inputId} className="flex min-w-0 flex-1 items-center justify-between gap-2">
-            <span className="font-medium text-white" title={variable.name}>{displayName}</span>
+            <VariableDescriptionTooltip name={variable.name} description={variable.description}>
+              <span className="cursor-help font-medium text-white" title={variable.name}>{displayName}</span>
+            </VariableDescriptionTooltip>
             <span>{displayNumericValue(value, variable)} {displayUnit}</span>
           </label>
-          <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
         </div>
         <input
           id={inputId}
@@ -134,10 +137,11 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
     <div className="rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
       <div className="flex items-center justify-between gap-2">
         <label htmlFor={inputId} className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <span className="font-medium text-white" title={variable.name}>{displayName}</span>
+          <VariableDescriptionTooltip name={variable.name} description={variable.description}>
+            <span className="cursor-help font-medium text-white" title={variable.name}>{displayName}</span>
+          </VariableDescriptionTooltip>
           {displayUnit ? <span>{displayUnit}</span> : null}
         </label>
-        <VariableDescriptionTooltip name={variable.name} description={variable.description} portal />
       </div>
       <input
         id={inputId}

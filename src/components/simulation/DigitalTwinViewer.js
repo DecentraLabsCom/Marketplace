@@ -325,24 +325,24 @@ export default function DigitalTwinViewer({ sceneUrl, title, results, modelVaria
                 autoPlaybackRef.current = false
               }}
               disabled={times.length < 2 || isRunning}
-              className="mt-3 w-full accent-[#54d5c9] disabled:opacity-40"
+              className="mt-2 w-full accent-[#54d5c9] disabled:opacity-40"
             />
-            <div className="mt-2 flex items-center justify-between text-[10px] text-[#829ba1]">
+            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#829ba1]">
               <span>{formatTime(times[0])}</span>
+              {!(isRunning && followLatest) ? (
+                <button
+                  type="button"
+                  onClick={togglePlayback}
+                  disabled={times.length < 2}
+                  aria-label={playing ? 'Pause replay' : 'Replay simulation'}
+                  className="shrink-0 rounded-md border border-[#35736f] bg-[#173e40] px-3 py-1.5 text-sm font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {playing ? 'Pause' : 'Replay'}
+                </button>
+              ) : null}
               <span>{formatTime(times[lastIndex])}</span>
             </div>
           </div>
-
-          {!(isRunning && followLatest) ? (
-            <button
-              type="button"
-              onClick={togglePlayback}
-              disabled={times.length < 2}
-              className="w-full rounded-lg border border-[#35736f] bg-[#173e40] px-3 py-2 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {playing ? 'Pause replay' : 'Replay simulation'}
-            </button>
-          ) : null}
         </aside>
       </div>
     </section>

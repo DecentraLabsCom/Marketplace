@@ -13,6 +13,7 @@ import ResultsTable from './ResultsTable'
 import DownloadButtons from './DownloadButtons'
 import SimulationHistory from './SimulationHistory'
 import devLog from '@/utils/dev/logger'
+import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 import { normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
 import { mergeAasSimulationVariables } from './aasSimulationVariables'
@@ -93,6 +94,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
   const [executionMode, setExecutionMode] = useState('batch')
+  const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
+  const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
   const modelVariables = Array.isArray(variableAccess?.modelVariables) ? variableAccess.modelVariables : []
 
   const proxyAttemptRef = useRef(null)
@@ -292,6 +295,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
     variableAccess,
     variableAccessState,
     supported: supportsInteractiveTwinModes,
+    batchPolicy: continuousBatchPolicy,
+    fixedBatchSamples,
     onRunStart: handleInteractiveRunStart,
     onSamples: appendInteractiveSamples,
     onRunFinish: handleInteractiveRunFinish,
@@ -731,6 +736,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
                 executionMode={executionMode}
                 onExecutionModeChange={setExecutionMode}
                 executionModes={['batch', 'step', 'continuous']}
+                batchPolicy={continuousBatchPolicy}
+                onBatchPolicyChange={setContinuousBatchPolicy}
+                fixedBatchSamples={fixedBatchSamples}
+                onFixedBatchSamplesChange={setFixedBatchSamples}
                 running={simState === SIM_STATE.RUNNING}
                 status={interactiveExecution.status}
               />

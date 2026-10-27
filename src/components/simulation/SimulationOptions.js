@@ -2,6 +2,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { getSimulationOptionsError } from './simulationTime'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 /**
  * SimulationOptions — editable start time, stop time, step size.
@@ -34,19 +35,21 @@ export default function SimulationOptions({ options, onChange, simulationType, d
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {fields.map(({ key, label, description }) => (
           <div key={key} className="grid content-start gap-1">
-            <label htmlFor={`sim-opt-${key}`} className="text-xs font-medium text-[#dce9e9]">
-              {label}
-            </label>
-            <input
-              id={`sim-opt-${key}`}
-              type="number"
-              step="any"
-              value={options[key] ?? ''}
-              onChange={(e) => onChange(key, e.target.value)}
-              aria-describedby={`sim-opt-description-${key}`}
-              className="min-h-10 w-full rounded-lg border border-[#26383f] bg-[#142128] px-3 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-            />
-            <span id={`sim-opt-description-${key}`} className="text-[11px] text-[#829ba1]">{description}</span>
+            <VariableDescriptionTooltip name={label} description={description}>
+              <label htmlFor={`sim-opt-${key}`} className="cursor-help text-xs font-medium text-[#dce9e9]">
+                {label}
+              </label>
+            </VariableDescriptionTooltip>
+            <VariableDescriptionTooltip name={label} description={description}>
+              <input
+                id={`sim-opt-${key}`}
+                type="number"
+                step="any"
+                value={options[key] ?? ''}
+                onChange={(e) => onChange(key, e.target.value)}
+                className="min-h-10 w-full rounded-lg border border-[#26383f] bg-[#142128] px-3 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+              />
+            </VariableDescriptionTooltip>
           </div>
         ))}
       </div>

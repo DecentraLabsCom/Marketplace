@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { normalizeSimulationParameters } from './simulationParameters'
 import { getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
@@ -18,6 +19,7 @@ import {
 const VALID_ADVANCE_STOP_REASONS = new Set([
   'target_reached', 'max_samples', 'compute_budget', 'early_return', 'simulation_finished',
 ])
+const FIXED_BATCH_MAX_COMPUTE_MS = 50
 const STEP_SAMPLE_METADATA_KEYS = [
   'eventOccurred', 'eventHandlingNeeded', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason',
 ]
@@ -97,6 +99,8 @@ export default function useInteractiveTwinExecution({
   variableAccess,
   variableAccessState,
   supported,
+  batchPolicy = 'adaptive',
+  fixedBatchSamples = MAX_SAMPLES_PER_BATCH,
   onRunStart,
   onSample,
   onSamples,
@@ -262,8 +266,20 @@ export default function useInteractiveTwinExecution({
 
       if (continuous) {
         const batchController = batchControllerRef.current
-        if (!batchController) throw new Error('The continuous batch controller is unavailable.')
-        const plan = getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
+        if (batchPolicy === 'adaptive' && !batchController) {
+          throw new Error('The continuous batch controller is unavailable.')
+        }
+        const plan = batchPolicy === 'adaptive'
+          ? getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
+          : {
+            targetTime: Math.min(stopTime, currentTime + stepSize * fixedBatchSamples),
+            maxSamples: fixedBatchSamples,
+            maxComputeMs: FIXED_BATCH_MAX_COMPUTE_MS,
+          }
+        if (!plan || !Number.isInteger(plan.maxSamples) || plan.maxSamples < 1
+          || plan.maxSamples > MAX_SAMPLES_PER_BATCH) {
+          throw new Error('The continuous batch settings are invalid.')
+        }
         let responseMetrics = null
         const response = await requestRealtimeOperation(session, 'sim.advance', 'sim.samples', {
           targetTime: plan.targetTime,
@@ -330,35 +346,38 @@ export default function useInteractiveTwinExecution({
         const renderDelayMs = hasFreshRenderDelay ? renderDelayRef.current : null
         if (hasFreshRenderDelay) observedRenderedSampleIndexRef.current = renderedSampleIndexRef.current
 
-        const nextController = observeInteractiveBatch(batchController, {
-          responseMs: responseMetrics?.responseMs,
-          computeMs: response.computeMs,
-          sampleCount: response.samplesReturned ?? samples.length,
-          payloadBytes: response.sampleBytes,
-          renderDelayMs,
-          rateLimitWaitMs: responseMetrics?.rateLimitWaitMs,
-          interactionDelayMs,
-          stopReason: response.stopReason,
-        })
-        batchControllerRef.current = nextController
+        const nextController = batchPolicy === 'adaptive'
+          ? observeInteractiveBatch(batchController, {
+            responseMs: responseMetrics?.responseMs,
+            computeMs: response.computeMs,
+            sampleCount: response.samplesReturned ?? samples.length,
+            payloadBytes: response.sampleBytes,
+            renderDelayMs,
+            rateLimitWaitMs: responseMetrics?.rateLimitWaitMs,
+            interactionDelayMs,
+            stopReason: response.stopReason,
+          })
+          : null
+        if (nextController) batchControllerRef.current = nextController
         if (mountedRef.current) {
           setBatchMetrics({
-            responseMs: nextController.responseEwmaMs ?? responseMetrics?.responseMs ?? 0,
-            computeMs: nextController.computeEwmaMs,
-            renderDelayMs: nextController.consumerDelayEwmaMs,
+            policy: batchPolicy,
+            responseMs: nextController?.responseEwmaMs ?? responseMetrics?.responseMs ?? 0,
+            computeMs: nextController?.computeEwmaMs ?? response.computeMs,
+            renderDelayMs: nextController?.consumerDelayEwmaMs ?? renderDelayMs,
             presentationConfirmed: hasFreshRenderDelay,
             interactionDelayMs,
-            interactionDelayEwmaMs: nextController.interactionDelayEwmaMs,
+            interactionDelayEwmaMs: nextController?.interactionDelayEwmaMs ?? interactionDelayMs,
             simulationDelta: nextTime - currentTime,
-            nextBatchSamples: nextController.sampleCount,
+            nextBatchSamples: nextController?.sampleCount ?? fixedBatchSamples,
             samples: samples.length,
             sampleBytes: response.sampleBytes,
             maxComputeMs: plan.maxComputeMs,
             computeBudgetOverrunMs: response.computeBudgetOverrunMs ?? 0,
             stopReason: response.stopReason || 'unknown',
-            targetReachable: nextController.targetReachable,
-            estimatedBatchResponseMs: nextController.estimatedBatchResponseMs,
-            batchConstraint: nextController.batchConstraint,
+            targetReachable: nextController?.targetReachable ?? null,
+            estimatedBatchResponseMs: nextController?.estimatedBatchResponseMs ?? null,
+            batchConstraint: nextController?.batchConstraint ?? 'fixed-sample-cap',
             rateLimitWaitMs: responseMetrics?.rateLimitWaitMs ?? 0,
           })
         }
@@ -425,7 +444,7 @@ export default function useInteractiveTwinExecution({
     } finally {
       advanceInFlightRef.current = false
     }
-  }, [appendSamples, finishSession, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
+  }, [appendSamples, batchPolicy, finishSession, fixedBatchSamples, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
 
   const startContinuous = useCallback(async () => {
     if (!sessionRef.current || continuousRequestedRef.current) return
@@ -518,7 +537,14 @@ export default function useInteractiveTwinExecution({
       appliedRuntimeParametersRef.current = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
         runtimeVariables.some((variable) => variable.name === name)
       )))
-      batchControllerRef.current = requestedMode === 'continuous'
+      if (!['adaptive', 'fixed'].includes(batchPolicy)) {
+        throw new Error('The continuous batch policy is invalid.')
+      }
+      if (!Number.isInteger(fixedBatchSamples) || fixedBatchSamples < 1
+        || fixedBatchSamples > MAX_SAMPLES_PER_BATCH) {
+        throw new Error(`Fixed batch size must be between 1 and ${MAX_SAMPLES_PER_BATCH} samples.`)
+      }
+      batchControllerRef.current = requestedMode === 'continuous' && batchPolicy === 'adaptive'
         ? createInteractiveBatchController({
           startTime: activeOptions.startTime,
           stopTime: activeOptions.stopTime,
@@ -579,7 +605,7 @@ export default function useInteractiveTwinExecution({
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
     }
-  }, [appendSamples, editableVariables, finishSession, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+  }, [appendSamples, batchPolicy, editableVariables, finishSession, fixedBatchSamples, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
 
   const handleInputChange = useCallback((name, value) => {
     if (sessionRef.current) {
