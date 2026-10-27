@@ -84,6 +84,9 @@ next-env.d.ts
 # Private agent and developer documentation
 dev/
 TODO.md
+/docs/provider/local-glb-demo-previews.md
+/scripts/prepare-local-demo-glb-exporters.mjs
+/src/components/simulation/LocalGlbDemoPreview.js
 
 # labs data
 data/

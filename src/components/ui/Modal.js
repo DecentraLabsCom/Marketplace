@@ -24,6 +24,7 @@ const SIZES = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
   full: 'max-w-full mx-4',
 }
 
@@ -54,7 +55,8 @@ const THEMES = {
  * @param {boolean} props.isOpen - Whether the modal is visible
  * @param {function} [props.onClose] - Handler for closing the modal (if not provided, modal cannot be closed)
  * @param {React.ReactNode} [props.title] - Optional title displayed in header
- * @param {string} [props.size='md'] - Modal size: 'sm', 'md', 'lg', 'xl', '2xl', 'full'
+ * @param {React.ReactNode} [props.titleAside] - Optional right-aligned content displayed beside the title
+ * @param {string} [props.size='md'] - Modal size: 'sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'
  * @param {string} [props.theme='light'] - Modal theme: 'light' or 'dark'
  * @param {React.ReactNode} props.children - Modal content
  * @param {boolean} [props.showCloseButton=true] - Whether to show the X close button
@@ -66,6 +68,7 @@ export default function Modal({
   isOpen, 
   onClose, 
   title,
+  titleAside,
   size = 'md',
   theme = 'light',
   children,
@@ -176,17 +179,22 @@ export default function Modal({
         tabIndex={-1}
       >
         {/* Header */}
-        {(title || (showCloseButton && onClose)) && (
-          <div className={`flex items-center justify-between border-b ${themeStyles.border} px-4 py-3 sm:px-6 sm:py-4`}>
+        {(title || titleAside || (showCloseButton && onClose)) && (
+          <div className={`flex items-center border-b ${themeStyles.border} px-4 py-3 sm:px-6 sm:py-4 ${titleAside ? 'gap-3' : 'justify-between'}`}>
             {title && (
               <h2 
                 id={titleId}
-                className={`text-lg font-semibold ${themeStyles.title}`}
+                className={`shrink-0 text-lg font-semibold ${themeStyles.title}`}
               >
                 {title}
               </h2>
             )}
-            {!title && <div />}
+            {titleAside ? (
+              <div className="min-w-0 flex-1 pr-2 text-right text-xs leading-relaxed text-[#829ba1]">
+                {titleAside}
+              </div>
+            ) : null}
+            {!title && !titleAside && <div />}
             {showCloseButton && onClose && (
               <button
                 onClick={onClose}
@@ -234,7 +242,8 @@ Modal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func,
   title: PropTypes.node,
-  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', '2xl', 'full']),
+  titleAside: PropTypes.node,
+  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full']),
   theme: PropTypes.oneOf(['light', 'dark']),
   children: PropTypes.node.isRequired,
   showCloseButton: PropTypes.bool,

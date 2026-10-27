@@ -29,6 +29,27 @@ export default function SimulationOptions({ options, onChange, simulationType, d
   ]
   const validationError = getSimulationOptionsError(options, { includeStepSize })
 
+  function handleWheel(event, key) {
+    if (disabled || event.deltaY === 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+
+    const current = Number(options[key])
+    if (!Number.isFinite(current)) return
+
+    const configuredStepSize = Number(options.stepSize)
+    const wheelStep = key === 'stepSize'
+      ? Math.max(Math.abs(current) * 0.1, 0.000001)
+      : Number.isFinite(configuredStepSize) && configuredStepSize > 0
+        ? configuredStepSize
+        : 1
+    const direction = event.deltaY < 0 ? 1 : -1
+    const next = Number((current + direction * wheelStep).toPrecision(12))
+    const nextValue = key === 'stepSize' ? Math.max(next, 0.000000000001) : next
+    if (!Number.isFinite(nextValue) || nextValue === current) return
+
+    event.preventDefault()
+    onChange(key, String(nextValue))
+  }
+
   return (
     <fieldset className="grid gap-3 rounded-xl border border-[#26383f] bg-[#0c171c] p-3" disabled={disabled}>
       <legend className="text-sm font-semibold text-white">Simulation time</legend>
@@ -47,6 +68,7 @@ export default function SimulationOptions({ options, onChange, simulationType, d
                 step="any"
                 value={options[key] ?? ''}
                 onChange={(e) => onChange(key, e.target.value)}
+                onWheel={(event) => handleWheel(event, key)}
                 className="min-h-10 w-full rounded-lg border border-[#26383f] bg-[#142128] px-3 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               />
             </VariableDescriptionTooltip>

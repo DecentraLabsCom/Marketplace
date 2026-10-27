@@ -187,6 +187,21 @@ export default function DigitalTwinViewer({
     setPlaying(true)
   }, [playing, lastIndex, isRunning, sampleIndex])
 
+  const handleTimelineWheel = useCallback((event) => {
+    if (event.deltaY === 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || isRunning || lastIndex < 1) return
+
+    const direction = event.deltaY < 0 ? 1 : -1
+    const currentIndex = sampleIndexRef.current
+    const nextIndex = Math.min(lastIndex, Math.max(0, currentIndex + direction))
+    if (nextIndex === currentIndex) return
+
+    event.preventDefault()
+    autoPlaybackRef.current = false
+    setPlaying(false)
+    sampleIndexRef.current = nextIndex
+    setSampleIndex(nextIndex)
+  }, [isRunning, lastIndex])
+
   const stats = modelVariables
     .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
     .map((variable) => ({
@@ -388,6 +403,7 @@ export default function DigitalTwinViewer({
                   setSampleIndex(Number(event.target.value))
                   autoPlaybackRef.current = false
                 }}
+                onWheel={handleTimelineWheel}
                 disabled={times.length < 2 || isRunning}
                 style={{ writingMode: 'vertical-lr', direction: 'ltr' }}
                 className="min-h-0 w-6 flex-1 accent-[#54d5c9] disabled:opacity-40"
@@ -497,6 +513,7 @@ export default function DigitalTwinViewer({
                     setSampleIndex(Number(event.target.value))
                     autoPlaybackRef.current = false
                   }}
+                  onWheel={handleTimelineWheel}
                   disabled={times.length < 2 || isRunning}
                   className="mt-2 w-full accent-[#54d5c9] disabled:opacity-40"
                 />

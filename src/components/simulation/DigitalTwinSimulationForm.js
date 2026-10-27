@@ -134,12 +134,12 @@ export default function DigitalTwinSimulationForm({
         isOpen={activeDialog === 'run-controls'}
         onClose={() => setActiveDialog(null)}
         title="Run Controls"
-        size="2xl"
+        titleAside="Set model inputs and simulation time for the next run"
+        size="3xl"
         theme="dark"
         className="bg-[#101a20]! border border-[#263a42]"
         portal
       >
-        <p className="mb-4 text-xs text-[#829ba1]">Set model inputs and simulation time for the next run.</p>
         <section className="mb-4 grid gap-3" aria-labelledby="digital-twin-run-inputs-title">
           <h3 id="digital-twin-run-inputs-title" className="text-sm font-semibold text-white">Inputs and tunable parameters</h3>
           <DigitalTwinInputGrid
@@ -149,6 +149,7 @@ export default function DigitalTwinSimulationForm({
             onChange={onInputChange}
             disabled={running}
             emptyMessage="This FMU has no editable input variables or parameters."
+            maxVisibleRows={3}
           />
         </section>
         <SimulationOptions
