@@ -131,8 +131,10 @@ nonempty names, each at most 256 characters. The SDK snapshots this selection
 at the start of `run()` and requests it for both the initial `sim.getOutputs`
 and all subsequent `sim.advance` calls. Every selected value must be present in
 the initial sample and every returned sample; missing values or an initial
-time differing from `startTime` by more than the SDK timeline tolerance
-`max(1e-9 s, abs(stepSize) * 1e-7)` stop the run with `INVALID_FMU_RESPONSE`.
+time outside the SDK timeline tolerance stop the run with `INVALID_FMU_RESPONSE`.
+The tolerance is `min(abs(stepSize)/4, max(1e-9 s, abs(stepSize)*1e-7,
+8*Number.EPSILON*max(1, abs(startTime))))`: it accounts for floating-point
+rounding at large start times without accepting an entire communication step.
 Additional authorized outputs are accepted. With no explicit selection, the
 SDK preserves the existing provider-default behavior and cannot infer which
 outputs should have been returned. The high-level sample validator currently

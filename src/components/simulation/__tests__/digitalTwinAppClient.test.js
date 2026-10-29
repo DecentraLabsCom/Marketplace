@@ -179,6 +179,38 @@ test('preserves the initial timestamp when its rounding difference is within the
   expect((await completion).state).toBe('completed')
   expect(seen[0].time).toBe(10 + 5e-10)
 })
+test.each([1e12, -1e12])('accepts a representational ULP at large initial time %s', async (startTime) => {
+  const session = runtime()
+  const roundedTime = startTime + 0.0001220703125
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: startTime, defaultStopTime: startTime + 1, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return { simTime: roundedTime, values: { temperature: 22 } }
+    if (type === 'sim.advance') return { simTime: startTime + 1, finished: true, samples: [
+      { time: startTime + 1, outputs: { temperature: 23 } },
+    ] }
+    return {}
+  })
+  const seen = []
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onSamples: (samples) => seen.push(...samples), onResultsComplete: resolveCompletion })
+  await client.run({ advanceOptions: { outputVariables: ['temperature'] } })
+  expect((await completion).state).toBe('completed')
+  expect(seen[0].time).toBe(roundedTime)
+})
+test('does not mistake the next communication step for the initial sample at a large start time', async () => {
+  const session = runtime()
+  const startTime = 1e12
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: startTime, defaultStopTime: startTime + 0.01, defaultStepSize: 0.001 }
+    if (type === 'sim.getOutputs') return { simTime: startTime + 0.001, values: { temperature: 22 } }
+    return {}
+  })
+  const client = create({ getConnection: async () => connection })
+  await expect(client.run({ advanceOptions: { outputVariables: ['temperature'] } }))
+    .rejects.toMatchObject({ code: 'INVALID_FMU_RESPONSE' })
+  expect(session.close).toHaveBeenCalledTimes(1)
+})
 test.each([1, 2])('preserves unwrapped non-motor values through decimated batches of up to %i samples', async (maxBatchSamples) => {
   const session = runtime()
   const returned = [

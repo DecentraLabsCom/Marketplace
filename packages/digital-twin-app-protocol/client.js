@@ -491,7 +491,8 @@ export function createDigitalTwinAppClient({
         ...(current.advanceOptions.outputVariables ? { variables: current.advanceOptions.outputVariables } : {}),
       })
       if (current.advanceOptions.outputVariables) {
-        const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
+        const rounding = Number.EPSILON * Math.max(1, Math.abs(startTime)) * 8
+        const tolerance = Math.min(Math.abs(stepSize) / 4, Math.max(1e-9, Math.abs(stepSize) * 1e-7, rounding))
         if (!Number.isFinite(initial?.simTime) || Math.abs(initial.simTime - startTime) > tolerance) {
           throw errorWithCode('The FMU returned an invalid initial sample time.', 'INVALID_FMU_RESPONSE')
         }
