@@ -278,8 +278,41 @@ app and uses this mode in one FMU execution.
   Normal published labs remain bound to their configured FMU. The qFMU local
   preview uses this extension to select among its four reference models.
 
+## Three.js scene / GLB presentation parity
+
+The optional `@decentralabs/digital-twin-app-protocol/scene-presentation`
+subpath defines a version 1 JSON profile for Three.js presentation settings,
+including OrbitControls behavior such as damping and pan/zoom/rotate options.
+Renderer settings include the active pixel ratio and clear color/alpha used by the source app.
+The SDK's canonical exporter captures the active camera, OrbitControls,
+renderer, scene background and fog. It stores this versioned
+`decentralabsScenePresentation` profile in glTF scene extras. Per-object shadow,
+visibility and material render flags are serialized with the corresponding
+node or material extras. Ambient lights and their direction are represented in
+the profile; punctual lights and PBR materials use standard glTF fields. The
+exporter preserves directional and spot-light aim from their Three.js targets
+and snapshots matrix transforms before restoring the live scene, without
+changing the exporter's matrix or TRS representation.
+
+Apps call `exportSceneWithPresentation({ THREE, scene, camera, renderer,
+controls, exporter, options })`. The exporter includes initially hidden
+geometry, preserves Three.js `LineBasicMaterial` as unlit glTF materials, and
+preserves directional and spot-light aim from their targets in the exported
+transforms before restoring the live scene. The Marketplace viewer reads
+the profile and restores it without lab-specific branches. The schema is
+published as `@decentralabs/digital-twin-app-protocol/scene-presentation-schema`.
+
+The contract covers what Three.js draws into its canvas. HTML HUDs and CSS
+layers above the canvas are excluded; apps should remove visual overlays that
+alter the canvas before export. If a caller supplies `surfaceElement`, marking
+such an overlay with `data-decentralabs-scene-overlay` makes export fail
+explicitly. Custom shaders, non-normal blending, custom environment textures,
+orthographic cameras, post-processing, and other features outside the portable
+glTF model are unsupported until represented by a shared format. Pixel-level
+comparison also requires the same viewport aspect ratio and rendering device.
+
 Marketplace apps use host integration protocol version 2. The native
 `proxy.fmu` WebSocket session protocol is version 1.0 and supports the bounded
 `sim.advance` operation for batched output samples.
 
-Last reviewed: 2026-10-25
+Last reviewed: 2026-10-29

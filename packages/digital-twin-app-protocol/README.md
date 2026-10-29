@@ -166,3 +166,54 @@ integration uses protocol version 2; the native WS session protocol is version
 1.0.
 Use `npm pack --workspace @decentralabs/digital-twin-app-protocol` to create a
 tarball; this repository does not publish the npm package automatically.
+
+## Three.js / GLB presentation parity
+
+Use the active Three.js scene, camera, renderer, and OrbitControls state as the
+source of truth. The shared exporter captures those settings into the versioned
+`decentralabsScenePresentation` profile and stores it as glTF scene extras. The
+profile includes camera and controls, background and fog, renderer color space,
+tone mapping, exposure, pixel ratio, clear color, shadow-map configuration,
+ambient lights, and any ambient-light direction glTF cannot represent. Its JSON
+Schema is available at `./scene-presentation-schema`.
+
+```js
+import { exportSceneWithPresentation } from './sdk/scene-presentation.js'
+import { GLTFExporter } from './vendor/GLTFExporter.js'
+
+const glb = await exportSceneWithPresentation({
+  THREE,
+  scene,
+  camera,
+  renderer,
+  controls,
+  surfaceElement: document.querySelector('.scene-card'),
+  exporter: new GLTFExporter(),
+  options: { binary: true },
+})
+```
+
+The exporter includes hidden geometry and records each object's visibility and
+shadow state. It preserves material render flags glTF omits, exports ambient
+lights through the profile, converts `LineBasicMaterial` to glTF unlit
+semantics, and restores the source scene after export. Directional and spot
+light aim is encoded from each Three.js target. The exporter snapshots matrix
+arrays before restoring temporary aim changes, preserving the caller's matrix
+or TRS representation. The Marketplace viewer applies the same profile and
+material state, then uses punctual lights and PBR materials carried by glTF. It
+does not add a studio rig when the source has authored lighting. Apps without a
+valid profile use the generic studio path.
+
+GLBs must be generated with the shared exporter so their shadow map, lights,
+shadow cameras, and per-object cast/receive flags come from the original canvas.
+The viewer applies that captured state without inferring defaults for older
+assets; regenerate an asset when it predates this metadata.
+
+Parity covers the Three.js canvas. HTML HUDs and CSS layers over the canvas are
+not part of the exported scene; remove visual effects that alter the canvas
+before export. If `surfaceElement` is supplied, marking such a layer with
+`data-decentralabs-scene-overlay` makes export fail instead of silently
+dropping it. Custom shaders, non-normal blending, custom environment textures,
+orthographic cameras, post-processing passes, and features outside glTF's
+portable material/geometry model need an explicit supported representation
+before export. Compare at the same viewport aspect ratio for pixel-level checks.

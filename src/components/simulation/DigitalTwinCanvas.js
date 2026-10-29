@@ -14,6 +14,12 @@ import {
 } from './fmiSceneBindings'
 import { createAxisDragContext, getAxisCoordinateFromRay } from './fmiSceneInteraction'
 import { getVariableDescription } from './simulationParameters'
+import {
+  applySceneMaterialRendering,
+  applySceneObjectRendering,
+  applyScenePresentation,
+  readScenePresentation,
+} from '@decentralabs/digital-twin-app-protocol/scene-presentation'
 
 function disposeObject(object) {
   object.traverse((node) => {
@@ -150,6 +156,49 @@ function getBoxCorners(bounds) {
   ]
 }
 
+function getFmiBindingFocusBounds(sceneRoot, boundObjects) {
+  const boundNodes = [...new Set(boundObjects
+    .filter(({ isOutputBinding }) => isOutputBinding)
+    .map(({ node }) => node))]
+  if (boundNodes.length === 0) return null
+
+  const fullBounds = new THREE.Box3().setFromObject(sceneRoot)
+  if (fullBounds.isEmpty()) return null
+  const largestDimension = (bounds) => {
+    const size = bounds.getSize(new THREE.Vector3())
+    return Math.max(size.x, size.y, size.z)
+  }
+  const fullLargestDimension = largestDimension(fullBounds)
+  const isAncestorOfEveryBoundNode = (candidate) => boundNodes.every((node) => {
+    for (let current = node; current; current = current.parent) {
+      if (current === candidate) return true
+    }
+    return false
+  })
+
+  let commonAncestor = boundNodes[0]
+  while (commonAncestor && !isAncestorOfEveryBoundNode(commonAncestor)) {
+    commonAncestor = commonAncestor.parent
+  }
+  if (commonAncestor && commonAncestor !== sceneRoot) {
+    const contextBounds = new THREE.Box3().setFromObject(commonAncestor)
+    if (!contextBounds.isEmpty() && largestDimension(contextBounds) < fullLargestDimension * 0.9) {
+      return contextBounds
+    }
+  }
+
+  const boundBounds = new THREE.Box3().makeEmpty()
+  for (const node of boundNodes) boundBounds.expandByObject(node)
+  const boundLargestDimension = largestDimension(boundBounds)
+  if (
+    !boundBounds.isEmpty()
+    && boundLargestDimension >= fullLargestDimension * 0.25
+    && boundLargestDimension < fullLargestDimension * 0.9
+  ) return boundBounds
+
+  return null
+}
+
 function setTooltipContent(tooltip, bindings) {
   tooltip.replaceChildren()
   for (const { variable } of bindings) {
@@ -265,22 +314,30 @@ export default function DigitalTwinCanvas({
     tooltip.style.boxShadow = '0 10px 28px rgba(0, 0, 0, 0.36)'
     host.appendChild(tooltip)
 
-    const studioEnvironment = new RoomEnvironment()
-    pmremGenerator = new THREE.PMREMGenerator(renderer)
-    environmentTarget = pmremGenerator.fromScene(studioEnvironment, 0.04)
-    scene.environment = environmentTarget.texture
-    studioEnvironment.dispose()
-
-    scene.add(new THREE.HemisphereLight('#d9f2ff', '#13212a', 1.3))
-    const keyLight = new THREE.DirectionalLight('#fff2d4', 2.25)
-    keyLight.position.set(-3, 7, 4)
-    keyLight.castShadow = true
-    keyLight.shadow.mapSize.set(1024, 1024)
-    scene.add(keyLight)
-    scene.add(keyLight.target)
-    const fillLight = new THREE.DirectionalLight('#57b9d0', 0.75)
-    fillLight.position.set(4, 3, -5)
-    scene.add(fillLight)
+    let keyLight = null
+    let fillLight = null
+    const addStudioEnvironment = () => {
+      if (environmentTarget) return
+      const studioEnvironment = new RoomEnvironment()
+      pmremGenerator = new THREE.PMREMGenerator(renderer)
+      environmentTarget = pmremGenerator.fromScene(studioEnvironment, 0.04)
+      scene.environment = environmentTarget.texture
+      studioEnvironment.dispose()
+    }
+    const addDefaultSceneLighting = () => {
+      addStudioEnvironment()
+      if (keyLight) return
+      scene.add(new THREE.HemisphereLight('#d9f2ff', '#13212a', 1.3))
+      keyLight = new THREE.DirectionalLight('#fff2d4', 2.25)
+      keyLight.position.set(-3, 7, 4)
+      keyLight.castShadow = true
+      keyLight.shadow.mapSize.set(1024, 1024)
+      scene.add(keyLight)
+      scene.add(keyLight.target)
+      fillLight = new THREE.DirectionalLight('#57b9d0', 0.75)
+      fillLight.position.set(4, 3, -5)
+      scene.add(fillLight)
+    }
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 1, 0)
@@ -298,16 +355,23 @@ export default function DigitalTwinCanvas({
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
     let gltfRoot = null
+    let cameraFollowNode = null
+    let cameraFollowProfile = null
+    const cameraFollowPosition = new THREE.Vector3()
+    const previousCameraFollowPosition = new THREE.Vector3()
+    const cameraFollowDelta = new THREE.Vector3()
+    let hasCameraFollowPosition = false
     let gltfBounds = null
+    let framingBounds = null
     let autoFrame = true
     let activeDrag = null
 
     // Fit the projected scene bounds so wide viewers can use their extra horizontal space.
     const frameScene = () => {
-      if (!gltfBounds || gltfBounds.isEmpty()) return
+      if (!framingBounds || framingBounds.isEmpty()) return
 
-      const center = gltfBounds.getCenter(new THREE.Vector3())
-      const size = gltfBounds.getSize(new THREE.Vector3())
+      const center = framingBounds.getCenter(new THREE.Vector3())
+      const size = framingBounds.getSize(new THREE.Vector3())
       const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
       const viewDirection = new THREE.Vector3(0.8, 0.6, 1).normalize()
       const forward = viewDirection.clone().negate()
@@ -319,9 +383,9 @@ export default function DigitalTwinCanvas({
       const horizontalTangent = Math.tan(horizontalHalfFov)
       let distance = 0
 
-      for (const x of [gltfBounds.min.x, gltfBounds.max.x]) {
-        for (const y of [gltfBounds.min.y, gltfBounds.max.y]) {
-          for (const z of [gltfBounds.min.z, gltfBounds.max.z]) {
+      for (const x of [framingBounds.min.x, framingBounds.max.x]) {
+        for (const y of [framingBounds.min.y, framingBounds.max.y]) {
+          for (const z of [framingBounds.min.z, framingBounds.max.z]) {
             const offset = new THREE.Vector3(x, y, z).sub(center)
             const depthFromTarget = offset.dot(viewDirection)
             distance = Math.max(
@@ -560,26 +624,25 @@ export default function DigitalTwinCanvas({
         return
       }
       gltfRoot = gltf.scene
-      gltfBounds = new THREE.Box3().setFromObject(gltfRoot)
-      if (!gltfBounds.isEmpty()) {
-        autoFrame = true
-        const center = gltfBounds.getCenter(new THREE.Vector3())
-        const size = gltfBounds.getSize(new THREE.Vector3())
-        const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
-        frameScene()
+      const scenePresentation = readScenePresentation(gltfRoot)
+      cameraFollowProfile = scenePresentation?.camera?.follow || null
+      hasCameraFollowPosition = false
+      cameraFollowNode = cameraFollowProfile?.node
+        ? gltfRoot.getObjectByName(cameraFollowProfile.node)
+        : null
+      const presentationSettings = applyScenePresentation(THREE, scenePresentation, {
+        scene,
+        camera,
+        renderer,
+        controls,
+      })
+      autoFrame = presentationSettings.useAutomaticCameraFraming
+      controls.update()
+      if (presentationSettings.useDefaultLighting) addDefaultSceneLighting()
+      else if (presentationSettings.environment === 'room') addStudioEnvironment()
 
-        keyLight.position.set(
-          center.x - largestDimension,
-          center.y + largestDimension * 2,
-          center.z + largestDimension,
-        )
-        keyLight.target.position.copy(center)
-        fillLight.position.set(
-          center.x + largestDimension,
-          center.y + largestDimension * 0.7,
-          center.z - largestDimension * 1.5,
-        )
-      }
+      gltfBounds = new THREE.Box3().setFromObject(gltfRoot)
+      framingBounds = gltfBounds
       const modelVariablesByName = new Map(
         (Array.isArray(variablesRef.current) ? variablesRef.current : [])
           .filter((variable) => typeof variable?.name === 'string')
@@ -587,7 +650,7 @@ export default function DigitalTwinCanvas({
       )
       const sceneBindingsByNode = new Map()
       gltfRoot.traverse((node) => {
-        if (node.isMesh) {
+        if (node.isMesh && presentationSettings.lightingMode !== 'authored') {
           node.castShadow = true
           node.receiveShadow = true
           const materials = Array.isArray(node.material) ? node.material : [node.material]
@@ -610,6 +673,8 @@ export default function DigitalTwinCanvas({
           sceneBindingsByNode.set(node, nodeBindings)
         }
       })
+      applySceneObjectRendering(gltfRoot)
+      applySceneMaterialRendering(gltfRoot, THREE)
 
       const interactiveNodes = new Set()
       const sceneInputBindingNames = new Set()
@@ -659,6 +724,26 @@ export default function DigitalTwinCanvas({
       }
       onSceneInputBindingsReadyRef.current?.([...sceneInputBindingNames])
       gltfRoot.updateMatrixWorld(true)
+      framingBounds = getFmiBindingFocusBounds(gltfRoot, boundObjects) || gltfBounds
+      if (framingBounds && !framingBounds.isEmpty()) {
+        const center = framingBounds.getCenter(new THREE.Vector3())
+        const size = framingBounds.getSize(new THREE.Vector3())
+        const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
+        if (autoFrame) frameScene()
+        if (keyLight && fillLight) {
+          keyLight.position.set(
+            center.x - largestDimension,
+            center.y + largestDimension * 2,
+            center.z + largestDimension,
+          )
+          keyLight.target.position.copy(center)
+          fillLight.position.set(
+            center.x + largestDimension,
+            center.y + largestDimension * 0.7,
+            center.z - largestDimension * 1.5,
+          )
+        }
+      }
       const markerEntriesByVariable = new Map()
       const markerNodes = [...new Set(boundObjects.map(({ node }) => node))]
       for (const node of markerNodes) {
@@ -693,7 +778,7 @@ export default function DigitalTwinCanvas({
         }
       }
       if (markerEntriesByVariable.size > 0) {
-        const sceneSize = gltfBounds.getSize(new THREE.Vector3())
+        const sceneSize = (framingBounds || gltfBounds).getSize(new THREE.Vector3())
         const largestSceneDimension = Math.max(sceneSize.x, sceneSize.y, sceneSize.z, 0.1)
         const clusterScale = Math.min(Math.max(largestSceneDimension * 0.006, 0.004), 0.12)
         const maximumClusterGap = Math.max(largestSceneDimension * 0.012, clusterScale * 2)
@@ -821,6 +906,31 @@ export default function DigitalTwinCanvas({
           node[property][axis] = mapped
         }
       }
+      if (cameraFollowNode && cameraFollowProfile) {
+        cameraFollowNode.updateWorldMatrix(true, false)
+        cameraFollowNode.getWorldPosition(cameraFollowPosition)
+        if (!hasCameraFollowPosition) {
+          const positionOffset = cameraFollowProfile.positionOffset || [0, 0, 0]
+          const targetOffset = cameraFollowProfile.targetOffset || [0, 0, 0]
+          camera.position.set(
+            cameraFollowPosition.x + positionOffset[0],
+            cameraFollowPosition.y + positionOffset[1],
+            cameraFollowPosition.z + positionOffset[2],
+          )
+          controls.target.set(
+            cameraFollowPosition.x + targetOffset[0],
+            cameraFollowPosition.y + targetOffset[1],
+            cameraFollowPosition.z + targetOffset[2],
+          )
+          hasCameraFollowPosition = true
+        } else {
+          // Move the follow anchor without resetting the user's orbit, pan, or zoom.
+          cameraFollowDelta.subVectors(cameraFollowPosition, previousCameraFollowPosition)
+          camera.position.add(cameraFollowDelta)
+          controls.target.add(cameraFollowDelta)
+        }
+        previousCameraFollowPosition.copy(cameraFollowPosition)
+      }
       controls.update()
       camera.updateMatrixWorld()
       if (sceneMarkers.length > 0) {
@@ -911,6 +1021,7 @@ export default function DigitalTwinCanvas({
       controls.dispose()
       tooltip.remove()
       if (gltfRoot) disposeObject(gltfRoot)
+      if (scene.background?.isTexture) scene.background.dispose()
       for (const { element } of sceneMarkers) element.remove()
       environmentTarget?.dispose()
       pmremGenerator?.dispose()

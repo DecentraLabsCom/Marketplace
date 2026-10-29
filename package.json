@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "test": "jest",
+    "test:scene-presentation-export": "node --test packages/digital-twin-app-protocol/tests/scene-presentation-export.test.mjs",
     "test:digital-twin-protocol": "jest --runInBand src/components/simulation/__tests__/digitalTwinAppProtocol.test.js src/components/simulation/__tests__/digitalTwinAppClient.test.js src/components/simulation/__tests__/fmuSessionClient.test.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

@@ -27,6 +27,12 @@
       "import": "./input-update-quota.js",
       "default": "./input-update-quota.js"
     },
+    "./scene-presentation": {
+      "types": "./scene-presentation.d.ts",
+      "import": "./scene-presentation.js",
+      "default": "./scene-presentation.js"
+    },
+    "./scene-presentation-schema": "./scene-presentation.schema.json",
     "./schema-v2": "./schema-v2.json",
     "./fmu-client": {
       "types": "./fmu-client.d.ts",
@@ -46,7 +52,10 @@
     "README.md",
     "schema-v2.json",
     "fmu-client.js",
-    "fmu-client.d.ts"
+    "fmu-client.d.ts",
+    "scene-presentation.js",
+    "scene-presentation.d.ts",
+    "scene-presentation.schema.json"
   ],
   "sideEffects": false,
   "browserClientFile": "client.js"
