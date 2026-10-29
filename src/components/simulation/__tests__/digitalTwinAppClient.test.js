@@ -46,6 +46,159 @@ test('executes independently of a host and waits for application processing befo
   expect(complete).toHaveBeenCalledWith({ runId, state: 'completed', sampleCount: 3 }, expect.any(Object))
   expect(session.close).toHaveBeenCalledTimes(1)
 })
+test('delivers the initial and subsequent samples only to onSamples when both callbacks are supplied', async () => {
+  runtime()
+  const onSample = jest.fn()
+  const onSamples = jest.fn()
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({
+    getConnection: async () => connection,
+    onSample,
+    onSamples,
+    onResultsComplete: resolveCompletion,
+  })
+
+  await client.run()
+  await completion
+
+  expect(onSample).not.toHaveBeenCalled()
+  expect(onSamples.mock.calls.flatMap(([batch]) => batch.map(({ time }) => time))).toEqual([0, 1, 2])
+})
+test('delivers the initial and subsequent samples once to onSample when no batch callback is supplied', async () => {
+  runtime()
+  const onSample = jest.fn()
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onSample, onResultsComplete: resolveCompletion })
+
+  await client.run()
+  await completion
+
+  expect(onSample.mock.calls.map(([sample]) => sample.time)).toEqual([0, 1, 2])
+})
+test('passes requested model variables to validation before deriving initialization parameters', async () => {
+  const session = runtime()
+  const model = {
+    defaultStartTime: 0, defaultStopTime: 1, defaultStepSize: 1,
+    modelVariables: [{ name: 'gain', causality: 'parameter', variability: 'fixed', type: 'Real' }],
+  }
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return model
+    if (type === 'sim.getOutputs') return { simTime: 0, values: { x: 0 } }
+    if (type === 'sim.advance') return { samples: [{ time: 1, outputs: { x: 1 } }], simTime: 1, finished: true }
+    return {}
+  })
+  const validateModel = jest.fn(() => true)
+  const parametersFromModel = jest.fn(() => ({ gain: 2, derived: 3 }))
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onResultsComplete: resolveCompletion })
+
+  await client.run({ includeModelVariables: true, validateModel, parametersFromModel, parameters: { gain: 4 } })
+  await completion
+
+  expect(session.request).toHaveBeenCalledWith('model.describe', 'model.description', { includeVariables: true })
+  expect(validateModel).toHaveBeenCalledWith(model)
+  expect(parametersFromModel).toHaveBeenCalledWith(model)
+  expect(session.request).toHaveBeenCalledWith('sim.initialize', 'sim.state', expect.objectContaining({
+    parameters: { gain: 4, derived: 3 },
+  }))
+})
+test('rejects a model mismatch before sending initialization parameters', async () => {
+  const session = runtime()
+  const client = create({ getConnection: async () => connection })
+
+  await expect(client.run({ includeModelVariables: true, validateModel: () => false }))
+    .rejects.toMatchObject({ code: 'FMU_MODEL_MISMATCH' })
+  expect(session.request.mock.calls.some(([type]) => type === 'sim.initialize')).toBe(false)
+  expect(session.close).toHaveBeenCalledTimes(1)
+})
+test('keeps selected non-motor outputs consistent from the initial sample through sparse event batches', async () => {
+  const session = runtime()
+  const selected = ['temperature', 'pressure']
+  let authorize
+  const grant = new Promise((resolve) => { authorize = resolve })
+  const seen = []
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 4, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return { simTime: 0, values: { temperature: 22, pressure: 101, extra: 7 } }
+    if (type === 'sim.advance') return { simTime: 4, finished: true, samples: [
+      { time: 2, sequence: 1, eventOccurred: true, outputs: { temperature: 24, pressure: 100 } },
+      { time: 2, sequence: 2, eventHandlingNeeded: true, outputs: { temperature: 25, pressure: 99 } },
+      { time: 4, sequence: 3, outputs: { temperature: 26, pressure: 98 } },
+    ] }
+    return {}
+  })
+  const client = create({
+    getConnection: () => grant,
+    onSamples: (samples) => seen.push(...samples),
+    onResultsComplete: resolveCompletion,
+  })
+
+  const started = client.run({ maxBatchSamples: 3, advanceOptions: { outputVariables: selected, outputSampleEverySteps: 2 } })
+  selected.push('later-mutation')
+  authorize(connection)
+  await started
+  expect((await completion).state).toBe('completed')
+
+  expect(session.request).toHaveBeenCalledWith('sim.getOutputs', 'sim.outputs', { variables: ['temperature', 'pressure'] })
+  expect(session.request).toHaveBeenCalledWith('sim.advance', 'sim.samples', expect.objectContaining({
+    outputVariables: ['temperature', 'pressure'], outputSampleEverySteps: 2,
+  }))
+  expect(seen.map(({ time, sequence, eventOccurred, eventHandlingNeeded, outputs }) => ({ time, sequence, eventOccurred, eventHandlingNeeded, outputs }))).toEqual([
+    { time: 0, sequence: undefined, eventOccurred: undefined, eventHandlingNeeded: undefined, outputs: { temperature: 22, pressure: 101, extra: 7 } },
+    { time: 2, sequence: 1, eventOccurred: true, eventHandlingNeeded: undefined, outputs: { temperature: 24, pressure: 100 } },
+    { time: 2, sequence: 2, eventOccurred: undefined, eventHandlingNeeded: true, outputs: { temperature: 25, pressure: 99 } },
+    { time: 4, sequence: 3, eventOccurred: undefined, eventHandlingNeeded: undefined, outputs: { temperature: 26, pressure: 98 } },
+  ])
+})
+test('rejects an empty selected output list before opening a session', async () => {
+  const getConnection = jest.fn(async () => connection)
+  const client = create({ getConnection })
+  await expect(client.run({ advanceOptions: { outputVariables: [] } })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+  expect(getConnection).not.toHaveBeenCalled()
+})
+test.each([
+  { simTime: 0, values: { temperature: 22 } },
+  { simTime: 0.5, values: { temperature: 22, pressure: 101 } },
+])('rejects incomplete or mis-timed selected initial outputs', async (initial) => {
+  const session = runtime()
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 2, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return initial
+    return {}
+  })
+  const onSamples = jest.fn()
+  const client = create({ getConnection: async () => connection, onSamples })
+  await expect(client.run({ advanceOptions: { outputVariables: ['temperature', 'pressure'] } }))
+    .rejects.toMatchObject({ code: 'INVALID_FMU_RESPONSE' })
+  expect(onSamples).not.toHaveBeenCalled()
+  expect(session.close).toHaveBeenCalledTimes(1)
+})
+test('stops without delivering a batch that omits a selected output', async () => {
+  const session = runtime()
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 1, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return { simTime: 0, values: { temperature: 22, pressure: 101 } }
+    if (type === 'sim.advance') return { simTime: 1, finished: true, samples: [
+      { time: 1, outputs: { temperature: 23 } },
+    ] }
+    return {}
+  })
+  const onSamples = jest.fn()
+  const onError = jest.fn()
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onSamples, onError, onResultsComplete: resolveCompletion })
+  await client.run({ advanceOptions: { outputVariables: ['temperature', 'pressure'] } })
+  expect((await completion).state).toBe('error')
+  expect(onSamples).toHaveBeenCalledTimes(1)
+  expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_FMU_RESPONSE' }))
+  expect(session.close).toHaveBeenCalledTimes(1)
+})
 test('cancel aborts callbacks and closes the direct FMU session', async () => {
   const session = runtime()
   let finishBatch

@@ -57,6 +57,17 @@ next batch is requested after successful callback completion. Callback failure
 stops the run. Cancellation/disposal aborts pending work and closes the session.
 Check `context.signal.aborted` after awaiting before committing app side effects.
 `onResultsComplete` follows the last successful sample callback.
+If both `onSamples` and `onSample` are supplied, only `onSamples` receives
+samples, including the initial sample; otherwise `onSample` receives each one.
+
+Set `includeModelVariables: true` to request the authorized variable descriptors
+before initialization. The optional `validateModel(model)` callback can reject
+an incompatible model by returning `false`; `parametersFromModel(model)` can
+derive initialization values, with explicit `parameters` taking precedence.
+The Gateway filters the descriptors according to the effective access policy.
+A visible descriptor may be readable or writable, so its presence alone does not
+establish permission to write: the Gateway remains the authority and can reject
+an initialization or runtime write with `VARIABLE_ACCESS_DENIED`.
 
 `run()` keeps the provider app's existing fixed batch behavior by default: up to
 256 samples per response, or one sample when `inputController` performs

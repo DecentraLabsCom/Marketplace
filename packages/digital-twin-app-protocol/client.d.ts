@@ -13,7 +13,9 @@ export interface DigitalTwinAppClientOptions {
   /** Supply this to use the app independently of a Marketplace parent window. */
   getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[] }>
   onHostReady?: (extensions: Record<string, unknown>) => void
+  /** Called per sample when onSamples is not supplied. */
   onSample?: (sample: DigitalTwinSample, context: SampleProcessingContext) => void | Promise<void>
+  /** Receives every batch, including the initial sample; takes precedence over onSample. */
   onSamples?: (samples: DigitalTwinSample[], batch: SampleBatch, context: SampleProcessingContext) => void | Promise<void>
   /** In adaptive mode, resolve after the latest sample has actually been rendered. */
   onBatchRendered?: (samples: DigitalTwinSample[], batch: SampleBatch, context: SampleProcessingContext) => void | Promise<void>

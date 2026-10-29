@@ -482,7 +482,6 @@ export function createDigitalTwinAppClient({
         ...(current.advanceOptions.outputVariables ? { variables: current.advanceOptions.outputVariables } : {}),
       })
       const initialSample = { time: initial.simTime, outputs: initial.values }
-      if (onSamples && onSample) await onSample(initialSample, { runId: current.runId, signal: current.controller.signal })
       await deliver(current, [initialSample])
       if (current.inputControllerTimes.length && current.inputControllerTimes[0] <= startTime + 1e-12) {
         while (current.inputControllerTimes[current.inputControllerTimeIndex] <= startTime + 1e-12) current.inputControllerTimeIndex += 1
