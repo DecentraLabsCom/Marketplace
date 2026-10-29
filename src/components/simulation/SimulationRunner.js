@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import ParameterForm from './ParameterForm'
 import DigitalTwinSimulationForm from './DigitalTwinSimulationForm'
+import ProviderParameterPresetSelect from './ProviderParameterPresetSelect'
 import InputScheduleEditor from './InputScheduleEditor'
 import SimulationOptions from './SimulationOptions'
 import SimulationProgress from './SimulationProgress'
@@ -93,6 +94,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
+  const [providerPresets, setProviderPresets] = useState([])
+  const [selectedPresetId, setSelectedPresetId] = useState('')
   const [executionMode, setExecutionMode] = useState('batch')
   const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
   const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
@@ -206,8 +209,15 @@ export default function SimulationRunner({ lab, reservationKey }) {
     : ''
 
   const handleParamChange = useCallback((name, value) => {
+    setSelectedPresetId('')
     setParameters(prev => ({ ...prev, [name]: value }))
   }, [])
+
+  const handleProviderPresetSelect = useCallback((presetId) => {
+    const preset = providerPresets.find((candidate) => candidate.id === presetId)
+    setSelectedPresetId(preset ? preset.id : '')
+    if (preset) setParameters((current) => ({ ...current, ...preset.parameters }))
+  }, [providerPresets])
 
   const handleOptionChange = useCallback((name, value) => {
     setOptions(prev => ({ ...prev, [name]: value }))
@@ -355,6 +365,41 @@ export default function SimulationRunner({ lab, reservationKey }) {
       })
     return () => controller.abort()
   }, [fetchGateway, labId, reservationKey])
+
+  useEffect(() => {
+    if (!labId || !reservationKey || variableAccessState !== 'ready') {
+      setProviderPresets([])
+      setSelectedPresetId('')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setProviderPresets([])
+    setSelectedPresetId('')
+    fetchGateway('/api/simulations/parameter-sets', {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return { presets: [] }
+        const payload = await response.json().catch(() => null)
+        return Array.isArray(payload?.presets) ? payload : { presets: [] }
+      })
+      .then((payload) => {
+        if (!controller.signal.aborted) setProviderPresets(payload.presets)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          devLog.warn('Provider simulation configurations are unavailable.', error?.message || error)
+          setProviderPresets([])
+        }
+      })
+
+    return () => controller.abort()
+  }, [fetchGateway, labId, reservationKey, variableAccessState])
 
   const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null) => {
     if (variableAccessState !== 'ready' || !variableAccess) {
@@ -740,6 +785,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
             simulationOptions={options}
             onSimulationOptionChange={handleOptionChange}
             simulationType={fmuMeta.simulationType}
+            configurationSelector={(
+              <ProviderParameterPresetSelect
+                presets={providerPresets}
+                selectedPresetId={selectedPresetId}
+                onSelect={handleProviderPresetSelect}
+                disabled={simState === SIM_STATE.RUNNING || interactiveExecution.hasActiveSession}
+              />
+            )}
             executionMode={executionMode}
             continuousMetrics={interactiveExecution.mode === 'continuous' && interactiveExecution.hasActiveSession ? interactiveExecution.batchMetrics : null}
             executionModeControl={supportsInteractiveTwinModes ? (
@@ -818,6 +871,15 @@ export default function SimulationRunner({ lab, reservationKey }) {
               onEnsureGatewaySession={ensureGatewaySession}
               onFetchGateway={fetchGateway}
               onLoadResult={handleLoadResult}
+            />
+          )}
+
+          {editableVariables.length > 0 && (
+            <ProviderParameterPresetSelect
+              presets={providerPresets}
+              selectedPresetId={selectedPresetId}
+              onSelect={handleProviderPresetSelect}
+              disabled={simState === SIM_STATE.RUNNING}
             />
           )}
 

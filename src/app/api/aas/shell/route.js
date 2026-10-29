@@ -16,6 +16,7 @@ const MAX_IDENTIFIER_LENGTH = 2048
 const MAX_PROPERTY_VALUE_LENGTH = 4096
 const MAX_FMI_VARIABLE_METADATA_LENGTH = 262_144
 const MAX_AAS_SIMULATION_VARIABLES = 20_000
+const MAX_FMI_LS_RELATED_RESOURCES = 128
 const FALLBACK_SUBMODEL_SUFFIXES = [
   'nameplate',
   'simulationModels',
@@ -24,6 +25,7 @@ const FALLBACK_SUBMODEL_SUFFIXES = [
   'assetInterfaces',
   'contactInformation',
   'handoverDocumentation',
+  'fmiLsRelatedResources',
 ]
 
 function encodeAasId(id) {
@@ -156,6 +158,7 @@ function classifySubmodel(submodel, requestedId) {
   if (identity.includes('assetinterfacesdescription')) return 'interfaces'
   if (identity.includes('contactinformations')) return 'contact'
   if (identity.includes('handoverdocumentation')) return 'handover'
+  if (identity.includes('fmlsrelatedresources')) return 'fmiLsResources'
   if (identity.includes('technicaldata') || identity.includes('operationalstatus') || identity.includes('operationaldata')) {
     return 'operational'
   }
@@ -413,6 +416,49 @@ function buildHandoverInfo(submodel, submodelId) {
   }
 }
 
+function buildFmiLsRelatedResourcesInfo(submodel) {
+  const properties = extractProperties(submodel?.submodelElements, { maxElements: 8192 })
+  const resourcesContainer = (submodel?.submodelElements || []).find((element) => (
+    element?.idShort === 'Resources' && element?.modelType === 'SubmodelElementList'
+  ))
+  const resources = []
+  for (const element of Array.isArray(resourcesContainer?.value) ? resourcesContainer.value : []) {
+    if (resources.length >= MAX_FMI_LS_RELATED_RESOURCES || element?.modelType !== 'SubmodelElementCollection') continue
+    const fields = extractProperties(element.value, { maxElements: 64 })
+    const labelsContainer = (element.value || []).find((field) => (
+      field?.idShort === 'Labels' && field?.modelType === 'SubmodelElementList'
+    ))
+    const labels = []
+    for (const labelElement of Array.isArray(labelsContainer?.value) ? labelsContainer.value : []) {
+      if (labelElement?.modelType !== 'SubmodelElementCollection' || labels.length >= 32) continue
+      const labelFields = extractProperties(labelElement.value, { maxElements: 8 })
+      const name = labelFields.LabelName
+      if (typeof name !== 'string' || !name) continue
+      labels.push({
+        name: name.slice(0, 256),
+        description: typeof labelFields.LabelDescription === 'string'
+          ? labelFields.LabelDescription.slice(0, 1024)
+          : '',
+      })
+    }
+    if (typeof fields.Source !== 'string' || !fields.Source) continue
+    resources.push({
+      id: typeof element.idShort === 'string' ? element.idShort.slice(0, 128) : fields.Source,
+      role: typeof fields.Role === 'string' ? fields.Role.slice(0, 128) : '',
+      type: typeof fields.MediaType === 'string' ? fields.MediaType.slice(0, 256) : '',
+      source: fields.Source.slice(0, 2048),
+      description: typeof fields.Description === 'string' ? fields.Description.slice(0, 2048) : '',
+      availableInFmu: parseBoolean(fields.AvailableInFmu),
+      labels,
+    })
+  }
+  return {
+    manifestName: typeof properties.ManifestName === 'string' ? properties.ManifestName : null,
+    manifestVersion: typeof properties.ManifestVersion === 'string' ? properties.ManifestVersion : null,
+    resources,
+  }
+}
+
 function buildInterfaceInfo(submodel) {
   return { operations: extractOperationDescriptors(submodel?.submodelElements) }
 }
@@ -575,6 +621,7 @@ export async function GET(request) {
     let interfaceInfo = null
     let contactInfo = null
     let handoverInfo = null
+    let fmiLsResources = null
     for (const { submodel, submodelId } of referencedSubmodels) {
       const kind = classifySubmodel(submodel, submodelId)
       if (kind === 'nameplate' && nameplate === null) {
@@ -595,6 +642,8 @@ export async function GET(request) {
         contactInfo = buildContactInfo(submodel)
       } else if (kind === 'handover' && handoverInfo === null) {
         handoverInfo = buildHandoverInfo(submodel, submodelId)
+      } else if (kind === 'fmiLsResources' && fmiLsResources === null) {
+        fmiLsResources = buildFmiLsRelatedResourcesInfo(submodel)
       }
     }
 
@@ -631,6 +680,7 @@ export async function GET(request) {
         ...(handoverInfo?.visualAssets?.length
           ? { visualAssets: handoverInfo.visualAssets }
           : {}),
+        ...(fmiLsResources ? { fmiLsResources } : {}),
       },
       { status: 200, headers: NO_STORE_HEADERS },
     )

@@ -431,6 +431,9 @@ describe("SimulationRunner", () => {
       if (url === '/api/simulations/access') {
         return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
       }
+      if (url === '/api/simulations/parameter-sets') {
+        return Promise.resolve({ ok: true, json: async () => ({ presets: [] }) });
+      }
       if (String(url).startsWith('/api/simulations/proxy?')) {
         return Promise.resolve(proxyResponses.shift() || successfulProxyResponse());
       }

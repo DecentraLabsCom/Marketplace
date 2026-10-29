@@ -20,6 +20,7 @@ export default function DigitalTwinSimulationForm({
   simulationType,
   executionMode = 'batch',
   executionModeControl = null,
+  configurationSelector = null,
   executionSessionControls = null,
   continuousMetrics = null,
   stickyToolbar = false,
@@ -80,6 +81,7 @@ export default function DigitalTwinSimulationForm({
         aria-label="Simulation controls"
       >
         <div className="flex flex-wrap items-center gap-2">
+          {configurationSelector}
           {executionModeControl}
           <button
             type="button"
@@ -221,6 +223,7 @@ DigitalTwinSimulationForm.propTypes = {
   simulationType: PropTypes.string,
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']),
   executionModeControl: PropTypes.node,
+  configurationSelector: PropTypes.node,
   executionSessionControls: PropTypes.node,
   continuousMetrics: PropTypes.object,
   stickyToolbar: PropTypes.bool,
