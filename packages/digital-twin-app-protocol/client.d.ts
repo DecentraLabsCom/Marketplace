@@ -6,7 +6,9 @@ export interface AdaptiveBatchOptions {
   targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
 }
 export interface FmuAdvanceOptions {
+  /** Output sampling interval in FMI communication steps, 1–100000. */
   outputSampleEverySteps?: number
+  /** 1–512 distinct outputs, requested and checked in initial and subsequent samples. */
   outputVariables?: string[]
 }
 export interface DigitalTwinAppClientOptions {

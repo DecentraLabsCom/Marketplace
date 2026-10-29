@@ -35,7 +35,7 @@ function isValidAdvanceOptions(value) {
   return isRecord(value) && Object.entries(value).every(([key, option]) => {
     if (key === 'outputSampleEverySteps') return Number.isSafeInteger(option) && option >= 1 && option <= 100_000
     if (key === 'outputVariables') {
-      return Array.isArray(option) && option.length <= 512
+      return Array.isArray(option) && option.length > 0 && option.length <= 512
         && option.every((name) => typeof name === 'string' && name.length > 0 && name.length <= 256)
         && new Set(option).size === option.length
     }
@@ -164,6 +164,10 @@ export function createDigitalTwinAppClient({
   async function deliver(run, samples) {
     run.controller.signal.throwIfAborted()
     if (!samples.length || samples.length > MAX_SAMPLES_PER_BATCH || !samples.every(isValidSample)) throw errorWithCode('Invalid FMU samples.', 'INVALID_FMU_RESPONSE')
+    const selectedOutputs = run.advanceOptions.outputVariables
+    if (selectedOutputs && samples.some((sample) => selectedOutputs.some((name) => !Object.prototype.hasOwnProperty.call(sample.outputs, name)))) {
+      throw errorWithCode('The FMU response omitted a selected output.', 'INVALID_FMU_RESPONSE')
+    }
     const context = { runId: run.runId, signal: run.controller.signal }
     const batch = { runId: run.runId, samples, firstSampleIndex: run.sampleCount, lastSampleIndex: run.sampleCount + samples.length - 1 }
     if (onSamples) await onSamples(samples, batch, context)
@@ -425,7 +429,12 @@ export function createDigitalTwinAppClient({
     const current = {
       runId: createProtocolId('run'), controller: new AbortController(), sampleCount: 0,
       options, inputController, inputControllerInterval, inputControllerTimes: [...inputControllerTimes].sort((a, b) => a - b),
-      inputControllerTimeIndex: 0, advanceOptions: { ...advanceOptions }, includeModelVariables, validateModel, parametersFromModel,
+      inputControllerTimeIndex: 0,
+      advanceOptions: {
+        ...advanceOptions,
+        ...(advanceOptions.outputVariables ? { outputVariables: [...advanceOptions.outputVariables] } : {}),
+      },
+      includeModelVariables, validateModel, parametersFromModel,
       batchPolicy, maxBatchSamples, adaptiveBatchOptions,
       lastSampleSequence: null, lastInputUpdateAt: null,
     }
@@ -481,6 +490,12 @@ export function createDigitalTwinAppClient({
       const initial = await operation(current, 'sim.getOutputs', 'sim.outputs', {
         ...(current.advanceOptions.outputVariables ? { variables: current.advanceOptions.outputVariables } : {}),
       })
+      if (current.advanceOptions.outputVariables) {
+        const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
+        if (!Number.isFinite(initial?.simTime) || Math.abs(initial.simTime - startTime) > tolerance) {
+          throw errorWithCode('The FMU returned an invalid initial sample time.', 'INVALID_FMU_RESPONSE')
+        }
+      }
       const initialSample = { time: initial.simTime, outputs: initial.values }
       await deliver(current, [initialSample])
       if (current.inputControllerTimes.length && current.inputControllerTimes[0] <= startTime + 1e-12) {

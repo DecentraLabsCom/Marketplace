@@ -161,6 +161,50 @@ test('rejects an empty selected output list before opening a session', async () 
   await expect(client.run({ advanceOptions: { outputVariables: [] } })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
   expect(getConnection).not.toHaveBeenCalled()
 })
+test('preserves the initial timestamp when its rounding difference is within the simulation tolerance', async () => {
+  const session = runtime()
+  session.request.mockImplementation(async (type) => {
+    if (type === 'model.describe') return { defaultStartTime: 10, defaultStopTime: 10.001, defaultStepSize: 0.001 }
+    if (type === 'sim.getOutputs') return { simTime: 10 + 5e-10, values: { temperature: 22 } }
+    if (type === 'sim.advance') return { simTime: 10.001, finished: true, samples: [
+      { time: 10.001, outputs: { temperature: 23 } },
+    ] }
+    return {}
+  })
+  const seen = []
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onSamples: (samples) => seen.push(...samples), onResultsComplete: resolveCompletion })
+  await client.run({ advanceOptions: { outputVariables: ['temperature'] } })
+  expect((await completion).state).toBe('completed')
+  expect(seen[0].time).toBe(10 + 5e-10)
+})
+test.each([1, 2])('preserves unwrapped non-motor values through decimated batches of up to %i samples', async (maxBatchSamples) => {
+  const session = runtime()
+  const returned = [
+    { time: 2, sequence: 1, outputs: { 'telescope.azimuth': 11 * Math.PI, 'fluid.pressure': 100 } },
+    { time: 4, sequence: 2, outputs: { 'telescope.azimuth': -9 * Math.PI, 'fluid.pressure': 98 } },
+  ]
+  session.request.mockImplementation(async (type, _, payload) => {
+    if (type === 'model.describe') return { defaultStartTime: 0, defaultStopTime: 4, defaultStepSize: 1 }
+    if (type === 'sim.getOutputs') return { simTime: 0, values: { 'telescope.azimuth': -7, 'fluid.pressure': 101 } }
+    if (type === 'sim.advance') {
+      const samples = []
+      while (returned.length && returned[0].time <= payload.targetTime && samples.length < payload.maxSamples) samples.push(returned.shift())
+      return { simTime: samples.at(-1).time, finished: returned.length === 0, samples }
+    }
+    return {}
+  })
+  const seen = []
+  let resolveCompletion
+  const completion = new Promise((resolve) => { resolveCompletion = resolve })
+  const client = create({ getConnection: async () => connection, onSamples: (samples) => seen.push(...samples), onResultsComplete: resolveCompletion })
+  await client.run({ maxBatchSamples, advanceOptions: { outputVariables: ['telescope.azimuth', 'fluid.pressure'], outputSampleEverySteps: 2 } })
+  expect((await completion).state).toBe('completed')
+  expect(seen.map(({ time, outputs }) => [time, outputs['telescope.azimuth'], outputs['fluid.pressure']])).toEqual([
+    [0, -7, 101], [2, 11 * Math.PI, 100], [4, -9 * Math.PI, 98],
+  ])
+})
 test.each([
   { simTime: 0, values: { temperature: 22 } },
   { simTime: 0.5, values: { temperature: 22, pressure: 101 } },

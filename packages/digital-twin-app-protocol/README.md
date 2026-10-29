@@ -45,6 +45,14 @@ const batch = await session.request('sim.advance', 'sim.samples', { targetTime: 
 session.close()
 ```
 
+To configure a UI before running a simulation, an authorized direct session can
+request `model.describe` with `{ includeVariables: true }` immediately after
+connection, without `sim.initialize` or `sim.advance`; `session.capabilities`
+contains the negotiated runtime features. Close the session when finished and
+obtain a fresh one-use grant for a later session. Refresh the description when
+the model, session or effective access policy changes; descriptors are filtered
+by the Gateway and do not themselves prove write permission.
+
 The current Gateway session runtime executes FMI 2/3 Co-Simulation. The
 convenience runner requires FMU Executor 0.3.2 or newer and its advertised
 `advanceSamples` capability. Direct session connections also require the
@@ -56,6 +64,8 @@ integers.
 next batch is requested after successful callback completion. Callback failure
 stops the run. Cancellation/disposal aborts pending work and closes the session.
 Check `context.signal.aborted` after awaiting before committing app side effects.
+The SDK cannot forcibly stop application callback code: callbacks must observe
+the abort signal and settle so asynchronous result finalization can complete.
 `onResultsComplete` follows the last successful sample callback.
 If both `onSamples` and `onSample` are supplied, only `onSamples` receives
 samples, including the initial sample; otherwise `onSample` receives each one.
@@ -116,8 +126,24 @@ network latency and the provider's published write quota.
 
 Apps can pass `advanceOptions.outputSampleEverySteps` and
 `advanceOptions.outputVariables` to request sparse, focused output while the
-SDK manages the advance loop. Scheduled-input runs can also use adaptive
-batching:
+SDK manages the advance loop. `outputVariables` must contain 1–512 distinct
+nonempty names, each at most 256 characters. The SDK snapshots this selection
+at the start of `run()` and requests it for both the initial `sim.getOutputs`
+and all subsequent `sim.advance` calls. Every selected value must be present in
+the initial sample and every returned sample; missing values or an initial
+time differing from `startTime` by more than the SDK timeline tolerance
+`max(1e-9 s, abs(stepSize) * 1e-7)` stop the run with `INVALID_FMU_RESPONSE`.
+Additional authorized outputs are accepted. With no explicit selection, the
+SDK preserves the existing provider-default behavior and cannot infer which
+outputs should have been returned. The high-level sample validator currently
+accepts at most 512 scalar outputs per sample, each a finite number or boolean;
+it does not handle FMI string or array outputs through this runner.
+
+`outputSampleEverySteps` is an integer from 1 to 100,000: it controls output
+sampling, independently of the FMI communication `stepSize`, maximum samples
+per batch and replay speed. Samples retain their timestamps, sequence and event
+flags, including multiple sequenced samples at the same timestamp. Scheduled-
+input runs can also use adaptive batching:
 
 ```js
 client.run({
