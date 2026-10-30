@@ -2,14 +2,14 @@ import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DigitalTwinAppViewer from '../DigitalTwinAppViewer'
 const connection = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions', labId: '42', reservationKey: 'res:1', sessionTicket: 'one-use-ticket', ticketExpiresAt: 4102444800 }
-function mount(onConnect, extra = {}) {
+function mount(onConnect, extra = {}, { announceReady = true } = {}) {
   render(<DigitalTwinAppViewer title="Provider app" appUrl="/apps/index.html" onConnect={onConnect} {...extra} />)
   const iframe = screen.getByTitle('Provider app digital twin application')
   const post = jest.fn()
   Object.defineProperty(iframe.contentWindow, 'postMessage', { configurable: true, value: post })
   const send = (message, source = iframe.contentWindow) => act(() => window.dispatchEvent(new MessageEvent('message', { source, data: { version: 2, ...message } })))
   fireEvent.load(iframe)
-  send({ type: 'decentralabs:digital-twin-ready', capabilities: ['execution-control'] })
+  if (announceReady) send({ type: 'decentralabs:digital-twin-ready', capabilities: ['execution-control'] })
   return { iframe, post, send }
 }
 test('delivers only the scoped connection grant to the ready iframe', async () => {
@@ -41,7 +41,7 @@ test('cancellation requests travel to the app that owns the WS session', async (
 })
 
 test('a late React startup can initiate the host handshake after iframe load', () => {
-  const { post, send } = mount(jest.fn())
+  const { post, send } = mount(jest.fn(), {}, { announceReady: false })
   post.mockClear()
   send({ type: 'decentralabs:digital-twin-connect' })
   expect(post).toHaveBeenCalledWith({ type: 'decentralabs:digital-twin-host-ready', version: 2 }, '*')

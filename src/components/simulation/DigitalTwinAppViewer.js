@@ -34,6 +34,8 @@ export default function DigitalTwinAppViewer({
   const extensionRef = useRef(hostExtensions)
   const grantRef = useRef(null)
   const loadedDocumentRef = useRef(false)
+  const hostReadyAttemptedRef = useRef(false)
+  const hostReadyRetryTimerRef = useRef(null)
   const stateRef = useRef('loading')
   connectRef.current = onConnect
   modelChangeRef.current = onModelChangeRequest
@@ -144,9 +146,29 @@ export default function DigitalTwinAppViewer({
     if (isValidHostMessage(message)) iframeRef.current?.contentWindow?.postMessage(message, '*')
   }
 
+  function sendHostReady() {
+    hostReadyAttemptedRef.current = true
+    send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
+  }
+
+  function clearHostReadyRetry() {
+    if (hostReadyRetryTimerRef.current === null) return
+    window.clearTimeout(hostReadyRetryTimerRef.current)
+    hostReadyRetryTimerRef.current = null
+  }
+
+  function scheduleHostReadyRetry() {
+    clearHostReadyRetry()
+    hostReadyRetryTimerRef.current = window.setTimeout(() => {
+      hostReadyRetryTimerRef.current = null
+      if (stateRef.current === 'loading') sendHostReady()
+    }, 250)
+  }
+
   useEffect(() => {
     stateRef.current = 'loading'
     loadedDocumentRef.current = false
+    hostReadyAttemptedRef.current = false
     setAppState('loading')
     setAppFailureReason('')
     setFrameLoaded(false)
@@ -158,11 +180,17 @@ export default function DigitalTwinAppViewer({
     setSelectedFmiLsExperimentId('')
     const timeout = window.setTimeout(() => {
       if (stateRef.current !== 'loading') return
+      clearHostReadyRetry()
       stateRef.current = 'error'
       setAppState('error')
       setAppFailureReason('The provider application did not initialize successfully. Check its bundled assets and browser console errors.')
     }, 30_000)
-    return () => { window.clearTimeout(timeout); grantRef.current?.abort(); grantRef.current = null }
+    return () => {
+      window.clearTimeout(timeout)
+      clearHostReadyRetry()
+      grantRef.current?.abort()
+      grantRef.current = null
+    }
   }, [appUrl, reloadKey])
 
   useEffect(() => {
@@ -170,14 +198,20 @@ export default function DigitalTwinAppViewer({
       if (event.source !== iframeRef.current?.contentWindow || !isValidAppMessage(event.data)) return
       const message = event.data
       if (message.type === MESSAGE.APP_HELLO) {
-        send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
+        if (stateRef.current !== 'loading') return
+        // The initial iframe load can precede the app's listener. A late hello
+        // means the app may have missed that first host-ready message.
+        sendHostReady()
+        scheduleHostReadyRetry()
       } else if (message.type === MESSAGE.APP_READY) {
         if (stateRef.current !== 'loading') return
+        clearHostReadyRetry()
         stateRef.current = 'ready'
         setAppState('ready')
         setAppCapabilities(message.capabilities || [])
         setPlaybackRate(message.defaultPlaybackRate || 1)
       } else if (message.type === MESSAGE.APP_ERROR) {
+        clearHostReadyRetry()
         stateRef.current = 'error'
         setAppState('error')
       } else if (message.type === MESSAGE.EXECUTION_STATE && stateRef.current === 'ready') {
@@ -247,13 +281,18 @@ export default function DigitalTwinAppViewer({
     if (loadedDocumentRef.current) {
       grantRef.current?.abort()
       grantRef.current = null
+      clearHostReadyRetry()
+      hostReadyAttemptedRef.current = false
       stateRef.current = 'loading'
       setAppState('loading')
       setExecution({ state: 'idle' })
     }
     loadedDocumentRef.current = true
     setFrameLoaded(true)
-    send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
+    if (stateRef.current === 'loading' && !hostReadyAttemptedRef.current) {
+      sendHostReady()
+      scheduleHostReadyRetry()
+    }
   }
   function cancelCurrentSimulation() {
     if (activeRunId) send(MESSAGE.EXECUTION_CANCEL, { runId: activeRunId })
@@ -273,6 +312,7 @@ export default function DigitalTwinAppViewer({
         onLoad={handleFrameLoad}
         onError={() => {
           grantRef.current?.abort()
+          clearHostReadyRetry()
           stateRef.current = 'error'
           setAppState('error')
         }}
