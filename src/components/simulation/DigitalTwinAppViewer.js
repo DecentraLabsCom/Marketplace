@@ -2,25 +2,33 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
-import InputScheduleEditor from './InputScheduleEditor'
+import Modal from '@/components/ui/Modal'
+import InputScheduleDialog from './InputScheduleDialog'
 import PlaybackRateControl from './PlaybackRateControl'
+import FmiLsResourceSelect from './FmiLsResourceSelect'
 import { normalizeInputSchedule } from './simulationParameters'
+import FmiLsStructMapPanel from './FmiLsStructMapPanel'
+import { getFmiLsStructMapSeries } from '@/utils/fmiLsStruct'
+import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 import {
   DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidAppMessage,
-  isValidHostMessage, makeProtocolMessage, isRecord,
+  isValidFmiLsExperiment, isValidHostMessage, makeProtocolMessage, isRecord,
 } from './digitalTwinAppProtocol'
 
 const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
+const FMI_LS_PARAMETER_PRESETS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS
+const FMI_LS_EXPERIMENTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS
 
 export default function DigitalTwinAppViewer({
-  appUrl, title = 'Digital Twin', onConnect, modelVariables = [], enableInputSchedule = false,
+  appUrl, title = 'Digital Twin', onConnect, modelVariables = [], fmiLsParameterPresets = [], fmiLsExperiments = [], enableInputSchedule = false,
   scheduleVariables,
   inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stopTime = 1, stepSize,
+  fmiLsStruct,
   onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
   const iframeRef = useRef(null)
-  const playbackTriggerRef = useRef(null)
-  const playbackDialogRef = useRef(null)
+  const controlsButtonRef = useRef(null)
+  const controlsMenuRef = useRef(null)
   const connectRef = useRef(onConnect)
   const modelChangeRef = useRef(onModelChangeRequest)
   const extensionRef = useRef(hostExtensions)
@@ -34,28 +42,102 @@ export default function DigitalTwinAppViewer({
   const [appFailureReason, setAppFailureReason] = useState('')
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
-  const [playbackControlsOpen, setPlaybackControlsOpen] = useState(false)
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const [activeControlDialog, setActiveControlDialog] = useState(null)
   const [appCapabilities, setAppCapabilities] = useState([])
-  const [playbackControlPosition, setPlaybackControlPosition] = useState(null)
   const [playbackRate, setPlaybackRate] = useState(1)
   const [execution, setExecution] = useState({ state: 'idle' })
+  const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
+  const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
+  const parameterPresetsInitializedRef = useRef(false)
   const isRunning = execution.state === 'running'
   const activeRunId = execution.runId
   const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
-  const playbackRateLabel = Number(playbackRate).toLocaleString(undefined, { maximumFractionDigits: 2 })
   const scheduledVariables = useMemo(
     () => (Array.isArray(scheduleVariables)
       ? scheduleVariables
       : modelVariables.filter((variable) => variable?.causality === 'input')),
     [modelVariables, scheduleVariables],
   )
+  const fmiLsStructMapSeriesCount = useMemo(
+    () => getFmiLsStructMapSeries(fmiLsStruct, modelVariables).length,
+    [fmiLsStruct, modelVariables],
+  )
+  const availableFmiLsParameterPresets = useMemo(
+    () => (Array.isArray(fmiLsParameterPresets) ? fmiLsParameterPresets : []).filter((preset) => (
+      preset && typeof preset.id === 'string' && typeof preset.name === 'string'
+      && preset.parameters && typeof preset.parameters === 'object' && !Array.isArray(preset.parameters)
+      && Object.keys(preset.parameters).length > 0 && Object.keys(preset.parameters).length <= 256
+      && Object.entries(preset.parameters).every(([name, value]) => (
+        typeof name === 'string' && name.length > 0 && name.length <= 256
+        && (typeof value === 'boolean'
+          || (typeof value === 'number' && Number.isFinite(value))
+          || (typeof value === 'string' && value.length <= 1024))
+      ))
+    )),
+    [fmiLsParameterPresets],
+  )
+  const availableFmiLsExperiments = useMemo(
+    () => (Array.isArray(fmiLsExperiments) ? fmiLsExperiments : []).filter(isValidFmiLsExperiment),
+    [fmiLsExperiments],
+  )
+  const selectedFmiLsParameterPreset = availableFmiLsParameterPresets.find((preset) => preset.id === selectedFmiLsParameterPresetId)
+  const selectedFmiLsExperiment = availableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const hasSystemConfigurationControl = appState === 'ready'
+    && availableFmiLsParameterPresets.length > 0
+    && appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY)
+  const hasFmiLsExperimentsControl = appState === 'ready'
+    && availableFmiLsExperiments.length > 0
+    && appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)
+  const hasPlaybackRateControl = appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)
+  const hasScheduleControl = appState === 'ready'
+    && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
+  const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapSeriesCount > 0
+  const hasCancelControl = Boolean(isRunning && activeRunId
+    && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
+  const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl
+    || hasScheduleControl || hasFmiLsStructMapsControl || hasCancelControl
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
   let scheduleError = ''
   try {
-    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, startTime, stopTime, stepSize)
+    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(
+      scheduledInputEvents,
+      scheduledVariables,
+      modelVariables,
+      selectedFmiLsExperiment?.options.startTime ?? startTime,
+      selectedFmiLsExperiment?.options.stopTime ?? stopTime,
+      selectedFmiLsExperiment?.options.stepSize ?? stepSize,
+    )
   } catch (error) { scheduleError = error.message }
+
+  useEffect(() => {
+    if (!parameterPresetsInitializedRef.current && availableFmiLsParameterPresets.length > 0) {
+      parameterPresetsInitializedRef.current = true
+      setSelectedFmiLsParameterPresetId(availableFmiLsParameterPresets[0].id)
+      return
+    }
+    if (selectedFmiLsParameterPresetId && !selectedFmiLsParameterPreset) setSelectedFmiLsParameterPresetId('')
+  }, [availableFmiLsParameterPresets, selectedFmiLsParameterPreset, selectedFmiLsParameterPresetId])
+
+  useEffect(() => {
+    if (selectedFmiLsExperimentId && !selectedFmiLsExperiment) setSelectedFmiLsExperimentId('')
+  }, [availableFmiLsExperiments, selectedFmiLsExperiment, selectedFmiLsExperimentId])
+
+  useEffect(() => {
+    if (appState !== 'ready' || !appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY) || !selectedFmiLsParameterPreset) return
+    send(MESSAGE.FMI_LS_PARAMETER_PRESET, {
+      id: selectedFmiLsParameterPreset.id,
+      name: selectedFmiLsParameterPreset.name,
+      description: selectedFmiLsParameterPreset.description || '',
+      parameters: selectedFmiLsParameterPreset.parameters,
+    })
+  }, [appCapabilities, appState, selectedFmiLsParameterPreset])
+
+  useEffect(() => {
+    if (appState !== 'ready' || !appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)) return
+    send(MESSAGE.FMI_LS_EXPERIMENT, { experiment: selectedFmiLsExperiment || null })
+  }, [appCapabilities, appState, selectedFmiLsExperiment])
 
   function send(type, payload = {}) {
     const message = makeProtocolMessage(type, payload)
@@ -68,10 +150,12 @@ export default function DigitalTwinAppViewer({
     setAppState('loading')
     setAppFailureReason('')
     setFrameLoaded(false)
+    setControlsOpen(false)
+    setActiveControlDialog(null)
     setAppCapabilities([])
-    setPlaybackControlPosition(null)
     setPlaybackRate(1)
     setExecution({ state: 'idle' })
+    setSelectedFmiLsExperimentId('')
     const timeout = window.setTimeout(() => {
       if (stateRef.current !== 'loading') return
       stateRef.current = 'error'
@@ -92,7 +176,6 @@ export default function DigitalTwinAppViewer({
         stateRef.current = 'ready'
         setAppState('ready')
         setAppCapabilities(message.capabilities || [])
-        setPlaybackControlPosition(message.playbackControlPosition || null)
         setPlaybackRate(message.defaultPlaybackRate || 1)
       } else if (message.type === MESSAGE.APP_ERROR) {
         stateRef.current = 'error'
@@ -114,11 +197,12 @@ export default function DigitalTwinAppViewer({
         const controller = new AbortController()
         grantRef.current = controller
         try {
-          const interval = { startTime, stopTime, stepSize, ...message.options }
+          const runOptions = { ...(message.options || {}), ...(selectedFmiLsExperiment?.options || {}) }
+          const interval = { startTime, stopTime, stepSize, ...runOptions }
           const schedule = enableInputSchedule
             ? normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
             : []
-          const connection = await connectRef.current({ options: message.options || {}, signal: controller.signal })
+          const connection = await connectRef.current({ options: runOptions, signal: controller.signal })
           if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
         } catch {
           if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_ERROR, { code: 'CONNECTION_AUTHORIZATION_FAILED' })
@@ -129,7 +213,7 @@ export default function DigitalTwinAppViewer({
     }
     window.addEventListener('message', receive)
     return () => window.removeEventListener('message', receive)
-  }, [enableInputSchedule, scheduledVariables, modelVariables, inputEvents, startTime, stopTime, stepSize])
+  }, [enableInputSchedule, scheduledVariables, modelVariables, inputEvents, startTime, stopTime, stepSize, selectedFmiLsExperiment])
 
   useEffect(() => {
     if (appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) {
@@ -138,12 +222,26 @@ export default function DigitalTwinAppViewer({
   }, [appCapabilities, appState, playbackRate])
 
   useEffect(() => {
-    if (!playbackControlsOpen) return undefined
-    playbackDialogRef.current?.querySelector('select')?.focus()
-    const close = (event) => { if (event.key === 'Escape') setPlaybackControlsOpen(false) }
-    window.addEventListener('keydown', close)
-    return () => { window.removeEventListener('keydown', close); playbackTriggerRef.current?.focus() }
-  }, [playbackControlsOpen])
+    if (!controlsOpen) return undefined
+
+    const closeOnOutsidePointer = (event) => {
+      if (controlsMenuRef.current?.contains(event.target) || controlsButtonRef.current?.contains(event.target)
+        || event.target.closest?.('[data-fmi-ls-option-listbox]')) return
+      setControlsOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape' || activeControlDialog) return
+      setControlsOpen(false)
+      controlsButtonRef.current?.focus()
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activeControlDialog, controlsOpen])
 
   function handleFrameLoad() {
     if (loadedDocumentRef.current) {
@@ -204,103 +302,153 @@ export default function DigitalTwinAppViewer({
           {downloadError}
         </div>
       )}
-      {isRunning && activeRunId && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL) && (
-        <button
-          type="button"
-          onClick={cancelCurrentSimulation}
-          className="absolute right-3 top-3 z-40 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-3 py-2 text-xs font-semibold text-[#ffd2d7] shadow-xl transition hover:bg-[#48252e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8e9b] sm:right-6 sm:top-6"
-        >
-          Cancel simulation
-        </button>
-      )}
-      {appState === 'ready' && !scheduleOpen && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
-        <div
-          data-testid="digital-twin-playback-rate"
-          className={`digital-twin-playback-rate-dock${playbackControlPosition ? ` digital-twin-playback-rate-dock--${playbackControlPosition}` : ''} absolute z-20 w-max max-w-[calc(100%-1rem)]`}
-        >
+      {hasFloatingControls && (
+        <>
+          {controlsOpen && (
+            <section
+              ref={controlsMenuRef}
+              id="digital-twin-controls-menu"
+              aria-label="Digital twin controls"
+              className="absolute bottom-[4.5rem] left-4 z-40 max-h-[min(74vh,44rem)] w-[min(15.5rem,calc(100%-2rem))] overflow-y-auto rounded-2xl border border-[#36535a] bg-[#08181d]/95 p-3 text-left shadow-2xl backdrop-blur-xl sm:bottom-[5rem] sm:left-6 sm:p-4"
+            >
+              <div className="mb-3 border-b border-[#263a42] pb-3">
+                <h2 className="text-sm font-semibold text-white">Digital twin controls</h2>
+              </div>
+              <div className="grid gap-3">
+                {hasSystemConfigurationControl ? (
+                  <FmiLsResourceSelect
+                    options={availableFmiLsParameterPresets}
+                    selectedOptionId={selectedFmiLsParameterPresetId}
+                    onSelect={(id) => {
+                      setSelectedFmiLsExperimentId('')
+                      setSelectedFmiLsParameterPresetId(id)
+                    }}
+                    disabled={isRunning}
+                    fullWidth
+                  />
+                ) : null}
+
+                {hasFmiLsExperimentsControl ? (
+                  <FmiLsResourceSelect
+                    options={availableFmiLsExperiments}
+                    selectedOptionId={selectedFmiLsExperimentId}
+                    onSelect={(id) => {
+                      setSelectedFmiLsParameterPresetId('')
+                      setSelectedFmiLsExperimentId(id)
+                    }}
+                    choiceLabel="Experiment"
+                    disabled={isRunning}
+                    fullWidth
+                  />
+                ) : null}
+
+                {hasPlaybackRateControl ? (
+                  <PlaybackRateControl
+                    rate={playbackRate}
+                    onChange={setPlaybackRate}
+                    modelDuration={modelDuration}
+                    disabled={isRunning}
+                  />
+                ) : null}
+
+                {hasScheduleControl ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setActiveControlDialog('schedule')}
+                    disabled={isRunning}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[#30464d] bg-[#101d23] px-3 py-2 text-left transition hover:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span>
+                      <span className="block text-xs font-semibold text-[#dce9e9]">Schedule changes</span>
+                      <span className="mt-1 block text-[11px] text-[#91a9ae]">Set inputs at simulation times</span>
+                    </span>
+                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{scheduledInputEvents.length}</span>
+                  </button>
+                ) : null}
+
+                {hasFmiLsStructMapsControl ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setActiveControlDialog('maps')}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[#30464d] bg-[#101d23] px-3 py-2 text-left transition hover:border-[#54d5c9]"
+                  >
+                    <span>
+                      <span className="block text-xs font-semibold text-[#dce9e9]">FMI-LS-STRUCT maps</span>
+                      <span className="mt-1 block text-[11px] text-[#91a9ae]">View reference performance curves</span>
+                    </span>
+                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{mapSeriesCount}</span>
+                  </button>
+                ) : null}
+
+                {hasCancelControl ? (
+                  <button
+                    type="button"
+                    onClick={cancelCurrentSimulation}
+                    className="min-h-11 rounded-xl border border-[#7b4650] bg-[#321d24] px-3 py-2 text-left text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8e9b]"
+                  >
+                    Cancel simulation
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          )}
           <button
-            ref={playbackTriggerRef}
+            ref={controlsButtonRef}
             type="button"
-            aria-label={`Speed settings, current ${playbackRateLabel}×`}
-            aria-haspopup="dialog"
-            aria-expanded={playbackControlsOpen}
-            onClick={() => setPlaybackControlsOpen(true)}
-            className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-[#30464d] bg-[#101d23] px-3 text-xs font-semibold text-[#dce9e9] shadow-xl transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+            aria-label={controlsOpen ? 'Close digital twin controls' : 'Open digital twin controls'}
+            aria-expanded={controlsOpen}
+            aria-controls={controlsOpen ? 'digital-twin-controls-menu' : undefined}
+            title={controlsOpen ? 'Close digital twin controls' : 'Digital twin controls'}
+            onClick={() => setControlsOpen((open) => !open)}
+            className="absolute bottom-4 left-4 z-50 grid h-12 w-12 place-items-center rounded-full border border-[#5c858b] bg-[#0b252b] text-[#bffff3] shadow-2xl transition hover:border-[#8bffe4] hover:bg-[#12383d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] sm:bottom-6 sm:left-6"
           >
-            <span>Speed</span>
-            <span className="font-mono text-[#73e4cb]">{playbackRateLabel}×</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+              {controlsOpen ? (
+                <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              ) : (
+                <>
+                  <path d="M4 7h9m4 0h3M4 17h3m4 0h9M13 5v4M7 15v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="15" cy="7" r="2" fill="#0b252b" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="9" cy="17" r="2" fill="#0b252b" stroke="currentColor" strokeWidth="1.8" />
+                </>
+              )}
+            </svg>
           </button>
-        </div>
+        </>
       )}
-      {playbackControlsOpen && appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY) && (
-        <div
-          role="presentation"
-          onClick={(event) => { if (event.target === event.currentTarget) setPlaybackControlsOpen(false) }}
-          className="absolute inset-0 z-30 grid place-items-center overflow-y-auto bg-[#030c10]/75 p-4 backdrop-blur-sm"
-        >
-          <div
-            ref={playbackDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="digital-twin-playback-rate-title"
-            className="w-fit max-w-[calc(100vw-2rem)] rounded-xl border border-[#30464d] bg-[#0b171d] p-4 text-left shadow-2xl"
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="digital-twin-playback-rate-title" className="text-sm font-semibold text-white">Set visualization speed</h2>
-              <button
-                type="button"
-                aria-label="Close playback controls"
-                onClick={() => setPlaybackControlsOpen(false)}
-                className="rounded-md border border-[#30464d] px-2 py-1 text-xs text-[#c4d9dd] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex w-fit justify-center">
-              <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} compact />
-            </div>
-          </div>
-        </div>
-      )}
+      <InputScheduleDialog
+        isOpen={activeControlDialog === 'schedule'}
+        onClose={() => setActiveControlDialog(null)}
+        variables={scheduledVariables}
+        modelVariables={modelVariables}
+        initialValues={{ ...inputValues, ...(selectedFmiLsExperiment?.parameters || {}) }}
+        events={scheduledInputEvents}
+        startTime={selectedFmiLsExperiment?.options.startTime ?? startTime}
+        stopTime={selectedFmiLsExperiment?.options.stopTime ?? stopTime}
+        stepSize={selectedFmiLsExperiment?.options.stepSize ?? stepSize}
+        validationError={scheduleError}
+        disabled={isRunning}
+        onChange={updateScheduledInputEvents}
+        zIndex={120}
+      />
+      <Modal
+        isOpen={activeControlDialog === 'maps'}
+        onClose={() => setActiveControlDialog(null)}
+        title="FMI-LS-STRUCT maps"
+        titleAside={`Reference curves declared in FMI-LS-STRUCT ${fmiLsStruct?.manifestVersion || ''}.`}
+        size="3xl"
+        theme="dark"
+        portal
+        zIndex={120}
+      >
+        <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={modelVariables} showHeading={false} />
+      </Modal>
       {simulationError && appState !== 'loading' && appState !== 'error' && (
         <div className="absolute left-3 right-3 top-16 z-10 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-20" role="alert">
           {simulationError}
         </div>
-      )}
-      {enableInputSchedule && scheduledVariables.length > 0 && appState === 'ready' && (
-        <>
-          <button
-            type="button"
-            aria-expanded={scheduleOpen}
-            aria-controls="digital-twin-input-schedule"
-            onClick={() => setScheduleOpen((open) => !open)}
-            disabled={isRunning}
-            className="absolute right-[312px] top-[20.5px] z-10 grid h-[29px] min-h-[29px] place-items-center rounded-md border border-[rgba(93,231,205,0.4)] bg-[rgba(14,62,58,0.78)] px-[10px] py-0 font-mono text-[7px] leading-none font-bold tracking-[0.09em] text-[#b9fff0] uppercase shadow-lg backdrop-blur transition hover:border-[#8bffe4] hover:bg-[rgba(22,91,81,0.92)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 max-[680px]:right-[239px] max-[680px]:top-[16.5px] max-[680px]:h-[27px] max-[680px]:min-h-[27px] max-[680px]:px-[7px] max-[680px]:text-[6px]"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            {scheduleOpen ? 'Hide scheduled changes' : 'Schedule changes'}
-          </button>
-          {scheduleOpen && (
-            <div
-              id="digital-twin-input-schedule"
-              className="absolute left-1/2 top-[60px] z-10 -translate-x-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-[#36535a] bg-[#08181deF] p-4 text-left shadow-2xl backdrop-blur-xl max-[680px]:top-[54px]"
-              style={{ width: 'min(44rem, calc(100% - 2rem))', maxHeight: 'min(76vh, 52rem, calc(100% - 76px))' }}
-            >
-              <InputScheduleEditor
-                variables={scheduledVariables}
-                modelVariables={modelVariables}
-                initialValues={inputValues}
-                events={scheduledInputEvents}
-                startTime={startTime}
-                stopTime={stopTime}
-                stepSize={stepSize}
-                validationError={scheduleError}
-                disabled={isRunning}
-                onChange={updateScheduledInputEvents}
-              />
-            </div>
-          )}
-        </>
       )}
     </section>
   )
@@ -308,7 +456,9 @@ export default function DigitalTwinAppViewer({
 
 DigitalTwinAppViewer.propTypes = {
   appUrl: PropTypes.string.isRequired, title: PropTypes.string, onConnect: PropTypes.func,
-  modelVariables: PropTypes.array, enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
+  modelVariables: PropTypes.array, fmiLsParameterPresets: PropTypes.array, fmiLsExperiments: PropTypes.array,
+  enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
+  fmiLsStruct: PropTypes.object,
   inputValues: PropTypes.object,
   inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
   startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,

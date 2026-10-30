@@ -71,6 +71,7 @@ export default function FmuFieldsSection({
           fmiVersion: data.fmiVersion || '',
           simulationType: data.simulationType || '',
           modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
+          fmiLsStruct: data.fmiLsStruct || null,
           defaultStartTime: data.defaultStartTime ?? null,
           defaultStopTime: data.defaultStopTime ?? null,
           defaultStepSize: data.defaultStepSize ?? null,
@@ -79,6 +80,7 @@ export default function FmuFieldsSection({
         handleBasicChange('fmiVersion', data.fmiVersion || '')
         handleBasicChange('simulationType', data.simulationType || '')
         handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
+        handleBasicChange('fmiLsStruct', data.fmiLsStruct || null)
         handleBasicChange('defaultStartTime', data.defaultStartTime ?? null)
         handleBasicChange('defaultStopTime', data.defaultStopTime ?? null)
         handleBasicChange('defaultStepSize', data.defaultStepSize ?? null)

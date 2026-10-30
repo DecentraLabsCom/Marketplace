@@ -110,6 +110,7 @@ export function getFmuMetadata(resource) {
     'fmiVersion',
     'simulationType',
     'fmuFileName',
+    'fmiLsStruct',
     'defaultStartTime',
     'defaultStopTime',
     'defaultStepSize',

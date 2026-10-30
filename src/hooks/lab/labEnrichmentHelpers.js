@@ -84,6 +84,7 @@ export const applyMetadataAttributes = (lab, metadata) => {
   if (attributeMap.fmiVersion !== undefined) lab.fmiVersion = attributeMap.fmiVersion
   if (attributeMap.simulationType !== undefined) lab.simulationType = attributeMap.simulationType
   if (attributeMap.modelVariables !== undefined) lab.modelVariables = attributeMap.modelVariables
+  if (attributeMap.fmiLsStruct !== undefined) lab.fmiLsStruct = attributeMap.fmiLsStruct
   if (attributeMap.defaultStartTime !== undefined) lab.defaultStartTime = attributeMap.defaultStartTime
   if (attributeMap.defaultStopTime !== undefined) lab.defaultStopTime = attributeMap.defaultStopTime
   if (attributeMap.defaultStepSize !== undefined) lab.defaultStepSize = attributeMap.defaultStepSize

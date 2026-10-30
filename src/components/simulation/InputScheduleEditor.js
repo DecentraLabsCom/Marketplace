@@ -288,17 +288,19 @@ export default function InputScheduleEditor({
   }
 
   return (
-    <section className="grid gap-3 rounded-xl border border-[#26383f] bg-[#0c171c] p-3" aria-labelledby="input-schedule-title">
+    <section className="grid gap-3" aria-labelledby="input-schedule-title">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 id="input-schedule-title" className="text-sm font-semibold text-white">Changes during simulation</h3>
-          <p className="mt-1 text-xs text-[#829ba1]">Schedule changes to inputs and supported tunable parameters. Each value takes effect at its simulation time.</p>
+        <div className="min-w-0 flex-1">
+          <p id="input-schedule-title" className="text-xs leading-relaxed text-[#829ba1]">
+            <span className="block">Schedule changes to inputs and supported tunable parameters.</span>
+            <span className="block">Each value takes effect at its simulation time.</span>
+          </p>
         </div>
         <button
           type="button"
           onClick={addEvent}
           disabled={!canSchedule || disabled || scheduledEvents.length >= MAX_INPUT_EVENTS}
-          className="min-h-10 rounded-lg border border-[#35736f] bg-[#173e40] px-3 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+          className="min-h-10 shrink-0 rounded-lg border border-[#35736f] bg-[#173e40] px-3 text-xs font-semibold text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Add change
         </button>

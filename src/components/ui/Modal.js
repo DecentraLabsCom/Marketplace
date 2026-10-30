@@ -62,6 +62,7 @@ const THEMES = {
  * @param {boolean} [props.showCloseButton=true] - Whether to show the X close button
  * @param {string} [props.className] - Additional CSS classes for the content container
  * @param {boolean} [props.portal=false] - Whether to render the modal directly under document.body
+ * @param {number} [props.zIndex=50] - Stacking order for hosts with layered application overlays
  * @returns {JSX.Element|null} Modal dialog or null when closed
  */
 export default function Modal({ 
@@ -75,6 +76,7 @@ export default function Modal({
   showCloseButton = true,
   className = '',
   portal = false,
+  zIndex = 50,
 }) {
   const modalRef = useRef(null)
   const previousFocusRef = useRef(null)
@@ -161,6 +163,7 @@ export default function Modal({
   const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100 sm:items-center sm:p-4"
+      style={{ zIndex }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -249,4 +252,5 @@ Modal.propTypes = {
   showCloseButton: PropTypes.bool,
   className: PropTypes.string,
   portal: PropTypes.bool,
+  zIndex: PropTypes.number,
 }

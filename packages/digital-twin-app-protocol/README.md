@@ -22,6 +22,7 @@ The package does not register modules or impose an SDK requirement on providers.
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
 const app = createDigitalTwinAppClient({
+  onFmiLsParameterPreset(preset) { applyParametersToControls(preset.parameters) },
   onSamples(samples) { timeline.append(samples) },
   onReset() { timeline.clear() },
   onResultsComplete({ state }) { showResult(state) },
@@ -31,6 +32,22 @@ initializeView().then(() => app.reportReady())
 runButton.onclick = () => app.run({ parameters: readInputs(), options: { stopTime: 60 } }).catch(showError)
 window.addEventListener('pagehide', () => app.dispose(), { once: true })
 ```
+
+An app that supplies `onFmiLsParameterPreset` advertises the optional
+`fmi-ls-parameter-presets` capability. Marketplace then shows the FMU's
+FMI-LS-REF parameter sets in a host-owned selector and sends the selected
+`{ id, name, description, parameters }` to the app. The app applies the values
+to its controls; the parameter sets remain sourced from the FMU.
+
+The SDK advertises `fmi-ls-experiments` and accepts the host's
+`decentralabs:fmi-ls-experiment` selection message. When the reservation has a
+supported, authorized FMI-LS-REF experiment, Marketplace shows it in the
+floating controls menu. Until cleared, the selected parameter set replaces
+app-supplied run parameters, while declared simulation options override the
+matching `run()` options. FMU defaults apply to variables not listed in the
+experiment. An optional `onFmiLsExperiment(experiment)` callback lets an app
+also reflect the selection in its own controls; it receives `null` when
+cleared.
 
 For standalone use, supply a `getConnection({ options, signal })` callback
 returning a connection grant from your own authorized backend. For direct FMI

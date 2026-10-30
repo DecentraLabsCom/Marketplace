@@ -6,9 +6,10 @@ import Modal from '@/components/ui/Modal'
 import { normalizeInputSchedule } from './simulationParameters'
 import { DigitalTwinContinuousMetrics } from './DigitalTwinExecutionControls'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
-import InputScheduleEditor from './InputScheduleEditor'
+import InputScheduleDialog from './InputScheduleDialog'
 import SimulationOptions from './SimulationOptions'
 import { getSimulationOptionsError } from './simulationTime'
+import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 
 export default function DigitalTwinSimulationForm({
   variables,
@@ -38,7 +39,11 @@ export default function DigitalTwinSimulationForm({
   const availableScheduleVariables = Array.isArray(scheduleVariables)
     ? scheduleVariables
     : variables.filter((variable) => variable?.causality === 'input')
-  const canScheduleInputChanges = enableInputSchedule && executionMode === 'batch' && availableScheduleVariables.length > 0
+  const canScheduleInputChanges = canScheduleFmiLsInputChanges(
+    enableInputSchedule,
+    availableScheduleVariables,
+    executionMode,
+  )
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
   let inputScheduleError = ''
   if (canScheduleInputChanges && !simulationOptionsError) {
@@ -160,50 +165,23 @@ export default function DigitalTwinSimulationForm({
           simulationType={simulationType}
           disabled={running}
         />
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setActiveDialog(null)}
-            className="min-h-10 rounded-lg border border-[#30464d] px-4 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
-          >
-            Done
-          </button>
-        </div>
       </Modal>
 
       {canScheduleInputChanges ? (
-        <Modal
+        <InputScheduleDialog
           isOpen={activeDialog === 'schedule'}
           onClose={() => setActiveDialog(null)}
-          title="Schedule variable changes"
-          size="2xl"
-          theme="dark"
-          className="bg-[#101a20]! border border-[#263a42]"
-          portal
-        >
-          <InputScheduleEditor
-            variables={availableScheduleVariables}
-            modelVariables={modelVariables}
-            initialValues={values}
-            events={inputEvents}
-            startTime={Number(simulationOptions.startTime)}
-            stopTime={Number(simulationOptions.stopTime)}
-            stepSize={Number(simulationOptions.stepSize)}
-            validationError={inputScheduleError}
-            disabled={running}
-            tooltipPortal
-            onChange={onInputEventsChange}
-          />
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setActiveDialog(null)}
-              className="min-h-10 rounded-lg border border-[#30464d] px-4 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
-            >
-              Done
-            </button>
-          </div>
-        </Modal>
+          variables={availableScheduleVariables}
+          modelVariables={modelVariables}
+          initialValues={values}
+          events={inputEvents}
+          startTime={Number(simulationOptions.startTime)}
+          stopTime={Number(simulationOptions.stopTime)}
+          stepSize={Number(simulationOptions.stepSize)}
+          validationError={inputScheduleError}
+          disabled={running}
+          onChange={onInputEventsChange}
+        />
       ) : null}
     </>
   )

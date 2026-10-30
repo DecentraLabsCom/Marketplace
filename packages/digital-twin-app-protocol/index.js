@@ -1,4 +1,4 @@
-// Host integration v2 carries authorization and optional HMI controls only.
+// Host integration v2 carries authorization and optional FMI-LS controls.
 export const DIGITAL_TWIN_PROTOCOL_VERSION = 2
 export const DIGITAL_TWIN_APP_ASSET_FILENAME = 'index.js'
 export const MAX_RUN_PARAMETERS = 256
@@ -18,9 +18,16 @@ export const DIGITAL_TWIN_MESSAGE = Object.freeze({
   EXECUTION_STATE: 'decentralabs:execution-state',
   EXECUTION_CANCEL: 'decentralabs:execution-cancel',
   PLAYBACK_CONTROL: 'decentralabs:fmi-playback-control',
+  FMI_LS_PARAMETER_PRESET: 'decentralabs:fmi-ls-parameter-preset',
+  FMI_LS_EXPERIMENT: 'decentralabs:fmi-ls-experiment',
   MODEL_CHANGE: 'decentralabs:digital-twin-model-change',
 })
-export const DIGITAL_TWIN_CAPABILITY = Object.freeze({ PLAYBACK_RATE: 'playback-rate', EXECUTION_CONTROL: 'execution-control' })
+export const DIGITAL_TWIN_CAPABILITY = Object.freeze({
+  PLAYBACK_RATE: 'playback-rate',
+  EXECUTION_CONTROL: 'execution-control',
+  FMI_LS_PARAMETER_PRESETS: 'fmi-ls-parameter-presets',
+  FMI_LS_EXPERIMENTS: 'fmi-ls-experiments',
+})
 export const APP_TO_HOST_MESSAGE_TYPES = Object.freeze([
   DIGITAL_TWIN_MESSAGE.APP_HELLO,
   DIGITAL_TWIN_MESSAGE.APP_READY, DIGITAL_TWIN_MESSAGE.APP_ERROR, DIGITAL_TWIN_MESSAGE.CONNECTION_REQUEST,
@@ -29,6 +36,7 @@ export const APP_TO_HOST_MESSAGE_TYPES = Object.freeze([
 export const HOST_TO_APP_MESSAGE_TYPES = Object.freeze([
   DIGITAL_TWIN_MESSAGE.HOST_READY, DIGITAL_TWIN_MESSAGE.CONNECTION_READY, DIGITAL_TWIN_MESSAGE.CONNECTION_ERROR,
   DIGITAL_TWIN_MESSAGE.EXECUTION_CANCEL, DIGITAL_TWIN_MESSAGE.PLAYBACK_CONTROL,
+  DIGITAL_TWIN_MESSAGE.FMI_LS_PARAMETER_PRESET, DIGITAL_TWIN_MESSAGE.FMI_LS_EXPERIMENT,
 ])
 export const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const keys = (v, allowed) => Object.keys(v).every((key) => allowed.includes(key))
@@ -95,8 +103,26 @@ export function isValidHostMessage(v) {
       return keys(v, ['type', 'version', 'runId']) && isValidProtocolId(v.runId)
     case DIGITAL_TWIN_MESSAGE.PLAYBACK_CONTROL:
       return keys(v, ['type', 'version', 'rate', 'rateUnit']) && Number.isFinite(v.rate) && v.rate > 0 && v.rate <= 100000 && v.rateUnit === 'model-seconds-per-real-second'
+    case DIGITAL_TWIN_MESSAGE.FMI_LS_PARAMETER_PRESET:
+      return keys(v, ['type', 'version', 'id', 'name', 'description', 'parameters'])
+        && isValidProtocolId(v.id) && text(v.name, 180)
+        && typeof v.description === 'string' && v.description.length <= 1024
+        && isValidParameters(v.parameters)
+    case DIGITAL_TWIN_MESSAGE.FMI_LS_EXPERIMENT:
+      return keys(v, ['type', 'version', 'experiment'])
+        && (v.experiment === null || isValidFmiLsExperiment(v.experiment))
     default: return false
   }
+}
+export function isValidFmiLsExperiment(v) {
+  return isRecord(v)
+    && keys(v, ['id', 'name', 'description', 'parameters', 'options'])
+    && isValidProtocolId(v.id)
+    && text(v.name, 180)
+    && typeof v.description === 'string' && v.description.length <= 2048
+    && isValidParameters(v.parameters)
+    && isValidOptions(v.options)
+    && (Object.keys(v.parameters).length > 0 || Object.keys(v.options).length > 0)
 }
 export function createProtocolId(prefix = 'run') {
   return `${prefix}:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 14)}`}`

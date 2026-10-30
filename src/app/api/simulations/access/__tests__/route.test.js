@@ -40,6 +40,7 @@ test('returns the reservation-bound variable policy without caching it', async (
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({
     ...policy,
+    fmiLsExperiments: [],
     modelVariables: [
       { name: 'command', causality: 'input', type: 'Real' },
       { name: 'temperature', causality: 'output', type: 'Real', start: 20 },

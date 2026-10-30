@@ -89,6 +89,7 @@ const wait = (ms, signal) => new Promise((resolve, reject) => {
 /** Optional host UI integration composed with the independent direct FMU client. */
 export function createDigitalTwinAppClient({
   getConnection, onHostReady, onSample, onSamples, onReset, onSimulationState,
+  onFmiLsParameterPreset, onFmiLsExperiment,
   onBatchRendered,
   onResultsComplete, onPlaybackRate, onRunAccepted, onRunRejected, onRunCancelled, onError,
   defaultPlaybackRate, playbackControlPosition, runRequestTimeoutMs = 30_000,
@@ -99,9 +100,12 @@ export function createDigitalTwinAppClient({
   let readySent = false
   let startupError
   let active = null
+  let selectedFmiLsExperiment = null
   const grants = new Map()
   const capabilities = [DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL]
+  capabilities.push(DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS)
   if (typeof onPlaybackRate === 'function') capabilities.push(DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE)
+  if (typeof onFmiLsParameterPreset === 'function') capabilities.push(DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS)
   const report = (error) => { try { onError?.(error) } catch { /* The app owns its error presentation. */ } }
 
   function sendReady() {
@@ -136,6 +140,21 @@ export function createDigitalTwinAppClient({
       finishGrant(message.requestId, errorWithCode('The provider connection could not be authorized.', message.code))
     } else if (message.type === MESSAGE.PLAYBACK_CONTROL) {
       try { onPlaybackRate?.(message.rate, message) } catch (error) { report(error) }
+    } else if (message.type === MESSAGE.FMI_LS_PARAMETER_PRESET) {
+      try { onFmiLsParameterPreset?.(message) } catch (error) { report(error) }
+    } else if (message.type === MESSAGE.FMI_LS_EXPERIMENT) {
+      selectedFmiLsExperiment = message.experiment ? {
+        ...message.experiment,
+        parameters: { ...message.experiment.parameters },
+        options: { ...message.experiment.options },
+      } : null
+      try {
+        onFmiLsExperiment?.(selectedFmiLsExperiment ? {
+          ...selectedFmiLsExperiment,
+          parameters: { ...selectedFmiLsExperiment.parameters },
+          options: { ...selectedFmiLsExperiment.options },
+        } : null)
+      } catch (error) { report(error) }
     } else if (message.type === MESSAGE.EXECUTION_CANCEL && active?.runId === message.runId) cancel(message.runId)
   }
   globalThis.window?.addEventListener('message', receive)
@@ -399,9 +418,11 @@ export function createDigitalTwinAppClient({
     inputControllerInterval, inputControllerTimes = [],
   } = {}) {
     if (disposed || active) throw errorWithCode('The app cannot start another FMU run.', 'RUN_UNAVAILABLE')
+    parameters = selectedFmiLsExperiment
+      ? { ...selectedFmiLsExperiment.parameters }
+      : { ...parameters }
+    options = { ...options, ...(selectedFmiLsExperiment?.options || {}) }
     if (!isValidParameters(parameters) || !isValidOptions(options)) throw errorWithCode('Invalid FMU run parameters.', 'INVALID_RUN_REQUEST')
-    parameters = { ...parameters }
-    options = { ...options }
     if (inputController !== undefined && typeof inputController !== 'function') throw errorWithCode('Invalid input controller.', 'INVALID_INPUT')
     if (inputControllerInterval !== undefined
       && (!Number.isFinite(inputControllerInterval) || inputControllerInterval <= 0)) {

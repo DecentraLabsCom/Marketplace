@@ -5,7 +5,8 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import ParameterForm from './ParameterForm'
 import DigitalTwinSimulationForm from './DigitalTwinSimulationForm'
-import ProviderParameterPresetSelect from './ProviderParameterPresetSelect'
+import FmiLsStructMapPanel from './FmiLsStructMapPanel'
+import FmiLsResourceSelect from './FmiLsResourceSelect'
 import InputScheduleEditor from './InputScheduleEditor'
 import SimulationOptions from './SimulationOptions'
 import SimulationProgress from './SimulationProgress'
@@ -31,6 +32,11 @@ import {
 import useInteractiveTwinExecution from './useInteractiveTwinExecution'
 import useSimulationGatewaySession from './useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './useDigitalTwinAssetDiscovery'
+import {
+  filterFmiLsExperimentsForVariables,
+  filterFmiLsParameterPresets,
+  supportsFmiLsInteractiveModes,
+} from '@/utils/fmiLsEligibility'
 
 const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
@@ -94,8 +100,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
-  const [providerPresets, setProviderPresets] = useState([])
-  const [selectedPresetId, setSelectedPresetId] = useState('')
+  const [fmiLsParameterPresets, setFmiLsParameterPresets] = useState([])
+  const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
+  const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
   const [executionMode, setExecutionMode] = useState('batch')
   const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
   const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
@@ -112,13 +119,17 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
   const supportsInputSchedule = !isModelExchange && !isScheduledExecution
-  const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
   const [solver, setSolver] = useState('Euler')
   const labId = String(lab.id ?? lab.tokenId ?? '')
   const { asset: twinAsset, state: twinAssetState, simulationVariables: aasSimulationVariables } = useDigitalTwinAssetDiscovery({
     labId,
     accessUri: lab.accessURI,
   })
+  const twinSimulationType = twinAsset
+    ? variableAccess?.simulationType
+    : fmuMeta?.simulationType
+  const supportsTwinInputSchedule = twinSimulationType === 'CoSimulation'
+  const simulationTypeLabel = formatFmuSimulationType(twinSimulationType)
   const accessibleModelVariables = useMemo(
     () => filterModelVariablesByAccess(modelVariables, variableAccess),
     [modelVariables, variableAccess],
@@ -126,6 +137,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const editableVariables = useMemo(
     () => getInitializationEditableVariables(accessibleModelVariables, variableAccess),
     [accessibleModelVariables, variableAccess],
+  )
+  const editableFmiLsParameterPresets = useMemo(
+    () => filterFmiLsParameterPresets(fmiLsParameterPresets, editableVariables),
+    [editableVariables, fmiLsParameterPresets],
   )
   const scheduledRuntimeVariables = useMemo(
     () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
@@ -152,15 +167,27 @@ export default function SimulationRunner({ lab, reservationKey }) {
     () => getInitializationEditableVariables(twinModelVariables, variableAccess),
     [twinModelVariables, variableAccess],
   )
+  const twinEditableVariableNames = useMemo(
+    () => new Set(twinEditableVariables.map((variable) => variable.name)),
+    [twinEditableVariables],
+  )
+  const twinFmiLsParameterPresets = useMemo(
+    () => filterFmiLsParameterPresets(fmiLsParameterPresets, twinEditableVariableNames),
+    [fmiLsParameterPresets, twinEditableVariableNames],
+  )
+  const twinFmiLsExperiments = useMemo(
+    () => filterFmiLsExperimentsForVariables(variableAccess?.fmiLsExperiments, twinEditableVariableNames),
+    [twinEditableVariableNames, variableAccess?.fmiLsExperiments],
+  )
   const twinScheduledRuntimeVariables = useMemo(
-    () => getRuntimeWritableVariables(twinModelVariables, variableAccess),
-    [twinModelVariables, variableAccess],
+    () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
+    [accessibleModelVariables, variableAccess],
   )
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
     && reservationKey
-    && fmuMeta?.simulationType === 'CoSimulation'
-    && ['2', '3'].includes(String(fmuMeta?.fmiVersion || '').split('.', 1)[0]),
+    && variableAccessState === 'ready'
+    && supportsFmiLsInteractiveModes(variableAccess?.simulationType, variableAccess?.fmiVersion),
   )
   useEffect(() => {
     if (variableAccessState !== 'ready') return
@@ -209,17 +236,29 @@ export default function SimulationRunner({ lab, reservationKey }) {
     : ''
 
   const handleParamChange = useCallback((name, value) => {
-    setSelectedPresetId('')
+    setSelectedFmiLsParameterPresetId('')
+    setSelectedFmiLsExperimentId('')
     setParameters(prev => ({ ...prev, [name]: value }))
   }, [])
 
-  const handleProviderPresetSelect = useCallback((presetId) => {
-    const preset = providerPresets.find((candidate) => candidate.id === presetId)
-    setSelectedPresetId(preset ? preset.id : '')
+  const handleFmiLsParameterPresetSelect = useCallback((presetId) => {
+    const preset = fmiLsParameterPresets.find((candidate) => candidate.id === presetId)
+    setSelectedFmiLsParameterPresetId(preset ? preset.id : '')
+    setSelectedFmiLsExperimentId('')
     if (preset) setParameters((current) => ({ ...current, ...preset.parameters }))
-  }, [providerPresets])
+  }, [fmiLsParameterPresets])
+
+  const handleExperimentSelect = useCallback((experimentId) => {
+    const experiment = twinFmiLsExperiments.find((candidate) => candidate.id === experimentId)
+    setSelectedFmiLsExperimentId(experiment ? experiment.id : '')
+    setSelectedFmiLsParameterPresetId('')
+    if (!experiment) return
+    setParameters((current) => ({ ...current, ...experiment.parameters }))
+    setOptions((current) => ({ ...current, ...experiment.options }))
+  }, [twinFmiLsExperiments])
 
   const handleOptionChange = useCallback((name, value) => {
+    setSelectedFmiLsExperimentId('')
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
 
@@ -328,12 +367,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
     if (!labId || !reservationKey) {
       setVariableAccess(null)
       setVariableAccessState('unavailable')
+      setSelectedFmiLsExperimentId('')
       return undefined
     }
 
     const controller = new AbortController()
     setVariableAccess(null)
     setVariableAccessState('loading')
+      setSelectedFmiLsExperimentId('')
     fetchGateway('/api/simulations/access', {
       method: 'POST',
       credentials: 'include',
@@ -356,6 +397,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         }
         setVariableAccess(access)
         setVariableAccessState('ready')
+        setSelectedFmiLsExperimentId('')
         setErrorMsg(null)
       })
       .catch((error) => {
@@ -368,14 +410,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   useEffect(() => {
     if (!labId || !reservationKey || variableAccessState !== 'ready') {
-      setProviderPresets([])
-      setSelectedPresetId('')
+      setFmiLsParameterPresets([])
+      setSelectedFmiLsParameterPresetId('')
       return undefined
     }
 
     const controller = new AbortController()
-    setProviderPresets([])
-    setSelectedPresetId('')
+    setFmiLsParameterPresets([])
+    setSelectedFmiLsParameterPresetId('')
     fetchGateway('/api/simulations/parameter-sets', {
       method: 'POST',
       credentials: 'include',
@@ -384,17 +426,17 @@ export default function SimulationRunner({ lab, reservationKey }) {
       body: JSON.stringify({ labId, reservationKey }),
     })
       .then(async (response) => {
-        if (!response.ok) return { presets: [] }
+        if (!response.ok) return { fmiLsParameterPresets: [] }
         const payload = await response.json().catch(() => null)
-        return Array.isArray(payload?.presets) ? payload : { presets: [] }
+        return Array.isArray(payload?.fmiLsParameterPresets) ? payload : { fmiLsParameterPresets: [] }
       })
       .then((payload) => {
-        if (!controller.signal.aborted) setProviderPresets(payload.presets)
+        if (!controller.signal.aborted) setFmiLsParameterPresets(payload.fmiLsParameterPresets)
       })
       .catch((error) => {
         if (!controller.signal.aborted) {
-          devLog.warn('Provider simulation configurations are unavailable.', error?.message || error)
-          setProviderPresets([])
+          devLog.warn('FMI-LS parameter sets are unavailable.', error?.message || error)
+          setFmiLsParameterPresets([])
         }
       })
 
@@ -433,7 +475,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
       const activeOptions = requestedOptions === null || requestedOptions === undefined
         ? options
-        : resolveDigitalTwinSimulationOptions(options, requestedOptions, fmuMeta.simulationType)
+        : resolveDigitalTwinSimulationOptions(options, requestedOptions, twinSimulationType)
       if (requestedOptions !== null && requestedOptions !== undefined) {
         setOptions(activeOptions)
       }
@@ -554,7 +596,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, solver, supportsInputSchedule, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const handleRun = useCallback((scheduledEvents) => {
     if (twinAsset?.type === 'glb' && executionMode !== 'batch') {
@@ -741,8 +783,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
             return response.json()
           }}
           modelVariables={accessibleModelVariables}
+          fmiLsParameterPresets={twinFmiLsParameterPresets}
+          fmiLsExperiments={twinFmiLsExperiments}
+          fmiLsStruct={variableAccess?.fmiLsStruct}
           scheduleVariables={twinScheduledRuntimeVariables}
-          enableInputSchedule={supportsInputSchedule}
+          enableInputSchedule={supportsTwinInputSchedule}
           inputValues={parameters}
           inputEvents={inputEvents}
           onInputEventsChange={setInputEvents}
@@ -768,9 +813,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
             </div>
             <div className="rounded-xl border border-[#315057] bg-[#122328] px-4 py-3 text-xs text-[#b8d2d5]">
               <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400" />
-              FMI {fmuMeta.fmiVersion || '?'} · {simulationTypeLabel || 'FMU'}
+              FMI {variableAccess?.fmiVersion || '?'} · {simulationTypeLabel || 'FMU'}
             </div>
           </div>
+
+          <FmiLsStructMapPanel
+            fmiLsStruct={variableAccess?.fmiLsStruct}
+            modelVariables={accessibleModelVariables}
+          />
 
           {twinEditableVariables.length === 0 && (
             <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no editable input variables or parameters. Run it with its declared defaults.</p>
@@ -784,14 +834,25 @@ export default function SimulationRunner({ lab, reservationKey }) {
             onInputChange={handleParamChange}
             simulationOptions={options}
             onSimulationOptionChange={handleOptionChange}
-            simulationType={fmuMeta.simulationType}
+            simulationType={twinSimulationType}
             configurationSelector={(
-              <ProviderParameterPresetSelect
-                presets={providerPresets}
-                selectedPresetId={selectedPresetId}
-                onSelect={handleProviderPresetSelect}
-                disabled={simState === SIM_STATE.RUNNING || interactiveExecution.hasActiveSession}
-              />
+              <>
+                <FmiLsResourceSelect
+                  options={twinFmiLsParameterPresets}
+                  selectedOptionId={selectedFmiLsParameterPresetId}
+                  onSelect={handleFmiLsParameterPresetSelect}
+                  disabled={simState === SIM_STATE.RUNNING || interactiveExecution.hasActiveSession}
+                />
+                {twinAsset?.type === 'glb' ? (
+                  <FmiLsResourceSelect
+                    options={twinFmiLsExperiments}
+                    selectedOptionId={selectedFmiLsExperimentId}
+                    onSelect={handleExperimentSelect}
+                    choiceLabel="Experiment"
+                    disabled={simState === SIM_STATE.RUNNING || interactiveExecution.hasActiveSession}
+                  />
+                ) : null}
+              </>
             )}
             executionMode={executionMode}
             continuousMetrics={interactiveExecution.mode === 'continuous' && interactiveExecution.hasActiveSession ? interactiveExecution.batchMetrics : null}
@@ -828,7 +889,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
             ) : null}
             stickyToolbar
             stickyToolbarOffset={80}
-            enableInputSchedule={supportsInputSchedule && executionMode === 'batch'}
+            enableInputSchedule={supportsTwinInputSchedule && executionMode === 'batch'}
             inputEvents={inputEvents}
             onInputEventsChange={setInputEvents}
             running={simState === SIM_STATE.RUNNING}
@@ -856,6 +917,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
             </button>
           </div>
 
+          <FmiLsStructMapPanel
+            fmiLsStruct={variableAccess?.fmiLsStruct}
+            modelVariables={accessibleModelVariables}
+          />
+
           {reservationKey && proxyDownloadState !== 'idle' && (
             <p role={proxyDownloadState === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-xs ${proxyDownloadState === 'error' ? 'border-error-border bg-error-bg text-error-text' : 'border-[#2a2f33] bg-[#1f2426] text-text-secondary'}`}>
               {proxyDownloadState === 'running' ? 'Preparing the reservation FMU…' : proxyDownloadMessage}
@@ -875,10 +941,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
           )}
 
           {editableVariables.length > 0 && (
-            <ProviderParameterPresetSelect
-              presets={providerPresets}
-              selectedPresetId={selectedPresetId}
-              onSelect={handleProviderPresetSelect}
+            <FmiLsResourceSelect
+              options={editableFmiLsParameterPresets}
+              selectedOptionId={selectedFmiLsParameterPresetId}
+              onSelect={handleFmiLsParameterPresetSelect}
               disabled={simState === SIM_STATE.RUNNING}
             />
           )}

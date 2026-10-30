@@ -35,6 +35,7 @@ test('reports authorization failure without disclosing provider credentials', as
 test('cancellation requests travel to the app that owns the WS session', async () => {
   const { post, send } = mount(jest.fn())
   send({ type: 'decentralabs:execution-state', runId: 'run:1', state: 'running', options: { startTime: 0, stopTime: 20 } })
+  fireEvent.click(screen.getByRole('button', { name: 'Open digital twin controls' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel simulation' }))
   expect(post).toHaveBeenCalledWith({ type: 'decentralabs:execution-cancel', version: 2, runId: 'run:1' }, '*')
 })

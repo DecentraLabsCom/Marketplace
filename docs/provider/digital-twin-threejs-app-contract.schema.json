@@ -31,6 +31,12 @@
       "$ref": "#/$defs/playbackControl"
     },
     {
+      "$ref": "#/$defs/providerParameterPreset"
+    },
+    {
+      "$ref": "#/$defs/fmiLsExperimentSelection"
+    },
+    {
       "$ref": "#/$defs/modelChangeExtension"
     },
     {
@@ -382,6 +388,101 @@
         },
         "rateUnit": {
           "const": "model-seconds-per-real-second"
+        }
+      },
+      "additionalProperties": false
+    },
+    "providerParameterPreset": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "id",
+        "name",
+        "description",
+        "parameters"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmi-ls-parameter-preset"
+        },
+        "version": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "parameters": {
+          "$ref": "#/$defs/parameters"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fmiLsExperiment": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "description",
+        "parameters",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "parameters": {
+          "$ref": "#/$defs/parameters"
+        },
+        "options": {
+          "$ref": "#/$defs/options"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fmiLsExperimentSelection": {
+      "type": "object",
+      "required": [
+        "type",
+        "version",
+        "experiment"
+      ],
+      "properties": {
+        "type": {
+          "const": "decentralabs:fmi-ls-experiment"
+        },
+        "version": {
+          "const": 2
+        },
+        "experiment": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/fmiLsExperiment"
+            }
+          ]
         }
       },
       "additionalProperties": false

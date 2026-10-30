@@ -104,6 +104,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         fmiVersion: data.fmiVersion || '',
         simulationType: data.simulationType || '',
         modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
+        fmiLsStruct: data.fmiLsStruct || null,
         defaultStartTime: data.defaultStartTime ?? null,
         defaultStopTime: data.defaultStopTime ?? null,
         defaultStepSize: data.defaultStepSize ?? null,

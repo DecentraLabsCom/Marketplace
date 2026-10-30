@@ -29,6 +29,7 @@ import {
 } from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
+import FmiLsStructMapPanel from '@/components/simulation/FmiLsStructMapPanel'
 import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUrl'
 import { getLabOperationalStatus, useLabOperationalStatuses } from '@/hooks/lab/useLabOperationalStatus'
 import LabStatusIndicator from '@/components/lab/LabStatusIndicator'
@@ -509,6 +510,11 @@ export default function LabDetail({ id }) {
                   </div>
                 ))}
               </div>
+
+              <FmiLsStructMapPanel
+                fmiLsStruct={fmuMeta.fmiLsStruct}
+                modelVariables={fmuMeta.modelVariables}
+              />
 
               {/* Model variables and dimension legend share one scroll region so the FMU panel keeps its height. */}
               {(hasFmuModelVariables || fmuDimensionLegend.length > 0) && (

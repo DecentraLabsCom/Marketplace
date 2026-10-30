@@ -195,6 +195,9 @@ The workspace does not publish the npm package automatically.
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
 const twin = createDigitalTwinAppClient({
+  onFmiLsParameterPreset(preset) {
+    applyFmuParameters(preset.parameters)
+  },
   onSamples(samples, batch, { signal }) {
     appendReplaySamples(samples)
   },
@@ -202,7 +205,6 @@ const twin = createDigitalTwinAppClient({
   onSimulationState(state) { updateRunStatus(state) },
   onResultsComplete({ state, sampleCount }) { finishTimeline(state, sampleCount) },
   onPlaybackRate(rate) { replay.setRate(rate) },
-  playbackControlPosition: 'bottom-right',
 })
 initializeView().then(() => twin.reportReady()).catch(() => twin.reportError('APP_INIT_FAILED'))
 runButton.onclick = () => twin.run({ parameters: readFmuInputs(), options: { stopTime: 220 } }).catch(showRunError)
@@ -261,16 +263,48 @@ app and uses this mode in one FMU execution.
 
 ## Optional host visualization controls
 
-* `playback-rate` enables the floating Speed menu. `playbackControlPosition`
-  selects `top-left`, `top-right`, `bottom-left` or `bottom-right`.
+Marketplace groups its Three.js host controls under one floating button in the
+bottom-left corner. The menu contains playback speed, system configurations,
+FMI-LS-REF experiments, scheduled input changes, FMI-LS-STRUCT maps, and
+cancellation when each feature is available. The schedule editor and
+FMI-LS-STRUCT maps open in dialogs; simple controls stay in the menu.
+Gateway FMI metadata and reservation permissions determine availability on
+both GLB and Three.js routes. FMI-LS-STRUCT maps are rendered by Marketplace
+from the authorized Gateway metadata, so they do not need an app capability.
+Three.js requires an SDK capability only for controls that need the app to
+receive or report something.
+
+* `playback-rate` enables Speed controls in that menu. `defaultPlaybackRate`
+  sets the starting rate. Marketplace fixes the menu to the bottom-left corner;
+  `playbackControlPosition` does not move it.
   `decentralabs:fmi-playback-control` changes visualization speed only.
 * `execution-control` allows the app to report `decentralabs:execution-state`
   with run ID, lifecycle state and time options. Marketplace uses these values
-  for its cancel button and Fit to run duration. They are UI information, not
-  authorization or billing evidence. `decentralabs:execution-cancel` asks the
-  app to terminate its own direct session.
-* The optional host schedule editor adds validated `inputSchedule` events to
-  the connection response. The app applies them through its FMU client.
+  for its Cancel simulation control and Fit to run duration. They are UI
+  information, not authorization or billing evidence.
+  `decentralabs:execution-cancel` asks the app to terminate its own direct
+  session.
+* `fmi-ls-parameter-presets` is advertised when the SDK client is given an
+  `onFmiLsParameterPreset` callback. Marketplace displays the FMU's
+  reservation-authorized FMI-LS-REF parameter sets in host UI and calls the
+  callback with `{ id, name, description, parameters }` when a selection is
+  applied. The app should update its visible controls and use those parameters
+  in its next initialization.
+* `fmi-ls-experiments` is advertised by the SDK client. When the reservation
+  includes supported, authorized FMI-LS-REF experiments, Marketplace adds an
+  Experiment selector to the floating menu and sends the selected experiment
+  in `decentralabs:fmi-ls-experiment`. Until cleared, its parameter set
+  replaces app-supplied run parameters, and its declared time options override
+  matching options in subsequent `run()` calls. FMU defaults apply to
+  variables not listed in the experiment. An optional
+  `onFmiLsExperiment(experiment)` callback can keep
+  app-owned controls in sync; it receives `null` when the selection is
+  cleared. The host filters unsupported cases and parameters the reservation
+  cannot write.
+* When enabled by the host and supported by the model, the schedule editor
+  adds validated `inputSchedule` events to the connection response. The SDK
+  applies them through the FMU client; no app capability declaration is
+  needed.
   Events may change runtime-writable FMI inputs or FMI 2.0/FMI 3.0
   Co-Simulation tunable parameters; the Gateway remains authoritative for the
   effective access policy.

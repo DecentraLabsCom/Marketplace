@@ -323,6 +323,7 @@ export async function POST(req) {
       fmiVersion,
       simulationType,
       modelVariables,
+      fmiLsStruct,
       defaultStartTime,
       defaultStopTime,
       defaultStepSize,
@@ -540,6 +541,7 @@ export async function POST(req) {
         ...(fmiVersion ? [{ trait_type: "fmiVersion", value: fmiVersion }] : []),
         ...(simulationType ? [{ trait_type: "simulationType", value: simulationType }] : []),
         ...(modelVariables ? [{ trait_type: "modelVariables", value: modelVariables }] : []),
+        ...(fmiLsStruct ? [{ trait_type: "fmiLsStruct", value: fmiLsStruct }] : []),
         ...(normalizedDefaultStartTime !== null ? [{ trait_type: "defaultStartTime", value: normalizedDefaultStartTime }] : []),
         ...(normalizedDefaultStopTime !== null ? [{ trait_type: "defaultStopTime", value: normalizedDefaultStopTime }] : []),
         ...(normalizedDefaultStepSize !== null ? [{ trait_type: "defaultStepSize", value: normalizedDefaultStepSize }] : [])

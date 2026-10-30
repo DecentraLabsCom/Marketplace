@@ -87,6 +87,26 @@ const modelVariableSchema = z.object({
   valueReference: z.number().int().nonnegative().optional(),
   dimensions: z.array(modelVariableDimensionSchema).max(16).optional(),
 }).strip()
+const fmiLsStructMemberSchema = z.object({
+  variableName: z.string().max(512),
+  memberName: z.string().max(256),
+  variableKind: z.string().max(256),
+}).strip()
+const fmiLsStructSchema = z.object({
+  manifestName: z.literal('org.fmi-standard.fmi-ls-struct'),
+  manifestVersion: z.string().max(64),
+  maps: z.array(z.object({
+    name: z.string().max(256),
+    terminalKind: z.string().max(256),
+    matchingRule: z.string().max(256),
+    members: z.array(fmiLsStructMemberSchema).max(512),
+  }).strip()).max(128),
+}).strip().superRefine((value, context) => {
+  const memberCount = value.maps.reduce((total, map) => total + map.members.length, 0)
+  if (memberCount > 4_096) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Too many FMI-LS-STRUCT map members.' })
+  }
+})
 const attributeValueSchemas = {
   classification: z.array(classificationEntrySchema).max(64),
   classificationPrimaryScheme: z.string().max(32),
@@ -111,6 +131,7 @@ const attributeValueSchemas = {
   timezone: z.string().max(128), resourceType: z.enum(['lab', 'fmu']), fmuFileName: z.string().max(512),
   fmiVersion: z.string().max(64), simulationType: z.string().max(64),
   modelVariables: z.array(modelVariableSchema).max(512),
+  fmiLsStruct: fmiLsStructSchema,
   defaultStartTime: z.number(), defaultStopTime: z.number(), defaultStepSize: z.number(),
 }
 

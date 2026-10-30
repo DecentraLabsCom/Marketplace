@@ -3,6 +3,8 @@ import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimi
 import { GatewayValidationError, buildGatewayTargetUrl, gatewayFetch, resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
 import { requireFmuResourceContext, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
+import { normalizeFmiLsExperiments } from '@/utils/fmiLsExperiments'
 
 const checkRate = createRateLimiter({ operation: 'simulation-access', windowMs: 60_000, maxRequests: 30 })
 
@@ -71,11 +73,32 @@ export async function POST(request) {
       if (variables[variable.name].read !== true) delete safeVariable.start
       modelVariables.push(safeVariable)
     }
+    const readableVariableNames = new Set(modelVariables
+      .filter((variable) => variables[variable.name]?.read === true)
+      .map((variable) => variable.name))
+    const fmiLsStruct = normalizeFmiLsStruct(access.fmiLsStruct, readableVariableNames)
+    if (access.fmiLsExperiments !== undefined
+      && (!Array.isArray(access.fmiLsExperiments) || access.fmiLsExperiments.length > 128)) {
+      throw new GatewayValidationError('The provider returned invalid FMI-LS-REF experiments.', 502)
+    }
+    const fmiLsExperiments = normalizeFmiLsExperiments(access.fmiLsExperiments || [])
+    const fmiVersion = typeof access.fmiVersion === 'string'
+      && access.fmiVersion.trim().length <= 32
+      && /^\d+\.\d+(?:\.\d+)?$/.test(access.fmiVersion.trim())
+      ? access.fmiVersion.trim()
+      : undefined
+    const simulationType = ['CoSimulation', 'ModelExchange', 'ScheduledExecution'].includes(access.simulationType)
+      ? access.simulationType
+      : undefined
     return NextResponse.json({
       policySource: typeof access.policySource === 'string' ? access.policySource : 'unavailable',
       policyVersion: typeof access.policyVersion === 'string' ? access.policyVersion : '',
       variables,
       modelVariables,
+      fmiLsExperiments,
+      ...(fmiVersion ? { fmiVersion } : {}),
+      ...(simulationType ? { simulationType } : {}),
+      ...(fmiLsStruct ? { fmiLsStruct } : {}),
     }, { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } })
   } catch (error) {
     return publicErrorResponse({ status: error instanceof GatewayValidationError ? error.status : 500,

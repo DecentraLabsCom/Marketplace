@@ -1,4 +1,4 @@
-import type { AppReadyMessage, DigitalTwinSample, FmuConnectionConfig, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+import type { AppReadyMessage, DigitalTwinSample, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
 export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
@@ -25,6 +25,10 @@ export interface DigitalTwinAppClientOptions {
   onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState }) => void
   onResultsComplete?: (message: ResultCompletion, context: SampleProcessingContext) => void | Promise<void>
   onPlaybackRate?: (rate: number, message: PlaybackControlMessage) => void
+  /** Apply an FMI-LS-REF parameter set selected in the Marketplace host UI. */
+  onFmiLsParameterPreset?: (preset: FmiLsParameterPreset) => void
+  /** Reflect the selected FMI-LS-REF experiment in app-owned controls. The SDK applies its parameters and options on run. */
+  onFmiLsExperiment?: (experiment: FmiLsExperiment | null) => void
   onRunAccepted?: (result: { runId: string }) => void
   onRunRejected?: (result: { code: string }) => void
   onRunCancelled?: (runId: string) => void

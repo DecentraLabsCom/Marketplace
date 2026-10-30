@@ -432,7 +432,7 @@ describe("SimulationRunner", () => {
         return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
       }
       if (url === '/api/simulations/parameter-sets') {
-        return Promise.resolve({ ok: true, json: async () => ({ presets: [] }) });
+        return Promise.resolve({ ok: true, json: async () => ({ fmiLsParameterPresets: [] }) });
       }
       if (String(url).startsWith('/api/simulations/proxy?')) {
         return Promise.resolve(proxyResponses.shift() || successfulProxyResponse());
@@ -473,7 +473,14 @@ describe("SimulationRunner", () => {
         : causality === 'parameter' && ['fixed', 'tunable'].includes(variability) ? ['initialization'] : [];
       return [variable.name, { read: causality !== 'local', writeAt }];
     }));
-    return { policySource: 'fmi-default', policyVersion: 'test', variables, modelVariables: lab.modelVariables || [] };
+    return {
+      policySource: 'fmi-default',
+      policyVersion: 'test',
+      variables,
+      modelVariables: lab.modelVariables || [],
+      ...(lab.fmiVersion ? { fmiVersion: lab.fmiVersion } : {}),
+      ...(lab.simulationType ? { simulationType: lab.simulationType } : {}),
+    };
   }
 
   function renderReservedSimulationRunner(lab = fmuLab, reservationKey = '0xabc', accessPolicy = null) {

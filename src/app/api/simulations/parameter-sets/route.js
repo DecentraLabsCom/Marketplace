@@ -18,15 +18,15 @@ function isSafeParameterValue(value, depth = 0) {
     && value.every((item) => !Array.isArray(item) && item !== null && isSafeParameterValue(item, depth + 1))
 }
 
-function validatePresets(payload) {
+function validateFmiLsParameterPresets(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-    || !Array.isArray(payload.presets) || payload.presets.length > 24) {
+    || !Array.isArray(payload.fmiLsParameterPresets) || payload.fmiLsParameterPresets.length > 24) {
     throw new GatewayValidationError('The provider returned invalid simulation configurations.', 502)
   }
 
-  const presets = []
+  const parameterPresets = []
   const seenIds = new Set()
-  for (const preset of payload.presets) {
+  for (const preset of payload.fmiLsParameterPresets) {
     if (!preset || typeof preset !== 'object' || Array.isArray(preset)
       || typeof preset.id !== 'string' || !/^preset-\d{1,4}$/.test(preset.id) || seenIds.has(preset.id)
       || typeof preset.name !== 'string' || !preset.name.trim() || preset.name.length > 180
@@ -41,17 +41,17 @@ function validatePresets(payload) {
       throw new GatewayValidationError('The provider returned invalid simulation configuration values.', 502)
     }
     seenIds.add(preset.id)
-    presets.push({
+    parameterPresets.push({
       id: preset.id,
       name: preset.name.trim(),
       description: preset.description,
       parameters: Object.fromEntries(entries),
     })
   }
-  return presets
+  return parameterPresets
 }
 
-/** Return provider-authored FMU presets that are writable for this reservation. */
+/** Return FMI-LS-REF parameter presets writable for this reservation. */
 export async function POST(request) {
   try {
     const origin = request.headers.get('origin')
@@ -80,14 +80,14 @@ export async function POST(request) {
       signal: request.signal,
     })
     if (!upstream.ok) throw new GatewayValidationError('The provider could not load simulation configurations.', upstream.status)
-    return NextResponse.json({ presets: validatePresets(await upstream.json()) }, {
+    return NextResponse.json({ fmiLsParameterPresets: validateFmiLsParameterPresets(await upstream.json()) }, {
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
     })
   } catch (error) {
     return publicErrorResponse({
       status: error instanceof GatewayValidationError ? error.status : 500,
       code: 'SIMULATION_PARAMETER_SETS_FAILED',
-      message: 'Provider simulation configurations could not be loaded.',
+      message: 'FMI-LS parameter sets could not be loaded.',
       error,
       context: 'simulation-parameter-sets',
     })
