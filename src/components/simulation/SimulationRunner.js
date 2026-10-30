@@ -836,6 +836,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           <FmiLsStructMapPanel
             fmiLsStruct={variableAccess?.fmiLsStruct}
             modelVariables={accessibleModelVariables}
+            values={parameters}
+            outputs={results?.outputs}
           />
 
           {twinEditableVariables.length === 0 && (
@@ -845,6 +847,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           <DigitalTwinSimulationForm
             variables={twinEditableVariables}
             modelVariables={twinModelVariables}
+            fmiLsStruct={variableAccess?.fmiLsStruct}
             scheduleVariables={twinScheduledRuntimeVariables}
             values={parameters}
             onInputChange={handleParamChange}
@@ -898,6 +901,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
                 onCancel={interactiveExecution.end}
                 runtimeVariables={twinScheduledRuntimeVariables}
                 modelVariables={twinModelVariables}
+                fmiLsStruct={variableAccess?.fmiLsStruct}
                 values={interactiveExecution.liveParameters}
                 runtimeInputEditing={interactiveExecution.runtimeInputEditing}
                 onInputChange={interactiveExecution.handleInputChange}
@@ -936,6 +940,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           <FmiLsStructMapPanel
             fmiLsStruct={variableAccess?.fmiLsStruct}
             modelVariables={accessibleModelVariables}
+            values={parameters}
+            outputs={results?.outputs}
           />
 
           {reservationKey && proxyDownloadState !== 'idle' && (
@@ -969,6 +975,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
             <ParameterForm
               variables={editableVariables}
               modelVariables={accessibleModelVariables}
+              fmiLsStruct={variableAccess?.fmiLsStruct}
               values={parameters}
               onChange={handleParamChange}
               disabled={simState === SIM_STATE.RUNNING}

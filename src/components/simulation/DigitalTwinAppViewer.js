@@ -8,7 +8,7 @@ import PlaybackRateControl from './PlaybackRateControl'
 import FmiLsResourceSelect from './FmiLsResourceSelect'
 import { inputScheduleToEvents, mergeInputSchedules, normalizeInputSchedule } from './simulationParameters'
 import FmiLsStructMapPanel from './FmiLsStructMapPanel'
-import { getFmiLsStructMapSeries } from '@/utils/fmiLsStruct'
+import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 import {
   DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidAppMessage,
@@ -61,9 +61,9 @@ export default function DigitalTwinAppViewer({
       : modelVariables.filter((variable) => variable?.causality === 'input')),
     [modelVariables, scheduleVariables],
   )
-  const fmiLsStructMapSeriesCount = useMemo(
-    () => getFmiLsStructMapSeries(fmiLsStruct, modelVariables).length,
-    [fmiLsStruct, modelVariables],
+  const fmiLsStructMapCount = useMemo(
+    () => getFmiLsStructMapData(fmiLsStruct, modelVariables, inputValues).length,
+    [fmiLsStruct, inputValues, modelVariables],
   )
   const availableFmiLsParameterPresets = useMemo(
     () => (Array.isArray(fmiLsParameterPresets) ? fmiLsParameterPresets : []).filter((preset) => (
@@ -94,7 +94,7 @@ export default function DigitalTwinAppViewer({
   const hasPlaybackRateControl = appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)
   const hasScheduleControl = appState === 'ready'
     && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
-  const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapSeriesCount > 0
+  const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapCount > 0
   const hasCancelControl = Boolean(isRunning && activeRunId
     && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
   const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl
@@ -492,13 +492,18 @@ export default function DigitalTwinAppViewer({
         isOpen={activeControlDialog === 'maps'}
         onClose={() => setActiveControlDialog(null)}
         title="FMI-LS-STRUCT maps"
-        titleAside={`Reference curves declared in FMI-LS-STRUCT ${fmiLsStruct?.manifestVersion || ''}.`}
+        titleAside={`Maps, operating points and outputs declared in FMI-LS-STRUCT ${fmiLsStruct?.manifestVersion || ''}.`}
         size="3xl"
         theme="dark"
         portal
         zIndex={120}
       >
-        <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={modelVariables} showHeading={false} />
+        <FmiLsStructMapPanel
+          fmiLsStruct={fmiLsStruct}
+          modelVariables={modelVariables}
+          values={{ ...inputValues, ...(selectedFmiLsParameterPreset?.parameters || {}), ...(selectedFmiLsExperiment?.parameters || {}) }}
+          showHeading={false}
+        />
       </Modal>
       {simulationError && appState !== 'loading' && appState !== 'error' && (
         <div className="absolute left-3 right-3 top-16 z-10 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-20" role="alert">

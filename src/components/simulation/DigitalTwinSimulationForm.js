@@ -14,6 +14,7 @@ import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 export default function DigitalTwinSimulationForm({
   variables,
   modelVariables,
+  fmiLsStruct,
   values,
   onInputChange,
   simulationOptions,
@@ -152,6 +153,7 @@ export default function DigitalTwinSimulationForm({
           <DigitalTwinInputGrid
             variables={variables}
             modelVariables={modelVariables}
+            fmiLsStruct={fmiLsStruct}
             values={values}
             onChange={onInputChange}
             disabled={running}
@@ -190,6 +192,7 @@ export default function DigitalTwinSimulationForm({
 DigitalTwinSimulationForm.propTypes = {
   variables: PropTypes.arrayOf(PropTypes.object).isRequired,
   modelVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
+  fmiLsStruct: PropTypes.object,
   values: PropTypes.object.isRequired,
   onInputChange: PropTypes.func.isRequired,
   simulationOptions: PropTypes.shape({

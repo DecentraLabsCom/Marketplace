@@ -183,6 +183,7 @@ export function DigitalTwinExecutionSessionActions({
   onCancel,
   runtimeVariables = [],
   modelVariables = [],
+  fmiLsStruct,
   values = {},
   runtimeInputEditing = false,
   onInputChange = () => {},
@@ -267,6 +268,7 @@ export function DigitalTwinExecutionSessionActions({
         <DigitalTwinInputGrid
           variables={runtimeVariables}
           modelVariables={modelVariables}
+          fmiLsStruct={fmiLsStruct}
           values={values}
           onChange={onInputChange}
           disabled={!runtimeInputEditing}
@@ -300,6 +302,7 @@ export default function DigitalTwinExecutionControls({
   values,
   modelVariables,
   runtimeVariables,
+  fmiLsStruct,
   runtimeInputEditing,
   onInputChange,
   onAdvanceStep,
@@ -336,6 +339,7 @@ export default function DigitalTwinExecutionControls({
               onCancel={onCancel}
               runtimeVariables={runtimeVariables}
               modelVariables={modelVariables}
+              fmiLsStruct={fmiLsStruct}
               values={values}
               runtimeInputEditing={runtimeInputEditing}
               onInputChange={onInputChange}
@@ -370,6 +374,7 @@ DigitalTwinExecutionSessionActions.propTypes = {
   onCancel: PropTypes.func.isRequired,
   runtimeVariables: PropTypes.arrayOf(PropTypes.object),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
+  fmiLsStruct: PropTypes.object,
   values: PropTypes.object,
   runtimeInputEditing: PropTypes.bool,
   onInputChange: PropTypes.func,
@@ -390,6 +395,7 @@ DigitalTwinExecutionControls.propTypes = {
   values: PropTypes.object.isRequired,
   modelVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
   runtimeVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
+  fmiLsStruct: PropTypes.object,
   runtimeInputEditing: PropTypes.bool.isRequired,
   onInputChange: PropTypes.func.isRequired,
   onAdvanceStep: PropTypes.func.isRequired,

@@ -91,6 +91,7 @@ const fmiLsStructMemberSchema = z.object({
   variableName: z.string().max(512),
   memberName: z.string().max(256),
   variableKind: z.string().max(256),
+  orderingConstraint: z.enum(['unordered', 'increasing', 'decreasing', 'strictlyIncreasing', 'strictlyDecreasing']).optional(),
 }).strip()
 const fmiLsStructSchema = z.object({
   manifestName: z.literal('org.fmi-standard.fmi-ls-struct'),
