@@ -10,6 +10,27 @@ function isSafeValue(value, depth = 0) {
   return false
 }
 
+function normalizeInputSchedule(value) {
+  if (!Array.isArray(value) || value.length > 128) return null
+  let previousTime = -Infinity
+  const schedule = []
+  for (const event of value) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)
+      || Object.keys(event).some((key) => !['time', 'values'].includes(key))
+      || typeof event.time !== 'number' || !Number.isFinite(event.time) || event.time < previousTime
+      || !event.values || typeof event.values !== 'object' || Array.isArray(event.values)
+      || Object.keys(event.values).length === 0 || Object.keys(event.values).length > 32) return null
+    const values = {}
+    for (const [name, value] of Object.entries(event.values)) {
+      if (!name || name.length > 512 || typeof value !== 'number' || !Number.isFinite(value)) return null
+      values[name] = value
+    }
+    schedule.push({ time: event.time, values })
+    previousTime = event.time
+  }
+  return schedule
+}
+
 /** Keep only bounded, executable experiments returned by the reservation Gateway. */
 export function normalizeFmiLsExperiments(rawExperiments) {
   if (!Array.isArray(rawExperiments) || rawExperiments.length > 128) return []
@@ -46,9 +67,11 @@ export function normalizeFmiLsExperiments(rawExperiments) {
       }
       options[name] = value
     }
+    const inputSchedule = raw.inputSchedule === undefined ? [] : normalizeInputSchedule(raw.inputSchedule)
+    if (inputSchedule === null) valid = false
     if (!valid
       || (options.startTime !== undefined && options.stopTime !== undefined && options.stopTime <= options.startTime)
-      || (!Object.keys(parameters).length && !Object.keys(options).length)) continue
+      || (!Object.keys(parameters).length && !Object.keys(options).length && inputSchedule.length === 0)) continue
 
     ids.add(raw.id)
     experiments.push({
@@ -57,6 +80,7 @@ export function normalizeFmiLsExperiments(rawExperiments) {
       description: typeof raw.description === 'string' ? raw.description.slice(0, 2048) : '',
       parameters,
       options,
+      ...(inputSchedule.length ? { inputSchedule } : {}),
     })
   }
   return experiments

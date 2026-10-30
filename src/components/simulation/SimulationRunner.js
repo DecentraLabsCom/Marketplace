@@ -17,7 +17,7 @@ import SimulationHistory from './SimulationHistory'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { resolveGatewayFeatureError } from './gatewayErrors'
-import { normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
+import { inputScheduleToEvents, mergeInputSchedules, normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
 import { mergeAasSimulationVariables } from './aasSimulationVariables'
 import { getInitialSimulationOptions, getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
 import {
@@ -171,17 +171,21 @@ export default function SimulationRunner({ lab, reservationKey }) {
     () => new Set(twinEditableVariables.map((variable) => variable.name)),
     [twinEditableVariables],
   )
+  const twinScheduledRuntimeVariables = useMemo(
+    () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
+    [accessibleModelVariables, variableAccess],
+  )
   const twinFmiLsParameterPresets = useMemo(
     () => filterFmiLsParameterPresets(fmiLsParameterPresets, twinEditableVariableNames),
     [fmiLsParameterPresets, twinEditableVariableNames],
   )
   const twinFmiLsExperiments = useMemo(
-    () => filterFmiLsExperimentsForVariables(variableAccess?.fmiLsExperiments, twinEditableVariableNames),
-    [twinEditableVariableNames, variableAccess?.fmiLsExperiments],
-  )
-  const twinScheduledRuntimeVariables = useMemo(
-    () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
-    [accessibleModelVariables, variableAccess],
+    () => filterFmiLsExperimentsForVariables(
+      variableAccess?.fmiLsExperiments,
+      twinEditableVariableNames,
+      twinScheduledRuntimeVariables,
+    ),
+    [twinEditableVariableNames, twinScheduledRuntimeVariables, variableAccess?.fmiLsExperiments],
   )
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
@@ -487,7 +491,18 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
         ? inputEvents
         : requestedInputEvents
-      const inputSchedule = supportsInputSchedule
+      const selectedExperiment = twinFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+      const experimentSchedule = supportsInputSchedule
+        ? normalizeInputSchedule(
+          inputScheduleToEvents(selectedExperiment?.inputSchedule),
+          scheduledRuntimeVariables,
+          accessibleModelVariables,
+          resolvedActiveOptions.startTime,
+          resolvedActiveOptions.stopTime,
+          resolvedActiveOptions.stepSize,
+        )
+        : []
+      const userSchedule = supportsInputSchedule
         ? normalizeInputSchedule(
           activeInputEvents,
           scheduledRuntimeVariables,
@@ -497,6 +512,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           resolvedActiveOptions.stepSize,
         )
         : []
+      const inputSchedule = mergeInputSchedules(experimentSchedule, userSchedule)
 
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
@@ -596,7 +612,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, solver, supportsInputSchedule, twinFmiLsExperiments, twinSimulationType, variableAccess, variableAccessState])
 
   const handleRun = useCallback((scheduledEvents) => {
     if (twinAsset?.type === 'glb' && executionMode !== 'batch') {

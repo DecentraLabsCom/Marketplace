@@ -350,3 +350,32 @@ export function normalizeInputSchedule(events, scheduledVariables, modelVariable
 
   return [...groupedEvents.values()].sort((left, right) => left.time - right.time)
 }
+
+/** Combine a model-declared experiment stimulus with user-entered changes; user changes win on collisions. */
+export function mergeInputSchedules(baseSchedule = [], overrideSchedule = []) {
+  const merged = new Map()
+  for (const schedule of [baseSchedule, overrideSchedule]) {
+    for (const event of schedule) {
+      const time = Number(event?.time)
+      if (!Number.isFinite(time) || !event?.values || typeof event.values !== 'object' || Array.isArray(event.values)) {
+        throw new Error('The selected experiment contains an invalid input schedule.')
+      }
+      const key = String(time)
+      const current = merged.get(key) || { time, values: {} }
+      Object.assign(current.values, event.values)
+      merged.set(key, current)
+    }
+  }
+  const result = [...merged.values()].sort((left, right) => left.time - right.time)
+  if (result.length > 128) throw new Error('An experiment and its scheduled changes can contain at most 128 time points.')
+  return result
+}
+
+export function inputScheduleToEvents(schedule) {
+  if (!Array.isArray(schedule)) return []
+  return schedule.flatMap((event) => (
+    event?.values && typeof event.values === 'object' && !Array.isArray(event.values)
+      ? Object.entries(event.values).map(([variable, value]) => ({ time: event.time, variable, value }))
+      : []
+  ))
+}

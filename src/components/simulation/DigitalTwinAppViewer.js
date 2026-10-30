@@ -6,7 +6,7 @@ import Modal from '@/components/ui/Modal'
 import InputScheduleDialog from './InputScheduleDialog'
 import PlaybackRateControl from './PlaybackRateControl'
 import FmiLsResourceSelect from './FmiLsResourceSelect'
-import { normalizeInputSchedule } from './simulationParameters'
+import { inputScheduleToEvents, mergeInputSchedules, normalizeInputSchedule } from './simulationParameters'
 import FmiLsStructMapPanel from './FmiLsStructMapPanel'
 import { getFmiLsStructMapSeries } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
@@ -103,14 +103,25 @@ export default function DigitalTwinAppViewer({
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
   let scheduleError = ''
   try {
-    if (enableInputSchedule && scheduledInputEvents.length) normalizeInputSchedule(
-      scheduledInputEvents,
-      scheduledVariables,
-      modelVariables,
-      selectedFmiLsExperiment?.options.startTime ?? startTime,
-      selectedFmiLsExperiment?.options.stopTime ?? stopTime,
-      selectedFmiLsExperiment?.options.stepSize ?? stepSize,
-    )
+    if (enableInputSchedule) {
+      const experimentSchedule = normalizeInputSchedule(
+        inputScheduleToEvents(selectedFmiLsExperiment?.inputSchedule),
+        scheduledVariables,
+        modelVariables,
+        selectedFmiLsExperiment?.options.startTime ?? startTime,
+        selectedFmiLsExperiment?.options.stopTime ?? stopTime,
+        selectedFmiLsExperiment?.options.stepSize ?? stepSize,
+      )
+      const userSchedule = normalizeInputSchedule(
+        scheduledInputEvents,
+        scheduledVariables,
+        modelVariables,
+        selectedFmiLsExperiment?.options.startTime ?? startTime,
+        selectedFmiLsExperiment?.options.stopTime ?? stopTime,
+        selectedFmiLsExperiment?.options.stepSize ?? stepSize,
+      )
+      mergeInputSchedules(experimentSchedule, userSchedule)
+    }
   } catch (error) { scheduleError = error.message }
 
   useEffect(() => {
@@ -233,9 +244,13 @@ export default function DigitalTwinAppViewer({
         try {
           const runOptions = { ...(message.options || {}), ...(selectedFmiLsExperiment?.options || {}) }
           const interval = { startTime, stopTime, stepSize, ...runOptions }
-          const schedule = enableInputSchedule
+          const experimentSchedule = enableInputSchedule
+            ? normalizeInputSchedule(inputScheduleToEvents(selectedFmiLsExperiment?.inputSchedule), scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
+            : []
+          const userSchedule = enableInputSchedule
             ? normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
             : []
+          const schedule = mergeInputSchedules(experimentSchedule, userSchedule)
           const connection = await connectRef.current({ options: runOptions, signal: controller.signal })
           if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
         } catch {

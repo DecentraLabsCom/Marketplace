@@ -25,13 +25,13 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
     () => filterFmiLsParameterPresets(access?.fmiLsParameterPresets, editableVariables),
     [access?.fmiLsParameterPresets, editableVariables],
   )
-  const fmiLsExperiments = useMemo(
-    () => filterFmiLsExperimentsForVariables(access?.fmiLsExperiments, editableVariables),
-    [access?.fmiLsExperiments, editableVariables],
-  )
   const runtimeVariables = useMemo(
     () => getRuntimeWritableVariables(accessibleModelVariables, access),
     [accessibleModelVariables, access],
+  )
+  const fmiLsExperiments = useMemo(
+    () => filterFmiLsExperimentsForVariables(access?.fmiLsExperiments, editableVariables, runtimeVariables),
+    [access?.fmiLsExperiments, editableVariables, runtimeVariables],
   )
   const inputEvents = viewerProps.inputEvents ?? localInputEvents
   const onInputEventsChange = viewerProps.onInputEventsChange ?? setLocalInputEvents

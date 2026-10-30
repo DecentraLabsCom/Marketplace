@@ -116,13 +116,14 @@ export function isValidHostMessage(v) {
 }
 export function isValidFmiLsExperiment(v) {
   return isRecord(v)
-    && keys(v, ['id', 'name', 'description', 'parameters', 'options'])
+    && keys(v, ['id', 'name', 'description', 'parameters', 'options', 'inputSchedule'])
     && isValidProtocolId(v.id)
     && text(v.name, 180)
     && typeof v.description === 'string' && v.description.length <= 2048
     && isValidParameters(v.parameters)
     && isValidOptions(v.options)
-    && (Object.keys(v.parameters).length > 0 || Object.keys(v.options).length > 0)
+    && (v.inputSchedule === undefined || isValidInputSchedule(v.inputSchedule))
+    && (Object.keys(v.parameters).length > 0 || Object.keys(v.options).length > 0 || (v.inputSchedule?.length || 0) > 0)
 }
 export function createProtocolId(prefix = 'run') {
   return `${prefix}:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 14)}`}`

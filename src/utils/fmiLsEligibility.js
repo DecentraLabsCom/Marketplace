@@ -20,13 +20,27 @@ export function filterFmiLsParameterPresets(parameterPresets, editableVariablesO
 }
 
 /** Keep experiments only when every parameter they set is editable here. */
-export function filterFmiLsExperimentsForVariables(experiments, editableVariablesOrNames) {
+export function filterFmiLsExperimentsForVariables(experiments, editableVariablesOrNames, runtimeVariablesOrNames = []) {
   if (!Array.isArray(experiments)) return []
   const editableNames = variableNameSet(editableVariablesOrNames)
+  const runtimeNames = variableNameSet(runtimeVariablesOrNames)
   return experiments.filter((experiment) => (
     experiment && typeof experiment === 'object' && !Array.isArray(experiment)
     && experiment.parameters && typeof experiment.parameters === 'object' && !Array.isArray(experiment.parameters)
     && Object.keys(experiment.parameters).every((name) => editableNames.has(name))
+    && (experiment.inputSchedule === undefined || (
+      Array.isArray(experiment.inputSchedule)
+      && experiment.inputSchedule.length > 0
+      && experiment.inputSchedule.every((event) => (
+        event && typeof event === 'object' && !Array.isArray(event)
+        && Number.isFinite(event.time)
+        && event.values && typeof event.values === 'object' && !Array.isArray(event.values)
+        && Object.keys(event.values).length > 0
+        && Object.entries(event.values).every(([name, value]) => (
+          runtimeNames.has(name) && typeof value === 'number' && Number.isFinite(value)
+        ))
+      ))
+    ))
   ))
 }
 

@@ -31,6 +31,7 @@ export interface FmiLsParameterPresetMessage extends ProtocolEnvelope<'decentral
 export interface FmiLsExperiment {
   id: string; name: string; description: string
   parameters: Record<string, DigitalTwinScalar>; options: RunOptions
+  inputSchedule?: InputEvent[]
 }
 export interface FmiLsExperimentMessage extends ProtocolEnvelope<'decentralabs:fmi-ls-experiment'> {
   experiment: FmiLsExperiment | null
