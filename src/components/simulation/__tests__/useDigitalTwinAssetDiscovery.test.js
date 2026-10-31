@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import useDigitalTwinAssetDiscovery from '../useDigitalTwinAssetDiscovery'
+import useDigitalTwinAssetDiscovery from '../hooks/useDigitalTwinAssetDiscovery'
 
 describe('useDigitalTwinAssetDiscovery', () => {
   const originalFetch = global.fetch

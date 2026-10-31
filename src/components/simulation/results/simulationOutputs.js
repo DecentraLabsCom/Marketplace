@@ -1,4 +1,4 @@
-import { getVariableValueCount, toVariableDisplayValue } from './simulationParameters'
+import { getVariableValueCount, toVariableDisplayValue } from '../utils/simulationParameters'
 
 const NUMERIC_OUTPUT_TYPES = new Set([
   'real',

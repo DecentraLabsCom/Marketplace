@@ -3,7 +3,7 @@ import {
   getFmiSceneInputValueFromPosition,
   isDraggableFmiSceneBinding,
   normalizeFmiSceneBinding,
-} from '../fmiSceneBindings'
+} from '../digital-twin/fmiSceneBindings'
 
 describe('fmiSceneBindings', () => {
   const inputVariable = {

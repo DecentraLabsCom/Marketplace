@@ -1,19 +1,19 @@
-import FmiLsStructMapPanel from './FmiLsStructMapPanel'
-import FmiLsResourceSelect from './FmiLsResourceSelect'
-import DigitalTwinSimulationForm from './DigitalTwinSimulationForm'
-import InputScheduleEditor from './InputScheduleEditor'
-import SimulationOptions from './SimulationOptions'
-import SimulationProgress from './SimulationProgress'
-import ResultsChart from './ResultsChart'
-import ResultsTable from './ResultsTable'
-import DownloadButtons from './DownloadButtons'
-import SimulationHistory from './SimulationHistory'
-import ParameterForm from './ParameterForm'
+import FmiLsStructMapPanel from './digital-twin/FmiLsStructMapPanel'
+import FmiLsResourceSelect from './controls/FmiLsResourceSelect'
+import DigitalTwinSimulationForm from './controls/DigitalTwinSimulationForm'
+import InputScheduleEditor from './controls/InputScheduleEditor'
+import SimulationOptions from './controls/SimulationOptions'
+import SimulationProgress from './results/SimulationProgress'
+import ResultsChart from './results/ResultsChart'
+import ResultsTable from './results/ResultsTable'
+import DownloadButtons from './results/DownloadButtons'
+import SimulationHistory from './results/SimulationHistory'
+import ParameterForm from './controls/ParameterForm'
 import {
   DigitalTwinExecutionModeSelector,
   DigitalTwinExecutionSessionActions,
-} from './DigitalTwinExecutionControls'
-import { SIM_STATE } from './useSimulationExecution'
+} from './controls/DigitalTwinExecutionControls'
+import { SIM_STATE } from './hooks/useSimulationExecution'
 
 export function GlbSimulationPanel({ lab, model, resources, simulation, configuration, interactive, proxy }) {
   const { fmiVersion, simulationTypeLabel, fmiLsStruct } = model

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import devLog from '@/utils/dev/logger'
-import { resolveDigitalTwinAsset, resolveGatewayOrigin } from './digitalTwinAssets'
+import { resolveDigitalTwinAsset, resolveGatewayOrigin } from '../digital-twin/digitalTwinAssets'
 
 export default function useDigitalTwinAssetDiscovery({ labId, accessUri }) {
   const [asset, setAsset] = useState(null)

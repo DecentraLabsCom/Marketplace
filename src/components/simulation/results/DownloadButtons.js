@@ -2,7 +2,7 @@
 import React, { useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { normalizeSimulationOutputs } from './simulationOutputs'
-import { getVariableDisplayName, getVariableDisplayUnit } from './simulationParameters'
+import { getVariableDisplayName, getVariableDisplayUnit } from '../utils/simulationParameters'
 
 /**
  * DownloadButtons — export simulation results as CSV or JSON.

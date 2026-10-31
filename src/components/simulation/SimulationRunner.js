@@ -5,19 +5,19 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
-import { resolveInputSchedule } from './simulationParameters'
-import { getInitialSimulationOptions, getSimulationOptionsError } from './simulationTime'
-import useInteractiveTwinExecution from './useInteractiveTwinExecution'
-import useSimulationGatewaySession from './useSimulationGatewaySession'
-import useDigitalTwinAssetDiscovery from './useDigitalTwinAssetDiscovery'
+import { resolveInputSchedule } from './utils/simulationParameters'
+import { getInitialSimulationOptions, getSimulationOptionsError } from './utils/simulationTime'
+import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
+import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
+import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
 import { supportsFmiLsInteractiveModes } from '@/utils/fmiLsEligibility'
-import useSimulationModelResources from './useSimulationModelResources'
-import useSimulationExecution, { SIM_STATE } from './useSimulationExecution'
-import useProxyFmuDownload from './useProxyFmuDownload'
+import useSimulationModelResources from './hooks/useSimulationModelResources'
+import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecution'
+import useProxyFmuDownload from './hooks/useProxyFmuDownload'
 import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
 
-const DigitalTwinViewer = dynamic(() => import('./DigitalTwinViewer'), { ssr: false })
-const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
+const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
+const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
 
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)

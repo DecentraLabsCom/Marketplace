@@ -1,4 +1,4 @@
-import { getVariableInputDetails, normalizeParameterValue } from '../simulationParameters'
+import { getVariableInputDetails, normalizeParameterValue } from '../utils/simulationParameters'
 
 describe('integer simulation inputs', () => {
   const orderQuantity = { name: 'orderQuantity', type: 'Integer', min: '1', max: '6' }

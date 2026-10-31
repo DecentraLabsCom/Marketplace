@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
-import { resolveInputSchedule } from './simulationParameters'
+import { resolveInputSchedule } from '../utils/simulationParameters'
 import { DigitalTwinContinuousMetrics } from './DigitalTwinExecutionControls'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
 import InputScheduleDialog from './InputScheduleDialog'
 import SimulationOptions from './SimulationOptions'
-import { getSimulationOptionsError } from './simulationTime'
+import { getSimulationOptionsError } from '../utils/simulationTime'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 
 export default function DigitalTwinSimulationForm({

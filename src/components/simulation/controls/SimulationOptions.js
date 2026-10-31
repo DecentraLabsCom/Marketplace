@@ -1,7 +1,7 @@
 "use client";
 import React from 'react'
 import PropTypes from 'prop-types'
-import { getSimulationOptionsError } from './simulationTime'
+import { getSimulationOptionsError } from '../utils/simulationTime'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 /**

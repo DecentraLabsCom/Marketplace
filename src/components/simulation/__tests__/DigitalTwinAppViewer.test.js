@@ -1,6 +1,6 @@
 import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import DigitalTwinAppViewer from '../DigitalTwinAppViewer'
+import DigitalTwinAppViewer from '../digital-twin/DigitalTwinAppViewer'
 const connection = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions', labId: '42', reservationKey: 'res:1', sessionTicket: 'one-use-ticket', ticketExpiresAt: 4102444800 }
 function mount(onConnect, extra = {}, { announceReady = true } = {}) {
   render(<DigitalTwinAppViewer title="Provider app" appUrl="/apps/index.html" onConnect={onConnect} {...extra} />)

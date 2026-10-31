@@ -4,7 +4,7 @@
 
 import { clearRateLimitStoresForTests } from '@/utils/api/rateLimit'
 import { gatewayFetch, resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
-import { DIGITAL_TWIN_APP_ASSET_FILENAME } from '@/components/simulation/digitalTwinAppProtocol'
+import { DIGITAL_TWIN_APP_ASSET_FILENAME } from '@/components/simulation/digital-twin/digitalTwinAppProtocol'
 import { GET, HEAD } from '../[labId]/[digest]/[...assetPath]/route'
 
 jest.mock('@/utils/api/gatewayProxy', () => {

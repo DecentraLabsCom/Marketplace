@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
-import { resolveGatewayOrigin } from './digitalTwinAssets'
+import { resolveGatewayOrigin } from '../digital-twin/digitalTwinAssets'
 
 export default function useSimulationGatewaySession({ lab, reservationKey }) {
   const isSSO = useGetIsSSO()

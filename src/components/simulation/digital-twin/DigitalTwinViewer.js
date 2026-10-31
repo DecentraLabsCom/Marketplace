@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import { Activity, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
-import PlaybackRateControl from './PlaybackRateControl'
-import VariableDescriptionTooltip from './VariableDescriptionTooltip'
+import PlaybackRateControl from '../controls/PlaybackRateControl'
+import VariableDescriptionTooltip from '../controls/VariableDescriptionTooltip'
 import {
   getVariableDescription,
   getVariableDisplayName,
   getVariableDisplayUnit,
   getVariableEnumerationLabel,
   toVariableDisplayValue,
-} from './simulationParameters'
+} from '../utils/simulationParameters'
 
 const DigitalTwinCanvas = dynamic(() => import('./DigitalTwinCanvas'), {
   ssr: false,

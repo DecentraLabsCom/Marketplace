@@ -1,4 +1,4 @@
-import { createAxisDragContext, getAxisCoordinateFromRay } from '../fmiSceneInteraction'
+import { createAxisDragContext, getAxisCoordinateFromRay } from '../digital-twin/fmiSceneInteraction'
 
 describe('fmiSceneInteraction', () => {
   test('projects a pointer ray onto the configured local object axis', () => {

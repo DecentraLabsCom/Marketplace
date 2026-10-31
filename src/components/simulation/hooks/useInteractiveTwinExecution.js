@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
-import { normalizeSimulationParameters } from './simulationParameters'
-import { getSimulationOptionsError, normalizeSimulationTimeOptions } from './simulationTime'
+import { normalizeSimulationParameters } from '../utils/simulationParameters'
+import { getSimulationOptionsError, normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import {
   createInteractiveBatchController,
   getInteractiveBatchPlan,
   observeInteractiveBatch,
-} from './interactiveBatchController'
+} from '../utils/interactiveBatchController'
 import {
   getInputUpdateIntervalMs,
   getInputUpdateRetryDelayMs,

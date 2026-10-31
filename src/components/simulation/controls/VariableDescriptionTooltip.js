@@ -3,7 +3,7 @@
 import { cloneElement, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
-import { getVariableDescription } from './simulationParameters'
+import { getVariableDescription } from '../utils/simulationParameters'
 
 export default function VariableDescriptionTooltip({ name, description, align = 'right', portal = false, positionKey, children }) {
   const tooltipId = useId()

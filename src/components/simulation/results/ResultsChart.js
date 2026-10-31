@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { isChartableOutputSeries, normalizeSimulationOutputs } from './simulationOutputs'
-import { getVariableDisplayName, getVariableDisplayUnit } from './simulationParameters'
+import { getVariableDisplayName, getVariableDisplayUnit } from '../utils/simulationParameters'
 
 const TIME_KEY = '__time__'
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16']

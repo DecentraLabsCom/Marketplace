@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
-import { resolveGatewayFeatureError } from './gatewayErrors'
-import { normalizeSimulationParameters, resolveInputSchedule } from './simulationParameters'
-import { normalizeSimulationTimeOptions } from './simulationTime'
+import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
+import { normalizeSimulationParameters, resolveInputSchedule } from '../utils/simulationParameters'
+import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 
 export const SIM_STATE = {
   IDLE: 'idle',

@@ -1,4 +1,4 @@
-import { getFmiInitialValue, isFmiBindingVisible } from '../fmiBindingVisibility'
+import { getFmiInitialValue, isFmiBindingVisible } from '../digital-twin/fmiBindingVisibility'
 
 describe('isFmiBindingVisible', () => {
   test('uses boolean visibility when no numeric threshold is declared', () => {

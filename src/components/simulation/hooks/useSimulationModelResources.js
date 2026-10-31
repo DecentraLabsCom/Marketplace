@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { mergeAasSimulationVariables } from './aasSimulationVariables'
+import { mergeAasSimulationVariables } from '../utils/aasSimulationVariables'
 import {
   filterModelVariablesByAccess,
   getInitializationEditableVariables,
   getRuntimeWritableVariables,
-} from './simulationVariableAccess'
+} from '../utils/simulationVariableAccess'
 import {
   filterFmiLsExperimentsForVariables,
   filterFmiLsParameterPresets,

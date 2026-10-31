@@ -1,4 +1,4 @@
-import { resolveDigitalTwinAsset, resolveGatewayOrigin } from '../digitalTwinAssets'
+import { resolveDigitalTwinAsset, resolveGatewayOrigin } from '../digital-twin/digitalTwinAssets'
 
 const digest = 'a'.repeat(64)
 

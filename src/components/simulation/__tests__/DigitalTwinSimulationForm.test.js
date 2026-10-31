@@ -1,6 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import DigitalTwinSimulationForm from '../DigitalTwinSimulationForm'
+import DigitalTwinSimulationForm from '../controls/DigitalTwinSimulationForm'
 
 describe('DigitalTwinSimulationForm', () => {
   test('builds Smart Warehouse controls from FMI variables and runs with the declared simulation interval', () => {

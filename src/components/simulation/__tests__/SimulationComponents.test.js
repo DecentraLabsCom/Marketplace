@@ -67,7 +67,7 @@ jest.mock("@decentralabs/digital-twin-app-protocol/fmu-client", () => ({
 
 // â”€â”€â”€ ParameterForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-import ParameterForm from "../ParameterForm";
+import ParameterForm from "../controls/ParameterForm";
 
 describe("ParameterForm", () => {
   const variables = [
@@ -142,7 +142,7 @@ describe("ParameterForm", () => {
 
 // â”€â”€â”€ SimulationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-import SimulationOptions from "../SimulationOptions";
+import SimulationOptions from "../controls/SimulationOptions";
 
 describe("SimulationOptions", () => {
   test("renders start time, stop time, step size inputs", () => {
@@ -176,7 +176,7 @@ describe("SimulationOptions", () => {
 
 // â”€â”€â”€ ResultsTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-import ResultsTable from "../ResultsTable";
+import ResultsTable from "../results/ResultsTable";
 
 describe("ResultsTable", () => {
   test("renders column headers for each output variable", () => {
@@ -228,7 +228,7 @@ describe("ResultsTable", () => {
 
 // â”€â”€â”€ ResultsChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-import ResultsChart from "../ResultsChart";
+import ResultsChart from "../results/ResultsChart";
 
 describe("ResultsChart", () => {
   test("renders SVG with polylines for each output series", () => {
@@ -338,7 +338,7 @@ describe("ResultsChart", () => {
 
 // â”€â”€â”€ DownloadButtons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-import DownloadButtons from "../DownloadButtons";
+import DownloadButtons from "../results/DownloadButtons";
 
 describe("DownloadButtons", () => {
   // Mock URL.createObjectURL

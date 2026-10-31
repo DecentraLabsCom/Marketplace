@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { normalizeSimulationOutputs } from './simulationOutputs'
-import { getVariableDisplayName, getVariableDisplayUnit, getVariableEnumerationLabel } from './simulationParameters'
+import { getVariableDisplayName, getVariableDisplayUnit, getVariableEnumerationLabel } from '../utils/simulationParameters'
 
 /**
  * ResultsTable — scrollable data table showing time + output columns.

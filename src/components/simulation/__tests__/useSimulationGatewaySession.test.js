@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import useSimulationGatewaySession from '../useSimulationGatewaySession'
+import useSimulationGatewaySession from '../hooks/useSimulationGatewaySession'
 import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
 import { useGetIsSSO } from '@/utils/hooks/authMode'

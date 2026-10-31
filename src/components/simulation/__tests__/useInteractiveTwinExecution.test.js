@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
-import useInteractiveTwinExecution from '../useInteractiveTwinExecution'
+import useInteractiveTwinExecution from '../hooks/useInteractiveTwinExecution'
 
 jest.mock('@decentralabs/digital-twin-app-protocol/fmu-client', () => ({
   connectFmuSession: jest.fn(),

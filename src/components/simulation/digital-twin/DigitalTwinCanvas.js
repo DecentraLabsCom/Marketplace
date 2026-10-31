@@ -13,7 +13,7 @@ import {
   normalizeFmiSceneBinding,
 } from './fmiSceneBindings'
 import { createAxisDragContext, getAxisCoordinateFromRay } from './fmiSceneInteraction'
-import { getVariableDescription } from './simulationParameters'
+import { getVariableDescription } from '../utils/simulationParameters'
 import {
   applySceneMaterialRendering,
   applySceneObjectRendering,

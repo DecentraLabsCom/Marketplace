@@ -1,4 +1,4 @@
-import { getInitialSimulationOptions } from '../simulationTime'
+import { getInitialSimulationOptions } from '../utils/simulationTime'
 
 test('uses the Executor fallback values when the FMU declares no default experiment', () => {
   expect(getInitialSimulationOptions()).toEqual({

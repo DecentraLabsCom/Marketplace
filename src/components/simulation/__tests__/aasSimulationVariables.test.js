@@ -1,4 +1,4 @@
-import { mergeAasSimulationVariables } from '../aasSimulationVariables'
+import { mergeAasSimulationVariables } from '../utils/aasSimulationVariables'
 
 describe('mergeAasSimulationVariables', () => {
   test('uses matching AAS metadata for the GLB interface', () => {

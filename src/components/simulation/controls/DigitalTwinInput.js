@@ -12,7 +12,7 @@ import {
   getVariableEnumerationItems,
   getVariableValueCount,
   toVariableDisplayValue,
-} from './simulationParameters'
+} from '../utils/simulationParameters'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 const NUMERIC_TYPES = new Set([

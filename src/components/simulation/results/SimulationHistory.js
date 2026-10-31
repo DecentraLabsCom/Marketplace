@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
-import { resolveGatewayFeatureError } from './gatewayErrors'
+import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
 
 /**
  * SimulationHistory - shows a list of past simulation runs for a given lab.

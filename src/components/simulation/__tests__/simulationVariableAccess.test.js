@@ -3,7 +3,7 @@ import {
   filterModelVariablesByAccess,
   getInitializationEditableVariables,
   getRuntimeWritableInputVariables,
-} from '../simulationVariableAccess'
+} from '../utils/simulationVariableAccess'
 
 const variables = [
   { name: 'command', causality: 'input', start: 0 },

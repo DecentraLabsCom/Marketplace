@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import DigitalTwinInput from './DigitalTwinInput'
 import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
-import { fromVariableDisplayValue, getVariableValueCount, toVariableDisplayValue } from './simulationParameters'
+import { fromVariableDisplayValue, getVariableValueCount, toVariableDisplayValue } from '../utils/simulationParameters'
 
 function arrayValues(value) {
   if (Array.isArray(value)) return value.flat(Infinity)

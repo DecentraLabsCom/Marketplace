@@ -29,7 +29,7 @@ import {
 } from '@/utils/resourceType'
 import { formatPricePerUnit, getLabPricingUnit } from '@/utils/pricing/pricePresentation'
 import AasPanel from '@/components/lab/AasPanel'
-import FmiLsStructMapPanel from '@/components/simulation/FmiLsStructMapPanel'
+import FmiLsStructMapPanel from '@/components/simulation/digital-twin/FmiLsStructMapPanel'
 import { buildDemoAccessUrl, safeExternalHttpUrl } from '@/utils/security/safeUrl'
 import { getLabOperationalStatus, useLabOperationalStatuses } from '@/hooks/lab/useLabOperationalStatus'
 import LabStatusIndicator from '@/components/lab/LabStatusIndicator'

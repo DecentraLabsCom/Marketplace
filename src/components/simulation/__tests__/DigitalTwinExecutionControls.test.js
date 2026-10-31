@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import DigitalTwinExecutionControls from '../DigitalTwinExecutionControls'
+import DigitalTwinExecutionControls from '../controls/DigitalTwinExecutionControls'
 
 function makeProps(overrides = {}) {
   const onExecutionModeChange = jest.fn()

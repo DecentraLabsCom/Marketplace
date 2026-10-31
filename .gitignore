@@ -85,7 +85,7 @@ next-env.d.ts
 dev/
 TODO.md
 /docs/provider/local-glb-demo-previews.md
-/src/components/simulation/LocalGlbDemoPreview.js
+/src/components/simulation/digital-twin/LocalGlbDemoPreview.js
 
 # labs data
 data/

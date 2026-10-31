@@ -8,7 +8,7 @@ import {
   getVariableDisplayName,
   getVariableDisplayUnit,
   getVariableInputDetails,
-} from './simulationParameters'
+} from '../utils/simulationParameters'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
 
