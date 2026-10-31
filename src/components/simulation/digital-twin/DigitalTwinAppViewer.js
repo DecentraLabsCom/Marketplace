@@ -439,6 +439,37 @@ export default function DigitalTwinAppViewer({
                 <h2 className="text-sm font-semibold text-white">Digital twin controls</h2>
               </div>
               <div className="grid gap-3">
+                {hasFmuStateControl ? (
+                  <FmuStateCheckpointControls
+                    available
+                    layout="stacked"
+                    checkpoint={fmuStateCheckpoint}
+                    loaded={resumeFromFmuState}
+                    onSave={() => {
+                      if (capturingFmuState || execution.state !== 'completed') return
+                      setCapturingFmuState(true)
+                      setFmuStateError('')
+                      send(MESSAGE.FMU_STATE_CAPTURE)
+                    }}
+                    onLoad={handleLoadFmuState}
+                    onClear={() => {
+                      setFmuStateCheckpoint(null)
+                      setResumeFromFmuState(false)
+                      setFmuStateCaptureAvailable(false)
+                      send(MESSAGE.FMU_STATE_CONFIGURATION, {
+                        checkpoint: null,
+                        resume: false,
+                        captureOnCompletion: false,
+                      })
+                    }}
+                    saveAvailable={execution.state === 'completed' && fmuStateCaptureAvailable}
+                    clearAvailable={Boolean(fmuStateCheckpoint) || fmuStateCaptureAvailable}
+                    saving={capturingFmuState}
+                    busy={isRunning}
+                    error={fmuStateError}
+                  />
+                ) : null}
+
                 {hasSystemConfigurationControl ? (
                   <FmiLsResourceSelect
                     options={availableFmiLsParameterPresets}
@@ -504,37 +535,6 @@ export default function DigitalTwinAppViewer({
                     </span>
                     <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{fmiLsStructMapCount}</span>
                   </button>
-                ) : null}
-
-                {hasFmuStateControl ? (
-                  <FmuStateCheckpointControls
-                    available
-                    layout="stacked"
-                    checkpoint={fmuStateCheckpoint}
-                    loaded={resumeFromFmuState}
-                    onSave={() => {
-                      if (capturingFmuState || execution.state !== 'completed') return
-                      setCapturingFmuState(true)
-                      setFmuStateError('')
-                      send(MESSAGE.FMU_STATE_CAPTURE)
-                    }}
-                    onLoad={handleLoadFmuState}
-                    onClear={() => {
-                      setFmuStateCheckpoint(null)
-                      setResumeFromFmuState(false)
-                      setFmuStateCaptureAvailable(false)
-                      send(MESSAGE.FMU_STATE_CONFIGURATION, {
-                        checkpoint: null,
-                        resume: false,
-                        captureOnCompletion: false,
-                      })
-                    }}
-                    saveAvailable={execution.state === 'completed' && fmuStateCaptureAvailable}
-                    clearAvailable={Boolean(fmuStateCheckpoint) || fmuStateCaptureAvailable}
-                    saving={capturingFmuState}
-                    busy={isRunning}
-                    error={fmuStateError}
-                  />
                 ) : null}
 
                 {hasCancelControl ? (

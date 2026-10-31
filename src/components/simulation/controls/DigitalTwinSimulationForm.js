@@ -91,9 +91,9 @@ export default function DigitalTwinSimulationForm({
         aria-label="Simulation controls"
       >
         <div className="flex flex-wrap items-center gap-2">
+          {fmuStateControls}
           {configurationSelector}
           {executionModeControl}
-          {fmuStateControls}
           <button
             type="button"
             aria-haspopup="dialog"

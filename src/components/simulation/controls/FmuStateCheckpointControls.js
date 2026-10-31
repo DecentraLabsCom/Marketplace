@@ -78,7 +78,7 @@ export default function FmuStateCheckpointControls({
   return (
     <section className={sectionClass} aria-label="Lab state">
       <div className={controlsClass}>
-        <span className={`mr-1 font-semibold uppercase tracking-wide text-[#dce9e9] ${layout === 'stacked' ? 'self-center' : ''}`}>State</span>
+        <span className={`mr-1 font-semibold tracking-wide text-[#dce9e9] ${layout === 'stacked' ? 'self-center' : ''}`}>State</span>
         <div className={`flex items-center gap-2 ${layout === 'stacked' ? 'w-full flex-nowrap justify-center' : 'flex-wrap'}`}>
         <VariableDescriptionTooltip name="Save" description={saveDescription} portal>
           <button
