@@ -1,3 +1,7 @@
+import { omitParametersMatchingFmiStart } from '@decentralabs/digital-twin-app-protocol/parameter-defaults'
+
+export { omitParametersMatchingFmiStart }
+
 const NUMERIC_TYPES = new Set([
   'Real',
   'Float32',

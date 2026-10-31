@@ -1,5 +1,6 @@
 import { createProtocolId, isValidConnectionConfig, MAX_SAMPLE_BATCH_JSON_CHARS } from './index.js'
 import { getInputUpdateQuota, getInputUpdateRetryDelayMs } from './input-update-quota.js'
+import { omitParametersMatchingFmiStart } from './parameter-defaults.js'
 
 const failure = (message, code = 'FMU_CONNECTION_FAILED') => Object.assign(new Error(message), { code })
 
@@ -34,6 +35,7 @@ export async function connectFmuSession(connection, { signal, timeoutMs = 120_00
   const pending = new Map()
   let sessionId
   let capabilities = {}
+  let modelVariablesForStart = null
   let closed = false
   let openResolve
   let openReject
@@ -82,6 +84,28 @@ export async function connectFmuSession(connection, { signal, timeoutMs = 120_00
   })
 
   async function request(type, expected, payload = {}) {
+    const hasInitializationParameters = payload.parameters
+      && typeof payload.parameters === 'object' && !Array.isArray(payload.parameters)
+      && Object.keys(payload.parameters).length > 0
+    if (type === 'sim.initialize' && hasInitializationParameters && modelVariablesForStart === null) {
+      try {
+        await request('model.describe', 'model.description', { includeVariables: true })
+      } catch (error) {
+        if (closed || signal?.aborted) throw error
+      }
+    }
+
+    let requestPayload = payload
+    if (type === 'model.describe') {
+      requestPayload = { ...payload, includeVariables: true }
+    } else if (type === 'sim.initialize' && payload.parameters
+      && typeof payload.parameters === 'object' && !Array.isArray(payload.parameters)) {
+      requestPayload = {
+        ...payload,
+        parameters: omitParametersMatchingFmiStart(payload.parameters, modelVariablesForStart || []),
+      }
+    }
+
     const hasInputUpdates = type === 'sim.setInputs'
       ? Boolean(payload.values && Object.keys(payload.values).length)
       : type === 'sim.advance' && (
@@ -94,16 +118,20 @@ export async function connectFmuSession(connection, { signal, timeoutMs = 120_00
       signal?.throwIfAborted()
       const requestId = createProtocolId('rpc')
       try {
-        return await new Promise((resolve, reject) => {
+        const response = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             pending.delete(requestId)
             reject(failure('The FMU operation timed out.', 'FMU_REQUEST_TIMEOUT'))
             close()
           }, timeoutMs)
           pending.set(requestId, { resolve, reject, timeout, expected })
-          try { socket.send(JSON.stringify({ ...payload, type, requestId, ...(sessionId ? { sessionId } : {}) })) }
+          try { socket.send(JSON.stringify({ ...requestPayload, type, requestId, ...(sessionId ? { sessionId } : {}) })) }
           catch (error) { close(error) }
         })
+        if (type === 'model.describe') {
+          modelVariablesForStart = Array.isArray(response.modelVariables) ? response.modelVariables : []
+        }
+        return response
       } catch (error) {
         if (!hasInputUpdates) throw error
         const retryAfterMs = getInputUpdateRetryDelayMs(error, capabilities)

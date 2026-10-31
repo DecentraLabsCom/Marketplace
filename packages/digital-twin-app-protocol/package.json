@@ -17,6 +17,11 @@
       "import": "./client.js",
       "default": "./client.js"
     },
+    "./parameter-defaults": {
+      "types": "./parameter-defaults.d.ts",
+      "import": "./parameter-defaults.js",
+      "default": "./parameter-defaults.js"
+    },
     "./batch-controller": {
       "types": "./batch-controller.d.ts",
       "import": "./batch-controller.js",
@@ -45,6 +50,8 @@
     "index.d.ts",
     "client.js",
     "client.d.ts",
+    "parameter-defaults.js",
+    "parameter-defaults.d.ts",
     "batch-controller.js",
     "batch-controller.d.ts",
     "input-update-quota.js",

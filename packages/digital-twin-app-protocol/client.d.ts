@@ -45,7 +45,7 @@ export interface DigitalTwinAppClient {
     inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
     inputControllerInterval?: number; inputControllerTimes?: number[]
     batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
-    advanceOptions?: FmuAdvanceOptions; includeModelVariables?: boolean
+    advanceOptions?: FmuAdvanceOptions
     validateModel?: (model: Record<string, unknown>) => boolean | void | Promise<boolean | void>
     parametersFromModel?: (model: Record<string, unknown>) => Record<string, number | boolean | string> | Promise<Record<string, number | boolean | string>>
   }): Promise<{ runId: string }>

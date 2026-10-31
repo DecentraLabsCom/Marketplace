@@ -414,7 +414,7 @@ export function createDigitalTwinAppClient({
   async function run({
     parameters = {}, options = {}, inputSchedule, composeInputSchedule, inputController, batchPolicy = 'fixed',
     maxBatchSamples = MAX_SAMPLES_PER_BATCH, adaptiveBatchOptions = {}, advanceOptions = {},
-    includeModelVariables = false, validateModel, parametersFromModel,
+    validateModel, parametersFromModel,
     inputControllerInterval, inputControllerTimes = [],
   } = {}) {
     if (disposed || active) throw errorWithCode('The app cannot start another FMU run.', 'RUN_UNAVAILABLE')
@@ -436,8 +436,7 @@ export function createDigitalTwinAppClient({
     if ((inputControllerInterval !== undefined || inputControllerTimes.length) && !inputController) {
       throw errorWithCode('Input controller timing requires an input controller.', 'INVALID_INPUT')
     }
-    if (typeof includeModelVariables !== 'boolean'
-      || (validateModel !== undefined && typeof validateModel !== 'function')
+    if ((validateModel !== undefined && typeof validateModel !== 'function')
       || (parametersFromModel !== undefined && typeof parametersFromModel !== 'function')) {
       throw errorWithCode('Invalid model validation options.', 'INVALID_INPUT')
     }
@@ -461,7 +460,7 @@ export function createDigitalTwinAppClient({
         ...advanceOptions,
         ...(advanceOptions.outputVariables ? { outputVariables: [...advanceOptions.outputVariables] } : {}),
       },
-      includeModelVariables, validateModel, parametersFromModel,
+      validateModel, parametersFromModel,
       batchPolicy, maxBatchSamples, adaptiveBatchOptions,
       lastSampleSequence: null, lastInputUpdateAt: null,
     }
@@ -479,7 +478,7 @@ export function createDigitalTwinAppClient({
       }
       const outputHz = current.session.capabilities.maxOutputHz
       current.outputIntervalMs = Number.isFinite(outputHz) && outputHz >= 1 && outputHz <= 1000 ? 1000 / outputHz : 0
-      const model = await current.session.request('model.describe', 'model.description', { includeVariables: includeModelVariables })
+      const model = await current.session.request('model.describe', 'model.description', { includeVariables: true })
       if (validateModel) {
         const validModel = await validateModel(model)
         if (validModel === false) throw errorWithCode('The connected FMU does not match this application.', 'FMU_MODEL_MISMATCH')

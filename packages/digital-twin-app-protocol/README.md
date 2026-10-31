@@ -15,8 +15,8 @@ one-use connection grant and optional visualization controls.
 * `/schema-v2`: the JSON Schema for the host messages.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
-`index.js`, `fmu-client.js`, `batch-controller.js`, `input-update-quota.js` and
-`client.js` into a static ZIP's `sdk/` directory.
+`index.js`, `fmu-client.js`, `parameter-defaults.js`, `batch-controller.js`,
+`input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory.
 The package does not register modules or impose an SDK requirement on providers.
 
 ```js
@@ -56,19 +56,21 @@ session operations without the host client:
 ```js
 import { connectFmuSession } from './sdk/fmu-client.js'
 const session = await connectFmuSession(grant, { signal })
-const model = await session.request('model.describe', 'model.description', { includeVariables: false })
+const model = await session.request('model.describe', 'model.description', { includeVariables: true })
 await session.request('sim.initialize', 'sim.state', { parameters, options })
 const batch = await session.request('sim.advance', 'sim.samples', { targetTime: 60, maxSamples: 256 })
 session.close()
 ```
 
 To configure a UI before running a simulation, an authorized direct session can
-request `model.describe` with `{ includeVariables: true }` immediately after
-connection, without `sim.initialize` or `sim.advance`; `session.capabilities`
-contains the negotiated runtime features. Close the session when finished and
-obtain a fresh one-use grant for a later session. Refresh the description when
-the model, session or effective access policy changes; descriptors are filtered
-by the Gateway and do not themselves prove write permission.
+request `model.describe` immediately after connection, without `sim.initialize`
+or `sim.advance`; `session.capabilities` contains the negotiated runtime
+features. A direct `sim.initialize` with parameters automatically fetches the
+descriptors first if the app has not requested them. Close the session when
+finished and obtain a fresh one-use grant for a later session. Refresh the
+description when the model, session or effective access policy changes;
+descriptors are filtered by the Gateway and do not themselves prove write
+permission.
 
 The current Gateway session runtime executes FMI 2/3 Co-Simulation. The
 convenience runner requires FMU Executor 0.3.2 or newer and its advertised
@@ -87,14 +89,16 @@ the abort signal and settle so asynchronous result finalization can complete.
 If both `onSamples` and `onSample` are supplied, only `onSamples` receives
 samples, including the initial sample; otherwise `onSample` receives each one.
 
-Set `includeModelVariables: true` to request the authorized variable descriptors
-before initialization. The optional `validateModel(model)` callback can reject
-an incompatible model by returning `false`; `parametersFromModel(model)` can
-derive initialization values, with explicit `parameters` taking precedence.
-The Gateway filters the descriptors according to the effective access policy.
-A visible descriptor may be readable or writable, so its presence alone does not
-establish permission to write: the Gateway remains the authority and can reject
-an initialization or runtime write with `VARIABLE_ACCESS_DENIED`.
+Before initialization, the SDK requests the authorized variable descriptors and
+omits any supplied value that exactly matches that variable's declared FMI
+`start`. Descriptors without a visible `start` remain untouched. The optional
+`validateModel(model)` callback can reject an incompatible model by returning
+`false`; `parametersFromModel(model)` can derive initialization values, with
+explicit `parameters` taking precedence. The Gateway filters descriptors
+according to the effective access policy. A visible descriptor may be readable
+or writable, so its presence alone does not establish permission to write: the
+Gateway remains the authority and can reject an initialization or runtime write
+with `VARIABLE_ACCESS_DENIED`.
 
 `run()` keeps the provider app's existing fixed batch behavior by default: up to
 256 samples per response, or one sample when `inputController` performs

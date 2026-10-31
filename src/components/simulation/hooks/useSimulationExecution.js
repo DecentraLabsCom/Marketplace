@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
 import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
-import { normalizeSimulationParameters, resolveInputSchedule } from '../utils/simulationParameters'
+import {
+  normalizeSimulationParameters,
+  omitParametersMatchingFmiStart,
+  resolveInputSchedule,
+} from '../utils/simulationParameters'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 
 export const SIM_STATE = {
@@ -203,7 +207,10 @@ export default function useSimulationExecution({
       const initializationValues = Object.fromEntries(Object.entries(activeParameters).filter(([name, value]) => (
         writableInitializationNames.has(name) && value !== '' && value !== null && value !== undefined
       )))
-      const normalizedParameters = normalizeSimulationParameters(initializationValues, accessibleModelVariables)
+      const normalizedParameters = omitParametersMatchingFmiStart(
+        normalizeSimulationParameters(initializationValues, accessibleModelVariables),
+        accessibleModelVariables,
+      )
       const body = {
         labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey,
