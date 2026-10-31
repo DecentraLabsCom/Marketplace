@@ -67,6 +67,18 @@ export function formatParameterValue(value) {
   return value ?? ''
 }
 
+export function getLeastSignificantDigitStep(value) {
+  const text = String(value ?? '').trim().toLowerCase()
+  const [mantissa, exponentText] = text.split('e')
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(mantissa)) return 1
+
+  const exponent = exponentText === undefined ? 0 : Number(exponentText)
+  if (!Number.isFinite(exponent)) return 1
+  const fractionalDigits = mantissa.split('.')[1]?.length || 0
+  const step = 10 ** (exponent - fractionalDigits)
+  return Number.isFinite(step) && step > 0 ? step : 1
+}
+
 export function getVariableDescription(variable) {
   const description = typeof variable?.description === 'string' ? variable.description.trim() : ''
   return description && description !== variable?.name ? description : ''

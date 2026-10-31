@@ -316,7 +316,7 @@ export default function DigitalTwinViewer({
               className="pointer-events-none absolute inset-y-3 right-3 z-20 flex w-56 max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto"
             >
               <div className="pointer-events-auto flex w-[85%] shrink-0 self-end items-center justify-between rounded-lg border border-[#355158] bg-[#071014]/70 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9ab8bd] shadow-lg backdrop-blur">
-                <span>Live outputs</span>
+                <span>Outputs</span>
                 <span className="font-mono text-[#67d7cf]">{pinnedStats.length} pinned</span>
               </div>
               {pinnedStats.map(({ variable, value, description, displayName, displayUnit }) => (
@@ -429,7 +429,7 @@ export default function DigitalTwinViewer({
             <>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#829ba1]">
-                  Live outputs <span className="ml-1 font-mono text-[#b8d2d5]">{stats.length}</span>
+                  <span className="mr-1 font-mono text-[#b8d2d5]">{stats.length}</span>Outputs
                 </p>
                 <button
                   type="button"

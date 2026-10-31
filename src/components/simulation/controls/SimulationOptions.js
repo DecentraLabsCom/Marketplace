@@ -2,6 +2,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { getSimulationOptionsError } from '../utils/simulationTime'
+import { getLeastSignificantDigitStep } from '../utils/simulationParameters'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 /**
@@ -44,18 +45,13 @@ export default function SimulationOptions({
   const validationError = getSimulationOptionsError(options, { includeStepSize })
 
   function handleWheel(event, key) {
-    if (disabled || (readOnlyStartTime && key === 'startTime')
+    if (disabled || event.currentTarget !== document.activeElement || (readOnlyStartTime && key === 'startTime')
       || event.deltaY === 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
 
     const current = Number(options[key])
     if (!Number.isFinite(current)) return
 
-    const configuredStepSize = Number(options.stepSize)
-    const wheelStep = key === 'stepSize'
-      ? Math.max(Math.abs(current) * 0.1, 0.000001)
-      : Number.isFinite(configuredStepSize) && configuredStepSize > 0
-        ? configuredStepSize
-        : 1
+    const wheelStep = getLeastSignificantDigitStep(options[key])
     const direction = event.deltaY < 0 ? 1 : -1
     const next = Number((current + direction * wheelStep).toPrecision(12))
     const nextValue = key === 'stepSize' ? Math.max(next, 0.000000000001) : next
