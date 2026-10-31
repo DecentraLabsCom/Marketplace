@@ -22,6 +22,7 @@ export default function DigitalTwinSimulationForm({
   simulationType,
   executionMode = 'batch',
   executionModeControl = null,
+  fmuStateControls = null,
   configurationSelector = null,
   selectedExperiment = null,
   executionSessionControls = null,
@@ -88,6 +89,7 @@ export default function DigitalTwinSimulationForm({
         <div className="flex flex-wrap items-center gap-2">
           {configurationSelector}
           {executionModeControl}
+          {fmuStateControls}
           <button
             type="button"
             aria-haspopup="dialog"
@@ -203,6 +205,7 @@ DigitalTwinSimulationForm.propTypes = {
   simulationType: PropTypes.string,
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']),
   executionModeControl: PropTypes.node,
+  fmuStateControls: PropTypes.node,
   configurationSelector: PropTypes.node,
   selectedExperiment: PropTypes.object,
   executionSessionControls: PropTypes.node,

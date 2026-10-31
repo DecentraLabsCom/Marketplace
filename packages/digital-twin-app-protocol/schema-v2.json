@@ -37,6 +37,18 @@
       "$ref": "#/$defs/fmiLsExperimentSelection"
     },
     {
+      "$ref": "#/$defs/fmuStateConfiguration"
+    },
+    {
+      "$ref": "#/$defs/fmuStateCapture"
+    },
+    {
+      "$ref": "#/$defs/fmuStateSaved"
+    },
+    {
+      "$ref": "#/$defs/fmuStateError"
+    },
+    {
       "$ref": "#/$defs/modelChangeExtension"
     },
     {
@@ -484,6 +496,75 @@
             }
           ]
         }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateCheckpoint": {
+      "type": "object",
+      "required": ["format", "checkpointId", "scope", "createdAt", "expiresAt", "signature"],
+      "properties": {
+        "format": { "const": "decentralabs-fmi-state-v1" },
+        "checkpointId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "scope": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" },
+        "signature": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateCheckpointBundle": {
+      "type": "object",
+      "required": ["version", "simTime", "checkpoint"],
+      "properties": {
+        "version": { "const": 1 },
+        "simTime": { "type": "number" },
+        "checkpoint": { "$ref": "#/$defs/fmuStateCheckpoint" }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateConfiguration": {
+      "type": "object",
+      "required": ["type", "version", "checkpoint", "resume", "captureOnCompletion"],
+      "properties": {
+        "type": { "const": "decentralabs:fmu-state-configuration" },
+        "version": { "const": 2 },
+        "checkpoint": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/fmuStateCheckpointBundle" }
+          ]
+        },
+        "resume": { "type": "boolean" },
+        "captureOnCompletion": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateCapture": {
+      "type": "object",
+      "required": ["type", "version"],
+      "properties": {
+        "type": { "const": "decentralabs:fmu-state-capture" },
+        "version": { "const": 2 }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateSaved": {
+      "type": "object",
+      "required": ["type", "version", "bundle"],
+      "properties": {
+        "type": { "const": "decentralabs:fmu-state-saved" },
+        "version": { "const": 2 },
+        "bundle": { "$ref": "#/$defs/fmuStateCheckpointBundle" }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateError": {
+      "type": "object",
+      "required": ["type", "version", "code"],
+      "properties": {
+        "type": { "const": "decentralabs:fmu-state-error" },
+        "version": { "const": 2 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" }
       },
       "additionalProperties": false
     },

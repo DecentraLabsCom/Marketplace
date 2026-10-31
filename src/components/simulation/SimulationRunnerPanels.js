@@ -18,7 +18,7 @@ import { SIM_STATE } from './hooks/useSimulationExecution'
 export function GlbSimulationPanel({ lab, model, resources, simulation, configuration, interactive, proxy }) {
   const { fmiVersion, simulationTypeLabel, fmiLsStruct } = model
   const { modelVariables, structModelVariables = modelVariables, editableVariables, runtimeVariables } = resources
-  const { parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun } = simulation
+  const { parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, fmuStateControls } = simulation
   const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
   const selectedExperiment = experiments.find((experiment) => experiment.id === selectedExperimentId) || null
   const {
@@ -83,6 +83,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
           </>
         )}
         selectedExperiment={selectedExperiment}
+        fmuStateControls={fmuStateControls}
         executionMode={executionMode}
         continuousMetrics={execution.mode === 'continuous' && execution.hasActiveSession ? execution.batchMetrics : null}
         executionModeControl={supportedModes ? (
@@ -143,7 +144,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
 export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, model, resources, simulation, configuration, history, proxy }) {
   const { fmiLsStruct } = model
   const { modelVariables, editableVariables, runtimeVariables } = resources
-  const { state, results, errorMessage, progress, parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, solver, onSolverChange, optionsError, scheduleError, supportsInputSchedule } = simulation
+  const { state, results, errorMessage, progress, parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, solver, onSolverChange, optionsError, scheduleError, supportsInputSchedule, fmuStateControls } = simulation
   const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
 
   return (
@@ -177,6 +178,8 @@ export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, m
           onLoadResult={history.onLoadResult}
         />
       )}
+
+      {fmuStateControls}
 
       {editableVariables.length > 0 && (
         <FmiLsResourceSelect options={presets} selectedOptionId={selectedPresetId} onSelect={onPresetSelect} disabled={state === SIM_STATE.RUNNING} />

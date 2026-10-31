@@ -6,24 +6,28 @@ import Modal from '@/components/ui/Modal'
 import InputScheduleDialog from '../controls/InputScheduleDialog'
 import PlaybackRateControl from '../controls/PlaybackRateControl'
 import FmiLsResourceSelect from '../controls/FmiLsResourceSelect'
+import FmuStateCheckpointControls from '../controls/FmuStateCheckpointControls'
 import { resolveInputSchedule } from '../utils/simulationParameters'
 import FmiLsStructMapPanel from './FmiLsStructMapPanel'
 import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 import {
   DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidAppMessage,
-  isValidFmiLsExperiment, isValidHostMessage, makeProtocolMessage, isRecord,
+  isValidFmiLsExperiment, isValidFmuStateCheckpointBundle, isValidHostMessage, makeProtocolMessage, isRecord,
 } from './digitalTwinAppProtocol'
 
 const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
 const FMI_LS_PARAMETER_PRESETS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS
 const FMI_LS_EXPERIMENTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS
+const FMU_STATE_CHECKPOINTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECKPOINTS
 
 export default function DigitalTwinAppViewer({
   appUrl, title = 'Digital Twin', onConnect, modelVariables = [], fmiLsParameterPresets = [], fmiLsExperiments = [], enableInputSchedule = false,
   scheduleVariables,
   inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stopTime = 1, stepSize,
   fmiLsStruct,
+  fmuStateAvailable = false,
+  fmuStateScopeKey = '',
   onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
   const iframeRef = useRef(null)
@@ -51,6 +55,12 @@ export default function DigitalTwinAppViewer({
   const [execution, setExecution] = useState({ state: 'idle' })
   const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
   const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
+  const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
+  const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
+  const [captureFmuStateOnCompletion, setCaptureFmuStateOnCompletion] = useState(false)
+  const [capturingFmuState, setCapturingFmuState] = useState(false)
+  const [fmuStateError, setFmuStateError] = useState('')
+  const fmuStateScopeRef = useRef(fmuStateScopeKey)
   const parameterPresetsInitializedRef = useRef(false)
   const isRunning = execution.state === 'running'
   const activeRunId = execution.runId
@@ -95,12 +105,23 @@ export default function DigitalTwinAppViewer({
   const hasScheduleControl = appState === 'ready'
     && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
   const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapCount > 0
+  const hasFmuStateControl = appState === 'ready' && fmuStateAvailable
+    && appCapabilities.includes(FMU_STATE_CHECKPOINTS_CAPABILITY)
   const hasCancelControl = Boolean(isRunning && activeRunId
     && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
   const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl
-    || hasScheduleControl || hasFmiLsStructMapsControl || hasCancelControl
+    || hasScheduleControl || hasFmiLsStructMapsControl || hasCancelControl || hasFmuStateControl
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
+  useEffect(() => {
+    if (fmuStateScopeRef.current === fmuStateScopeKey) return
+    fmuStateScopeRef.current = fmuStateScopeKey
+    setFmuStateCheckpoint(null)
+    setResumeFromFmuState(false)
+    setCaptureFmuStateOnCompletion(false)
+    setCapturingFmuState(false)
+    setFmuStateError('')
+  }, [fmuStateScopeKey])
   let scheduleError = ''
   try {
     resolveInputSchedule({
@@ -144,6 +165,15 @@ export default function DigitalTwinAppViewer({
     if (appState !== 'ready' || !appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)) return
     send(MESSAGE.FMI_LS_EXPERIMENT, { experiment: selectedFmiLsExperiment || null })
   }, [appCapabilities, appState, selectedFmiLsExperiment])
+
+  useEffect(() => {
+    if (!hasFmuStateControl) return
+    send(MESSAGE.FMU_STATE_CONFIGURATION, {
+      checkpoint: fmuStateCheckpoint,
+      resume: Boolean(resumeFromFmuState && fmuStateCheckpoint),
+      captureOnCompletion: captureFmuStateOnCompletion,
+    })
+  }, [captureFmuStateOnCompletion, fmuStateCheckpoint, hasFmuStateControl, resumeFromFmuState])
 
   function send(type, payload = {}) {
     const message = makeProtocolMessage(type, payload)
@@ -220,6 +250,15 @@ export default function DigitalTwinAppViewer({
         setAppState('error')
       } else if (message.type === MESSAGE.EXECUTION_STATE && stateRef.current === 'ready') {
         setExecution({ state: message.state, runId: message.runId, options: message.options })
+      } else if (message.type === MESSAGE.FMU_STATE_SAVED && stateRef.current === 'ready'
+        && isValidFmuStateCheckpointBundle(message.bundle)) {
+        setFmuStateCheckpoint(message.bundle)
+        setResumeFromFmuState(false)
+        setCapturingFmuState(false)
+        setFmuStateError('')
+      } else if (message.type === MESSAGE.FMU_STATE_ERROR && stateRef.current === 'ready') {
+        setCapturingFmuState(false)
+        setFmuStateError('The FMU state could not be saved. Check the model and provider runtime.')
       } else if (message.type === MESSAGE.MODEL_CHANGE && stateRef.current === 'ready') {
         modelChangeRef.current?.(message.modelId)
       } else if (message.type === MESSAGE.CONNECTION_REQUEST && stateRef.current === 'ready') {
@@ -431,6 +470,31 @@ export default function DigitalTwinAppViewer({
                   </button>
                 ) : null}
 
+                {hasFmuStateControl ? (
+                  <FmuStateCheckpointControls
+                    available
+                    checkpoint={fmuStateCheckpoint}
+                    onCheckpointChange={(value) => {
+                      setFmuStateCheckpoint(value)
+                      if (!value) setResumeFromFmuState(false)
+                    }}
+                    captureOnCompletion={captureFmuStateOnCompletion}
+                    onCaptureOnCompletionChange={setCaptureFmuStateOnCompletion}
+                    resumeFromCheckpoint={resumeFromFmuState}
+                    onResumeFromCheckpointChange={setResumeFromFmuState}
+                    onCaptureNow={() => {
+                      if (capturingFmuState || !isRunning) return
+                      setCapturingFmuState(true)
+                      setFmuStateError('')
+                      send(MESSAGE.FMU_STATE_CAPTURE)
+                    }}
+                    captureNowAvailable={isRunning}
+                    captureNowBusy={capturingFmuState}
+                    busy={isRunning}
+                    error={fmuStateError}
+                  />
+                ) : null}
+
                 {hasCancelControl ? (
                   <button
                     type="button"
@@ -513,6 +577,7 @@ DigitalTwinAppViewer.propTypes = {
   modelVariables: PropTypes.array, fmiLsParameterPresets: PropTypes.array, fmiLsExperiments: PropTypes.array,
   enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
   fmiLsStruct: PropTypes.object,
+  fmuStateAvailable: PropTypes.bool, fmuStateScopeKey: PropTypes.string,
   inputValues: PropTypes.object,
   inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
   startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,

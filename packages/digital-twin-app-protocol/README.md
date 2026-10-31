@@ -49,6 +49,20 @@ experiment. An optional `onFmiLsExperiment(experiment)` callback lets an app
 also reflect the selection in its own controls; it receives `null` when
 cleared.
 
+The SDK also advertises `fmu-state-checkpoints`. When the authorized Gateway
+reports that the FMU supports both Get/Set and serialized state, the shared
+Digital Twin controls menu can save a final state, import/export a checkpoint,
+and resume the next SDK run from that time. A provider app can also use
+`run({ checkpoint, captureFmuStateOnComplete: true })`, receive the resulting
+bundle through `onFmuStateCheckpoint`, or call `captureState()` while a run is
+active. The direct session API exposes `session.captureState()` and
+`session.restoreState(checkpoint)` for apps that manage their own controls.
+Checkpoints are opaque, reservation-bound references to Executor-side state;
+they expire after 24 hours and can only be restored for the same FMU and
+execution platform. They are available only when the source FMU declares the
+FMI state and serialization capabilities and the Gateway runtime is configured
+to sign checkpoint references.
+
 For standalone use, supply a `getConnection({ options, signal })` callback
 returning a connection grant from your own authorized backend. For direct FMI
 session operations without the host client:

@@ -71,6 +71,8 @@ export default function useSimulationExecution({
   editableVariables,
   selectedFmiLsExperimentId,
   selectableFmiLsExperiments,
+  fmuStateCheckpoint,
+  setFmuStateCheckpoint,
   solver,
   twinSimulationType,
 }) {
@@ -142,7 +144,7 @@ export default function useSimulationExecution({
     setSimState(state)
   }, [setParameters])
 
-  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null) => {
+  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, stateOptions = {}) => {
     if (variableAccessState !== 'ready' || !variableAccess) {
       setErrorMsg('Variable access is not ready for this reservation.')
       setSimState(SIM_STATE.ERROR)
@@ -179,19 +181,35 @@ export default function useSimulationExecution({
         includeStepSize: !isScheduledExecution,
       })
       const resolvedActiveOptions = { ...activeOptions, ...normalizedTimeOptions }
+      const scheduleValidationOptions = { ...resolvedActiveOptions }
+      const checkpointBundle = stateOptions?.checkpoint || null
+      const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
+        && variableAccess?.fmuState?.serialize === true
+      if ((checkpointBundle || stateOptions?.captureFmuState) && !supportsFmuState) {
+        throw new Error('This FMU or provider runtime does not support serialized FMU states.')
+      }
+      if (checkpointBundle) {
+        if (!Number.isFinite(checkpointBundle.simTime) || checkpointBundle.simTime >= resolvedActiveOptions.stopTime) {
+          throw new Error('The saved FMU state must be earlier than the simulation stop time.')
+        }
+        resolvedActiveOptions.startTime = checkpointBundle.simTime
+      }
 
       const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
         ? inputEvents
         : requestedInputEvents
       const selectedExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
-      const inputSchedule = resolveInputSchedule({
+      const resolvedInputSchedule = resolveInputSchedule({
         experiment: selectedExperiment,
         inputEvents: activeInputEvents,
         scheduleVariables: scheduledRuntimeVariables,
         modelVariables: accessibleModelVariables,
-        options: resolvedActiveOptions,
+        options: scheduleValidationOptions,
         enabled: supportsInputSchedule,
       })
+      const inputSchedule = checkpointBundle
+        ? resolvedInputSchedule.filter((event) => event.time >= checkpointBundle.simTime - 1e-12)
+        : resolvedInputSchedule
 
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
@@ -207,16 +225,20 @@ export default function useSimulationExecution({
       const initializationValues = Object.fromEntries(Object.entries(activeParameters).filter(([name, value]) => (
         writableInitializationNames.has(name) && value !== '' && value !== null && value !== undefined
       )))
-      const normalizedParameters = omitParametersMatchingFmiStart(
-        normalizeSimulationParameters(initializationValues, accessibleModelVariables),
-        accessibleModelVariables,
-      )
+      const normalizedParameters = checkpointBundle
+        ? {}
+        : omitParametersMatchingFmiStart(
+          normalizeSimulationParameters(initializationValues, accessibleModelVariables),
+          accessibleModelVariables,
+        )
       const body = {
         labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey,
         parameters: normalizedParameters,
         options: reqOptions,
         ...(inputSchedule.length > 0 ? { inputSchedule } : {}),
+        ...(checkpointBundle ? { checkpoint: checkpointBundle.checkpoint } : {}),
+        ...(stateOptions?.captureFmuState ? { captureFmuState: true } : {}),
       }
 
       const response = await fetchGateway('/api/simulations/stream', {
@@ -254,10 +276,18 @@ export default function useSimulationExecution({
             setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
             break
           case 'completed':
+          case 'sim.done':
             finalMeta = event
+            if (event.checkpoint && Number.isFinite(event.time ?? event.simulationTime)) {
+              setFmuStateCheckpoint({
+                version: 1,
+                simTime: Number(event.time ?? event.simulationTime),
+                checkpoint: event.checkpoint,
+              })
+            }
             break
           case 'error':
-            throw new Error(event.detail || 'Simulation error')
+            throw new Error(event.detail || event.message || 'Simulation error')
           default:
             break
         }
@@ -268,7 +298,7 @@ export default function useSimulationExecution({
         time: accumulatedTime,
         outputs: accumulatedOutputs,
         outputVariables: finalMeta.outputVariables || Object.keys(accumulatedOutputs),
-        simulationTime: finalMeta.simulationTime,
+        simulationTime: finalMeta.simulationTime ?? finalMeta.time,
         fmiType: finalMeta.fmiType,
       })
       setSimState(SIM_STATE.COMPLETED)
@@ -288,7 +318,7 @@ export default function useSimulationExecution({
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setOptions, setParameters, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setFmuStateCheckpoint, setOptions, setParameters, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const loadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''

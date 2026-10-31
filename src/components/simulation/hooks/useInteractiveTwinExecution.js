@@ -99,6 +99,9 @@ export default function useInteractiveTwinExecution({
   variableAccess,
   variableAccessState,
   supported,
+  fmuStateSupported = false,
+  onFmuStateCheckpoint = () => {},
+  captureFmuStateOnCompletion = false,
   batchPolicy = 'adaptive',
   fixedBatchSamples = MAX_SAMPLES_PER_BATCH,
   onRunStart,
@@ -112,6 +115,7 @@ export default function useInteractiveTwinExecution({
   const [simulationTime, setSimulationTime] = useState(0)
   const [liveParameters, setLiveParameters] = useState({})
   const [batchMetrics, setBatchMetrics] = useState(null)
+  const [checkpointError, setCheckpointError] = useState('')
 
   const sessionRef = useRef(null)
   const controllerRef = useRef(null)
@@ -132,6 +136,7 @@ export default function useInteractiveTwinExecution({
   const pendingRuntimeInputChangedAtRef = useRef(null)
   const lastInputUpdateAtRef = useRef(null)
   const mountedRef = useRef(false)
+  const finishingRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
@@ -171,23 +176,38 @@ export default function useInteractiveTwinExecution({
     }
   }, [])
 
-  const finishSession = useCallback((nextState, message = null, controller = controllerRef.current) => {
-    if (!controller || controllerRef.current !== controller) return false
+  const finishSession = useCallback(async (nextState, message = null, controller = controllerRef.current, captureCheckpoint = false) => {
+    if (!controller || controllerRef.current !== controller || finishingRef.current) return false
+    finishingRef.current = true
 
     continuousRequestedRef.current = false
     endAfterAdvanceRef.current = false
     batchControllerRef.current = null
-    sessionRef.current?.close()
+    const session = sessionRef.current
+    if (captureCheckpoint && nextState === 'completed' && session?.capabilities?.fmuState?.serialize === true) {
+      try {
+        const result = await session.request('sim.captureFMUState', 'sim.fmuState')
+        const simTime = Number(result.simTime)
+        if (result.checkpoint && Number.isFinite(simTime)) {
+          onFmuStateCheckpoint({ version: 1, simTime, checkpoint: result.checkpoint })
+          if (mountedRef.current) setCheckpointError('')
+        }
+      } catch (error) {
+        if (mountedRef.current) setCheckpointError(error?.message || 'The FMU state could not be saved.')
+      }
+    }
+    session?.close()
     sessionRef.current = null
     controllerRef.current = null
     advanceInFlightRef.current = false
 
+    finishingRef.current = false
     if (!mountedRef.current) return true
     setMode(null)
     setStatus(nextState === 'completed' ? 'completed' : nextState === 'cancelled' ? 'cancelled' : 'error')
     onRunFinish({ state: nextState, message, parameters: liveParametersRef.current })
     return true
-  }, [onRunFinish])
+  }, [onFmuStateCheckpoint, onRunFinish])
 
   const advanceStep = useCallback(async ({ continuous = false } = {}) => {
     const session = sessionRef.current
@@ -260,7 +280,7 @@ export default function useInteractiveTwinExecution({
       const stepSize = Number(options.stepSize)
       const remainingTime = stopTime - currentTime
       if (!Number.isFinite(remainingTime) || remainingTime <= 1e-12) {
-        finishSession('completed')
+        await finishSession('completed', null, controller, captureFmuStateOnCompletion)
         return false
       }
 
@@ -383,11 +403,11 @@ export default function useInteractiveTwinExecution({
         }
 
         if (nextTime >= stopTime - 1e-12 || response.finished === true) {
-          finishSession('completed')
+          await finishSession('completed', null, controller, captureFmuStateOnCompletion)
           return false
         }
         if (endAfterAdvanceRef.current) {
-          finishSession('completed')
+          await finishSession('completed', null, controller, captureFmuStateOnCompletion)
           return false
         }
         return true
@@ -428,11 +448,11 @@ export default function useInteractiveTwinExecution({
 
       if (nextTime >= stopTime - 1e-12 || response.terminated === true
         || response.terminateSimulation === true || response.finished === true) {
-        finishSession('completed')
+        await finishSession('completed', null, controller, captureFmuStateOnCompletion)
         return false
       }
       if (endAfterAdvanceRef.current) {
-        finishSession('completed')
+        await finishSession('completed', null, controller, captureFmuStateOnCompletion)
         return false
       }
       if (mountedRef.current) setStatus('paused')
@@ -444,7 +464,7 @@ export default function useInteractiveTwinExecution({
     } finally {
       advanceInFlightRef.current = false
     }
-  }, [appendSamples, batchPolicy, finishSession, fixedBatchSamples, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
+  }, [appendSamples, batchPolicy, captureFmuStateOnCompletion, finishSession, fixedBatchSamples, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
 
   const startContinuous = useCallback(async () => {
     if (!sessionRef.current || continuousRequestedRef.current) return
@@ -476,10 +496,10 @@ export default function useInteractiveTwinExecution({
       if (mountedRef.current) setStatus('stopping')
       return
     }
-    finishSession('completed')
-  }, [finishSession])
+    void finishSession('completed', null, controllerRef.current, captureFmuStateOnCompletion)
+  }, [captureFmuStateOnCompletion, finishSession])
 
-  const start = useCallback(async (requestedMode) => {
+  const start = useCallback(async (requestedMode, stateOptions = {}) => {
     if (!supported) {
       onRunFinish({ state: 'error', message: 'Interactive execution is available for reserved FMI 2/3 Co-Simulation digital twins.' })
       return
@@ -488,12 +508,24 @@ export default function useInteractiveTwinExecution({
       onRunFinish({ state: 'error', message: 'Variable access is not ready for this reservation.' })
       return
     }
-    const optionsError = getSimulationOptionsError(options, { includeStepSize: true })
+    const checkpointBundle = stateOptions.checkpoint
+    const checkpointTime = Number(checkpointBundle?.simTime)
+    const activeOptions = normalizeSimulationTimeOptions(options, { includeStepSize: true })
+    if (checkpointBundle) activeOptions.startTime = checkpointTime
+    const optionsError = getSimulationOptionsError(activeOptions, { includeStepSize: true })
     if (optionsError) {
       onRunFinish({ state: 'error', message: optionsError })
       return
     }
     if (controllerRef.current) return
+    if ((checkpointBundle || stateOptions.captureFmuState) && !fmuStateSupported) {
+      onRunFinish({ state: 'error', message: 'This FMU or provider runtime does not support serialized FMU states.' })
+      return
+    }
+    if (checkpointBundle && (!Number.isFinite(checkpointTime) || checkpointTime >= activeOptions.stopTime)) {
+      onRunFinish({ state: 'error', message: 'The saved FMU state must be earlier than the simulation stop time.' })
+      return
+    }
 
     continuousRequestedRef.current = false
     endAfterAdvanceRef.current = false
@@ -520,8 +552,7 @@ export default function useInteractiveTwinExecution({
         editableVariables.some((variable) => variable.name === name)
         && value !== '' && value !== null && value !== undefined
       )))
-      const normalizedParameters = normalizeSimulationParameters(initialValues, modelVariables)
-      const activeOptions = normalizeSimulationTimeOptions(options, { includeStepSize: true })
+      const normalizedParameters = checkpointBundle ? {} : normalizeSimulationParameters(initialValues, modelVariables)
       const runtimeDisplayValues = { ...parameters }
       for (const variable of runtimeVariables) {
         if ((runtimeDisplayValues[variable.name] === undefined || runtimeDisplayValues[variable.name] === '') && variable.start !== undefined) {
@@ -537,6 +568,12 @@ export default function useInteractiveTwinExecution({
       appliedRuntimeParametersRef.current = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
         runtimeVariables.some((variable) => variable.name === name)
       )))
+      if (checkpointBundle) {
+        appliedRuntimeParametersRef.current = Object.fromEntries(runtimeVariables.flatMap((variable) => {
+          const value = runtimeDisplayValues[variable.name]
+          return value === undefined || value === '' || value === null ? [] : [[variable.name, value]]
+        }))
+      }
       if (!['adaptive', 'fixed'].includes(batchPolicy)) {
         throw new Error('The continuous batch policy is invalid.')
       }
@@ -570,6 +607,10 @@ export default function useInteractiveTwinExecution({
         throw new DOMException('The operation was aborted.', 'AbortError')
       }
       sessionRef.current = session
+      if ((checkpointBundle || stateOptions.captureFmuState)
+        && (session.capabilities?.fmuState?.getAndSet !== true || session.capabilities?.fmuState?.serialize !== true)) {
+        throw new Error('The provider runtime does not support serialized FMU states for this session.')
+      }
       if (requestedMode === 'continuous' && session.capabilities?.advanceSamples !== true) {
         throw new Error('The provider FMU runtime does not support batched simulation advances.')
       }
@@ -582,6 +623,7 @@ export default function useInteractiveTwinExecution({
       await session.request('sim.initialize', 'sim.state', {
         parameters: normalizedParameters,
         options: { ...activeOptions, timeMode: requestedMode === 'continuous' ? 'simtime' : 'external' },
+        ...(checkpointBundle ? { checkpoint: checkpointBundle.checkpoint } : {}),
       })
       ensureCurrentRun()
 
@@ -605,7 +647,24 @@ export default function useInteractiveTwinExecution({
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
     }
-  }, [appendSamples, batchPolicy, editableVariables, finishSession, fixedBatchSamples, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+  }, [appendSamples, batchPolicy, editableVariables, finishSession, fixedBatchSamples, fmuStateSupported, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+
+  const captureState = useCallback(async () => {
+    const session = sessionRef.current
+    if (!session || session.capabilities?.fmuState?.serialize !== true) return null
+    try {
+      const result = await session.request('sim.captureFMUState', 'sim.fmuState')
+      const simTime = Number(result.simTime)
+      if (!result.checkpoint || !Number.isFinite(simTime)) throw new Error('The provider returned an invalid FMU state checkpoint.')
+      const bundle = { version: 1, simTime, checkpoint: result.checkpoint }
+      onFmuStateCheckpoint(bundle)
+      if (mountedRef.current) setCheckpointError('')
+      return bundle
+    } catch (error) {
+      if (mountedRef.current) setCheckpointError(error?.message || 'The FMU state could not be saved.')
+      return null
+    }
+  }, [onFmuStateCheckpoint])
 
   const handleInputChange = useCallback((name, value) => {
     if (sessionRef.current) {
@@ -637,5 +696,7 @@ export default function useInteractiveTwinExecution({
     end,
     handleInputChange,
     reportDisplayedSample,
+    captureState,
+    checkpointError,
   }
 }

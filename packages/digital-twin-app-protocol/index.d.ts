@@ -11,6 +11,11 @@ export interface FmuConnectionConfig {
   protocolVersion: '1.0'; gatewayWsUrl: string; labId: string; reservationKey: string
   sessionTicket: string; ticketExpiresAt: number
 }
+export interface FmuStateCheckpoint {
+  format: 'decentralabs-fmi-state-v1'; checkpointId: string; scope: string
+  createdAt: number; expiresAt: number; signature: string
+}
+export interface FmuStateCheckpointBundle { version: 1; simTime: number; checkpoint: FmuStateCheckpoint }
 export interface ProtocolEnvelope<T extends string = string> { type: T; version: 2 }
 export interface AppReadyMessage extends ProtocolEnvelope<'decentralabs:digital-twin-ready'> {
   capabilities?: string[]; defaultPlaybackRate?: number
@@ -22,6 +27,8 @@ export interface ExecutionStateMessage extends ProtocolEnvelope<'decentralabs:ex
 export type AppToHostMessage = AppReadyMessage | ExecutionStateMessage | ProtocolEnvelope<'decentralabs:digital-twin-connect'>
   | (ProtocolEnvelope<'decentralabs:digital-twin-error'> & { code?: string })
   | (ProtocolEnvelope<'decentralabs:fmu-connection-request'> & { requestId: string; options?: RunOptions })
+  | (ProtocolEnvelope<'decentralabs:fmu-state-saved'> & { bundle: FmuStateCheckpointBundle })
+  | (ProtocolEnvelope<'decentralabs:fmu-state-error'> & { code: string })
   | (ProtocolEnvelope<'decentralabs:digital-twin-model-change'> & { modelId: string })
 export interface PlaybackControlMessage extends ProtocolEnvelope<'decentralabs:fmi-playback-control'> { rate: number; rateUnit: 'model-seconds-per-real-second' }
 export interface FmiLsParameterPreset {
@@ -39,6 +46,8 @@ export interface FmiLsExperimentMessage extends ProtocolEnvelope<'decentralabs:f
 export type HostToAppMessage = PlaybackControlMessage
   | FmiLsParameterPresetMessage
   | FmiLsExperimentMessage
+  | (ProtocolEnvelope<'decentralabs:fmu-state-configuration'> & { checkpoint: FmuStateCheckpointBundle | null; resume: boolean; captureOnCompletion: boolean })
+  | ProtocolEnvelope<'decentralabs:fmu-state-capture'>
   | (ProtocolEnvelope<'decentralabs:digital-twin-host-ready'> & { extensions?: Record<string, unknown> })
   | (ProtocolEnvelope<'decentralabs:fmu-connection-ready'> & { requestId: string; connection: FmuConnectionConfig; inputSchedule?: InputEvent[] })
   | (ProtocolEnvelope<'decentralabs:fmu-connection-error'> & { requestId: string; code: string })
@@ -46,8 +55,8 @@ export type HostToAppMessage = PlaybackControlMessage
 export type DigitalTwinProtocolMessage = AppToHostMessage | HostToAppMessage
 export declare const DIGITAL_TWIN_PROTOCOL_VERSION: 2
 export declare const DIGITAL_TWIN_APP_ASSET_FILENAME: 'index.js'
-export declare const DIGITAL_TWIN_MESSAGE: Readonly<Record<'HOST_READY' | 'APP_HELLO' | 'APP_READY' | 'APP_ERROR' | 'CONNECTION_REQUEST' | 'CONNECTION_READY' | 'CONNECTION_ERROR' | 'EXECUTION_STATE' | 'EXECUTION_CANCEL' | 'PLAYBACK_CONTROL' | 'FMI_LS_PARAMETER_PRESET' | 'FMI_LS_EXPERIMENT' | 'MODEL_CHANGE', DigitalTwinProtocolMessage['type']>>
-export declare const DIGITAL_TWIN_CAPABILITY: Readonly<{ PLAYBACK_RATE: 'playback-rate'; EXECUTION_CONTROL: 'execution-control'; FMI_LS_PARAMETER_PRESETS: 'fmi-ls-parameter-presets'; FMI_LS_EXPERIMENTS: 'fmi-ls-experiments' }>
+export declare const DIGITAL_TWIN_MESSAGE: Readonly<Record<'HOST_READY' | 'APP_HELLO' | 'APP_READY' | 'APP_ERROR' | 'CONNECTION_REQUEST' | 'CONNECTION_READY' | 'CONNECTION_ERROR' | 'EXECUTION_STATE' | 'EXECUTION_CANCEL' | 'PLAYBACK_CONTROL' | 'FMI_LS_PARAMETER_PRESET' | 'FMI_LS_EXPERIMENT' | 'FMU_STATE_CONFIGURATION' | 'FMU_STATE_CAPTURE' | 'FMU_STATE_SAVED' | 'FMU_STATE_ERROR' | 'MODEL_CHANGE', DigitalTwinProtocolMessage['type']>>
+export declare const DIGITAL_TWIN_CAPABILITY: Readonly<{ PLAYBACK_RATE: 'playback-rate'; EXECUTION_CONTROL: 'execution-control'; FMI_LS_PARAMETER_PRESETS: 'fmi-ls-parameter-presets'; FMI_LS_EXPERIMENTS: 'fmi-ls-experiments'; FMU_STATE_CHECKPOINTS: 'fmu-state-checkpoints' }>
 export declare const APP_TO_HOST_MESSAGE_TYPES: readonly AppToHostMessage['type'][]
 export declare const HOST_TO_APP_MESSAGE_TYPES: readonly HostToAppMessage['type'][]
 export declare const MAX_RUN_PARAMETERS: 256
@@ -65,6 +74,8 @@ export declare function isFiniteScalar(value: unknown): value is DigitalTwinScal
 export declare function isValidOptions(value: unknown): value is RunOptions
 export declare function isValidParameters(value: unknown): value is Record<string, DigitalTwinScalar>
 export declare function isValidInputSchedule(value: unknown): value is InputEvent[]
+export declare function isValidFmuStateCheckpoint(value: unknown): value is FmuStateCheckpoint
+export declare function isValidFmuStateCheckpointBundle(value: unknown): value is FmuStateCheckpointBundle
 export declare function isValidSample(value: unknown): value is DigitalTwinSample
 export declare function isValidConnectionConfig(value: unknown): value is FmuConnectionConfig
 export declare function isValidAppReadyMessage(value: unknown): value is AppReadyMessage

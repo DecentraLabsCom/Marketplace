@@ -2,6 +2,7 @@ import {
   createProtocolId, DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE,
   isHostMessageEvent, isValidOptions, isValidParameters,
   isValidSample, isRecord, postToHost, MAX_SAMPLES_PER_BATCH,
+  isValidFmuStateCheckpointBundle,
 } from './index.js'
 import { connectFmuSession } from './fmu-client.js'
 import {
@@ -90,6 +91,7 @@ const wait = (ms, signal) => new Promise((resolve, reject) => {
 export function createDigitalTwinAppClient({
   getConnection, onHostReady, onSample, onSamples, onReset, onSimulationState,
   onFmiLsParameterPreset, onFmiLsExperiment,
+  onFmuStateCheckpoint,
   onBatchRendered,
   onResultsComplete, onPlaybackRate, onRunAccepted, onRunRejected, onRunCancelled, onError,
   defaultPlaybackRate, playbackControlPosition, runRequestTimeoutMs = 30_000,
@@ -101,9 +103,13 @@ export function createDigitalTwinAppClient({
   let startupError
   let active = null
   let selectedFmiLsExperiment = null
+  let selectedFmuStateCheckpoint = null
+  let resumeFromFmuStateCheckpoint = false
+  let captureFmuStateOnCompletion = false
   const grants = new Map()
   const capabilities = [DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL]
   capabilities.push(DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS)
+  capabilities.push(DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECKPOINTS)
   if (typeof onPlaybackRate === 'function') capabilities.push(DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE)
   if (typeof onFmiLsParameterPreset === 'function') capabilities.push(DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS)
   const report = (error) => { try { onError?.(error) } catch { /* The app owns its error presentation. */ } }
@@ -155,6 +161,12 @@ export function createDigitalTwinAppClient({
           options: { ...selectedFmiLsExperiment.options },
         } : null)
       } catch (error) { report(error) }
+    } else if (message.type === MESSAGE.FMU_STATE_CONFIGURATION) {
+      selectedFmuStateCheckpoint = message.checkpoint
+      resumeFromFmuStateCheckpoint = message.resume
+      captureFmuStateOnCompletion = message.captureOnCompletion
+    } else if (message.type === MESSAGE.FMU_STATE_CAPTURE) {
+      void captureState().catch(report)
     } else if (message.type === MESSAGE.EXECUTION_CANCEL && active?.runId === message.runId) cancel(message.runId)
   }
   globalThis.window?.addEventListener('message', receive)
@@ -241,16 +253,38 @@ export function createDigitalTwinAppClient({
       }
     }
   }
+  function notifyCheckpoint(bundle) {
+    try { onFmuStateCheckpoint?.(bundle) } catch (error) { report(error) }
+    postToHost(MESSAGE.FMU_STATE_SAVED, { bundle })
+  }
+  async function captureState(run = active) {
+    if (!run?.session) throw errorWithCode('There is no active FMU session to capture.', 'RUN_UNAVAILABLE')
+    try {
+      const bundle = await run.session.captureState()
+      notifyCheckpoint(bundle)
+      return bundle
+    } catch (error) {
+      postToHost(MESSAGE.FMU_STATE_ERROR, { code: 'FMU_STATE_CAPTURE_FAILED' })
+      throw error
+    }
+  }
   async function finish(run, outcome, error) {
     if (run.finished) return
     run.finished = true
+    let checkpoint
+    if (outcome === 'completed' && run.captureFmuStateOnComplete) {
+      try { checkpoint = await captureState(run) } catch (captureError) {
+        outcome = 'error'
+        error = captureError
+      }
+    }
     run.session?.close()
     if (disposed) { if (active === run) active = null; return }
     if (error && outcome === 'error') report(error)
     state(run, outcome)
     if (outcome === 'cancelled') { try { onRunCancelled?.(run.runId) } catch (callbackError) { report(callbackError) } }
     try {
-      await onResultsComplete?.({ runId: run.runId, state: outcome, sampleCount: run.sampleCount }, { runId: run.runId, signal: run.controller.signal })
+      await onResultsComplete?.({ runId: run.runId, state: outcome, sampleCount: run.sampleCount, ...(checkpoint ? { checkpoint } : {}) }, { runId: run.runId, signal: run.controller.signal })
     } catch (callbackError) { report(callbackError) }
     finally { if (active === run) active = null }
   }
@@ -416,8 +450,18 @@ export function createDigitalTwinAppClient({
     maxBatchSamples = MAX_SAMPLES_PER_BATCH, adaptiveBatchOptions = {}, advanceOptions = {},
     validateModel, parametersFromModel,
     inputControllerInterval, inputControllerTimes = [],
+    checkpoint: requestedCheckpoint, captureFmuStateOnComplete: requestedCaptureOnComplete,
   } = {}) {
     if (disposed || active) throw errorWithCode('The app cannot start another FMU run.', 'RUN_UNAVAILABLE')
+    const checkpointBundle = requestedCheckpoint
+      || (resumeFromFmuStateCheckpoint ? selectedFmuStateCheckpoint : null)
+    if (checkpointBundle && !isValidFmuStateCheckpointBundle(checkpointBundle)) {
+      throw errorWithCode('The FMU state checkpoint is invalid.', 'INVALID_FMU_STATE_CHECKPOINT')
+    }
+    const shouldCaptureFmuState = requestedCaptureOnComplete ?? captureFmuStateOnCompletion
+    if (typeof shouldCaptureFmuState !== 'boolean') {
+      throw errorWithCode('captureFmuStateOnComplete must be a boolean.', 'INVALID_INPUT')
+    }
     parameters = selectedFmiLsExperiment
       ? { ...selectedFmiLsExperiment.parameters }
       : { ...parameters }
@@ -433,6 +477,9 @@ export function createDigitalTwinAppClient({
         || inputControllerTimes.some((time) => !Number.isFinite(time)))) {
       throw errorWithCode('inputControllerTimes must be a bounded list of finite simulation times.', 'INVALID_INPUT')
     }
+    const effectiveInputControllerTimes = checkpointBundle
+      ? inputControllerTimes.filter((time) => time >= checkpointBundle.simTime - 1e-12)
+      : inputControllerTimes
     if ((inputControllerInterval !== undefined || inputControllerTimes.length) && !inputController) {
       throw errorWithCode('Input controller timing requires an input controller.', 'INVALID_INPUT')
     }
@@ -454,13 +501,14 @@ export function createDigitalTwinAppClient({
     if (inputController && !inputControllerInterval && maxBatchSamples !== MAX_SAMPLES_PER_BATCH && maxBatchSamples !== 1) throw errorWithCode('maxBatchSamples must be 1 when using a per-sample input controller without an update interval.', 'INVALID_INPUT')
     const current = {
       runId: createProtocolId('run'), controller: new AbortController(), sampleCount: 0,
-      options, inputController, inputControllerInterval, inputControllerTimes: [...inputControllerTimes].sort((a, b) => a - b),
+      options, inputController, inputControllerInterval, inputControllerTimes: [...effectiveInputControllerTimes].sort((a, b) => a - b),
       inputControllerTimeIndex: 0,
       advanceOptions: {
         ...advanceOptions,
         ...(advanceOptions.outputVariables ? { outputVariables: [...advanceOptions.outputVariables] } : {}),
       },
       validateModel, parametersFromModel,
+      checkpointBundle, captureFmuStateOnComplete: shouldCaptureFmuState,
       batchPolicy, maxBatchSamples, adaptiveBatchOptions,
       lastSampleSequence: null, lastInputUpdateAt: null,
     }
@@ -469,6 +517,11 @@ export function createDigitalTwinAppClient({
       const grant = await requestConnection(options, current.controller.signal)
       current.controller.signal.throwIfAborted()
       current.session = await connectFmuSession(grant.connection, { signal: current.controller.signal })
+      if ((checkpointBundle || shouldCaptureFmuState)
+        && (current.session.capabilities.fmuState?.getAndSet !== true
+          || current.session.capabilities.fmuState?.serialize !== true)) {
+        throw errorWithCode('The provider FMU runtime does not support serialized FMU states.', 'UNSUPPORTED_FMU_STATE')
+      }
       if (current.session.capabilities.advanceSamples !== true) throw errorWithCode('The provider FMU runtime needs batched WebSocket support.', 'UNSUPPORTED_FMU_RUNTIME')
       if (batchPolicy === 'adaptive' && current.session.capabilities.advanceComputeBudget !== true) {
         throw errorWithCode('The provider FMU runtime needs compute-bounded advance support for adaptive batching.', 'UNSUPPORTED_ADAPTIVE_FMU_RUNTIME')
@@ -483,7 +536,7 @@ export function createDigitalTwinAppClient({
         const validModel = await validateModel(model)
         if (validModel === false) throw errorWithCode('The connected FMU does not match this application.', 'FMU_MODEL_MISMATCH')
       }
-      const modelParameters = parametersFromModel ? await parametersFromModel(model) : {}
+      const modelParameters = parametersFromModel && !checkpointBundle ? await parametersFromModel(model) : {}
       if (!isValidParameters(modelParameters)) throw errorWithCode('The FMU model produced invalid initialization parameters.', 'INVALID_INPUT')
       const runParameters = { ...modelParameters, ...parameters }
       if (!isValidParameters(runParameters)) throw errorWithCode('The FMU initialization parameters exceed the supported limits.', 'INVALID_INPUT')
@@ -492,6 +545,7 @@ export function createDigitalTwinAppClient({
         stopTime: options.stopTime ?? model.defaultStopTime ?? 1,
         stepSize: options.stepSize ?? model.defaultStepSize ?? 0.001,
       }
+      if (checkpointBundle) current.options.startTime = checkpointBundle.simTime
       const { startTime, stopTime, stepSize } = current.options
       if (!isValidOptions(current.options) || stopTime <= startTime || stepSize <= 0) throw errorWithCode('Invalid simulation interval.', 'INVALID_RUN_REQUEST')
       if (current.inputControllerTimes.some((time) => time < startTime || time > stopTime)) {
@@ -506,16 +560,24 @@ export function createDigitalTwinAppClient({
       // Keep provider-authorized FMI-LS experiments and Schedule changes when
       // an app also needs to add its own model-specific timing events.
       const providerSchedule = Array.isArray(grant.inputSchedule) ? grant.inputSchedule : []
-      const schedule = composeInputSchedule
+      const candidateSchedule = composeInputSchedule
         ? await composeInputSchedule([...providerSchedule])
         : inputSchedule ?? providerSchedule
+      if (!isValidRunInputSchedule(candidateSchedule)) throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
+      const schedule = checkpointBundle && Array.isArray(candidateSchedule)
+        ? candidateSchedule.filter((event) => event.time >= checkpointBundle.simTime - 1e-12)
+        : candidateSchedule
       if (!isValidRunInputSchedule(schedule) || schedule.some((event) => event.time < startTime || event.time > stopTime)) throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
       if (schedule.length && current.session.capabilities.advanceInputValues !== true) {
         throw errorWithCode('The provider FMU runtime cannot apply scheduled inputs during advance.', 'UNSUPPORTED_SCHEDULED_INPUTS')
       }
       current.scheduleQuota = schedule.length ? getInputUpdateQuota(current.session.capabilities) : null
       current.schedule = [...schedule].sort((a, b) => a.time - b.time)
-      await current.session.request('sim.initialize', 'sim.state', { parameters: runParameters, options: { ...current.options, timeMode: 'simtime' } })
+      await current.session.request('sim.initialize', 'sim.state', {
+        parameters: checkpointBundle ? {} : runParameters,
+        options: { ...current.options, timeMode: 'simtime' },
+        ...(checkpointBundle ? { checkpoint: checkpointBundle.checkpoint } : {}),
+      })
       onReset?.(current.runId)
       state(current, 'running')
       const initial = await operation(current, 'sim.getOutputs', 'sim.outputs', {
@@ -552,6 +614,7 @@ export function createDigitalTwinAppClient({
     reportReady() { sceneReady = true; sendReady(); return typeof getConnection === 'function' || readySent },
     reportError(code = 'APP_STARTUP_FAILED') { startupError = code; return hostReady && postToHost(MESSAGE.APP_ERROR, { code }) },
     run, cancel,
+    captureState,
     requestModelChange(modelId) { return !disposed && postToHost(MESSAGE.MODEL_CHANGE, { modelId }) },
     dispose() {
       disposed = true

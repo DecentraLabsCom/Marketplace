@@ -1,6 +1,6 @@
-import type { AppReadyMessage, DigitalTwinSample, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+import type { AppReadyMessage, DigitalTwinSample, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
-export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number }
+export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number; checkpoint?: FmuStateCheckpointBundle }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
 export interface AdaptiveBatchOptions {
   targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
@@ -29,6 +29,8 @@ export interface DigitalTwinAppClientOptions {
   onFmiLsParameterPreset?: (preset: FmiLsParameterPreset) => void
   /** Reflect the selected FMI-LS-REF experiment in app-owned controls. The SDK applies its parameters and options on run. */
   onFmiLsExperiment?: (experiment: FmiLsExperiment | null) => void
+  /** Receives a saved checkpoint. The SDK also relays it to the Marketplace host when embedded. */
+  onFmuStateCheckpoint?: (checkpoint: FmuStateCheckpointBundle) => void
   onRunAccepted?: (result: { runId: string }) => void
   onRunRejected?: (result: { code: string }) => void
   onRunCancelled?: (runId: string) => void
@@ -46,10 +48,16 @@ export interface DigitalTwinAppClient {
     inputControllerInterval?: number; inputControllerTimes?: number[]
     batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
     advanceOptions?: FmuAdvanceOptions
+    /** Resume from this checkpoint bundle or from the one selected by the host controls. */
+    checkpoint?: FmuStateCheckpointBundle
+    /** Capture and report the final remote FMU state when the run completes. */
+    captureFmuStateOnComplete?: boolean
     validateModel?: (model: Record<string, unknown>) => boolean | void | Promise<boolean | void>
     parametersFromModel?: (model: Record<string, unknown>) => Record<string, number | boolean | string> | Promise<Record<string, number | boolean | string>>
   }): Promise<{ runId: string }>
   cancel(runId?: string): boolean
+  /** Capture the active run's current state when the FMU runtime supports it. */
+  captureState(): Promise<FmuStateCheckpointBundle>
   requestModelChange(modelId: string): boolean
   dispose(): void
   readonly hostReady: boolean

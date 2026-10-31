@@ -90,6 +90,10 @@ export async function POST(request) {
     const simulationType = ['CoSimulation', 'ModelExchange', 'ScheduledExecution'].includes(access.simulationType)
       ? access.simulationType
       : undefined
+    const fmuState = access.fmuState && typeof access.fmuState === 'object' && !Array.isArray(access.fmuState)
+      && typeof access.fmuState.getAndSet === 'boolean' && typeof access.fmuState.serialize === 'boolean'
+      ? { getAndSet: access.fmuState.getAndSet, serialize: access.fmuState.serialize }
+      : undefined
     return NextResponse.json({
       policySource: typeof access.policySource === 'string' ? access.policySource : 'unavailable',
       policyVersion: typeof access.policyVersion === 'string' ? access.policyVersion : '',
@@ -98,6 +102,7 @@ export async function POST(request) {
       fmiLsExperiments,
       ...(fmiVersion ? { fmiVersion } : {}),
       ...(simulationType ? { simulationType } : {}),
+      ...(fmuState ? { fmuState } : {}),
       ...(fmiLsStruct ? { fmiLsStruct } : {}),
     }, { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } })
   } catch (error) {

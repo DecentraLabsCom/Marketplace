@@ -3,6 +3,27 @@ import { getInputUpdateQuota, getInputUpdateRetryDelayMs } from './input-update-
 import { omitParametersMatchingFmiStart } from './parameter-defaults.js'
 
 const failure = (message, code = 'FMU_CONNECTION_FAILED') => Object.assign(new Error(message), { code })
+const CHECKPOINT_FIELDS = ['format', 'checkpointId', 'scope', 'createdAt', 'expiresAt', 'signature']
+
+export function isValidFmuStateCheckpoint(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === CHECKPOINT_FIELDS.length
+    && Object.keys(value).every((key) => CHECKPOINT_FIELDS.includes(key))
+    && value.format === 'decentralabs-fmi-state-v1'
+    && typeof value.checkpointId === 'string' && /^[a-f\d]{32}$/.test(value.checkpointId)
+    && typeof value.scope === 'string' && /^[a-f\d]{64}$/.test(value.scope)
+    && Number.isFinite(value.createdAt) && Number.isFinite(value.expiresAt)
+    && value.expiresAt > value.createdAt && value.expiresAt > Date.now() / 1000
+    && typeof value.signature === 'string' && /^[a-f\d]{64}$/.test(value.signature)
+}
+
+export function isValidFmuStateCheckpointBundle(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).length !== 3 || !['version', 'simTime', 'checkpoint'].every((key) => key in value)
+    || value.version !== 1 || !Number.isFinite(value.simTime)
+    || !isValidFmuStateCheckpoint(value.checkpoint)) return false
+  try { return new TextEncoder().encode(JSON.stringify(value)).length <= 4096 } catch { return false }
+}
 
 function waitForRetry(delayMs, signal) {
   signal?.throwIfAborted()
@@ -151,10 +172,37 @@ export async function connectFmuSession(connection, { signal, timeoutMs = 120_00
     getInputUpdateQuota(created.capabilities || {})
     capabilities = created.capabilities || {}
     sessionId = created.sessionId
+    function requireFmuStateSupport() {
+      if (capabilities.fmuState?.getAndSet !== true || capabilities.fmuState?.serialize !== true) {
+        throw failure('The provider FMU runtime does not support serialized FMU states.', 'UNSUPPORTED_FMU_STATE')
+      }
+    }
+
+    async function captureState() {
+      requireFmuStateSupport()
+      const response = await request('sim.captureFMUState', 'sim.fmuState')
+      const bundle = { version: 1, simTime: Number(response.simTime), checkpoint: response.checkpoint }
+      if (!isValidFmuStateCheckpointBundle(bundle)) {
+        throw failure('The provider returned an invalid FMU state checkpoint.', 'INVALID_FMU_STATE_CHECKPOINT')
+      }
+      return bundle
+    }
+
+    async function restoreState(value) {
+      requireFmuStateSupport()
+      const checkpoint = isValidFmuStateCheckpointBundle(value) ? value.checkpoint : value
+      if (!isValidFmuStateCheckpoint(checkpoint)) {
+        throw failure('The FMU state checkpoint is invalid.', 'INVALID_FMU_STATE_CHECKPOINT')
+      }
+      return request('sim.restoreFMUState', 'sim.state', { checkpoint })
+    }
+
     return {
       sessionId,
       capabilities,
       request,
+      captureState,
+      restoreState,
       close() {
         if (!closed && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'session.terminate', requestId: createProtocolId('close'), sessionId }))
