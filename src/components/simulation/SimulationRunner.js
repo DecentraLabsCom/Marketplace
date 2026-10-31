@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
-import { normalizeInputSchedule } from './simulationParameters'
+import { resolveInputSchedule } from './simulationParameters'
 import { getInitialSimulationOptions, getSimulationOptionsError } from './simulationTime'
 import useInteractiveTwinExecution from './useInteractiveTwinExecution'
 import useSimulationGatewaySession from './useSimulationGatewaySession'
@@ -79,16 +79,22 @@ export default function SimulationRunner({ lab, reservationKey }) {
     twinFmiLsParameterPresets,
     twinFmiLsExperiments,
   } = modelResources
+  const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
+  const selectedFmiLsExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
   let inputScheduleError = ''
   const simulationOptionsError = getSimulationOptionsError(options, { includeStepSize: !isScheduledExecution })
-  if (supportsInputSchedule && inputEvents.length > 0 && !simulationOptionsError) {
-    try {
-      normalizeInputSchedule(inputEvents, scheduledRuntimeVariables, accessibleModelVariables, options.startTime, options.stopTime, options.stepSize)
-    } catch (error) {
-      inputScheduleError = error.message
-    }
+  try {
+    resolveInputSchedule({
+      experiment: selectedFmiLsExperiment,
+      inputEvents,
+      scheduleVariables: scheduledRuntimeVariables,
+      modelVariables: accessibleModelVariables,
+      options,
+      enabled: supportsInputSchedule && !simulationOptionsError,
+    })
+  } catch (error) {
+    inputScheduleError = error.message
   }
-  const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
   const execution = useSimulationExecution({
     lab,
     reservationKey,

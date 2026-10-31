@@ -6,7 +6,7 @@ import Modal from '@/components/ui/Modal'
 import InputScheduleDialog from './InputScheduleDialog'
 import PlaybackRateControl from './PlaybackRateControl'
 import FmiLsResourceSelect from './FmiLsResourceSelect'
-import { inputScheduleToEvents, mergeInputSchedules, normalizeInputSchedule } from './simulationParameters'
+import { resolveInputSchedule } from './simulationParameters'
 import FmiLsStructMapPanel from './FmiLsStructMapPanel'
 import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
@@ -103,25 +103,18 @@ export default function DigitalTwinAppViewer({
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
   let scheduleError = ''
   try {
-    if (enableInputSchedule) {
-      const experimentSchedule = normalizeInputSchedule(
-        inputScheduleToEvents(selectedFmiLsExperiment?.inputSchedule),
-        scheduledVariables,
-        modelVariables,
-        selectedFmiLsExperiment?.options.startTime ?? startTime,
-        selectedFmiLsExperiment?.options.stopTime ?? stopTime,
-        selectedFmiLsExperiment?.options.stepSize ?? stepSize,
-      )
-      const userSchedule = normalizeInputSchedule(
-        scheduledInputEvents,
-        scheduledVariables,
-        modelVariables,
-        selectedFmiLsExperiment?.options.startTime ?? startTime,
-        selectedFmiLsExperiment?.options.stopTime ?? stopTime,
-        selectedFmiLsExperiment?.options.stepSize ?? stepSize,
-      )
-      mergeInputSchedules(experimentSchedule, userSchedule)
-    }
+    resolveInputSchedule({
+      experiment: selectedFmiLsExperiment,
+      inputEvents: scheduledInputEvents,
+      scheduleVariables: scheduledVariables,
+      modelVariables,
+      options: {
+        startTime: selectedFmiLsExperiment?.options?.startTime ?? startTime,
+        stopTime: selectedFmiLsExperiment?.options?.stopTime ?? stopTime,
+        stepSize: selectedFmiLsExperiment?.options?.stepSize ?? stepSize,
+      },
+      enabled: enableInputSchedule,
+    })
   } catch (error) { scheduleError = error.message }
 
   useEffect(() => {
@@ -244,13 +237,14 @@ export default function DigitalTwinAppViewer({
         try {
           const runOptions = { ...(message.options || {}), ...(selectedFmiLsExperiment?.options || {}) }
           const interval = { startTime, stopTime, stepSize, ...runOptions }
-          const experimentSchedule = enableInputSchedule
-            ? normalizeInputSchedule(inputScheduleToEvents(selectedFmiLsExperiment?.inputSchedule), scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
-            : []
-          const userSchedule = enableInputSchedule
-            ? normalizeInputSchedule(scheduledInputEvents, scheduledVariables, modelVariables, interval.startTime, interval.stopTime, interval.stepSize)
-            : []
-          const schedule = mergeInputSchedules(experimentSchedule, userSchedule)
+          const schedule = resolveInputSchedule({
+            experiment: selectedFmiLsExperiment,
+            inputEvents: scheduledInputEvents,
+            scheduleVariables: scheduledVariables,
+            modelVariables,
+            options: interval,
+            enabled: enableInputSchedule,
+          })
           const connection = await connectRef.current({ options: runOptions, signal: controller.signal })
           if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
         } catch {
@@ -433,7 +427,7 @@ export default function DigitalTwinAppViewer({
                       <span className="block text-xs font-semibold text-[#dce9e9]">FMI-LS-STRUCT maps</span>
                       <span className="mt-1 block text-[11px] text-[#91a9ae]">View reference performance curves</span>
                     </span>
-                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{mapSeriesCount}</span>
+                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{fmiLsStructMapCount}</span>
                   </button>
                 ) : null}
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
-import { normalizeInputSchedule } from './simulationParameters'
+import { resolveInputSchedule } from './simulationParameters'
 import { DigitalTwinContinuousMetrics } from './DigitalTwinExecutionControls'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
 import InputScheduleDialog from './InputScheduleDialog'
@@ -23,6 +23,7 @@ export default function DigitalTwinSimulationForm({
   executionMode = 'batch',
   executionModeControl = null,
   configurationSelector = null,
+  selectedExperiment = null,
   executionSessionControls = null,
   continuousMetrics = null,
   stickyToolbar = false,
@@ -47,19 +48,17 @@ export default function DigitalTwinSimulationForm({
   )
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
   let inputScheduleError = ''
-  if (canScheduleInputChanges && !simulationOptionsError) {
-    try {
-      normalizeInputSchedule(
-        inputEvents,
-        availableScheduleVariables,
-        modelVariables,
-        Number(simulationOptions.startTime),
-        Number(simulationOptions.stopTime),
-        Number(simulationOptions.stepSize),
-      )
-    } catch (error) {
-      inputScheduleError = error.message
-    }
+  try {
+    resolveInputSchedule({
+      experiment: selectedExperiment,
+      inputEvents,
+      scheduleVariables: availableScheduleVariables,
+      modelVariables,
+      options: simulationOptions,
+      enabled: canScheduleInputChanges && !simulationOptionsError,
+    })
+  } catch (error) {
+    inputScheduleError = error.message
   }
   const toolbarClassName = [
     'mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#263a42] bg-[#101a20] p-3 sm:p-4',
@@ -205,6 +204,7 @@ DigitalTwinSimulationForm.propTypes = {
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']),
   executionModeControl: PropTypes.node,
   configurationSelector: PropTypes.node,
+  selectedExperiment: PropTypes.object,
   executionSessionControls: PropTypes.node,
   continuousMetrics: PropTypes.object,
   stickyToolbar: PropTypes.bool,

@@ -20,6 +20,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
   const { modelVariables, structModelVariables = modelVariables, editableVariables, runtimeVariables } = resources
   const { parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun } = simulation
   const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
+  const selectedExperiment = experiments.find((experiment) => experiment.id === selectedExperimentId) || null
   const {
     executionMode,
     onExecutionModeChange,
@@ -81,6 +82,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
             />
           </>
         )}
+        selectedExperiment={selectedExperiment}
         executionMode={executionMode}
         continuousMetrics={execution.mode === 'continuous' && execution.hasActiveSession ? execution.batchMetrics : null}
         executionModeControl={supportedModes ? (

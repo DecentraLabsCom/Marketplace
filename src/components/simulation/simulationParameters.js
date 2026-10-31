@@ -379,3 +379,36 @@ export function inputScheduleToEvents(schedule) {
       : []
   ))
 }
+
+/** Validate and combine a selected FMI-LS experiment stimulus with user changes. */
+export function resolveInputSchedule({
+  experiment = null,
+  inputEvents = [],
+  scheduleVariables = [],
+  modelVariables = [],
+  options = {},
+  enabled = true,
+} = {}) {
+  if (!enabled) return []
+
+  const runtimeVariables = Array.isArray(scheduleVariables) ? scheduleVariables : []
+  const declaredVariables = Array.isArray(modelVariables) ? modelVariables : []
+  const experimentEvents = normalizeInputSchedule(
+    inputScheduleToEvents(experiment?.inputSchedule),
+    runtimeVariables,
+    declaredVariables,
+    options.startTime,
+    options.stopTime,
+    options.stepSize,
+  )
+  const manualEvents = normalizeInputSchedule(
+    inputEvents,
+    runtimeVariables,
+    declaredVariables,
+    options.startTime,
+    options.stopTime,
+    options.stepSize,
+  )
+
+  return mergeInputSchedules(experimentEvents, manualEvents)
+}

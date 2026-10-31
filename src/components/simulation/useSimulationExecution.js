@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
 import { resolveGatewayFeatureError } from './gatewayErrors'
-import { inputScheduleToEvents, mergeInputSchedules, normalizeInputSchedule, normalizeSimulationParameters } from './simulationParameters'
+import { normalizeSimulationParameters, resolveInputSchedule } from './simulationParameters'
 import { normalizeSimulationTimeOptions } from './simulationTime'
 
 export const SIM_STATE = {
@@ -180,27 +180,14 @@ export default function useSimulationExecution({
         ? inputEvents
         : requestedInputEvents
       const selectedExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
-      const experimentSchedule = supportsInputSchedule
-        ? normalizeInputSchedule(
-          inputScheduleToEvents(selectedExperiment?.inputSchedule),
-          scheduledRuntimeVariables,
-          accessibleModelVariables,
-          resolvedActiveOptions.startTime,
-          resolvedActiveOptions.stopTime,
-          resolvedActiveOptions.stepSize,
-        )
-        : []
-      const userSchedule = supportsInputSchedule
-        ? normalizeInputSchedule(
-          activeInputEvents,
-          scheduledRuntimeVariables,
-          accessibleModelVariables,
-          resolvedActiveOptions.startTime,
-          resolvedActiveOptions.stopTime,
-          resolvedActiveOptions.stepSize,
-        )
-        : []
-      const inputSchedule = mergeInputSchedules(experimentSchedule, userSchedule)
+      const inputSchedule = resolveInputSchedule({
+        experiment: selectedExperiment,
+        inputEvents: activeInputEvents,
+        scheduleVariables: scheduledRuntimeVariables,
+        modelVariables: accessibleModelVariables,
+        options: resolvedActiveOptions,
+        enabled: supportsInputSchedule,
+      })
 
       const gatewayUrl = lab.accessURI || ''
       if (!gatewayUrl) throw new Error('Lab gateway URL not available')
