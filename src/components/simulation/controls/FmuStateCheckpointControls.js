@@ -1,14 +1,15 @@
 'use client'
 
-import { useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 const CHECKPOINT_FIELDS = new Set(['format', 'checkpointId', 'scope', 'createdAt', 'expiresAt', 'signature'])
 
 function normalizeBundle(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1
     || !Number.isFinite(value.simTime) || !value.checkpoint || typeof value.checkpoint !== 'object'
-    || Array.isArray(value.checkpoint)) return null
+    || Array.isArray(value.checkpoint)
+    || Object.keys(value).some((key) => !['version', 'simTime', 'checkpoint', 'sample'].includes(key))) return null
   const checkpoint = value.checkpoint
   if (Object.keys(checkpoint).length !== CHECKPOINT_FIELDS.size
     || Object.keys(checkpoint).some((key) => !CHECKPOINT_FIELDS.has(key))
@@ -18,120 +19,130 @@ function normalizeBundle(value) {
     || typeof checkpoint.signature !== 'string' || !/^[a-f\d]{64}$/.test(checkpoint.signature)
     || !Number.isFinite(checkpoint.createdAt) || !Number.isFinite(checkpoint.expiresAt)
     || checkpoint.expiresAt <= checkpoint.createdAt || checkpoint.expiresAt <= Date.now() / 1000) return null
-  return { version: 1, simTime: value.simTime, checkpoint }
+  const sample = value.sample
+  if (sample !== undefined && (!sample || typeof sample !== 'object' || Array.isArray(sample)
+    || Object.keys(sample).length !== 2 || !Number.isFinite(sample.time)
+    || !sample.outputs || typeof sample.outputs !== 'object' || Array.isArray(sample.outputs)
+    || Object.keys(sample.outputs).length > 512
+    || Object.entries(sample.outputs).some(([name, item]) => !name || name.length > 256
+      || !(typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item)))))) return null
+  return { version: 1, simTime: value.simTime, checkpoint, ...(sample ? { sample } : {}) }
 }
+
+const buttonClass = 'rounded-md border border-[#45636a] px-3 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9]'
 
 export default function FmuStateCheckpointControls({
   available,
   checkpoint,
-  onCheckpointChange,
-  captureOnCompletion,
-  onCaptureOnCompletionChange,
-  resumeFromCheckpoint,
-  onResumeFromCheckpointChange,
-  onCaptureNow,
-  captureNowAvailable = false,
+  loaded = false,
+  onSave,
+  onLoad,
+  onClear,
+  saveAvailable = false,
+  clearAvailable = false,
   busy = false,
-  captureNowBusy = busy,
+  saving = false,
+  layout = 'inline',
   error = '',
 }) {
-  const fileInputRef = useRef(null)
-  const [fileError, setFileError] = useState('')
-  const normalizedCheckpoint = normalizeBundle(checkpoint)
+  const savedBundle = normalizeBundle(checkpoint)
   if (!available) return null
 
-  async function handleImport(event) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    setFileError('')
-    if (!file) return
-    if (file.size > 16 * 1024) {
-      setFileError('The checkpoint file must be 16 KiB or smaller.')
-      return
-    }
-    try {
-      const imported = normalizeBundle(JSON.parse(await file.text()))
-      if (!imported) throw new Error('Checkpoint file format is invalid.')
-      onCheckpointChange(imported)
-      onResumeFromCheckpointChange(false)
-    } catch (error) {
-      setFileError(error?.message || 'Checkpoint file could not be read.')
-    }
-  }
-
-  function handleExport() {
-    if (!normalizedCheckpoint) return
-    const blob = new Blob([JSON.stringify(normalizedCheckpoint, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `fmu-state-${normalizedCheckpoint.simTime.toFixed(3)}s.json`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
+  const saveDescription = 'Save the simulation state to continue from it later.'
+  const loadDescription = savedBundle?.sample
+    ? loaded
+      ? `The scene and indicators show the saved state. The next run resumes at t=${savedBundle.simTime.toFixed(3)} s, so choose an end time later than this.`
+      : `Load the saved state at t=${savedBundle.simTime.toFixed(3)} s. Choose an end time later than this to continue.`
+    : savedBundle
+      ? `${loaded ? 'Loaded for the next run. Click again to cancel.' : `Continue from the saved state at ${savedBundle.simTime.toFixed(3)} s. Set the end time later than this point.`}`
+    : 'Save a state first to continue from it.'
+  const sectionClass = layout === 'compact'
+    ? 'flex min-h-10 items-center rounded-lg border border-[#30464d] bg-[#142128] px-2 py-1 text-xs text-[#b8d2d5]'
+    : 'rounded-lg border border-[#30464d] bg-[#142128] px-3 py-2 text-xs text-[#b8d2d5]'
+  const controlsClass = layout === 'stacked'
+    ? 'flex w-full flex-col items-stretch gap-1'
+    : 'flex flex-wrap items-center gap-2'
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 py-2 text-xs text-[#b8d2d5]" aria-label="Save and load lab state">
-      <label className="inline-flex items-center gap-2" title="Capture the FMU state when this run finishes. Checkpoints are tied to this model and reservation and expire after 24 hours.">
-        <input
-          type="checkbox"
-          checked={captureOnCompletion}
-          onChange={(event) => onCaptureOnCompletionChange(event.target.checked)}
-          disabled={busy}
-          className="accent-[#54d5c9]"
-        />
-        Save final state
-      </label>
-      {normalizedCheckpoint ? (
-        <>
-          <label className="inline-flex items-center gap-2" title={`Resume from the saved FMU state at t = ${normalizedCheckpoint.simTime.toFixed(3)} s.`}>
-            <input
-              type="checkbox"
-              checked={resumeFromCheckpoint}
-              onChange={(event) => onResumeFromCheckpointChange(event.target.checked)}
-              disabled={busy}
-              className="accent-[#54d5c9]"
-            />
-            Resume at {normalizedCheckpoint.simTime.toFixed(3)} s
-          </label>
-          {captureNowAvailable && onCaptureNow ? (
-              <button type="button" onClick={onCaptureNow} disabled={captureNowBusy} className="rounded-md border border-[#45636a] px-2.5 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9] disabled:opacity-50">
-              Save current state
-            </button>
-          ) : null}
-          <button type="button" onClick={handleExport} disabled={busy} className="rounded-md border border-[#45636a] px-2.5 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9] disabled:opacity-50">
-            Download
+    <section className={sectionClass} aria-label="Lab state">
+      <div className={controlsClass}>
+        <span className={`mr-1 font-semibold uppercase tracking-wide text-[#dce9e9] ${layout === 'stacked' ? 'self-center' : ''}`}>State</span>
+        <div className={`flex items-center gap-2 ${layout === 'stacked' ? 'w-full flex-nowrap justify-center' : 'flex-wrap'}`}>
+        <VariableDescriptionTooltip name="Save" description={saveDescription} portal>
+          <button
+            type="button"
+            aria-disabled={busy || saving || !saveAvailable}
+            onClick={(event) => {
+              if (busy || saving || !saveAvailable) {
+                event.preventDefault()
+                return
+              }
+              onSave()
+            }}
+            className={`${buttonClass} ${layout === 'stacked' && saving ? 'min-w-[5rem]' : ''} ${busy || saving || !saveAvailable ? 'cursor-not-allowed opacity-40 hover:border-[#45636a]' : ''}`}
+          >
+            {saving ? 'Saving...' : 'Save'}
           </button>
-          <button type="button" onClick={() => { onCheckpointChange(null); onResumeFromCheckpointChange(false) }} disabled={busy} className="rounded-md border border-[#45636a] px-2.5 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9] disabled:opacity-50">
+        </VariableDescriptionTooltip>
+        <VariableDescriptionTooltip
+          name="Load"
+          description={loadDescription}
+          portal
+        >
+          <button
+            type="button"
+            aria-disabled={busy || !savedBundle}
+            aria-pressed={loaded}
+            onClick={(event) => {
+              if (busy || !savedBundle) {
+                event.preventDefault()
+                return
+              }
+              onLoad()
+            }}
+            className={`${buttonClass} ${loaded ? 'border-[#54d5c9] bg-[#173a3b] text-[#78e4d4]' : ''} ${busy || !savedBundle ? 'cursor-not-allowed opacity-40 hover:border-[#45636a]' : ''}`}
+          >
+            Load
+          </button>
+        </VariableDescriptionTooltip>
+        <VariableDescriptionTooltip
+          name="Clear"
+          description="Remove the saved state."
+          portal
+        >
+          <button
+            type="button"
+            aria-disabled={busy || !clearAvailable}
+            onClick={(event) => {
+              if (busy || !clearAvailable) {
+                event.preventDefault()
+                return
+              }
+              onClear()
+            }}
+            className={`${buttonClass} ${busy || !clearAvailable ? 'cursor-not-allowed opacity-40 hover:border-[#45636a]' : ''}`}
+          >
             Clear
           </button>
-        </>
-      ) : captureNowAvailable && onCaptureNow ? (
-        <button type="button" onClick={onCaptureNow} disabled={captureNowBusy} className="rounded-md border border-[#45636a] px-2.5 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9] disabled:opacity-50">
-          Save current state
-        </button>
-      ) : null}
-      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="rounded-md border border-[#45636a] px-2.5 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9] disabled:opacity-50">
-        Import
-      </button>
-      <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" aria-label="Import an FMU state checkpoint" />
-      {fileError ? <span role="alert" className="w-full text-[#ffb5bd]">{fileError}</span> : null}
-      {error ? <span role="alert" className="w-full text-[#ffb5bd]">{error}</span> : null}
-    </div>
+        </VariableDescriptionTooltip>
+        </div>
+      </div>
+      {error ? <p role="alert" className="mt-1 text-[11px] text-[#ffb5bd]">{error}</p> : null}
+    </section>
   )
 }
 
 FmuStateCheckpointControls.propTypes = {
   available: PropTypes.bool.isRequired,
   checkpoint: PropTypes.object,
-  onCheckpointChange: PropTypes.func.isRequired,
-  captureOnCompletion: PropTypes.bool.isRequired,
-  onCaptureOnCompletionChange: PropTypes.func.isRequired,
-  resumeFromCheckpoint: PropTypes.bool.isRequired,
-  onResumeFromCheckpointChange: PropTypes.func.isRequired,
-  onCaptureNow: PropTypes.func,
-  captureNowAvailable: PropTypes.bool,
-  captureNowBusy: PropTypes.bool,
+  loaded: PropTypes.bool,
+  onSave: PropTypes.func.isRequired,
+  onLoad: PropTypes.func.isRequired,
+  onClear: PropTypes.func.isRequired,
+  saveAvailable: PropTypes.bool,
+  clearAvailable: PropTypes.bool,
   busy: PropTypes.bool,
+  saving: PropTypes.bool,
+  layout: PropTypes.oneOf(['inline', 'stacked', 'compact']),
   error: PropTypes.string,
 }

@@ -518,7 +518,32 @@
       "properties": {
         "version": { "const": 1 },
         "simTime": { "type": "number" },
-        "checkpoint": { "$ref": "#/$defs/fmuStateCheckpoint" }
+        "checkpoint": { "$ref": "#/$defs/fmuStateCheckpoint" },
+        "sample": { "$ref": "#/$defs/fmuStateSample" }
+      },
+      "additionalProperties": false
+    },
+    "fmuStateSample": {
+      "type": "object",
+      "required": ["time", "outputs"],
+      "properties": {
+        "time": { "type": "number" },
+        "outputs": {
+          "type": "object",
+          "maxProperties": 512,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "boolean" }
+            ]
+          }
+        }
       },
       "additionalProperties": false
     },

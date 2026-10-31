@@ -15,7 +15,7 @@ export interface FmuStateCheckpoint {
   format: 'decentralabs-fmi-state-v1'; checkpointId: string; scope: string
   createdAt: number; expiresAt: number; signature: string
 }
-export interface FmuStateCheckpointBundle { version: 1; simTime: number; checkpoint: FmuStateCheckpoint }
+export interface FmuStateCheckpointBundle { version: 1; simTime: number; checkpoint: FmuStateCheckpoint; sample?: Pick<DigitalTwinSample, 'time' | 'outputs'> }
 export interface ProtocolEnvelope<T extends string = string> { type: T; version: 2 }
 export interface AppReadyMessage extends ProtocolEnvelope<'decentralabs:digital-twin-ready'> {
   capabilities?: string[]; defaultPlaybackRate?: number

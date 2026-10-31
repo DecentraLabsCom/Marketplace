@@ -51,17 +51,28 @@ cleared.
 
 The SDK also advertises `fmu-state-checkpoints`. When the authorized Gateway
 reports that the FMU supports both Get/Set and serialized state, the shared
-Digital Twin controls menu can save a final state, import/export a checkpoint,
-and resume the next SDK run from that time. A provider app can also use
+Digital Twin controls menu can save, load, and clear a checkpoint. Load also
+refreshes the app's visible scene from the saved output sample when available.
+After an SDK run completes, the SDK retains its FMU session for up
+to five minutes so Save can capture the actual final FMU state. This is separate
+from visual replay: pausing replay does not move the FMU back to the selected
+sample. The saved bundle includes the latest selected FMU outputs when they fit
+within the checkpoint size limit, so `Load` can refresh an app's scene and
+indicators immediately through `onFmuStateLoaded(sample, context)`. The next
+run still restores the actual serialized FMU state. A provider app can also use
 `run({ checkpoint, captureFmuStateOnComplete: true })`, receive the resulting
-bundle through `onFmuStateCheckpoint`, or call `captureState()` while a run is
-active. The direct session API exposes `session.captureState()` and
+bundle through `onFmuStateCheckpoint`, or call `captureState()` during an active
+run or within five minutes of completion. The direct session API exposes
+`session.captureState()` and
 `session.restoreState(checkpoint)` for apps that manage their own controls.
 Checkpoints are opaque, reservation-bound references to Executor-side state;
-they expire after 24 hours and can only be restored for the same FMU and
+Marketplace keeps the reference in the current page session scoped to the lab
+and reservation. Reloading the page discards the reference; the remote snapshot
+expires after 24 hours and can only be restored for the same FMU and
 execution platform. They are available only when the source FMU declares the
 FMI state and serialization capabilities and the Gateway runtime is configured
-to sign checkpoint references.
+to sign checkpoint references. Simulation stop time remains absolute: to
+continue for eight seconds from a checkpoint at t=8 s, use stop time t=16 s.
 
 For standalone use, supply a `getConnection({ options, signal })` callback
 returning a connection grant from your own authorized backend. For direct FMI

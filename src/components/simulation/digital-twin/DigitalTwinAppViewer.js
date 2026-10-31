@@ -57,8 +57,8 @@ export default function DigitalTwinAppViewer({
   const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
   const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
   const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
-  const [captureFmuStateOnCompletion, setCaptureFmuStateOnCompletion] = useState(false)
   const [capturingFmuState, setCapturingFmuState] = useState(false)
+  const [fmuStateCaptureAvailable, setFmuStateCaptureAvailable] = useState(false)
   const [fmuStateError, setFmuStateError] = useState('')
   const fmuStateScopeRef = useRef(fmuStateScopeKey)
   const parameterPresetsInitializedRef = useRef(false)
@@ -118,10 +118,20 @@ export default function DigitalTwinAppViewer({
     fmuStateScopeRef.current = fmuStateScopeKey
     setFmuStateCheckpoint(null)
     setResumeFromFmuState(false)
-    setCaptureFmuStateOnCompletion(false)
     setCapturingFmuState(false)
+    setFmuStateCaptureAvailable(false)
     setFmuStateError('')
+    send(MESSAGE.FMU_STATE_CONFIGURATION, {
+      checkpoint: null,
+      resume: false,
+      captureOnCompletion: false,
+    })
   }, [fmuStateScopeKey])
+  useEffect(() => {
+    if (!fmuStateCaptureAvailable) return undefined
+    const timeout = window.setTimeout(() => setFmuStateCaptureAvailable(false), 5 * 60 * 1000)
+    return () => window.clearTimeout(timeout)
+  }, [execution.runId, fmuStateCaptureAvailable])
   let scheduleError = ''
   try {
     resolveInputSchedule({
@@ -171,9 +181,9 @@ export default function DigitalTwinAppViewer({
     send(MESSAGE.FMU_STATE_CONFIGURATION, {
       checkpoint: fmuStateCheckpoint,
       resume: Boolean(resumeFromFmuState && fmuStateCheckpoint),
-      captureOnCompletion: captureFmuStateOnCompletion,
+      captureOnCompletion: false,
     })
-  }, [appSupportsFmuStateControl, captureFmuStateOnCompletion, fmuStateAvailable, fmuStateCheckpoint, resumeFromFmuState])
+  }, [appSupportsFmuStateControl, fmuStateAvailable, fmuStateCheckpoint, resumeFromFmuState])
 
   function send(type, payload = {}) {
     const message = makeProtocolMessage(type, payload)
@@ -250,11 +260,20 @@ export default function DigitalTwinAppViewer({
         setAppState('error')
       } else if (message.type === MESSAGE.EXECUTION_STATE && stateRef.current === 'ready') {
         setExecution({ state: message.state, runId: message.runId, options: message.options })
+        if (message.state === 'running') {
+          setResumeFromFmuState(false)
+          setFmuStateCaptureAvailable(false)
+        } else if (message.state === 'completed') {
+          setFmuStateCaptureAvailable(true)
+        } else {
+          setFmuStateCaptureAvailable(false)
+        }
       } else if (message.type === MESSAGE.FMU_STATE_SAVED && stateRef.current === 'ready'
         && isValidFmuStateCheckpointBundle(message.bundle)) {
         setFmuStateCheckpoint(message.bundle)
         setResumeFromFmuState(false)
         setCapturingFmuState(false)
+        setFmuStateCaptureAvailable(false)
         setFmuStateError('')
       } else if (message.type === MESSAGE.FMU_STATE_ERROR && stateRef.current === 'ready') {
         setCapturingFmuState(false)
@@ -473,23 +492,29 @@ export default function DigitalTwinAppViewer({
                 {hasFmuStateControl ? (
                   <FmuStateCheckpointControls
                     available
+                    layout="stacked"
                     checkpoint={fmuStateCheckpoint}
-                    onCheckpointChange={(value) => {
-                      setFmuStateCheckpoint(value)
-                      if (!value) setResumeFromFmuState(false)
-                    }}
-                    captureOnCompletion={captureFmuStateOnCompletion}
-                    onCaptureOnCompletionChange={setCaptureFmuStateOnCompletion}
-                    resumeFromCheckpoint={resumeFromFmuState}
-                    onResumeFromCheckpointChange={setResumeFromFmuState}
-                    onCaptureNow={() => {
-                      if (capturingFmuState || !isRunning) return
+                    loaded={resumeFromFmuState}
+                    onSave={() => {
+                      if (capturingFmuState || execution.state !== 'completed') return
                       setCapturingFmuState(true)
                       setFmuStateError('')
                       send(MESSAGE.FMU_STATE_CAPTURE)
                     }}
-                    captureNowAvailable={isRunning}
-                    captureNowBusy={capturingFmuState}
+                    onLoad={() => setResumeFromFmuState((loaded) => !loaded)}
+                    onClear={() => {
+                      setFmuStateCheckpoint(null)
+                      setResumeFromFmuState(false)
+                      setFmuStateCaptureAvailable(false)
+                      send(MESSAGE.FMU_STATE_CONFIGURATION, {
+                        checkpoint: null,
+                        resume: false,
+                        captureOnCompletion: false,
+                      })
+                    }}
+                    saveAvailable={execution.state === 'completed' && fmuStateCaptureAvailable}
+                    clearAvailable={Boolean(fmuStateCheckpoint) || fmuStateCaptureAvailable}
+                    saving={capturingFmuState}
                     busy={isRunning}
                     error={fmuStateError}
                   />
@@ -499,7 +524,7 @@ export default function DigitalTwinAppViewer({
                   <button
                     type="button"
                     onClick={cancelCurrentSimulation}
-                    className="min-h-11 rounded-xl border border-[#7b4650] bg-[#321d24] px-3 py-2 text-left text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8e9b]"
+                    className="min-h-11 rounded-xl border border-[#7b4650] bg-[#321d24] px-3 py-2 text-center text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8e9b]"
                   >
                     Cancel simulation
                   </button>

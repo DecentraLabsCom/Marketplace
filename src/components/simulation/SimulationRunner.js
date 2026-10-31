@@ -16,6 +16,7 @@ import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecutio
 import useProxyFmuDownload from './hooks/useProxyFmuDownload'
 import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
 import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
+import { createFmuStateResults } from './utils/fmuStateCheckpoint'
 
 const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
@@ -23,6 +24,8 @@ const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinApp
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
   const { gatewaySessionOrigin, ensureGatewaySession, fetchGateway } = useSimulationGatewaySession({ lab, reservationKey })
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+  const stateScopeKey = JSON.stringify([labId, reservationKey || ''])
 
   const [parameters, setParameters] = useState({})
   const [inputEvents, setInputEvents] = useState([])
@@ -37,24 +40,26 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
   const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
   const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
-  const [captureFmuStateOnCompletion, setCaptureFmuStateOnCompletion] = useState(false)
+  const [candidateFmuStateCheckpoint, setCandidateFmuStateCheckpoint] = useState(null)
   const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
   const modelVariables = Array.isArray(variableAccess?.modelVariables) ? variableAccess.modelVariables : []
+  const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
+    && variableAccess?.fmuState?.serialize === true
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
   const supportsInputSchedule = !isModelExchange && !isScheduledExecution
   const [solver, setSolver] = useState('Euler')
-  const labId = String(lab.id ?? lab.tokenId ?? '')
-  const checkpointReservationScopeRef = useRef(JSON.stringify([labId, reservationKey || '']))
+  const checkpointReservationScopeRef = useRef(stateScopeKey)
+  const interactiveSessionScopeRef = useRef(stateScopeKey)
   useEffect(() => {
-    const scope = JSON.stringify([labId, reservationKey || ''])
+    const scope = stateScopeKey
     if (checkpointReservationScopeRef.current === scope) return
     checkpointReservationScopeRef.current = scope
     setFmuStateCheckpoint(null)
-    setCaptureFmuStateOnCompletion(false)
+    setCandidateFmuStateCheckpoint(null)
     setResumeFromFmuState(false)
-  }, [labId, reservationKey])
+  }, [stateScopeKey])
   const { asset: twinAsset, state: twinAssetState, simulationVariables: aasSimulationVariables } = useDigitalTwinAssetDiscovery({
     labId,
     accessUri: lab.accessURI,
@@ -127,8 +132,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     editableVariables,
     selectedFmiLsExperimentId,
     selectableFmiLsExperiments,
-    fmuStateCheckpoint,
-    setFmuStateCheckpoint,
+    setCandidateFmuStateCheckpoint,
     solver,
     twinSimulationType,
   })
@@ -234,6 +238,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return response.json()
   }, [fetchGateway, labId, reservationKey])
 
+  const handleInteractiveFmuStateCheckpoint = useCallback((checkpoint) => {
+    setFmuStateCheckpoint(checkpoint)
+    setResumeFromFmuState(false)
+  }, [])
+
   const interactiveExecution = useInteractiveTwinExecution({
     getConnection: getInteractiveConnection,
     options,
@@ -245,8 +254,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     variableAccessState,
     supported: supportsInteractiveTwinModes,
     fmuStateSupported: variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true,
-    onFmuStateCheckpoint: setFmuStateCheckpoint,
-    captureFmuStateOnCompletion,
+    onFmuStateCheckpoint: handleInteractiveFmuStateCheckpoint,
     batchPolicy: continuousBatchPolicy,
     fixedBatchSamples,
     onRunStart: handleInteractiveRunStart,
@@ -254,6 +262,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
     onRunFinish: handleInteractiveRunFinish,
     onParameterChange: handleParamChange,
   })
+  useEffect(() => {
+    const scope = stateScopeKey
+    if (interactiveSessionScopeRef.current === scope) return
+    interactiveSessionScopeRef.current = scope
+    interactiveExecution.clearRetainedSession()
+  }, [interactiveExecution.clearRetainedSession, stateScopeKey])
   const liveSceneInputEditing = interactiveExecution.hasActiveSession
     && ['step', 'continuous'].includes(interactiveExecution.mode)
     && interactiveExecution.runtimeInputEditing
@@ -348,31 +362,59 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   const handleRun = useCallback((scheduledEvents) => {
     const checkpoint = resumeFromFmuState ? fmuStateCheckpoint : null
-    const stateOptions = { checkpoint, captureFmuState: captureFmuStateOnCompletion }
+    setCandidateFmuStateCheckpoint(null)
+    if (checkpoint) setResumeFromFmuState(false)
     if (twinAsset?.type === 'glb' && executionMode !== 'batch') {
-      return interactiveExecution.start(executionMode, stateOptions)
+      return interactiveExecution.start(executionMode, { checkpoint })
+    }
+    const stateOptions = {
+      checkpoint,
+      captureFmuState: twinAsset?.type === 'glb' && executionMode === 'batch' && supportsFmuState,
     }
     return Array.isArray(scheduledEvents)
       ? runSimulation(null, null, scheduledEvents, stateOptions)
       : runSimulation(null, null, null, stateOptions)
-  }, [captureFmuStateOnCompletion, executionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, twinAsset?.type])
+  }, [executionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, supportsFmuState, twinAsset?.type])
 
-  const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
-    && variableAccess?.fmuState?.serialize === true
   const checkpointBusy = simState === SIM_STATE.RUNNING && !interactiveExecution.hasActiveSession
     || (interactiveExecution.hasActiveSession && interactiveExecution.status !== 'paused')
+  const saveAvailable = Boolean(candidateFmuStateCheckpoint)
+    || (interactiveExecution.canCaptureState && ['paused', 'completed'].includes(interactiveExecution.status))
+  const stateClearAvailable = Boolean(fmuStateCheckpoint || candidateFmuStateCheckpoint || interactiveExecution.canCaptureState)
+  const handleSaveFmuState = useCallback(() => {
+    if (candidateFmuStateCheckpoint) {
+      setFmuStateCheckpoint(candidateFmuStateCheckpoint)
+      setCandidateFmuStateCheckpoint(null)
+      setResumeFromFmuState(false)
+      return
+    }
+    void interactiveExecution.captureState()
+  }, [candidateFmuStateCheckpoint, interactiveExecution.captureState])
+  const handleClearFmuState = useCallback(() => {
+    setFmuStateCheckpoint(null)
+    setCandidateFmuStateCheckpoint(null)
+    setResumeFromFmuState(false)
+    interactiveExecution.clearRetainedSession()
+  }, [interactiveExecution.clearRetainedSession])
+  const loadedCheckpointResults = resumeFromFmuState && twinAsset?.type === 'glb'
+    ? createFmuStateResults(fmuStateCheckpoint?.sample, variableAccess?.simulationType)
+    : null
+  const displayedResults = loadedCheckpointResults || results
+  const displayedSimulationState = loadedCheckpointResults ? SIM_STATE.COMPLETED : simState
+  const displayedErrorMessage = loadedCheckpointResults ? null : errorMsg
   const fmuStateControls = (
     <FmuStateCheckpointControls
       available={supportsFmuState}
+      layout={twinAsset?.type === 'glb' ? 'compact' : 'inline'}
       checkpoint={fmuStateCheckpoint}
-      onCheckpointChange={setFmuStateCheckpoint}
-      captureOnCompletion={captureFmuStateOnCompletion}
-      onCaptureOnCompletionChange={setCaptureFmuStateOnCompletion}
-      resumeFromCheckpoint={resumeFromFmuState}
-      onResumeFromCheckpointChange={setResumeFromFmuState}
-      onCaptureNow={interactiveExecution.captureState}
-      captureNowAvailable={interactiveExecution.hasActiveSession && interactiveExecution.status === 'paused'}
+      loaded={resumeFromFmuState}
+      onSave={handleSaveFmuState}
+      onLoad={() => setResumeFromFmuState((loaded) => !loaded)}
+      onClear={handleClearFmuState}
+      saveAvailable={saveAvailable}
+      clearAvailable={stateClearAvailable}
       busy={checkpointBusy}
+      saving={interactiveExecution.capturingState}
       error={interactiveExecution.checkpointError}
     />
   )
@@ -439,7 +481,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           fmiLsExperiments={twinFmiLsExperiments}
           fmiLsStruct={variableAccess?.fmiLsStruct}
           fmuStateAvailable={variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true}
-          fmuStateScopeKey={JSON.stringify([labId, reservationKey || ''])}
+          fmuStateScopeKey={stateScopeKey}
           scheduleVariables={twinScheduledRuntimeVariables}
           enableInputSchedule={supportsTwinInputSchedule}
           inputValues={parameters}
@@ -472,7 +514,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
             inputEvents,
             onInputEventsChange: setInputEvents,
             onRun: handleRun,
-            results,
+            results: displayedResults,
             fmuStateControls,
           }}
           configuration={{
@@ -492,9 +534,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
             onFixedBatchSamplesChange: setFixedBatchSamples,
             supportedModes: supportsInteractiveTwinModes,
             execution: interactiveExecution,
-            state: simState,
+            state: displayedSimulationState,
             progress,
-            errorMessage: errorMsg,
+            errorMessage: displayedErrorMessage,
           }}
           proxy={{ visible: Boolean(reservationKey), state: proxyDownloadState, message: proxyDownloadMessage }}
         />
@@ -550,7 +592,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         <DigitalTwinViewer
           sceneUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
-          results={results}
+          results={displayedResults}
           modelVariables={twinModelVariables}
           inputValues={sceneInputValues}
           interactiveInputVariables={sceneInputVariables}

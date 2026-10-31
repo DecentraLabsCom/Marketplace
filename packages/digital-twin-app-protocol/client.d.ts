@@ -2,6 +2,7 @@ import type { AppReadyMessage, DigitalTwinSample, FmiLsExperiment, FmiLsParamete
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
 export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number; checkpoint?: FmuStateCheckpointBundle }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
+export interface FmuStateLoadedContext { checkpointId: string; simTime: number }
 export interface AdaptiveBatchOptions {
   targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
 }
@@ -22,7 +23,7 @@ export interface DigitalTwinAppClientOptions {
   /** In adaptive mode, resolve after the latest sample has actually been rendered. */
   onBatchRendered?: (samples: DigitalTwinSample[], batch: SampleBatch, context: SampleProcessingContext) => void | Promise<void>
   onReset?: (runId: string) => void
-  onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState }) => void
+  onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState; options?: RunOptions }) => void
   onResultsComplete?: (message: ResultCompletion, context: SampleProcessingContext) => void | Promise<void>
   onPlaybackRate?: (rate: number, message: PlaybackControlMessage) => void
   /** Apply an FMI-LS-REF parameter set selected in the Marketplace host UI. */
@@ -31,6 +32,8 @@ export interface DigitalTwinAppClientOptions {
   onFmiLsExperiment?: (experiment: FmiLsExperiment | null) => void
   /** Receives a saved checkpoint. The SDK also relays it to the Marketplace host when embedded. */
   onFmuStateCheckpoint?: (checkpoint: FmuStateCheckpointBundle) => void
+  /** Updates an app's visible state from the saved outputs when the host selects Load. */
+  onFmuStateLoaded?: (sample: DigitalTwinSample, context: FmuStateLoadedContext) => void | Promise<void>
   onRunAccepted?: (result: { runId: string }) => void
   onRunRejected?: (result: { code: string }) => void
   onRunCancelled?: (runId: string) => void
@@ -56,7 +59,7 @@ export interface DigitalTwinAppClient {
     parametersFromModel?: (model: Record<string, unknown>) => Record<string, number | boolean | string> | Promise<Record<string, number | boolean | string>>
   }): Promise<{ runId: string }>
   cancel(runId?: string): boolean
-  /** Capture the active run's current state when the FMU runtime supports it. */
+  /** Capture a live run's current state or the last completed state retained by the SDK for up to five minutes. */
   captureState(): Promise<FmuStateCheckpointBundle>
   requestModelChange(modelId: string): boolean
   dispose(): void

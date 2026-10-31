@@ -62,12 +62,14 @@ function setup({
   variableAccess = { variables: { position: { read: true } } },
   options = { startTime: 0, stopTime: 2, stepSize: 1 },
   parameters = {},
+  fmuStateSupported = false,
 } = {}) {
   connectFmuSession.mockResolvedValue(session)
   const callbacks = {
     onRunStart: jest.fn(),
     onSample: jest.fn(),
     onRunFinish: jest.fn(),
+    onFmuStateCheckpoint: jest.fn(),
     onParameterChange: jest.fn(),
   }
   const getConnection = jest.fn(async () => ({ sessionTicket: 'ticket' }))
@@ -81,6 +83,7 @@ function setup({
     variableAccess,
     variableAccessState,
     supported: true,
+    fmuStateSupported,
     ...callbacks,
   }))
   return { ...hook, callbacks, getConnection, session }
@@ -125,6 +128,24 @@ describe('useInteractiveTwinExecution', () => {
     expect(result.current.status).toBe('completed')
     expect(session.close).toHaveBeenCalledTimes(1)
     expect(callbacks.onRunFinish).toHaveBeenCalledWith({ state: 'completed', message: null, parameters: { speed: 3 } })
+  })
+
+  test('saved interactive checkpoints include the latest outputs for scene restoration', async () => {
+    const session = makeSession()
+    session.capabilities.fmuState = { getAndSet: true, serialize: true }
+    session.request.mockImplementation(async (type) => {
+      if (type === 'sim.getOutputs') return { simTime: 0, values: { position: 0.75 } }
+      if (type === 'sim.captureFMUState') return { simTime: 0, checkpoint: { checkpointId: 'snapshot' } }
+      return {}
+    })
+    const { result, callbacks } = setup({ session, fmuStateSupported: true })
+
+    await act(async () => result.current.start('step'))
+    let saved
+    await act(async () => { saved = await result.current.captureState() })
+
+    expect(saved.sample).toEqual({ time: 0, outputs: { position: 0.75 } })
+    expect(callbacks.onFmuStateCheckpoint).toHaveBeenCalledWith(saved)
   })
 
   test('a quota retry writes the latest runtime value while retaining the paused session', async () => {

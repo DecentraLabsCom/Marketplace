@@ -6,6 +6,8 @@ import {
   resolveInputSchedule,
 } from '../utils/simulationParameters'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
+import { createFmuStateSample } from '../utils/fmuStateCheckpoint'
+import { appendSimulationSamples } from '../utils/simulationSamples'
 
 export const SIM_STATE = {
   IDLE: 'idle',
@@ -14,6 +16,8 @@ export const SIM_STATE = {
   CANCELLED: 'cancelled',
   ERROR: 'error',
 }
+
+const STREAMING_SAMPLE_UPDATE_INTERVAL = 16
 
 async function readNdjsonStream(response, onEvent) {
   const reader = response.body.getReader()
@@ -70,8 +74,7 @@ export default function useSimulationExecution({
   editableVariables,
   selectedFmiLsExperimentId,
   selectableFmiLsExperiments,
-  fmuStateCheckpoint,
-  setFmuStateCheckpoint,
+  setCandidateFmuStateCheckpoint,
   solver,
   twinSimulationType,
 }) {
@@ -151,6 +154,7 @@ export default function useSimulationExecution({
     }
     if (simulationInFlightRef.current) return
     simulationInFlightRef.current = true
+    setCandidateFmuStateCheckpoint?.(null)
     const controller = new AbortController()
     simulationControllerRef.current = controller
     setSimState(SIM_STATE.RUNNING)
@@ -188,10 +192,11 @@ export default function useSimulationExecution({
         throw new Error('This FMU or provider runtime does not support serialized FMU states.')
       }
       if (checkpointBundle) {
-        if (!Number.isFinite(checkpointBundle.simTime) || checkpointBundle.simTime >= resolvedActiveOptions.stopTime) {
-          throw new Error('The saved FMU state must be earlier than the simulation stop time.')
+        if (!Number.isFinite(checkpointBundle.simTime)
+          || checkpointBundle.simTime < resolvedActiveOptions.startTime
+          || checkpointBundle.simTime >= resolvedActiveOptions.stopTime) {
+          throw new Error('The saved FMU state must be within the simulation interval. Stop time is absolute and must be later than the saved state.')
         }
-        resolvedActiveOptions.startTime = checkpointBundle.simTime
       }
 
       const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
@@ -260,25 +265,33 @@ export default function useSimulationExecution({
           case 'progress':
             setProgress((previous) => ({ ...previous, elapsedSeconds: event.elapsedSeconds }))
             break
-          case 'data':
-            if (event.time) accumulatedTime.push(...event.time)
-            if (event.outputs) {
-              for (const [name, values] of Object.entries(event.outputs)) {
-                if (!accumulatedOutputs[name]) accumulatedOutputs[name] = []
-                accumulatedOutputs[name].push(...values)
+          case 'sim.step':
+            if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs, false)) {
+              if (accumulatedTime.length % STREAMING_SAMPLE_UPDATE_INTERVAL === 0) {
+                setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
               }
             }
-            setProgress((previous) => ({ ...previous, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
-            setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
+            break
+          case 'data':
+            if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs)) {
+              setProgress((previous) => ({ ...previous, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
+              setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
+            }
             break
           case 'completed':
           case 'sim.done':
             finalMeta = event
             if (event.checkpoint && Number.isFinite(event.time ?? event.simulationTime)) {
-              setFmuStateCheckpoint({
+              const checkpointTime = Number(event.time ?? event.simulationTime)
+              const latestOutputs = Object.fromEntries(Object.entries(accumulatedOutputs).map(([name, values]) => (
+                [name, values.at(-1)]
+              )))
+              const sample = createFmuStateSample(checkpointTime, latestOutputs)
+              setCandidateFmuStateCheckpoint?.({
                 version: 1,
-                simTime: Number(event.time ?? event.simulationTime),
+                simTime: checkpointTime,
                 checkpoint: event.checkpoint,
+                ...(sample ? { sample } : {}),
               })
             }
             break
@@ -314,7 +327,7 @@ export default function useSimulationExecution({
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setFmuStateCheckpoint, setOptions, setParameters, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const loadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''
