@@ -9,8 +9,8 @@ import { resolveInputSchedule } from './utils/simulationParameters'
 import {
   getInitialSimulationOptions,
   getSimulationOptionsError,
-  resolveEffectiveSimulationStartTime,
 } from './utils/simulationTime'
+import useGlbSimulationConfiguration from './hooks/useGlbSimulationConfiguration'
 import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
 import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
@@ -104,19 +104,30 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
   const selectedFmiLsExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
   const isGlbTwin = twinAsset?.type === 'glb'
+  const restoreFmuStateModelValues = useCallback((modelValues) => {
+    const variables = twinAsset?.type === 'glb'
+      ? [...twinEditableVariables, ...twinScheduledRuntimeVariables]
+      : [...editableVariables, ...scheduledRuntimeVariables]
+    const restoredValues = filterFmuStateModelValues(
+      modelValues,
+      variables.map((variable) => variable.name),
+    )
+    if (Object.keys(restoredValues).length) {
+      setParameters((current) => ({ ...current, ...restoredValues }))
+      setSelectedFmiLsParameterPresetId('')
+    }
+  }, [editableVariables, scheduledRuntimeVariables, setParameters, twinAsset?.type, twinEditableVariables, twinScheduledRuntimeVariables])
+  const { effectiveOptions, handleLoad: handleLoadFmuState } = useGlbSimulationConfiguration({
+    enabled: isGlbTwin,
+    options,
+    defaultStartTime: getInitialSimulationOptions(fmuMeta).startTime,
+    experimentStartTime: selectedFmiLsExperiment?.options?.startTime,
+    checkpoint: fmuStateCheckpoint,
+    loaded: resumeFromFmuState,
+    setLoaded: setResumeFromFmuState,
+    onLoadModelValues: restoreFmuStateModelValues,
+  })
   const isResumingFromCheckpoint = Boolean(isGlbTwin && resumeFromFmuState && fmuStateCheckpoint)
-  const defaultStartTime = getInitialSimulationOptions(fmuMeta).startTime
-  const effectiveStartTime = isGlbTwin
-    ? resolveEffectiveSimulationStartTime({
-      defaultStartTime,
-      experimentStartTime: selectedFmiLsExperiment?.options?.startTime,
-      checkpointTime: isResumingFromCheckpoint ? fmuStateCheckpoint?.simTime : null,
-    })
-    : options.startTime
-  const effectiveOptions = useMemo(
-    () => (isGlbTwin ? { ...options, startTime: effectiveStartTime } : options),
-    [effectiveStartTime, isGlbTwin, options],
-  )
   let inputScheduleError = ''
   const simulationOptionsError = getSimulationOptionsError(effectiveOptions, { includeStepSize: !isScheduledExecution })
   try {
@@ -400,24 +411,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const saveAvailable = Boolean(candidateFmuStateCheckpoint)
     || (interactiveExecution.canCaptureState && ['paused', 'completed'].includes(interactiveExecution.status))
   const stateClearAvailable = Boolean(fmuStateCheckpoint || candidateFmuStateCheckpoint || interactiveExecution.canCaptureState)
-  const restoreFmuStateModelValues = useCallback((modelValues) => {
-    const variables = twinAsset?.type === 'glb'
-      ? [...twinEditableVariables, ...twinScheduledRuntimeVariables]
-      : [...editableVariables, ...scheduledRuntimeVariables]
-    const restoredValues = filterFmuStateModelValues(
-      modelValues,
-      variables.map((variable) => variable.name),
-    )
-    if (Object.keys(restoredValues).length) {
-      setParameters((current) => ({ ...current, ...restoredValues }))
-      setSelectedFmiLsParameterPresetId('')
-    }
-  }, [editableVariables, scheduledRuntimeVariables, setParameters, twinAsset?.type, twinEditableVariables, twinScheduledRuntimeVariables])
-  const handleLoadFmuState = useCallback(() => {
-    const shouldLoad = !resumeFromFmuState
-    if (shouldLoad) restoreFmuStateModelValues(fmuStateCheckpoint?.modelValues)
-    setResumeFromFmuState(shouldLoad)
-  }, [fmuStateCheckpoint, restoreFmuStateModelValues, resumeFromFmuState])
   const handleSaveFmuState = useCallback(() => {
     if (candidateFmuStateCheckpoint) {
       setFmuStateCheckpoint(candidateFmuStateCheckpoint)

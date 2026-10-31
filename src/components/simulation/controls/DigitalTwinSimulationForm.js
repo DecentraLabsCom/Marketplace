@@ -128,9 +128,9 @@ export default function DigitalTwinSimulationForm({
             </button>
           ) : null}
         </div>
-        {!activeDialog && (simulationOptionsError || (executionMode === 'batch' && inputScheduleError)) ? (
+        {!activeDialog && executionMode === 'batch' && inputScheduleError ? (
           <p role="alert" className="w-full text-xs text-[#ffb5bd]">
-            {simulationOptionsError || (executionMode === 'batch' ? inputScheduleError : '')}
+            {inputScheduleError}
           </p>
         ) : null}
       </section>
