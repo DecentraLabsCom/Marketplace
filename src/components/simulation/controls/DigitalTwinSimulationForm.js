@@ -94,16 +94,6 @@ export default function DigitalTwinSimulationForm({
           {fmuStateControls}
           {configurationSelector}
           {executionModeControl}
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => setActiveDialog('run-controls')}
-            disabled={running}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span>Run Controls</span>
-            <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
-          </button>
           {canScheduleInputChanges ? (
             <button
               type="button"
@@ -116,6 +106,16 @@ export default function DigitalTwinSimulationForm({
               <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{inputEvents.length}</span>
             </button>
           ) : null}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setActiveDialog('run-controls')}
+            disabled={running}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span>Run Controls</span>
+            <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {executionSessionControls}

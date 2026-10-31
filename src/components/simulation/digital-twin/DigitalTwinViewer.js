@@ -57,10 +57,50 @@ function sampleIndexAtOrBefore(times, time) {
   return low
 }
 
+function interpolateSampleValue(current, next, fraction) {
+  if (Number.isFinite(current) && Number.isFinite(next)) {
+    return current + ((next - current) * fraction)
+  }
+  if (Array.isArray(current) && Array.isArray(next) && current.length === next.length
+    && current.every((value, index) => Number.isFinite(value) && Number.isFinite(next[index]))) {
+    return current.map((value, index) => value + ((next[index] - value) * fraction))
+  }
+  return current
+}
+
+function getOutputValuesAtTime(results, modelTime, interpolatableVariables) {
+  const times = Array.isArray(results?.time) ? results.time : []
+  const outputs = results?.outputs || {}
+  if (!times.length || !Number.isFinite(modelTime)) return {}
+
+  const index = sampleIndexAtOrBefore(times, modelTime)
+  const nextIndex = index + 1
+  const currentTime = Number(times[index])
+  const nextTime = Number(times[nextIndex])
+  const canInterpolate = nextIndex < times.length
+    && Number.isFinite(currentTime)
+    && Number.isFinite(nextTime)
+    && nextTime > currentTime
+    && results?.discontinuities?.[nextIndex] !== true
+  if (!canInterpolate) {
+    return Object.fromEntries(Object.entries(outputs).map(([name, series]) => [name, getSampleValue(series, index)]))
+  }
+
+  const fraction = Math.max(0, Math.min(1, (modelTime - currentTime) / (nextTime - currentTime)))
+  return Object.fromEntries(Object.entries(outputs).map(([name, series]) => {
+    const current = getSampleValue(series, index)
+    const next = getSampleValue(series, nextIndex)
+    return [name, interpolatableVariables.has(name)
+      ? interpolateSampleValue(current, next, fraction)
+      : current]
+  }))
+}
+
 export default function DigitalTwinViewer({
   sceneUrl,
   title,
   results,
+  streamingResultsRef,
   modelVariables,
   inputValues = {},
   interactiveInputVariables = [],
@@ -81,17 +121,33 @@ export default function DigitalTwinViewer({
   const [outputMarkersVisible, setOutputMarkersVisible] = useState(false)
   const [inputMarkersVisible, setInputMarkersVisible] = useState(false)
   const [sceneInputBindingNames, setSceneInputBindingNames] = useState([])
-  const times = Array.isArray(results?.time) ? results.time : []
+  const streamingResults = isRunning ? streamingResultsRef?.current : null
+  const activeResults = streamingResults || results
+  const times = Array.isArray(activeResults?.time) ? activeResults.time : []
   const lastIndex = Math.max(times.length - 1, 0)
   const displayedSampleIndex = isRunning && followLatest ? lastIndex : Math.min(sampleIndex, lastIndex)
+  const interpolatableVariables = useMemo(() => new Set(modelVariables
+    .filter((variable) => variable?.causality === 'output'
+      && ['Real', 'Float32', 'Float64'].includes(variable?.type)
+      && (!variable.variability || variable.variability === 'continuous'))
+    .map((variable) => variable.name)), [modelVariables])
   const timesRef = useRef(times)
   const sampleIndexRef = useRef(sampleIndex)
   const isRunningRef = useRef(isRunning)
   const wasRunningRef = useRef(false)
   const autoPlaybackRef = useRef(false)
+  const activeResultsRef = useRef(activeResults)
+  const streamingResultsRefValue = useRef(streamingResultsRef)
+  const inputValuesRef = useRef(inputValues)
+  const interpolatableVariablesRef = useRef(new Set())
+  const animatedValuesRef = useRef({})
   timesRef.current = times
   sampleIndexRef.current = sampleIndex
   isRunningRef.current = isRunning
+  activeResultsRef.current = activeResults
+  streamingResultsRefValue.current = streamingResultsRef
+  inputValuesRef.current = inputValues
+  interpolatableVariablesRef.current = interpolatableVariables
   const modelDuration = times.length > 1
     ? Number(times[lastIndex]) - Number(times[0])
     : Number(stopTime) - Number(startTime)
@@ -158,6 +214,13 @@ export default function DigitalTwinViewer({
 
       const nextIndex = sampleIndexAtOrBefore(currentTimes, modelTime)
       setSampleIndex((current) => current === nextIndex ? current : nextIndex)
+      const currentResults = activeResultsRef.current
+      if (streamingResultsRefValue.current?.current === currentResults) {
+        animatedValuesRef.current = {
+          ...getOutputValuesAtTime(currentResults, modelTime, interpolatableVariablesRef.current),
+          ...inputValuesRef.current,
+        }
+      }
       if (!isRunningRef.current && modelTime >= finalTime) {
         setSampleIndex(finalIndex)
         autoPlaybackRef.current = false
@@ -173,9 +236,10 @@ export default function DigitalTwinViewer({
   }, [playing, isRunning, playbackRate])
 
   const values = useMemo(() => Object.fromEntries(
-    Object.entries(results?.outputs || {}).map(([name, series]) => [name, getSampleValue(series, displayedSampleIndex)]),
-  ), [results?.outputs, displayedSampleIndex])
+    Object.entries(activeResults?.outputs || {}).map(([name, series]) => [name, getSampleValue(series, displayedSampleIndex)]),
+  ), [activeResults?.outputs, displayedSampleIndex])
   const sceneValues = useMemo(() => ({ ...values, ...inputValues }), [inputValues, values])
+  animatedValuesRef.current = sceneValues
 
   const togglePlayback = useCallback(() => {
     if (playing) {
@@ -249,6 +313,7 @@ export default function DigitalTwinViewer({
           <DigitalTwinCanvas
             sceneUrl={sceneUrl}
             values={sceneValues}
+            animatedValuesRef={animatedValuesRef}
             modelVariables={modelVariables}
             pinnedOutputNames={pinnedOutputNames}
             interactiveInputVariables={interactiveInputVariables}
@@ -545,7 +610,12 @@ export default function DigitalTwinViewer({
 DigitalTwinViewer.propTypes = {
   sceneUrl: PropTypes.string.isRequired,
   title: PropTypes.string,
-  results: PropTypes.shape({ time: PropTypes.array, outputs: PropTypes.object }),
+  results: PropTypes.shape({
+    time: PropTypes.array,
+    outputs: PropTypes.object,
+    discontinuities: PropTypes.arrayOf(PropTypes.bool),
+  }),
+  streamingResultsRef: PropTypes.shape({ current: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
   inputValues: PropTypes.object,
   interactiveInputVariables: PropTypes.arrayOf(PropTypes.object),
@@ -561,6 +631,7 @@ DigitalTwinViewer.propTypes = {
 DigitalTwinViewer.defaultProps = {
   title: 'Digital Twin',
   results: null,
+  streamingResultsRef: null,
   modelVariables: [],
   inputValues: {},
   interactiveInputVariables: [],

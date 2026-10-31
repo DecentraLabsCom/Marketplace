@@ -225,6 +225,7 @@ function setTooltipContent(tooltip, bindings) {
 export default function DigitalTwinCanvas({
   sceneUrl,
   values,
+  animatedValuesRef,
   modelVariables,
   pinnedOutputNames = new Set(),
   interactiveInputVariables = [],
@@ -886,7 +887,10 @@ export default function DigitalTwinCanvas({
       markerPulseTime += delta
       if (mixer) mixer.update(delta)
       for (const { node, binding, variable, normalizedBinding, isOutputBinding } of boundObjects) {
-        const currentValue = valuesRef.current?.[binding.variable]
+        const animatedValues = animatedValuesRef?.current
+        const currentValue = animatedValues && Object.hasOwn(animatedValues, binding.variable)
+          ? animatedValues[binding.variable]
+          : valuesRef.current?.[binding.variable]
         const rawValue = currentValue ?? (!isOutputBinding ? getFmiInitialValue(variable) : undefined)
         if (rawValue === undefined || rawValue === null) continue
 

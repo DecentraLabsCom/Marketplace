@@ -82,6 +82,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
               selectedOptionId={selectedPresetId}
               onSelect={onPresetSelect}
               disabled={state === SIM_STATE.RUNNING || execution.hasActiveSession}
+              fitContent
             />
             <FmiLsResourceSelect
               options={experiments}
@@ -89,6 +90,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
               onSelect={onExperimentSelect}
               choiceLabel="Experiment"
               disabled={state === SIM_STATE.RUNNING || execution.hasActiveSession}
+              fitContent
             />
           </>
         )}
@@ -193,10 +195,10 @@ export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, m
       {fmuStateControls}
 
       {editableVariables.length > 0 && (
-        <FmiLsResourceSelect options={presets} selectedOptionId={selectedPresetId} onSelect={onPresetSelect} disabled={state === SIM_STATE.RUNNING} />
+        <FmiLsResourceSelect options={presets} selectedOptionId={selectedPresetId} onSelect={onPresetSelect} disabled={state === SIM_STATE.RUNNING} fitContent />
       )}
       {experiments.length > 0 && (
-        <FmiLsResourceSelect options={experiments} selectedOptionId={selectedExperimentId} onSelect={onExperimentSelect} choiceLabel="Experiment" disabled={state === SIM_STATE.RUNNING} />
+        <FmiLsResourceSelect options={experiments} selectedOptionId={selectedExperimentId} onSelect={onExperimentSelect} choiceLabel="Experiment" disabled={state === SIM_STATE.RUNNING} fitContent />
       )}
       {editableVariables.length > 0 && (
         <ParameterForm

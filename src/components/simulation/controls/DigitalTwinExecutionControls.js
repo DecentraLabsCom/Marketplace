@@ -68,7 +68,7 @@ export function DigitalTwinExecutionModeSelector({
               MozAppearance: 'none',
               backgroundImage: 'none',
             }}
-            className="h-8 min-w-[8.5rem] max-w-44 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-8 w-max min-w-0 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option title={EXECUTION_MODE_HELP.batch.description} value="batch" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Batch</option>
             <option title={EXECUTION_MODE_HELP.step.description} value="step" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Step by step</option>
@@ -102,9 +102,9 @@ export function DigitalTwinExecutionModeSelector({
                   MozAppearance: 'none',
                   backgroundImage: 'none',
                 }}
-                className="h-8 min-w-[10rem] appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-8 w-max min-w-0 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="adaptive" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Adaptive (recommended)</option>
+                <option value="adaptive" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Adaptive</option>
                 <option value="fixed" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Fixed sample cap</option>
               </select>
               <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
@@ -132,7 +132,7 @@ export function DigitalTwinExecutionModeSelector({
                     }
                   }}
                   disabled={controlsDisabled}
-                  className="h-8 w-20 rounded-md border border-[#30464d] bg-[#101a20] px-2 text-xs font-semibold text-[#f1f7f8] outline-none focus:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-8 w-[3.75rem] rounded-md border border-[#30464d] bg-[#101a20] px-2 text-xs font-semibold text-[#f1f7f8] outline-none focus:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </VariableDescriptionTooltip>
             </div>

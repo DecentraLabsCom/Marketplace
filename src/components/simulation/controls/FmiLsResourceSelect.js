@@ -11,7 +11,7 @@ export default function FmiLsResourceSelect({
   onSelect,
   choiceLabel = 'System configuration',
   disabled = false,
-  fullWidth = false,
+  fitContent = false,
 }) {
   const valueId = useId()
   const listboxId = useId()
@@ -23,6 +23,9 @@ export default function FmiLsResourceSelect({
   const [menuPosition, setMenuPosition] = useState(null)
   const customChoice = { id: '', name: choiceLabel, description: '' }
   const options = [customChoice, ...(Array.isArray(suppliedOptions) ? suppliedOptions : [])]
+  const longestOptionName = options.reduce((longest, option) => (
+    option.name.length > longest.length ? option.name : longest
+  ), customChoice.name)
   const selectedIndex = Math.max(0, options.findIndex((option) => option.id === selectedOptionId))
   const selectedOption = options[selectedIndex] || customChoice
 
@@ -153,7 +156,7 @@ export default function FmiLsResourceSelect({
   if (!Array.isArray(suppliedOptions) || suppliedOptions.length === 0) return null
 
   return (
-    <div ref={rootRef} className={`relative grid min-w-52 gap-1 text-xs text-text-secondary ${fullWidth ? 'w-full' : ''}`}>
+    <div ref={rootRef} className={`relative gap-1 text-xs text-text-secondary ${fitContent ? 'inline-flex w-max min-w-0 max-w-full' : 'grid min-w-52'}`}>
       <button
         ref={triggerRef}
         type="button"
@@ -164,9 +167,16 @@ export default function FmiLsResourceSelect({
         onClick={() => (isOpen ? closeMenu() : openMenu())}
         onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
-        className="inline-flex min-h-10 w-full items-center justify-between gap-3 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-left text-xs font-semibold text-[#dce9e9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+        className={`inline-flex min-h-10 ${fitContent ? 'w-max min-w-0 max-w-full' : 'w-full'} items-center justify-between gap-3 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-left text-xs font-semibold text-[#dce9e9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50`}
       >
-        <span id={valueId} className="truncate">{selectedOption.name}</span>
+        {fitContent ? (
+          <span className="grid min-w-0">
+            <span id={valueId} className="col-start-1 row-start-1 truncate">{selectedOption.name}</span>
+            <span aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-nowrap">{longestOptionName}</span>
+          </span>
+        ) : (
+          <span id={valueId} className="truncate">{selectedOption.name}</span>
+        )}
         <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 shrink-0 text-[#9ab8bd] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
           <path fillRule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
         </svg>
@@ -229,5 +239,5 @@ FmiLsResourceSelect.propTypes = {
   onSelect: PropTypes.func.isRequired,
   choiceLabel: PropTypes.string,
   disabled: PropTypes.bool,
-  fullWidth: PropTypes.bool,
+  fitContent: PropTypes.bool,
 }

@@ -479,7 +479,7 @@ export default function DigitalTwinAppViewer({
                       setSelectedFmiLsParameterPresetId(id)
                     }}
                     disabled={isRunning}
-                    fullWidth
+                    fitContent
                   />
                 ) : null}
 
@@ -493,7 +493,7 @@ export default function DigitalTwinAppViewer({
                     }}
                     choiceLabel="Experiment"
                     disabled={isRunning}
-                    fullWidth
+                    fitContent
                   />
                 ) : null}
 
