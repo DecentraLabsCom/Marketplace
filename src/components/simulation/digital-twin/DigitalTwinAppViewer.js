@@ -7,6 +7,7 @@ import InputScheduleDialog from '../controls/InputScheduleDialog'
 import PlaybackRateControl from '../controls/PlaybackRateControl'
 import FmiLsResourceSelect from '../controls/FmiLsResourceSelect'
 import FmuStateCheckpointControls from '../controls/FmuStateCheckpointControls'
+import { filterFmuStateModelValues } from '../utils/fmuStateCheckpoint'
 import { resolveInputSchedule } from '../utils/simulationParameters'
 import FmiLsStructMapPanel from './FmiLsStructMapPanel'
 import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
@@ -28,6 +29,7 @@ export default function DigitalTwinAppViewer({
   fmiLsStruct,
   fmuStateAvailable = false,
   fmuStateScopeKey = '',
+  onFmuStateValuesLoad,
   onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
   const iframeRef = useRef(null)
@@ -364,6 +366,21 @@ export default function DigitalTwinAppViewer({
   function cancelCurrentSimulation() {
     if (activeRunId) send(MESSAGE.EXECUTION_CANCEL, { runId: activeRunId })
   }
+  function handleLoadFmuState() {
+    const shouldLoad = !resumeFromFmuState
+    if (shouldLoad) {
+      const variableNames = modelVariables.map((variable) => variable?.name).filter(Boolean)
+      const modelValues = filterFmuStateModelValues(fmuStateCheckpoint?.modelValues, variableNames)
+      if (Object.keys(modelValues).length) {
+        onFmuStateValuesLoad?.(modelValues, {
+          checkpointId: fmuStateCheckpoint?.checkpoint?.checkpointId,
+          simTime: fmuStateCheckpoint?.simTime,
+        })
+      }
+      setSelectedFmiLsParameterPresetId('')
+    }
+    setResumeFromFmuState(shouldLoad)
+  }
 
   return (
     <section className={fullScreen
@@ -501,7 +518,7 @@ export default function DigitalTwinAppViewer({
                       setFmuStateError('')
                       send(MESSAGE.FMU_STATE_CAPTURE)
                     }}
-                    onLoad={() => setResumeFromFmuState((loaded) => !loaded)}
+                    onLoad={handleLoadFmuState}
                     onClear={() => {
                       setFmuStateCheckpoint(null)
                       setResumeFromFmuState(false)
@@ -603,6 +620,7 @@ DigitalTwinAppViewer.propTypes = {
   enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
   fmiLsStruct: PropTypes.object,
   fmuStateAvailable: PropTypes.bool, fmuStateScopeKey: PropTypes.string,
+  onFmuStateValuesLoad: PropTypes.func,
   inputValues: PropTypes.object,
   inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
   startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,

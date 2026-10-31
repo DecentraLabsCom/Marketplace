@@ -56,10 +56,12 @@ refreshes the app's visible scene from the saved output sample when available.
 After an SDK run completes, the SDK retains its FMU session for up
 to five minutes so Save can capture the actual final FMU state. This is separate
 from visual replay: pausing replay does not move the FMU back to the selected
-sample. The saved bundle includes the latest selected FMU outputs when they fit
-within the checkpoint size limit, so `Load` can refresh an app's scene and
-indicators immediately through `onFmuStateLoaded(sample, context)`. The next
-run still restores the actual serialized FMU state. A provider app can also use
+sample. The saved bundle includes the latest selected FMU outputs and the model
+input and parameter values at the checkpoint when they fit within the checkpoint
+size limit. `Load` updates named form controls (`name` equal to the FMI variable
+name), and `onFmuStateLoaded(sample, context)` receives those values in
+`context.modelValues` for apps with custom controls. The next run still restores
+the actual serialized FMU state. A provider app can also use
 `run({ checkpoint, captureFmuStateOnComplete: true })`, receive the resulting
 bundle through `onFmuStateCheckpoint`, or call `captureState()` during an active
 run or within five minutes of completion. The direct session API exposes

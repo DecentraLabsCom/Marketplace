@@ -9,7 +9,7 @@ function normalizeBundle(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== 1
     || !Number.isFinite(value.simTime) || !value.checkpoint || typeof value.checkpoint !== 'object'
     || Array.isArray(value.checkpoint)
-    || Object.keys(value).some((key) => !['version', 'simTime', 'checkpoint', 'sample'].includes(key))) return null
+    || Object.keys(value).some((key) => !['version', 'simTime', 'checkpoint', 'sample', 'modelValues'].includes(key))) return null
   const checkpoint = value.checkpoint
   if (Object.keys(checkpoint).length !== CHECKPOINT_FIELDS.size
     || Object.keys(checkpoint).some((key) => !CHECKPOINT_FIELDS.has(key))
@@ -26,7 +26,19 @@ function normalizeBundle(value) {
     || Object.keys(sample.outputs).length > 512
     || Object.entries(sample.outputs).some(([name, item]) => !name || name.length > 256
       || !(typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item)))))) return null
-  return { version: 1, simTime: value.simTime, checkpoint, ...(sample ? { sample } : {}) }
+  const modelValues = value.modelValues
+  if (modelValues !== undefined && (!modelValues || typeof modelValues !== 'object' || Array.isArray(modelValues)
+    || Object.keys(modelValues).length > 256
+    || Object.entries(modelValues).some(([name, item]) => !name || name.length > 256
+      || !(typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item))
+        || (typeof item === 'string' && item.length <= 1024))))) return null
+  return {
+    version: 1,
+    simTime: value.simTime,
+    checkpoint,
+    ...(sample ? { sample } : {}),
+    ...(modelValues ? { modelValues } : {}),
+  }
 }
 
 const buttonClass = 'rounded-md border border-[#45636a] px-3 py-1.5 font-semibold text-[#dce9e9] hover:border-[#54d5c9]'

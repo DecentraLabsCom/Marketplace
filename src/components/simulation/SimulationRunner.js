@@ -16,7 +16,7 @@ import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecutio
 import useProxyFmuDownload from './hooks/useProxyFmuDownload'
 import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
 import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
-import { createFmuStateResults } from './utils/fmuStateCheckpoint'
+import { createFmuStateResults, filterFmuStateModelValues } from './utils/fmuStateCheckpoint'
 
 const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
@@ -381,6 +381,24 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const saveAvailable = Boolean(candidateFmuStateCheckpoint)
     || (interactiveExecution.canCaptureState && ['paused', 'completed'].includes(interactiveExecution.status))
   const stateClearAvailable = Boolean(fmuStateCheckpoint || candidateFmuStateCheckpoint || interactiveExecution.canCaptureState)
+  const restoreFmuStateModelValues = useCallback((modelValues) => {
+    const variables = twinAsset?.type === 'glb'
+      ? [...twinEditableVariables, ...twinScheduledRuntimeVariables]
+      : [...editableVariables, ...scheduledRuntimeVariables]
+    const restoredValues = filterFmuStateModelValues(
+      modelValues,
+      variables.map((variable) => variable.name),
+    )
+    if (Object.keys(restoredValues).length) {
+      setParameters((current) => ({ ...current, ...restoredValues }))
+      setSelectedFmiLsParameterPresetId('')
+    }
+  }, [editableVariables, scheduledRuntimeVariables, setParameters, twinAsset?.type, twinEditableVariables, twinScheduledRuntimeVariables])
+  const handleLoadFmuState = useCallback(() => {
+    const shouldLoad = !resumeFromFmuState
+    if (shouldLoad) restoreFmuStateModelValues(fmuStateCheckpoint?.modelValues)
+    setResumeFromFmuState(shouldLoad)
+  }, [fmuStateCheckpoint, restoreFmuStateModelValues, resumeFromFmuState])
   const handleSaveFmuState = useCallback(() => {
     if (candidateFmuStateCheckpoint) {
       setFmuStateCheckpoint(candidateFmuStateCheckpoint)
@@ -409,7 +427,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       checkpoint={fmuStateCheckpoint}
       loaded={resumeFromFmuState}
       onSave={handleSaveFmuState}
-      onLoad={() => setResumeFromFmuState((loaded) => !loaded)}
+      onLoad={handleLoadFmuState}
       onClear={handleClearFmuState}
       saveAvailable={saveAvailable}
       clearAvailable={stateClearAvailable}
@@ -482,6 +500,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           fmiLsStruct={variableAccess?.fmiLsStruct}
           fmuStateAvailable={variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true}
           fmuStateScopeKey={stateScopeKey}
+          onFmuStateValuesLoad={restoreFmuStateModelValues}
           scheduleVariables={twinScheduledRuntimeVariables}
           enableInputSchedule={supportsTwinInputSchedule}
           inputValues={parameters}

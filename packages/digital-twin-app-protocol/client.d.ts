@@ -1,8 +1,8 @@
-import type { AppReadyMessage, DigitalTwinSample, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+import type { AppReadyMessage, DigitalTwinSample, DigitalTwinScalar, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
 export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number; checkpoint?: FmuStateCheckpointBundle }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
-export interface FmuStateLoadedContext { checkpointId: string; simTime: number }
+export interface FmuStateLoadedContext { checkpointId: string; simTime: number; modelValues?: Record<string, DigitalTwinScalar> }
 export interface AdaptiveBatchOptions {
   targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
 }
@@ -32,7 +32,7 @@ export interface DigitalTwinAppClientOptions {
   onFmiLsExperiment?: (experiment: FmiLsExperiment | null) => void
   /** Receives a saved checkpoint. The SDK also relays it to the Marketplace host when embedded. */
   onFmuStateCheckpoint?: (checkpoint: FmuStateCheckpointBundle) => void
-  /** Updates an app's visible state from the saved outputs when the host selects Load. */
+  /** Updates an app's visible state from saved outputs and inputs when the host selects Load. */
   onFmuStateLoaded?: (sample: DigitalTwinSample, context: FmuStateLoadedContext) => void | Promise<void>
   onRunAccepted?: (result: { runId: string }) => void
   onRunRejected?: (result: { code: string }) => void

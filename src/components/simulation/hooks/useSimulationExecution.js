@@ -6,7 +6,7 @@ import {
   resolveInputSchedule,
 } from '../utils/simulationParameters'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
-import { createFmuStateSample } from '../utils/fmuStateCheckpoint'
+import { createFmuStateModelValues, createFmuStateSample } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
 
 export const SIM_STATE = {
@@ -287,11 +287,17 @@ export default function useSimulationExecution({
                 [name, values.at(-1)]
               )))
               const sample = createFmuStateSample(checkpointTime, latestOutputs)
+              const modelValues = createFmuStateModelValues(
+                { ...activeParameters, ...(checkpointBundle?.modelValues || {}) },
+                inputSchedule,
+                checkpointTime,
+              )
               setCandidateFmuStateCheckpoint?.({
                 version: 1,
                 simTime: checkpointTime,
                 checkpoint: event.checkpoint,
                 ...(sample ? { sample } : {}),
+                ...(Object.keys(modelValues).length ? { modelValues } : {}),
               })
             }
             break

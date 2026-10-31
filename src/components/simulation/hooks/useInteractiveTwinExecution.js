@@ -15,7 +15,7 @@ import {
   getInputUpdateRetryDelayMs,
   getInputUpdateQuota,
 } from '@decentralabs/digital-twin-app-protocol/input-update-quota'
-import { createFmuStateSample } from '../utils/fmuStateCheckpoint'
+import { createFmuStateModelValues, createFmuStateSample } from '../utils/fmuStateCheckpoint'
 
 const VALID_ADVANCE_STOP_REASONS = new Set([
   'target_reached', 'max_samples', 'compute_budget', 'early_return', 'simulation_finished',
@@ -698,11 +698,16 @@ export default function useInteractiveTwinExecution({
       const simTime = Number(result.simTime)
       if (!result.checkpoint || !Number.isFinite(simTime)) throw new Error('The provider returned an invalid FMU state checkpoint.')
       const sample = latestSampleRef.current
+      const modelValues = createFmuStateModelValues({
+        ...liveParametersRef.current,
+        ...appliedRuntimeParametersRef.current,
+      })
       const bundle = {
         version: 1,
         simTime,
         checkpoint: result.checkpoint,
         ...(sample ? { sample: { ...sample, time: simTime } } : {}),
+        ...(Object.keys(modelValues).length ? { modelValues } : {}),
       }
       onFmuStateCheckpoint(bundle)
       if (mountedRef.current) setCheckpointError('')
