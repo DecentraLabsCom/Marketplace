@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { filterModelVariablesByAccess, getInitializationEditableVariables, getRuntimeWritableVariables } from './simulationVariableAccess'
-import { filterFmiLsExperimentsForVariables, filterFmiLsParameterPresets } from '@/utils/fmiLsEligibility'
+import useSimulationModelResources from './useSimulationModelResources'
 
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
 const APP_REFERENCE_RE = /^\/digital-twin-apps\/(local_demo_[a-f0-9]{24})\/([a-f0-9]{64})\/index\.html$/i
@@ -13,26 +12,16 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
   const [access, setAccess] = useState(null)
   const [localInputEvents, setLocalInputEvents] = useState([])
   const [state, setState] = useState('loading')
-  const accessibleModelVariables = useMemo(
-    () => filterModelVariablesByAccess(access?.modelVariables || [], access),
-    [access],
-  )
-  const editableVariables = useMemo(
-    () => getInitializationEditableVariables(accessibleModelVariables, access),
-    [accessibleModelVariables, access],
-  )
-  const fmiLsParameterPresets = useMemo(
-    () => filterFmiLsParameterPresets(access?.fmiLsParameterPresets, editableVariables),
-    [access?.fmiLsParameterPresets, editableVariables],
-  )
-  const runtimeVariables = useMemo(
-    () => getRuntimeWritableVariables(accessibleModelVariables, access),
-    [accessibleModelVariables, access],
-  )
-  const fmiLsExperiments = useMemo(
-    () => filterFmiLsExperimentsForVariables(access?.fmiLsExperiments, editableVariables, runtimeVariables),
-    [access?.fmiLsExperiments, editableVariables, runtimeVariables],
-  )
+  const {
+    accessibleModelVariables,
+    scheduledRuntimeVariables: runtimeVariables,
+    editableFmiLsParameterPresets: fmiLsParameterPresets,
+    fmiLsExperiments,
+  } = useSimulationModelResources({
+    modelVariables: access?.modelVariables,
+    access,
+    parameterPresets: access?.fmiLsParameterPresets,
+  })
   const inputEvents = viewerProps.inputEvents ?? localInputEvents
   const onInputEventsChange = viewerProps.onInputEventsChange ?? setLocalInputEvents
   const supportsInputSchedule = access?.simulationType === 'CoSimulation'
