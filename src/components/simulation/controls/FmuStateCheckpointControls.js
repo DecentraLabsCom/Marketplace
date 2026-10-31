@@ -71,7 +71,7 @@ export default function FmuStateCheckpointControls({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 py-2 text-xs text-[#b8d2d5]" aria-label="FMU state checkpoints">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 py-2 text-xs text-[#b8d2d5]" aria-label="Save and load lab state">
       <label className="inline-flex items-center gap-2" title="Capture the FMU state when this run finishes. Checkpoints are tied to this model and reservation and expire after 24 hours.">
         <input
           type="checkbox"

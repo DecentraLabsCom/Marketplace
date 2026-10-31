@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
 import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
 import {
-  normalizeSimulationParameters,
-  omitParametersMatchingFmiStart,
+  normalizeInitializationParameters,
   resolveInputSchedule,
 } from '../utils/simulationParameters'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
@@ -227,10 +226,7 @@ export default function useSimulationExecution({
       )))
       const normalizedParameters = checkpointBundle
         ? {}
-        : omitParametersMatchingFmiStart(
-          normalizeSimulationParameters(initializationValues, accessibleModelVariables),
-          accessibleModelVariables,
-        )
+        : normalizeInitializationParameters(initializationValues, accessibleModelVariables)
       const body = {
         labId: String(lab.id ?? lab.tokenId ?? ''),
         reservationKey,

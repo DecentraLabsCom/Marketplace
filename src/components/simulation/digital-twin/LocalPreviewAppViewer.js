@@ -83,6 +83,7 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
       modelVariables={viewerProps.modelVariables ?? accessibleModelVariables}
       fmiLsStruct={viewerProps.fmiLsStruct ?? access?.fmiLsStruct}
       fmuStateAvailable={viewerProps.fmuStateAvailable ?? (access?.fmuState?.getAndSet === true && access?.fmuState?.serialize === true)}
+      fmuStateScopeKey={viewerProps.fmuStateScopeKey ?? JSON.stringify([demo, access?.labId || ''])}
       scheduleVariables={viewerProps.scheduleVariables ?? runtimeVariables}
       enableInputSchedule={viewerProps.enableInputSchedule ?? supportsInputSchedule}
       inputEvents={inputEvents}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
-import { normalizeSimulationParameters } from '../utils/simulationParameters'
+import { normalizeInitializationParameters, normalizeSimulationParameters } from '../utils/simulationParameters'
 import { getSimulationOptionsError, normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import {
   createInteractiveBatchController,
@@ -552,7 +552,7 @@ export default function useInteractiveTwinExecution({
         editableVariables.some((variable) => variable.name === name)
         && value !== '' && value !== null && value !== undefined
       )))
-      const normalizedParameters = checkpointBundle ? {} : normalizeSimulationParameters(initialValues, modelVariables)
+      const normalizedParameters = checkpointBundle ? {} : normalizeInitializationParameters(initialValues, modelVariables)
       const runtimeDisplayValues = { ...parameters }
       for (const variable of runtimeVariables) {
         if ((runtimeDisplayValues[variable.name] === undefined || runtimeDisplayValues[variable.name] === '') && variable.start !== undefined) {
@@ -565,9 +565,13 @@ export default function useInteractiveTwinExecution({
         setSimulationTime(activeOptions.startTime)
       }
       simulationTimeRef.current = activeOptions.startTime
-      appliedRuntimeParametersRef.current = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
+      const runtimeStartValues = Object.fromEntries(runtimeVariables.flatMap((variable) => (
+        variable.start === undefined ? [] : [[variable.name, variable.start]]
+      )))
+      const initializedRuntimeValues = Object.fromEntries(Object.entries(normalizedParameters).filter(([name]) => (
         runtimeVariables.some((variable) => variable.name === name)
       )))
+      appliedRuntimeParametersRef.current = { ...runtimeStartValues, ...initializedRuntimeValues }
       if (checkpointBundle) {
         appliedRuntimeParametersRef.current = Object.fromEntries(runtimeVariables.flatMap((variable) => {
           const value = runtimeDisplayValues[variable.name]

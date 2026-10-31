@@ -105,8 +105,8 @@ export default function DigitalTwinAppViewer({
   const hasScheduleControl = appState === 'ready'
     && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
   const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapCount > 0
-  const hasFmuStateControl = appState === 'ready' && fmuStateAvailable
-    && appCapabilities.includes(FMU_STATE_CHECKPOINTS_CAPABILITY)
+  const appSupportsFmuStateControl = appCapabilities.includes(FMU_STATE_CHECKPOINTS_CAPABILITY)
+  const hasFmuStateControl = appState === 'ready' && fmuStateAvailable && appSupportsFmuStateControl
   const hasCancelControl = Boolean(isRunning && activeRunId
     && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
   const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl
@@ -167,13 +167,13 @@ export default function DigitalTwinAppViewer({
   }, [appCapabilities, appState, selectedFmiLsExperiment])
 
   useEffect(() => {
-    if (!hasFmuStateControl) return
+    if (!fmuStateAvailable || !appSupportsFmuStateControl) return
     send(MESSAGE.FMU_STATE_CONFIGURATION, {
       checkpoint: fmuStateCheckpoint,
       resume: Boolean(resumeFromFmuState && fmuStateCheckpoint),
       captureOnCompletion: captureFmuStateOnCompletion,
     })
-  }, [captureFmuStateOnCompletion, fmuStateCheckpoint, hasFmuStateControl, resumeFromFmuState])
+  }, [appSupportsFmuStateControl, captureFmuStateOnCompletion, fmuStateAvailable, fmuStateCheckpoint, resumeFromFmuState])
 
   function send(type, payload = {}) {
     const message = makeProtocolMessage(type, payload)

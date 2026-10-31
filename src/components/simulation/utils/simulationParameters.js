@@ -308,6 +308,14 @@ export function normalizeSimulationParameters(parameters, modelVariables = []) {
   ]))
 }
 
+/** Omit unchanged FMI starts before validating the values that will be sent. */
+export function normalizeInitializationParameters(parameters, modelVariables = []) {
+  return normalizeSimulationParameters(
+    omitParametersMatchingFmiStart(parameters, modelVariables),
+    modelVariables,
+  )
+}
+
 export function normalizeInputSchedule(events, scheduledVariables, modelVariables = [], startTime = 0, stopTime, stepSize) {
   if (!Array.isArray(events) || events.length > 128) {
     throw new Error('A simulation can contain at most 128 scheduled changes.')
