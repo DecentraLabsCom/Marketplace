@@ -412,7 +412,7 @@ export function createDigitalTwinAppClient({
   }
 
   async function run({
-    parameters = {}, options = {}, inputSchedule, inputController, batchPolicy = 'fixed',
+    parameters = {}, options = {}, inputSchedule, composeInputSchedule, inputController, batchPolicy = 'fixed',
     maxBatchSamples = MAX_SAMPLES_PER_BATCH, adaptiveBatchOptions = {}, advanceOptions = {},
     includeModelVariables = false, validateModel, parametersFromModel,
     inputControllerInterval, inputControllerTimes = [],
@@ -440,6 +440,12 @@ export function createDigitalTwinAppClient({
       || (validateModel !== undefined && typeof validateModel !== 'function')
       || (parametersFromModel !== undefined && typeof parametersFromModel !== 'function')) {
       throw errorWithCode('Invalid model validation options.', 'INVALID_INPUT')
+    }
+    if (composeInputSchedule !== undefined && typeof composeInputSchedule !== 'function') {
+      throw errorWithCode('composeInputSchedule must be a function.', 'INVALID_INPUT')
+    }
+    if (inputSchedule !== undefined && composeInputSchedule !== undefined) {
+      throw errorWithCode('Use either inputSchedule or composeInputSchedule.', 'INVALID_INPUT')
     }
     if (!['fixed', 'adaptive'].includes(batchPolicy)) throw errorWithCode('Invalid batch policy.', 'INVALID_INPUT')
     if (!isRecord(adaptiveBatchOptions)) throw errorWithCode('Invalid adaptive batch options.', 'INVALID_INPUT')
@@ -498,7 +504,12 @@ export function createDigitalTwinAppClient({
           startTime, stopTime, stepSize, maxSamples: maxBatchSamples, ...adaptiveBatchOptions,
         })
       }
-      const schedule = inputSchedule ?? grant.inputSchedule ?? []
+      // Keep provider-authorized FMI-LS experiments and Schedule changes when
+      // an app also needs to add its own model-specific timing events.
+      const providerSchedule = Array.isArray(grant.inputSchedule) ? grant.inputSchedule : []
+      const schedule = composeInputSchedule
+        ? await composeInputSchedule([...providerSchedule])
+        : inputSchedule ?? providerSchedule
       if (!isValidRunInputSchedule(schedule) || schedule.some((event) => event.time < startTime || event.time > stopTime)) throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
       if (schedule.length && current.session.capabilities.advanceInputValues !== true) {
         throw errorWithCode('The provider FMU runtime cannot apply scheduled inputs during advance.', 'UNSUPPORTED_SCHEDULED_INPUTS')

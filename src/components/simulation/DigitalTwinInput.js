@@ -63,7 +63,8 @@ function VariableNameAndUnit({ variable, displayName, displayUnit, className = '
 export default function DigitalTwinInput({ variable, modelVariables, value, onChange, disabled }) {
   const variableDescription = getVariableDescription(variable)
   const displayName = getVariableDisplayName(variable)
-  const displayUnit = getVariableDisplayUnit(variable)
+  const declaredUnit = getVariableDisplayUnit(variable).trim()
+  const displayUnit = declaredUnit && declaredUnit !== '1' ? declaredUnit : '-'
   const accessibleDescription = variableDescription || displayName
   const valueCount = getVariableValueCount(variable, modelVariables)
   const isBoolean = String(variable.type || '').toLowerCase() === 'boolean' && valueCount === 1
