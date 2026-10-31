@@ -250,6 +250,7 @@ export default function DigitalTwinViewer({
             sceneUrl={sceneUrl}
             values={sceneValues}
             modelVariables={modelVariables}
+            pinnedOutputNames={pinnedOutputNames}
             interactiveInputVariables={interactiveInputVariables}
             inputEditingEnabled={inputEditingEnabled}
             onInputChange={onInputChange}
@@ -265,8 +266,8 @@ export default function DigitalTwinViewer({
               <VariableDescriptionTooltip
                 name="Output markers"
                 description={outputMarkersVisible
-                  ? 'Hide markers over outputs with descriptions.'
-                  : 'Show markers over outputs with descriptions.'}
+                  ? 'Hide output markers.'
+                  : 'Show markers for described or pinned outputs.'}
                 align="left"
                 portal
               >

@@ -210,10 +210,13 @@ function setTooltipContent(tooltip, bindings) {
     name.textContent = variable.name
     entry.appendChild(name)
 
-    const details = document.createElement('p')
-    details.className = 'mt-0.5 text-[11px] leading-snug text-[#c1d2d5]'
-    details.textContent = getVariableDescription(variable)
-    entry.appendChild(details)
+    const description = getVariableDescription(variable)
+    if (description) {
+      const details = document.createElement('p')
+      details.className = 'mt-0.5 text-[11px] leading-snug text-[#c1d2d5]'
+      details.textContent = description
+      entry.appendChild(details)
+    }
 
     tooltip.appendChild(entry)
   }
@@ -223,6 +226,7 @@ export default function DigitalTwinCanvas({
   sceneUrl,
   values,
   modelVariables,
+  pinnedOutputNames = new Set(),
   interactiveInputVariables = [],
   inputEditingEnabled = false,
   onInputChange,
@@ -236,6 +240,7 @@ export default function DigitalTwinCanvas({
   const hostRef = useRef(null)
   const valuesRef = useRef(values)
   const variablesRef = useRef(modelVariables)
+  const pinnedOutputNamesRef = useRef(pinnedOutputNames)
   const interactiveInputVariablesRef = useRef(interactiveInputVariables)
   const inputEditingEnabledRef = useRef(inputEditingEnabled)
   const onInputChangeRef = useRef(onInputChange)
@@ -249,6 +254,7 @@ export default function DigitalTwinCanvas({
 
   valuesRef.current = values
   variablesRef.current = modelVariables
+  pinnedOutputNamesRef.current = pinnedOutputNames
   interactiveInputVariablesRef.current = interactiveInputVariables
   inputEditingEnabledRef.current = inputEditingEnabled
   onInputChangeRef.current = onInputChange
@@ -749,7 +755,7 @@ export default function DigitalTwinCanvas({
       for (const node of markerNodes) {
         const variables = [...new Map((bindingsByNode.get(node) || [])
           .filter(({ variable, normalizedBinding }) => (
-            (variable.causality === 'output' && getVariableDescription(variable))
+            variable.causality === 'output'
             || isDraggableFmiSceneBinding(normalizedBinding)
           ))
           .map(({ variable, normalizedBinding }) => {
@@ -855,6 +861,7 @@ export default function DigitalTwinCanvas({
             waves,
             variable,
             kind,
+            hasDescription: Boolean(getVariableDescription(variable)),
             worldPosition: new THREE.Vector3(),
             projectedPosition: new THREE.Vector3(),
             screenX: 0,
@@ -941,6 +948,7 @@ export default function DigitalTwinCanvas({
           const { element, members, waves, worldPosition, projectedPosition } = marker
           const markerEnabled = marker.kind === 'output'
             ? showOutputMarkersRef.current
+              && (marker.hasDescription || pinnedOutputNamesRef.current.has(marker.variable.name))
             : showInputMarkersRef.current
               && inputEditingEnabledRef.current
               && interactiveInputVariablesRef.current.some((variable) => variable?.name === marker.variable.name)
