@@ -146,6 +146,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
     () => getRuntimeWritableVariables(accessibleModelVariables, variableAccess),
     [accessibleModelVariables, variableAccess],
   )
+  const genericFmiLsExperiments = useMemo(
+    () => filterFmiLsExperimentsForVariables(
+      variableAccess?.fmiLsExperiments,
+      editableVariables,
+      scheduledRuntimeVariables,
+    ),
+    [editableVariables, scheduledRuntimeVariables, variableAccess?.fmiLsExperiments],
+  )
   let inputScheduleError = ''
   const simulationOptionsError = getSimulationOptionsError(options, { includeStepSize: !isScheduledExecution })
   if (supportsInputSchedule && inputEvents.length > 0 && !simulationOptionsError) {
@@ -187,6 +195,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     ),
     [twinEditableVariableNames, twinScheduledRuntimeVariables, variableAccess?.fmiLsExperiments],
   )
+  const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
     && reservationKey
@@ -253,13 +262,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
   }, [fmiLsParameterPresets])
 
   const handleExperimentSelect = useCallback((experimentId) => {
-    const experiment = twinFmiLsExperiments.find((candidate) => candidate.id === experimentId)
+    const experiment = selectableFmiLsExperiments.find((candidate) => candidate.id === experimentId)
     setSelectedFmiLsExperimentId(experiment ? experiment.id : '')
     setSelectedFmiLsParameterPresetId('')
     if (!experiment) return
     setParameters((current) => ({ ...current, ...experiment.parameters }))
     setOptions((current) => ({ ...current, ...experiment.options }))
-  }, [twinFmiLsExperiments])
+  }, [selectableFmiLsExperiments])
 
   const handleOptionChange = useCallback((name, value) => {
     setSelectedFmiLsExperimentId('')
@@ -491,7 +500,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
         ? inputEvents
         : requestedInputEvents
-      const selectedExperiment = twinFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+      const selectedExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
       const experimentSchedule = supportsInputSchedule
         ? normalizeInputSchedule(
           inputScheduleToEvents(selectedExperiment?.inputSchedule),
@@ -612,7 +621,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, solver, supportsInputSchedule, twinFmiLsExperiments, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, fmuMeta.simulationType, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const handleRun = useCallback((scheduledEvents) => {
     if (twinAsset?.type === 'glb' && executionMode !== 'batch') {
@@ -967,6 +976,16 @@ export default function SimulationRunner({ lab, reservationKey }) {
               options={editableFmiLsParameterPresets}
               selectedOptionId={selectedFmiLsParameterPresetId}
               onSelect={handleFmiLsParameterPresetSelect}
+              disabled={simState === SIM_STATE.RUNNING}
+            />
+          )}
+
+          {selectableFmiLsExperiments.length > 0 && (
+            <FmiLsResourceSelect
+              options={selectableFmiLsExperiments}
+              selectedOptionId={selectedFmiLsExperimentId}
+              onSelect={handleExperimentSelect}
+              choiceLabel="Experiment"
               disabled={simState === SIM_STATE.RUNNING}
             />
           )}
