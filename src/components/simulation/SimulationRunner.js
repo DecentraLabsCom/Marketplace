@@ -6,7 +6,11 @@ import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { resolveInputSchedule } from './utils/simulationParameters'
-import { getInitialSimulationOptions, getSimulationOptionsError } from './utils/simulationTime'
+import {
+  getInitialSimulationOptions,
+  getSimulationOptionsError,
+  resolveEffectiveSimulationStartTime,
+} from './utils/simulationTime'
 import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
 import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
@@ -99,15 +103,30 @@ export default function SimulationRunner({ lab, reservationKey }) {
   } = modelResources
   const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
   const selectedFmiLsExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const isGlbTwin = twinAsset?.type === 'glb'
+  const isResumingFromCheckpoint = Boolean(isGlbTwin && resumeFromFmuState && fmuStateCheckpoint)
+  const defaultStartTime = getInitialSimulationOptions(fmuMeta).startTime
+  const effectiveStartTime = isGlbTwin
+    ? resolveEffectiveSimulationStartTime({
+      defaultStartTime,
+      experimentStartTime: selectedFmiLsExperiment?.options?.startTime,
+      checkpointTime: isResumingFromCheckpoint ? fmuStateCheckpoint?.simTime : null,
+    })
+    : options.startTime
+  const effectiveOptions = useMemo(
+    () => (isGlbTwin ? { ...options, startTime: effectiveStartTime } : options),
+    [effectiveStartTime, isGlbTwin, options],
+  )
   let inputScheduleError = ''
-  const simulationOptionsError = getSimulationOptionsError(options, { includeStepSize: !isScheduledExecution })
+  const simulationOptionsError = getSimulationOptionsError(effectiveOptions, { includeStepSize: !isScheduledExecution })
   try {
     resolveInputSchedule({
       experiment: selectedFmiLsExperiment,
       inputEvents,
       scheduleVariables: scheduledRuntimeVariables,
       modelVariables: accessibleModelVariables,
-      options,
+      options: effectiveOptions,
+      ignoreEventsBeforeStartTime: isResumingFromCheckpoint,
       enabled: supportsInputSchedule && !simulationOptionsError,
     })
   } catch (error) {
@@ -121,7 +140,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     variableAccessState,
     parameters,
     setParameters,
-    options,
+    options: effectiveOptions,
     setOptions,
     inputEvents,
     isModelExchange,
@@ -245,7 +264,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   const interactiveExecution = useInteractiveTwinExecution({
     getConnection: getInteractiveConnection,
-    options,
+    options: effectiveOptions,
     parameters,
     modelVariables: twinModelVariables,
     editableVariables: twinEditableVariables,
@@ -526,9 +545,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
           simulation={{
             simulationType: twinSimulationType,
             enableInputSchedule: supportsTwinInputSchedule,
+            ignoreScheduleEventsBeforeStartTime: isResumingFromCheckpoint,
             parameters,
             onParameterChange: handleParamChange,
-            options,
+            options: effectiveOptions,
             onOptionChange: handleOptionChange,
             inputEvents,
             onInputEventsChange: setInputEvents,
@@ -618,8 +638,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           inputEditingEnabled={sceneInputVariables.length > 0}
           onInputChange={interactiveExecution.handleInputChange}
           isRunning={simState === SIM_STATE.RUNNING}
-          startTime={Number(options.startTime)}
-          stopTime={Number(options.stopTime)}
+          startTime={Number(effectiveOptions.startTime)}
+          stopTime={Number(effectiveOptions.stopTime)}
           followLatest={interactiveExecution.mode !== null}
           onDisplayedSampleChange={interactiveExecution.reportDisplayedSample}
         />

@@ -5,17 +5,31 @@ import { getSimulationOptionsError } from '../utils/simulationTime'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 /**
- * SimulationOptions — editable start time, stop time, step size.
+ * SimulationOptions — start time, stop time, and step size.
  *
  * @param {Object} props
  * @param {Object} props.options   - { startTime, stopTime, stepSize }
  * @param {Function} props.onChange - (name, value) => void
  * @param {boolean} [props.disabled]
+ * @param {boolean} [props.readOnlyStartTime]
  */
-export default function SimulationOptions({ options, onChange, simulationType, disabled = false }) {
+export default function SimulationOptions({
+  options,
+  onChange,
+  simulationType,
+  disabled = false,
+  readOnlyStartTime = false,
+}) {
   const includeStepSize = simulationType !== 'ScheduledExecution'
   const fields = [
-    { key: 'startTime', label: 'Start Time (s)', description: 'Beginning of the simulation interval.' },
+    {
+      key: 'startTime',
+      label: 'Start Time (s)',
+      description: readOnlyStartTime
+        ? 'Set by lab metadata, the selected experiment, or the loaded state.'
+        : 'Beginning of the simulation interval.',
+      readOnly: readOnlyStartTime,
+    },
     { key: 'stopTime', label: 'Stop Time (s)', description: 'End of the simulation interval.' },
     ...(includeStepSize ? [{
       key: 'stepSize',
@@ -30,7 +44,8 @@ export default function SimulationOptions({ options, onChange, simulationType, d
   const validationError = getSimulationOptionsError(options, { includeStepSize })
 
   function handleWheel(event, key) {
-    if (disabled || event.deltaY === 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    if (disabled || (readOnlyStartTime && key === 'startTime')
+      || event.deltaY === 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
 
     const current = Number(options[key])
     if (!Number.isFinite(current)) return
@@ -54,7 +69,7 @@ export default function SimulationOptions({ options, onChange, simulationType, d
     <fieldset className="grid gap-3 rounded-xl border border-[#26383f] bg-[#0c171c] p-3" disabled={disabled}>
       <legend className="text-sm font-semibold text-white">Simulation time</legend>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {fields.map(({ key, label, description }) => (
+        {fields.map(({ key, label, description, readOnly = false }) => (
           <div key={key} className="grid content-start gap-1">
             <VariableDescriptionTooltip name={label} description={description}>
               <label htmlFor={`sim-opt-${key}`} className="cursor-help text-xs font-medium text-[#dce9e9]">
@@ -67,9 +82,11 @@ export default function SimulationOptions({ options, onChange, simulationType, d
                 type="number"
                 step="any"
                 value={options[key] ?? ''}
-                onChange={(e) => onChange(key, e.target.value)}
+                onChange={readOnly ? undefined : (e) => onChange(key, e.target.value)}
                 onWheel={(event) => handleWheel(event, key)}
-                className="min-h-10 w-full rounded-lg border border-[#26383f] bg-[#142128] px-3 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                readOnly={readOnly}
+                aria-readonly={readOnly || undefined}
+                className={`min-h-10 w-full rounded-lg border border-[#26383f] px-3 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${readOnly ? 'cursor-not-allowed bg-[#101a20] text-[#b8d2d5]' : 'bg-[#142128]'}`}
               />
             </VariableDescriptionTooltip>
           </div>
@@ -92,4 +109,5 @@ SimulationOptions.propTypes = {
   onChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
   disabled: PropTypes.bool,
+  readOnlyStartTime: PropTypes.bool,
 }

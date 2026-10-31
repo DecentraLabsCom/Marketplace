@@ -33,6 +33,7 @@ export default function DigitalTwinSimulationForm({
   scheduleVariables,
   inputEvents = [],
   onInputEventsChange = () => {},
+  ignoreScheduleEventsBeforeStartTime = false,
   showRunButton = true,
   running = false,
   onRun,
@@ -56,6 +57,7 @@ export default function DigitalTwinSimulationForm({
       scheduleVariables: availableScheduleVariables,
       modelVariables,
       options: simulationOptions,
+      ignoreEventsBeforeStartTime: ignoreScheduleEventsBeforeStartTime,
       enabled: canScheduleInputChanges && !simulationOptionsError,
     })
   } catch (error) {
@@ -167,6 +169,7 @@ export default function DigitalTwinSimulationForm({
           onChange={onSimulationOptionChange}
           simulationType={simulationType}
           disabled={running}
+          readOnlyStartTime
         />
       </Modal>
 
@@ -216,6 +219,7 @@ DigitalTwinSimulationForm.propTypes = {
   scheduleVariables: PropTypes.arrayOf(PropTypes.object),
   inputEvents: PropTypes.arrayOf(PropTypes.object),
   onInputEventsChange: PropTypes.func,
+  ignoreScheduleEventsBeforeStartTime: PropTypes.bool,
   showRunButton: PropTypes.bool,
   running: PropTypes.bool,
   onRun: PropTypes.func.isRequired,

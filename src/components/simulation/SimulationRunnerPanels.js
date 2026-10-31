@@ -18,7 +18,17 @@ import { SIM_STATE } from './hooks/useSimulationExecution'
 export function GlbSimulationPanel({ lab, model, resources, simulation, configuration, interactive, proxy }) {
   const { fmiVersion, simulationTypeLabel, fmiLsStruct } = model
   const { modelVariables, structModelVariables = modelVariables, editableVariables, runtimeVariables } = resources
-  const { parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, fmuStateControls } = simulation
+  const {
+    parameters,
+    onParameterChange,
+    options,
+    onOptionChange,
+    inputEvents,
+    onInputEventsChange,
+    onRun,
+    fmuStateControls,
+    ignoreScheduleEventsBeforeStartTime,
+  } = simulation
   const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
   const selectedExperiment = experiments.find((experiment) => experiment.id === selectedExperimentId) || null
   const {
@@ -121,6 +131,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
         stickyToolbar
         stickyToolbarOffset={80}
         enableInputSchedule={simulation.enableInputSchedule && executionMode === 'batch'}
+        ignoreScheduleEventsBeforeStartTime={ignoreScheduleEventsBeforeStartTime}
         inputEvents={inputEvents}
         onInputEventsChange={onInputEventsChange}
         running={state === SIM_STATE.RUNNING}

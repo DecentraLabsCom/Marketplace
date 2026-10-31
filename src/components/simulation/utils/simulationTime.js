@@ -30,6 +30,18 @@ export function getInitialSimulationOptions(fmuMetadata = {}) {
   return { startTime, stopTime, stepSize }
 }
 
+/** Resolve the effective GLB start time from resume state, experiment, and lab metadata. */
+export function resolveEffectiveSimulationStartTime({
+  defaultStartTime,
+  experimentStartTime,
+  checkpointTime,
+} = {}) {
+  return parseOptionalFiniteNumber(checkpointTime)
+    ?? parseOptionalFiniteNumber(experimentStartTime)
+    ?? parseOptionalFiniteNumber(defaultStartTime)
+    ?? FALLBACK_SIMULATION_OPTIONS.startTime
+}
+
 export function getSimulationOptionsError(options, { includeStepSize = true } = {}) {
   const startTime = parseOptionalFiniteNumber(options?.startTime)
   if (startTime === null) return 'Enter a finite start time.'

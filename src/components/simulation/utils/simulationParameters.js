@@ -399,14 +399,23 @@ export function resolveInputSchedule({
   scheduleVariables = [],
   modelVariables = [],
   options = {},
+  ignoreEventsBeforeStartTime = false,
   enabled = true,
 } = {}) {
   if (!enabled) return []
 
   const runtimeVariables = Array.isArray(scheduleVariables) ? scheduleVariables : []
   const declaredVariables = Array.isArray(modelVariables) ? modelVariables : []
+  const startTime = Number(options.startTime)
+  const keepEvent = (event) => {
+    const eventTime = Number(event?.time)
+    return !ignoreEventsBeforeStartTime
+      || !Number.isFinite(startTime)
+      || !Number.isFinite(eventTime)
+      || eventTime >= startTime
+  }
   const experimentEvents = normalizeInputSchedule(
-    inputScheduleToEvents(experiment?.inputSchedule),
+    inputScheduleToEvents(experiment?.inputSchedule).filter(keepEvent),
     runtimeVariables,
     declaredVariables,
     options.startTime,
@@ -414,7 +423,7 @@ export function resolveInputSchedule({
     options.stepSize,
   )
   const manualEvents = normalizeInputSchedule(
-    inputEvents,
+    Array.isArray(inputEvents) ? inputEvents.filter(keepEvent) : inputEvents,
     runtimeVariables,
     declaredVariables,
     options.startTime,

@@ -209,6 +209,7 @@ export default function useSimulationExecution({
         scheduleVariables: scheduledRuntimeVariables,
         modelVariables: accessibleModelVariables,
         options: scheduleValidationOptions,
+        ignoreEventsBeforeStartTime: Boolean(checkpointBundle),
         enabled: supportsInputSchedule,
       })
       const inputSchedule = checkpointBundle
