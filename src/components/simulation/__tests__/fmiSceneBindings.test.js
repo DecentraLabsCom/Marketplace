@@ -1,6 +1,6 @@
 import {
   getFmiSceneBoundValue,
-  getFmiSceneInputValueFromPosition,
+  getFmiSceneInputValueFromCoordinate,
   isDraggableFmiSceneBinding,
   normalizeFmiSceneBinding,
 } from '../digital-twin/fmiSceneBindings'
@@ -45,9 +45,9 @@ describe('fmiSceneBindings', () => {
       inputVariable,
     )
 
-    expect(getFmiSceneInputValueFromPosition(20, binding)).toBe(5)
-    expect(getFmiSceneInputValueFromPosition(3, binding)).toBe(1)
-    expect(getFmiSceneInputValueFromPosition(100_001, binding)).toBeNull()
+    expect(getFmiSceneInputValueFromCoordinate(20, binding)).toBe(5)
+    expect(getFmiSceneInputValueFromCoordinate(3, binding)).toBe(1)
+    expect(getFmiSceneInputValueFromCoordinate(100_001, binding)).toBeNull()
   })
 
   test('snaps integer inputs and rejects bindings that cannot be dragged safely', () => {
@@ -68,10 +68,10 @@ describe('fmiSceneBindings', () => {
       inputVariable,
     )
 
-    expect(getFmiSceneInputValueFromPosition(3.6, integer)).toBe(4)
+    expect(getFmiSceneInputValueFromCoordinate(3.6, integer)).toBe(4)
     expect(isDraggableFmiSceneBinding(integer)).toBe(true)
     expect(isDraggableFmiSceneBinding(boolean)).toBe(false)
-    expect(isDraggableFmiSceneBinding(rotation)).toBe(false)
+    expect(isDraggableFmiSceneBinding(rotation)).toBe(true)
     expect(isDraggableFmiSceneBinding(zeroScale)).toBe(false)
   })
 

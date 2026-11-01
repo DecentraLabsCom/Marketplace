@@ -93,6 +93,9 @@ export default function useSimulationExecution({
       const previousSampleMetadata = Array.isArray(current?.sampleMetadata)
         ? current.sampleMetadata
         : Array(previousTimes.length).fill({})
+      const previousDiscontinuities = Array.isArray(current?.discontinuities)
+        ? current.discontinuities
+        : Array(previousTimes.length).fill(false)
       const outputNames = new Set([
         ...Object.keys(previousOutputs),
         ...samples.flatMap((sample) => Object.keys(sample.outputs || {})),
@@ -115,6 +118,17 @@ export default function useSimulationExecution({
             ['sequence', 'eventOccurred', 'eventHandlingNeeded', 'earlyReturn', 'terminateSimulation', 'finished', 'finishReason']
               .filter((key) => sample[key] !== undefined)
               .map((key) => [key, sample[key]]),
+          )),
+        ],
+        discontinuities: [
+          ...previousDiscontinuities,
+          ...samples.map((sample, index) => Boolean(
+            sample.eventOccurred
+            || sample.eventHandlingNeeded
+            || sample.earlyReturn
+            || sample.discontinuity
+            || (previousTimes.length + index > 0
+              && Number(sample.time) <= Number((index > 0 ? samples[index - 1]?.time : previousTimes.at(-1)))),
           )),
         ],
         outputs: nextOutputs,

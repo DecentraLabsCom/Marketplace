@@ -10,7 +10,7 @@ import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
 import {
   getFmiSceneBindingValue,
   getFmiSceneBoundValue,
-  getFmiSceneInputValueFromPosition,
+  getFmiSceneInputValueFromCoordinate,
   isDraggableFmiSceneBinding,
   normalizeFmiSceneBinding,
   setFmiSceneArrayElementValue,
@@ -76,10 +76,18 @@ function findBindingsForObject(object, bindingsByNode) {
   return []
 }
 
-function getTranslationAxes(target) {
-  const match = /^(?:position|translation)\.([xyz])$/.exec(target || '')
-  if (match) return [match[1]]
-  return target === 'translation' ? ['x', 'y', 'z'] : []
+function getSceneBindingTargetKey(normalizedBinding) {
+  return normalizedBinding?.axis
+    ? `${normalizedBinding.property}.${normalizedBinding.axis}`
+    : normalizedBinding?.target
+}
+
+function getDraggableTargetKeys(target) {
+  const positionMatch = /^(?:position|translation)\.([xyz])$/.exec(target || '')
+  if (positionMatch) return [`position.${positionMatch[1]}`]
+  const rotationMatch = /^rotation\.([xyz])$/.exec(target || '')
+  if (rotationMatch) return [`rotation.${rotationMatch[1]}`]
+  return target === 'translation' ? ['position.x', 'position.y', 'position.z'] : []
 }
 
 function isVisibleInScene(object) {
@@ -382,6 +390,7 @@ export default function DigitalTwinCanvas({
 
     const boundObjects = []
     const bindingsByNode = new WeakMap()
+    const outputDrivenTargetsByNode = new WeakMap()
     const raycastTargets = new Set()
     const interactiveBindingsByNode = new WeakMap()
     const interactiveRaycastTargets = new Set()
@@ -398,6 +407,7 @@ export default function DigitalTwinCanvas({
     let framingBounds = null
     let autoFrame = true
     let activeDrag = null
+    let pendingDragPreview = null
 
     // Fit the projected scene bounds so wide viewers can use their extra horizontal space.
     const frameScene = () => {
@@ -514,25 +524,38 @@ export default function DigitalTwinCanvas({
       if (!match) return
 
       const { node, variable, normalizedBinding } = match
-      const context = getNodeAxisDragContext(node, normalizedBinding.axis)
-      const pointerCoordinate = getAxisCoordinateFromRay(raycaster.ray, context)
+      const isRotationDrag = normalizedBinding.property === 'rotation'
+      const context = isRotationDrag ? null : getNodeAxisDragContext(node, normalizedBinding.axis)
+      const pointerCoordinate = isRotationDrag
+        ? event.clientX
+        : getAxisCoordinateFromRay(raycaster.ray, context)
       if (pointerCoordinate === null) return
+      pendingDragPreview = null
+      const sceneCoordinate = node[normalizedBinding.property][normalizedBinding.axis]
+      const hasOutputDrivenTarget = outputDrivenTargetsByNode.get(node)?.has(getSceneBindingTargetKey(normalizedBinding)) === true
+      const currentInputValue = getSceneVariableValue(variable, valuesRef.current)
+      const lastInputValue = hasOutputDrivenTarget
+        ? getFmiSceneInputValueFromCoordinate(sceneCoordinate, normalizedBinding)
+        : numericValue(getFmiSceneBindingValue(
+          currentInputValue,
+          normalizedBinding,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        ))
 
       activeDrag = {
         pointerId: event.pointerId,
         node,
         variable,
         normalizedBinding,
+        isRotationDrag,
         context,
         pointerCoordinate,
-        sceneCoordinate: node.position[normalizedBinding.axis],
-        currentInputValue: getSceneVariableValue(variable, valuesRef.current),
-        lastInputValue: numericValue(getFmiSceneBindingValue(
-          getSceneVariableValue(variable, valuesRef.current),
-          normalizedBinding,
-          variablesRef.current || [],
-          valuesRef.current || {},
-        )),
+        sceneCoordinate,
+        currentInputValue,
+        lastInputValue,
+        hasOutputDrivenTarget,
+        previewSceneCoordinate: null,
         controlsWereEnabled: controls.enabled,
       }
       controls.enabled = false
@@ -556,14 +579,22 @@ export default function DigitalTwinCanvas({
         return
       }
       if (!setPointerRay(event)) return
-      const coordinate = getAxisCoordinateFromRay(raycaster.ray, activeDrag.context)
+      const coordinate = activeDrag.isRotationDrag
+        ? event.clientX
+        : getAxisCoordinateFromRay(raycaster.ray, activeDrag.context)
       if (coordinate === null) return
 
-      const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinate - activeDrag.pointerCoordinate
-      const nextInputValue = getFmiSceneInputValueFromPosition(nextSceneCoordinate, activeDrag.normalizedBinding)
+      const coordinateDelta = activeDrag.isRotationDrag
+        ? (coordinate - activeDrag.pointerCoordinate) * (Math.PI * 2 / Math.max(renderer.domElement.clientWidth, 1))
+        : coordinate - activeDrag.pointerCoordinate
+      const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinateDelta
+      const nextInputValue = getFmiSceneInputValueFromCoordinate(nextSceneCoordinate, activeDrag.normalizedBinding)
       if (nextInputValue === null || Object.is(nextInputValue, activeDrag.lastInputValue)) return
 
       activeDrag.lastInputValue = nextInputValue
+      if (activeDrag.hasOutputDrivenTarget) {
+        activeDrag.previewSceneCoordinate = getFmiSceneBoundValue(nextInputValue, activeDrag.normalizedBinding)
+      }
       if (activeDrag.normalizedBinding.indices) {
         const nextArrayValue = setFmiSceneArrayElementValue(
           activeDrag.currentInputValue,
@@ -585,7 +616,16 @@ export default function DigitalTwinCanvas({
     }
     const handlePointerUp = (event) => {
       if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
-      const { controlsWereEnabled } = activeDrag
+      const { controlsWereEnabled, hasOutputDrivenTarget, normalizedBinding, node, previewSceneCoordinate } = activeDrag
+      if (hasOutputDrivenTarget && previewSceneCoordinate !== null) {
+        pendingDragPreview = {
+          node,
+          property: normalizedBinding.property,
+          axis: normalizedBinding.axis,
+          coordinate: previewSceneCoordinate,
+          sampleIndex: sampleIndexRef.current,
+        }
+      }
       activeDrag = null
       controls.enabled = controlsWereEnabled
       renderer.domElement.style.cursor = 'auto'
@@ -732,16 +772,21 @@ export default function DigitalTwinCanvas({
       const interactiveNodes = new Set()
       const sceneInputBindingNames = new Set()
       for (const [node, nodeBindings] of sceneBindingsByNode) {
-        const bindingCountsByAxis = new Map()
-        for (const { binding } of nodeBindings) {
-          for (const axis of getTranslationAxes(binding.target)) {
-            bindingCountsByAxis.set(axis, (bindingCountsByAxis.get(axis) || 0) + 1)
+        const bindingCountsByTarget = new Map()
+        const outputDrivenTargets = new Set()
+        for (const boundObject of nodeBindings) {
+          const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
+          if (isOutputBinding) outputDrivenTargets.add(getSceneBindingTargetKey(normalizedBinding))
+          if (variable.causality !== 'input' || !isDraggableFmiSceneBinding(normalizedBinding)) continue
+          for (const targetKey of getDraggableTargetKeys(binding.target)) {
+            bindingCountsByTarget.set(targetKey, (bindingCountsByTarget.get(targetKey) || 0) + 1)
           }
         }
+        outputDrivenTargetsByNode.set(node, outputDrivenTargets)
         for (const boundObject of nodeBindings) {
           const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
           if (!isOutputBinding && isDraggableFmiSceneBinding(normalizedBinding)
-            && getTranslationAxes(binding.target).some((axis) => bindingCountsByAxis.get(axis) > 1)) continue
+            && getDraggableTargetKeys(binding.target).some((targetKey) => bindingCountsByTarget.get(targetKey) > 1)) continue
 
           const tooltipBindings = bindingsByNode.get(node) || []
           tooltipBindings.push({ binding, variable, normalizedBinding })
@@ -895,6 +940,8 @@ export default function DigitalTwinCanvas({
       markerPulseTime += delta
       if (mixer) mixer.update(delta)
       for (const { node, binding, variable, normalizedBinding, isOutputBinding } of boundObjects) {
+        if (!isOutputBinding
+          && outputDrivenTargetsByNode.get(node)?.has(getSceneBindingTargetKey(normalizedBinding))) continue
         const animatedValues = animatedValuesRef?.current
         const currentValue = animatedValues && Object.hasOwn(animatedValues, binding.variable)
           ? animatedValues[binding.variable]
@@ -959,6 +1006,19 @@ export default function DigitalTwinCanvas({
           node[property][axis] = mapped
         }
       }
+      if (pendingDragPreview
+        && (!inputEditingEnabledRef.current || sampleIndexRef.current !== pendingDragPreview.sampleIndex)) {
+        pendingDragPreview = null
+      }
+      const dragPreview = activeDrag?.hasOutputDrivenTarget && activeDrag.previewSceneCoordinate !== null
+        ? {
+          node: activeDrag.node,
+          property: activeDrag.normalizedBinding.property,
+          axis: activeDrag.normalizedBinding.axis,
+          coordinate: activeDrag.previewSceneCoordinate,
+        }
+        : pendingDragPreview
+      if (dragPreview) dragPreview.node[dragPreview.property][dragPreview.axis] = dragPreview.coordinate
       if (cameraFollowNode && cameraFollowProfile) {
         cameraFollowNode.updateWorldMatrix(true, false)
         cameraFollowNode.getWorldPosition(cameraFollowPosition)
@@ -996,7 +1056,6 @@ export default function DigitalTwinCanvas({
             ? showOutputMarkersRef.current
               && (marker.hasDescription || pinnedOutputNamesRef.current.has(marker.variable.name))
             : showInputMarkersRef.current
-              && inputEditingEnabledRef.current
               && interactiveInputVariablesRef.current.some((variable) => variable?.name === marker.variable.name)
           if (markerEnabled) {
             const bounds = new THREE.Box3().makeEmpty()

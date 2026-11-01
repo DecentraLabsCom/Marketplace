@@ -68,6 +68,18 @@ function interpolateSampleValue(current, next, fraction) {
   return current
 }
 
+function isDiscontinuitySample(results, index) {
+  if (results?.discontinuities?.[index] === true) return true
+  const metadata = results?.sampleMetadata?.[index]
+  return Boolean(metadata && (
+    metadata.eventOccurred
+    || metadata.eventHandlingNeeded
+    || metadata.earlyReturn
+    || metadata.discontinuity
+    || metadata.terminateSimulation
+  ))
+}
+
 function getOutputValuesAtTime(results, modelTime, interpolatableVariables) {
   const times = Array.isArray(results?.time) ? results.time : []
   const outputs = results?.outputs || {}
@@ -81,7 +93,7 @@ function getOutputValuesAtTime(results, modelTime, interpolatableVariables) {
     && Number.isFinite(currentTime)
     && Number.isFinite(nextTime)
     && nextTime > currentTime
-    && results?.discontinuities?.[nextIndex] !== true
+    && !isDiscontinuitySample(results, nextIndex)
   if (!canInterpolate) {
     return Object.fromEntries(Object.entries(outputs).map(([name, series]) => [name, getSampleValue(series, index)]))
   }
@@ -137,7 +149,6 @@ export default function DigitalTwinViewer({
   const wasRunningRef = useRef(false)
   const autoPlaybackRef = useRef(false)
   const activeResultsRef = useRef(activeResults)
-  const streamingResultsRefValue = useRef(streamingResultsRef)
   const inputValuesRef = useRef(inputValues)
   const interpolatableVariablesRef = useRef(new Set())
   const animatedValuesRef = useRef({})
@@ -145,7 +156,6 @@ export default function DigitalTwinViewer({
   sampleIndexRef.current = sampleIndex
   isRunningRef.current = isRunning
   activeResultsRef.current = activeResults
-  streamingResultsRefValue.current = streamingResultsRef
   inputValuesRef.current = inputValues
   interpolatableVariablesRef.current = interpolatableVariables
   const modelDuration = times.length > 1
@@ -215,11 +225,9 @@ export default function DigitalTwinViewer({
       const nextIndex = sampleIndexAtOrBefore(currentTimes, modelTime)
       setSampleIndex((current) => current === nextIndex ? current : nextIndex)
       const currentResults = activeResultsRef.current
-      if (streamingResultsRefValue.current?.current === currentResults) {
-        animatedValuesRef.current = {
-          ...getOutputValuesAtTime(currentResults, modelTime, interpolatableVariablesRef.current),
-          ...inputValuesRef.current,
-        }
+      animatedValuesRef.current = {
+        ...getOutputValuesAtTime(currentResults, modelTime, interpolatableVariablesRef.current),
+        ...inputValuesRef.current,
       }
       if (!isRunningRef.current && modelTime >= finalTime) {
         setSampleIndex(finalIndex)
@@ -282,8 +290,8 @@ export default function DigitalTwinViewer({
   })
   const orderedStats = [...pinnedStats, ...otherStats]
   const editableInputNames = new Set(interactiveInputVariables.map(({ name }) => name))
-  const hasEditableSceneInputs = inputEditingEnabled
-    && sceneInputBindingNames.some((name) => editableInputNames.has(name))
+  const hasAuthorizedSceneInputs = sceneInputBindingNames.some((name) => editableInputNames.has(name))
+  const hasEditableSceneInputs = inputEditingEnabled && hasAuthorizedSceneInputs
 
   const togglePinnedOutput = (name) => {
     setPinnedOutputNames((current) => {
@@ -349,12 +357,10 @@ export default function DigitalTwinViewer({
                   />
                 </button>
               </VariableDescriptionTooltip>
-              {hasEditableSceneInputs ? (
+              {hasAuthorizedSceneInputs ? (
                 <VariableDescriptionTooltip
                   name="Input markers"
-                  description={inputMarkersVisible
-                    ? 'Hide markers for writable inputs bound to scene objects.'
-                    : 'Show markers for writable inputs bound to scene objects.'}
+                  description="Input markers can be dragged during an interactive run."
                   align="left"
                   portal
                 >
@@ -429,7 +435,7 @@ export default function DigitalTwinViewer({
           ) : null}
           <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-white/10 bg-[#071014]/80 px-3 py-2 text-[11px] text-[#a9c0c4] backdrop-blur">
             {hasEditableSceneInputs && inputMarkersVisible
-              ? 'Drag bound inputs to move them · drag elsewhere to orbit · scroll to zoom'
+              ? 'Drag bound inputs to move or rotate them · drag elsewhere to orbit · scroll to zoom'
               : 'Drag to orbit · scroll to zoom'}
           </div>
           {loadState === 'error' && (

@@ -279,16 +279,16 @@ export function getFmiSceneBindingValue(value, normalizedBinding, modelVariables
 export function isDraggableFmiSceneBinding(normalizedBinding) {
   const type = String(normalizedBinding?.variable?.type || '').toLowerCase()
   return normalizedBinding?.variable?.causality === 'input'
-    && normalizedBinding.property === 'position'
+    && ['position', 'rotation'].includes(normalizedBinding.property)
     && ['x', 'y', 'z'].includes(normalizedBinding.axis)
     && NUMERIC_INPUT_TYPES.has(type)
     && Number.isFinite(normalizedBinding.scale)
     && normalizedBinding.scale !== 0
 }
 
-export function getFmiSceneInputValueFromPosition(position, normalizedBinding) {
+export function getFmiSceneInputValueFromCoordinate(coordinate, normalizedBinding) {
   if (!isDraggableFmiSceneBinding(normalizedBinding)) return null
-  const sceneCoordinate = Number(position)
+  const sceneCoordinate = Number(coordinate)
   if (!Number.isFinite(sceneCoordinate) || Math.abs(sceneCoordinate) > MAX_SCENE_COORDINATE) return null
 
   const variableValue = (sceneCoordinate - normalizedBinding.offset) / normalizedBinding.scale
