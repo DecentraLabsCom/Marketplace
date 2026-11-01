@@ -17,7 +17,9 @@ one-use connection grant and optional visualization controls.
 There are no runtime dependencies. Bundle the desired entry, or copy
 `index.js`, `fmu-client.js`, `parameter-defaults.js`, `batch-controller.js`,
 `input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory.
-The package does not register modules or impose an SDK requirement on providers.
+If the app also exports scenes, copy `scene-presentation.js` into that directory
+too. The package does not register modules or impose an SDK requirement on
+providers.
 
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
@@ -34,6 +36,30 @@ initializeView().then(() => app.reportReady())
 runButton.onclick = () => app.run({ parameters: readInputs(), options: { stopTime: 60 } }).catch(showError)
 window.addEventListener('pagehide', () => app.dispose(), { once: true })
 ```
+
+## Client lifecycle and schedule composition
+
+`reportReady()` completes the host handshake after the app scene can receive
+messages; `reportError(code)` reports a bounded startup failure. The client
+also exposes `cancel()`, `dispose()`, `captureState()` and
+`requestModelChange(modelId)`. `onSimulationState`, `onRunAccepted`,
+`onRunRejected`, `onRunCancelled`, `onResultsComplete` and `onError` cover run
+status and completion. `onRunAccepted` fires after connection, initialization
+and the initial output sample succeed; `onRunRejected` reports a run that fails
+before acceptance. `onHostReady` receives any explicitly configured host
+extensions.
+
+`run({ inputSchedule })` supplies the app's effective schedule. To add
+app-specific events while preserving a schedule authorized by Marketplace,
+use `composeInputSchedule(providerSchedule)` instead; it receives a copy of the
+host schedule and must return the complete schedule to apply. These two options
+are mutually exclusive. The returned events still pass SDK validation and
+Gateway write-permission and quota checks.
+
+`requestModelChange(modelId)` only asks the parent host to change models through
+the optional `decentralabs:digital-twin-model-change` extension. It has no
+effect unless the host explicitly supports and authorizes that extension; the
+standard published-lab flow remains bound to its configured FMU.
 
 An app that supplies `onFmiLsParameterPreset` advertises the optional
 `fmi-ls-parameter-presets` capability. Marketplace then shows the FMU's
@@ -73,9 +99,11 @@ from visual replay: pausing replay does not move the FMU back to the selected
 sample. The saved bundle includes the latest selected FMU outputs and the model
 input and parameter values at the checkpoint when they fit within the checkpoint
 size limit. `Load` updates named form controls (`name` equal to the FMI variable
-name), and `onFmuStateLoaded(sample, context)` receives those values in
-`context.modelValues` for apps with custom controls. The next run still restores
-the actual serialized FMU state. A provider app can also use
+name) whenever `modelValues` are present. When the saved bundle also contains
+an output sample, `onFmuStateLoaded(sample, context)` receives it together with
+`context.modelValues` for apps with custom controls; this callback is not called
+when the bundle has no sample. The next run still restores the actual serialized
+FMU state. A provider app can also use
 `run({ checkpoint, captureFmuStateOnComplete: true })`, receive the resulting
 bundle through `onFmuStateCheckpoint`, or call `captureState()` during an active
 run or within five minutes of completion. The direct session API exposes
@@ -91,7 +119,9 @@ to sign checkpoint references. Simulation stop time remains absolute: to
 continue for eight seconds from a checkpoint at t=8 s, use stop time t=16 s.
 
 For standalone use, supply a `getConnection({ options, signal })` callback
-returning a connection grant from your own authorized backend. For direct FMI
+returning a connection grant from your own authorized backend. It may return a
+connection directly or `{ connection, inputSchedule, executionPace }` when that
+backend provides an authorized schedule or execution-pace selection. For direct FMI
 session operations without the host client:
 
 ```js

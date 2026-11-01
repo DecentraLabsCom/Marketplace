@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:decentralabs:glb-fmi-bindings:1.1.0",
-  "title": "DecentraLabs FMI bindings for glTF nodes, version 1.1.0",
+  "$id": "urn:decentralabs:glb-fmi-bindings:1.2.0",
+  "title": "DecentraLabs FMI bindings for glTF nodes, version 1.2.0",
   "description": "Schema for the value of nodes[*].extras.fmiBindings in a glTF 2.0 or GLB asset. FMU-dependent semantics are validated separately.",
   "$comment": "Apply this schema to the fmiBindings value on a glTF node. Unknown properties are ignored by 1.x readers. See fmi-glb-bindings-contract.md for normative semantics.",
   "type": "array",
@@ -26,6 +26,14 @@
         "trueColor": "#42d392",
         "falseColor": "#62343b"
       }
+    ],
+    [
+      {
+        "variable": "loadAngleCommand",
+        "target": "rotation.x",
+        "scale": 1,
+        "offset": 0
+      }
     ]
   ],
   "$defs": {
@@ -43,6 +51,7 @@
         },
         "target": {
           "type": "string",
+          "description": "Scalar rotation axes can be driven by outputs or bound to numeric inputs for interactive dragging. Whole-vector rotation remains output-only.",
           "enum": [
             "position.x",
             "position.y",

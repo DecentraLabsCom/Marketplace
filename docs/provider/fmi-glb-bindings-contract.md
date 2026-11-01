@@ -1,6 +1,6 @@
 # DecentraLabs FMI Bindings for glTF Nodes
 
-**Contract version: 1.1.0**
+**Contract version: 1.2.0**
 **Status: Current**
 
 This document is the canonical DecentraLabs contract for connecting FMI model
@@ -173,10 +173,13 @@ An input binding enables dragging only when all of these conditions hold:
 1. The FMI variable has causality `input` and a numeric type. Marketplace
    recognizes `Real`, `Integer`, `Float32`, `Float64`, `Int8`, `Int16`, `Int32`,
    `Int64`, `UInt8`, `UInt16`, `UInt32` and `UInt64` (case-insensitive).
-2. `target` is a `position.*` or `translation.*` axis. An FMI array input must
-   include `indices` to select the element dragged on that axis.
+2. `target` is a `position.*`, `translation.*` or `rotation.*` axis. Position
+   and translation names for the same axis are aliases. An FMI array input
+   must include `indices` to select the element dragged on that axis.
 3. `scale` is finite and non-zero, so the value mapping can be inverted.
-4. The node has no other eligible binding using that same translation axis.
+4. The node has no other eligible input binding using that same effective
+   position or rotation axis. `position.x` and `translation.x`, for example,
+   count as the same axis.
 5. The active Gateway policy permits runtime writes for that variable.
 6. The simulation is live in Step by step or Continuous mode, input editing is
    enabled, and input markers are shown.
@@ -189,18 +192,38 @@ fmiValue = (sceneValue - offset) / scale
 
 When FMU minimum or maximum values are available, Marketplace clamps the result
 to those limits. Integer variables are rounded to the nearest integer and
-clamped to the integer range represented by the FMU limits. Dragging controls
-the node's local position on the selected axis. Rotation, scale, `visible`,
-`material.color`, whole-vector targets, and FMI parameters are not draggable inputs.
+clamped to the integer range represented by the FMU limits. Position targets
+map to the node's local position. Rotation targets map to a local Euler angle
+in radians; dragging horizontally across the canvas width corresponds to one
+full turn. The whole-vector quaternion target `rotation`, scale, `visible`,
+`material.color`, and FMI parameters are not draggable inputs.
+
+An input binding translates a drag into an FMI input write; it does not bypass
+the FMU or directly change the simulated state. Add an output binding to the
+same node and axis when the model output should animate that transform. While
+an output-driven rotation axis is being dragged, Marketplace treats the drag
+as a relative change from the current input value. When both FMI min and max
+are declared, a single gesture is limited to half of that range in either
+direction around the starting value; the FMI limits still apply. The viewer
+previews the drag and then follows the next model output.
+
+Dragging is available during a live Step by step or Continuous session when
+runtime writes are authorized and input editing and markers are enabled.
+Continuous execution pauses while the pointer is dragging. On release,
+Marketplace applies the changed input at the next model step and resumes
+Continuous execution automatically if it was running. In Step by step mode,
+release applies the change with one model step and leaves the session paused.
 When the input is an array, Marketplace sends the updated complete array with
 only the selected element changed.
 Before the first simulation sample, an input-bound node uses the FMI variable's
 start value when one is available.
 
-If another eligible binding on the node shares the input's translation axis,
-Marketplace disables dragging for that input and Gateway reports a
-`competing_input_target` finding. Output-to-output target conflicts are not
-currently reported by Gateway; avoid them as well.
+If another eligible input binding on the node shares the same effective
+position or rotation axis, Marketplace disables dragging for the competing
+inputs and Gateway reports a `competing_input_target` finding. An output may
+share an axis with an input to show the model's response to that input.
+Output-to-output target conflicts are not currently reported by Gateway;
+avoid them as well.
 
 ## 5. Validation and runtime behavior
 
@@ -224,11 +247,12 @@ the published schema.
 
 ## 6. Versioning
 
-Version 1.1.0 is the version identified by this document and by the schema's
-`$id` (`urn:decentralabs:glb-fmi-bindings:1.1.0`). It adds glTF core vector and
-morph-weight targets plus FMI array-element selection. The binding array does
-not carry an in-band version field; existing and new arrays described here use
-version 1.1.0. Patch releases clarify wording without changing interpretation.
+Version 1.2.0 is the version identified by this document and by the schema's
+`$id` (`urn:decentralabs:glb-fmi-bindings:1.2.0`). It adds draggable input
+bindings for scalar Euler rotation axes; the same target names were already
+available for outputs in version 1.1.0. The binding array does not carry an
+in-band version field; existing and new arrays described here use version
+1.2.0. Patch releases clarify wording without changing interpretation.
 Additive optional fields or targets that older readers can safely ignore
 require a new minor version. Changes to existing field meaning, required
 fields, or mapping behavior require a new major version and a distinct schema
@@ -238,7 +262,7 @@ in-band version marker before its semantics can be selected at runtime.
 
 ## 7. JSON Schema and examples
 
-- [Version 1.1.0 JSON Schema](./fmi-glb-bindings.schema.json)
+- [Version 1.2.0 JSON Schema](./fmi-glb-bindings.schema.json)
 - [Simple output transform](#simple-output-transform)
 - [Writable gate input](#writable-gate-input)
 
@@ -262,6 +286,19 @@ This maps an FMI position in centimeters into the GLB's local position units.
 
 Dragging the node to local `x = 3` sends input value `(3 - 1) / 0.5 = 4`,
 subject to the FMU's input limits and the live-write conditions above.
+
+### Writable rotation input
+
+```json
+"fmiBindings": [
+  { "variable": "loadAngleCommand", "target": "rotation.x", "scale": 1, "offset": 0 }
+]
+```
+
+This maps the node's local Euler angle in radians back to a numeric FMI input.
+When the same node axis is also driven by an FMI output, the drag is relative
+to the current input value and the resulting scene transform follows the next
+FMU output.
 
 ### glTF vectors and FMI arrays
 

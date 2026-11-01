@@ -53,6 +53,7 @@ export interface DigitalTwinAppClient {
   reportError(code?: string): boolean
   run(request?: {
     parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]
+    composeInputSchedule?: (providerSchedule: InputEvent[]) => InputEvent[] | Promise<InputEvent[]>
     inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
     inputControllerInterval?: number; inputControllerTimes?: number[]
     batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions

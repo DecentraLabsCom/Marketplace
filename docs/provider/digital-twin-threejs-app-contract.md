@@ -179,9 +179,10 @@ A connection response has this shape:
 ```
 
 `decentralabs:fmu-connection-error` returns the same request ID and a bounded
-error code. No simulation parameters or output samples are carried by these
-host messages. Host messages must come from `window.parent`; the host accepts
-app messages only from the current iframe window. All field sets are closed.
+error code. The connection-ready message can carry the authorized `inputSchedule`
+shown above; host messages do not carry initialization parameters or FMU output
+samples. Host messages must come from `window.parent`; the host accepts app
+messages only from the current iframe window. All field sets are closed.
 Unknown message types and optional capabilities are ignored. Namespaced
 `host-ready.extensions` allow explicitly configured host data.
 
@@ -197,7 +198,8 @@ The package `@decentralabs/digital-twin-app-protocol` provides:
 With a bundler, import the desired entry. For a static app without a bundler,
 copy `index.js`, `fmu-client.js`, `parameter-defaults.js`,
 `batch-controller.js`, `input-update-quota.js` and `client.js` together into
-`sdk/` in the ZIP.
+`sdk/` in the ZIP. If the app also exports GLB scenes, copy
+`scene-presentation.js` into that directory too.
 Create a package tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`.
 The workspace does not publish the npm package automatically.
 
@@ -230,10 +232,12 @@ The convenience client resolves `run()` after session creation and initializatio
 It requires FMU Executor 0.3.2 or newer and the advertised `advanceSamples`
 capability. Upgrade the Gateway and Station runtime before publishing a rebuilt
 app that uses this runner.
-It reads model defaults with `model.describe` and `includeVariables: false`,
-then uses `sim.advance` to obtain up to 256 samples per response. The Executor
-bounds the encoded frame by output names and scalar sizes. The SDK accepts up
-to 512 outputs with names up to 256 characters, and a 1 MB frame limit.
+It reads the authorized model description with `model.describe` and
+`includeVariables: true` before initialization, then uses `sim.advance` to
+obtain up to 256 samples per response. The Executor bounds the encoded frame
+by output names and scalar sizes. The SDK accepts up to 512 outputs with names
+up to 256 characters, and a 1,000,000-byte limit for ordinary response frames.
+Model descriptions have a separate 32 MiB ceiling.
 
 The convenience client keeps the provider app's fixed batch behavior by default.
 An app may explicitly request `batchPolicy: 'adaptive'` to adjust the next
@@ -274,7 +278,11 @@ awaiting and before committing UI changes. Callback failure stops execution.
 model times. The host schedule may contain FMU inputs and, for FMI 3
 Co-Simulation models, parameters declared `tunable` when the effective access
 policy grants runtime writes. Those changes take effect at a communication
-point. An optional `inputController(sample, context)` callback returns changed
+point. `inputSchedule` supplies the app's effective schedule and replaces the
+schedule returned by the host. To preserve and extend the host-authorized
+schedule, use `composeInputSchedule(providerSchedule)` instead; it receives a
+copy and returns the complete effective schedule. The two run options are
+mutually exclusive. An optional `inputController(sample, context)` callback returns changed
 runtime-writable variables for closed-loop apps, including FMI 2.0 and FMI 3.0
 Co-Simulation tunable parameters when permitted. That mode advances one sample
 per request so feedback can affect the next step; network latency therefore
