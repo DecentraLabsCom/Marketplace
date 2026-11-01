@@ -9,6 +9,21 @@ export function createFmuStateSample(time, outputs) {
   return { time: Number(time), outputs: scalarOutputs }
 }
 
+export function createFmuStateCheckpointCandidate(event, initialValues = {}, inputSchedule = []) {
+  if (!event?.checkpoint || !Number.isFinite(Number(event.checkpointTime))) return null
+  const sample = createFmuStateSample(event.checkpointTime, event.checkpointOutputs)
+  if (!sample) return null
+
+  const modelValues = createFmuStateModelValues(initialValues, inputSchedule, sample.time)
+  return {
+    version: 1,
+    simTime: sample.time,
+    checkpoint: event.checkpoint,
+    sample,
+    ...(Object.keys(modelValues).length ? { modelValues } : {}),
+  }
+}
+
 function isCheckpointModelValue(value) {
   return typeof value === 'boolean'
     || (typeof value === 'number' && Number.isFinite(value))

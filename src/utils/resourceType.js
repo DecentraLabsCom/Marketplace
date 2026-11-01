@@ -295,6 +295,9 @@ export function getFmuCompatibilityLabel(resourceOrMetadata) {
   const version = String(metadata?.fmiVersion || '').trim()
   const simulationType = formatFmuSimulationType(metadata?.simulationType)
 
+  if (simulationType === 'Model Exchange') {
+    return `${version ? `FMI ${version} ` : ''}Model Exchange (not executable on DecentraLabs)`
+  }
   if (version && simulationType) {
     return `Compatible with FMI ${version} ${simulationType}`
   }

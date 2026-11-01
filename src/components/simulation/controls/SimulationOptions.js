@@ -21,7 +21,7 @@ export default function SimulationOptions({
   disabled = false,
   readOnlyStartTime = false,
 }) {
-  const includeStepSize = simulationType !== 'ScheduledExecution'
+  const includeStepSize = !['ScheduledExecution', 'ModelExchange'].includes(simulationType)
   const fields = [
     {
       key: 'startTime',
@@ -37,9 +37,7 @@ export default function SimulationOptions({
       label: 'Step Size (s)',
       description: simulationType === 'CoSimulation'
         ? 'Preferred communication interval.'
-        : simulationType === 'ModelExchange'
-          ? 'A preferred step for the solver; the solver may use its own strategy.'
-          : 'Preferred simulation step, when supported by the FMU type.',
+        : 'Preferred simulation step, when supported by the FMU type.',
     }] : []),
   ]
   const validationError = getSimulationOptionsError(options, { includeStepSize })

@@ -53,7 +53,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
   const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
   const supportsInputSchedule = !isModelExchange && !isScheduledExecution
-  const [solver, setSolver] = useState('Euler')
   const checkpointReservationScopeRef = useRef(stateScopeKey)
   const interactiveSessionScopeRef = useRef(stateScopeKey)
   useEffect(() => {
@@ -154,7 +153,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     options: effectiveOptions,
     setOptions,
     inputEvents,
-    isModelExchange,
     isScheduledExecution,
     supportsInputSchedule,
     scheduledRuntimeVariables,
@@ -163,7 +161,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     selectedFmiLsExperimentId,
     selectableFmiLsExperiments,
     setCandidateFmuStateCheckpoint,
-    solver,
     twinSimulationType,
   })
   const {
@@ -591,8 +588,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
             inputEvents,
             onInputEventsChange: setInputEvents,
             onRun: handleRun,
-            solver,
-            onSolverChange: setSolver,
             optionsError: simulationOptionsError,
             scheduleError: inputScheduleError,
             supportsInputSchedule,

@@ -112,7 +112,7 @@ export function DigitalTwinExecutionModeSelector({
           </div>
           {batchPolicy === 'fixed' ? (
             <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
-              <label htmlFor="maximum-fixed-batch-samples">Max samples</label>
+              <label htmlFor="maximum-fixed-batch-samples">Size</label>
               <VariableDescriptionTooltip
                 name="Fixed batch size"
                 description={`Caps each request at this many samples (up to ${MAX_SAMPLES_PER_BATCH}). The Executor may stop earlier at its compute limit or an FMU event.`}

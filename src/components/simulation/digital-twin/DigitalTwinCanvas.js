@@ -7,10 +7,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
 import {
+  getFmiSceneBindingValue,
   getFmiSceneBoundValue,
   getFmiSceneInputValueFromPosition,
   isDraggableFmiSceneBinding,
   normalizeFmiSceneBinding,
+  setFmiSceneArrayElementValue,
 } from './fmiSceneBindings'
 import { createAxisDragContext, getAxisCoordinateFromRay } from './fmiSceneInteraction'
 import { getVariableDescription } from '../utils/simulationParameters'
@@ -37,12 +39,46 @@ function getBindingColor(value, fallback) {
   return fallback
 }
 
+function numericValue(value) {
+  if (typeof value === 'boolean') return value ? 1 : 0
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function getSceneVariableValue(variable, values) {
+  const current = values?.[variable?.name]
+  if (current !== null && current !== undefined) return current
+  if (variable?.start !== null && variable?.start !== undefined) return variable.start
+  return getFmiInitialValue(variable)
+}
+
+function applyMorphWeights(node, value, targetIndex = null) {
+  node.traverse((child) => {
+    if (!child.isMesh || !Array.isArray(child.morphTargetInfluences)) return
+    if (targetIndex === null) {
+      if (value.length !== child.morphTargetInfluences.length) return
+      child.morphTargetInfluences = [...value]
+      return
+    }
+    if (targetIndex < child.morphTargetInfluences.length) {
+      child.morphTargetInfluences[targetIndex] = value
+    }
+  })
+}
+
 function findBindingsForObject(object, bindingsByNode) {
   for (let node = object; node; node = node.parent) {
     const bindings = bindingsByNode.get(node)
     if (bindings?.length) return bindings
   }
   return []
+}
+
+function getTranslationAxes(target) {
+  const match = /^(?:position|translation)\.([xyz])$/.exec(target || '')
+  if (match) return [match[1]]
+  return target === 'translation' ? ['x', 'y', 'z'] : []
 }
 
 function isVisibleInScene(object) {
@@ -500,7 +536,13 @@ export default function DigitalTwinCanvas({
         context,
         pointerCoordinate,
         sceneCoordinate: node.position[normalizedBinding.axis],
-        lastInputValue: Number(valuesRef.current?.[variable.name]),
+        currentInputValue: getSceneVariableValue(variable, valuesRef.current),
+        lastInputValue: numericValue(getFmiSceneBindingValue(
+          getSceneVariableValue(variable, valuesRef.current),
+          normalizedBinding,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        )),
         controlsWereEnabled: controls.enabled,
       }
       controls.enabled = false
@@ -532,7 +574,21 @@ export default function DigitalTwinCanvas({
       if (nextInputValue === null || Object.is(nextInputValue, activeDrag.lastInputValue)) return
 
       activeDrag.lastInputValue = nextInputValue
-      onInputChangeRef.current?.(activeDrag.variable.name, nextInputValue)
+      if (activeDrag.normalizedBinding.indices) {
+        const nextArrayValue = setFmiSceneArrayElementValue(
+          activeDrag.currentInputValue,
+          activeDrag.normalizedBinding.indices,
+          nextInputValue,
+          activeDrag.variable,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        )
+        if (!nextArrayValue) return
+        activeDrag.currentInputValue = nextArrayValue
+        onInputChangeRef.current?.(activeDrag.variable.name, nextArrayValue)
+      } else {
+        onInputChangeRef.current?.(activeDrag.variable.name, nextInputValue)
+      }
       renderer.domElement.style.cursor = 'grabbing'
       event.preventDefault()
       event.stopPropagation()
@@ -670,7 +726,7 @@ export default function DigitalTwinCanvas({
         for (const binding of declaredBindings) {
           if (!binding || typeof binding.variable !== 'string') continue
           const variable = modelVariablesByName.get(binding.variable)
-          const normalizedBinding = normalizeFmiSceneBinding(binding, variable)
+          const normalizedBinding = normalizeFmiSceneBinding(binding, variable, variablesRef.current || [])
           const isOutputBinding = variable?.causality === 'output'
           const isInputPositionBinding = isDraggableFmiSceneBinding(normalizedBinding)
           if (!normalizedBinding || (!isOutputBinding && !isInputPositionBinding)) continue
@@ -686,19 +742,27 @@ export default function DigitalTwinCanvas({
       const interactiveNodes = new Set()
       const sceneInputBindingNames = new Set()
       for (const [node, nodeBindings] of sceneBindingsByNode) {
-        const bindingCountsByTarget = new Map()
+        const bindingCountsByAxis = new Map()
         for (const { binding } of nodeBindings) {
-          bindingCountsByTarget.set(binding.target, (bindingCountsByTarget.get(binding.target) || 0) + 1)
+          for (const axis of getTranslationAxes(binding.target)) {
+            bindingCountsByAxis.set(axis, (bindingCountsByAxis.get(axis) || 0) + 1)
+          }
         }
         for (const boundObject of nodeBindings) {
           const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
-          if (!isOutputBinding && bindingCountsByTarget.get(binding.target) !== 1) continue
+          if (!isOutputBinding && isDraggableFmiSceneBinding(normalizedBinding)
+            && getTranslationAxes(binding.target).some((axis) => bindingCountsByAxis.get(axis) > 1)) continue
 
           const tooltipBindings = bindingsByNode.get(node) || []
           tooltipBindings.push({ binding, variable, normalizedBinding })
           bindingsByNode.set(node, tooltipBindings)
           if (isOutputBinding && binding.target === 'visible') {
-            const initialValue = valuesRef.current?.[binding.variable] ?? getFmiInitialValue(variable)
+            const initialValue = getFmiSceneBindingValue(
+              getSceneVariableValue(variable, valuesRef.current),
+              normalizedBinding,
+              variablesRef.current || [],
+              valuesRef.current || {},
+            )
             if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
           }
           boundObjects.push(boundObject)
@@ -891,27 +955,61 @@ export default function DigitalTwinCanvas({
         const currentValue = animatedValues && Object.hasOwn(animatedValues, binding.variable)
           ? animatedValues[binding.variable]
           : valuesRef.current?.[binding.variable]
-        const rawValue = currentValue ?? (!isOutputBinding ? getFmiInitialValue(variable) : undefined)
-        if (rawValue === undefined || rawValue === null) continue
+        const rawValue = currentValue ?? (!isOutputBinding ? getSceneVariableValue(variable, valuesRef.current) : undefined)
+        const runtimeValues = animatedValues || valuesRef.current || {}
+        const bindingValue = getFmiSceneBindingValue(
+          rawValue,
+          normalizedBinding,
+          variablesRef.current || [],
+          runtimeValues,
+        )
+        if (bindingValue === null || bindingValue === undefined) continue
 
         if (binding.target === 'visible') {
-          node.visible = isFmiBindingVisible(rawValue, binding)
+          node.visible = isFmiBindingVisible(bindingValue, binding)
           continue
         }
         if (binding.target === 'material.color') {
-          if (!node.material?.color) continue
           const trueColor = getBindingColor(binding.trueColor, '#ff2738')
           const falseColor = getBindingColor(binding.falseColor, '#4f2028')
-          node.material.color.set(rawValue ? trueColor : falseColor)
-          if (node.material.emissive) {
-            node.material.emissive.set(rawValue ? trueColor : '#160b0d')
+          const materials = Array.isArray(node.material) ? node.material : [node.material]
+          for (const material of materials.filter(Boolean)) {
+            if (material.color) material.color.set(bindingValue ? trueColor : falseColor)
+            if (material.emissive) material.emissive.set(bindingValue ? trueColor : '#160b0d')
           }
           continue
         }
 
-        const mapped = getFmiSceneBoundValue(rawValue, normalizedBinding)
-        if (mapped === null) continue
-        if (Math.abs(mapped) > 100_000) continue
+        if (binding.target === 'weights') {
+          if (normalizedBinding.index === null) {
+            if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+            applyMorphWeights(node, bindingValue)
+          } else {
+            const mapped = getFmiSceneBoundValue(bindingValue, normalizedBinding)
+            if (mapped !== null && Math.abs(mapped) <= 100_000) {
+              applyMorphWeights(node, mapped, normalizedBinding.index)
+            }
+          }
+          continue
+        }
+
+        if (binding.target === 'translation') {
+          if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+          node.position.set(...bindingValue)
+          continue
+        }
+        if (binding.target === 'scale') {
+          if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+          node.scale.set(...bindingValue)
+          continue
+        }
+        if (binding.target === 'rotation') {
+          node.quaternion.set(...bindingValue).normalize()
+          continue
+        }
+
+        const mapped = getFmiSceneBoundValue(bindingValue, normalizedBinding)
+        if (mapped === null || Math.abs(mapped) > 100_000) continue
         const { property, axis } = normalizedBinding
         if (['position', 'rotation', 'scale'].includes(property) && ['x', 'y', 'z'].includes(axis)) {
           node[property][axis] = mapped

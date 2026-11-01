@@ -17,6 +17,7 @@ import { SIM_STATE } from './hooks/useSimulationExecution'
 
 export function GlbSimulationPanel({ lab, model, resources, simulation, configuration, interactive, proxy }) {
   const { fmiVersion, simulationTypeLabel, fmiLsStruct } = model
+  const modelExchangeUnsupported = simulation.simulationType === 'ModelExchange'
   const { modelVariables, structModelVariables = modelVariables, editableVariables, runtimeVariables } = resources
   const {
     parameters,
@@ -58,6 +59,12 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
           FMI {fmiVersion || '?'} · {simulationTypeLabel || 'FMU'}
         </div>
       </div>
+
+      {modelExchangeUnsupported && (
+        <p role="status" className="mb-4 rounded-xl border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-200">
+          Model Exchange FMUs can be described, but DecentraLabs does not execute them. Use an FMI Co-Simulation FMU.
+        </p>
+      )}
 
       <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={structModelVariables} values={parameters} outputs={simulation.results?.outputs} />
 
@@ -137,7 +144,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
         inputEvents={inputEvents}
         onInputEventsChange={onInputEventsChange}
         running={state === SIM_STATE.RUNNING}
-        showRunButton={!execution.hasActiveSession || executionMode === 'batch'}
+        showRunButton={!modelExchangeUnsupported && (!execution.hasActiveSession || executionMode === 'batch')}
         onRun={onRun}
       />
 
@@ -155,9 +162,10 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
 }
 
 export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, model, resources, simulation, configuration, history, proxy }) {
+  const modelExchangeUnsupported = fmuMeta.simulationType === 'ModelExchange'
   const { fmiLsStruct } = model
   const { modelVariables, editableVariables, runtimeVariables } = resources
-  const { state, results, errorMessage, progress, parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, solver, onSolverChange, optionsError, scheduleError, supportsInputSchedule, fmuStateControls } = simulation
+  const { state, results, errorMessage, progress, parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, optionsError, scheduleError, supportsInputSchedule, fmuStateControls } = simulation
   const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
 
   return (
@@ -171,6 +179,12 @@ export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, m
           {history.visible ? 'Hide History' : 'Show History'}
         </button>
       </div>
+
+      {modelExchangeUnsupported && (
+        <p role="status" className="rounded-xl border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-200">
+          Model Exchange FMUs can be described, but DecentraLabs does not execute them. Use an FMI Co-Simulation FMU.
+        </p>
+      )}
 
       <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={modelVariables} values={parameters} outputs={results?.outputs} />
 
@@ -226,27 +240,11 @@ export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, m
       )}
 
       <SimulationOptions options={options} onChange={onOptionChange} simulationType={fmuMeta.simulationType} disabled={state === SIM_STATE.RUNNING} />
-      {fmuMeta.simulationType === 'ModelExchange' && (
-        <div className="flex items-center gap-3">
-          <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
-          <select
-            id="solver-select"
-            value={solver}
-            onChange={(event) => onSolverChange(event.target.value)}
-            disabled={state === SIM_STATE.RUNNING}
-            className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
-          >
-            <option value="Euler">Euler (fast, less accurate)</option>
-            <option value="CVode">CVode (adaptive, more accurate)</option>
-          </select>
-        </div>
-      )}
-
       <div className="flex items-center gap-4">
         <button
           onClick={onRun}
-          disabled={state === SIM_STATE.RUNNING || Boolean(scheduleError) || Boolean(optionsError)}
-          className={`rounded px-6 py-2 font-medium transition-colors ${state === SIM_STATE.RUNNING || scheduleError || optionsError ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
+          disabled={modelExchangeUnsupported || state === SIM_STATE.RUNNING || Boolean(scheduleError) || Boolean(optionsError)}
+          className={`rounded px-6 py-2 font-medium transition-colors ${modelExchangeUnsupported || state === SIM_STATE.RUNNING || scheduleError || optionsError ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
         >
           {state === SIM_STATE.RUNNING ? 'Running…' : state === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
         </button>

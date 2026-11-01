@@ -1,6 +1,6 @@
 # DecentraLabs FMI Bindings for glTF Nodes
 
-**Contract version: 1.0.0**  
+**Contract version: 1.1.0**
 **Status: Current**
 
 This document is the canonical DecentraLabs contract for connecting FMI model
@@ -57,13 +57,20 @@ to one scene target.
 ```
 
 The `variable` value MUST exactly match the FMI variable name in the selected
-FMU's metadata. The `target` MUST be one of:
+FMU's metadata. `position.x/y/z` remain accepted aliases for
+`translation.x/y/z` so existing scenes keep their meaning. The whole-vector
+targets use the same property names as glTF animation channels:
 
 | Target | Effect |
 | --- | --- |
 | `position.x`, `position.y`, `position.z` | Set the node's local position component. |
+| `translation.x`, `translation.y`, `translation.z` | Set the corresponding local translation component. These are the preferred scalar targets. |
+| `translation` | Set all three local translation components from an FMI vector of length 3. |
 | `rotation.x`, `rotation.y`, `rotation.z` | Set the node's local Euler rotation component, in radians. |
 | `scale.x`, `scale.y`, `scale.z` | Set the node's local scale component. |
+| `rotation` | Set the node quaternion from an FMI vector `[x, y, z, w]` of length 4. Marketplace normalizes the quaternion before applying it. |
+| `scale` | Set all three local scale components from an FMI vector of length 3. |
+| `weights` | Set all morph-target weights from an FMI vector, or one weight using `index`. |
 | `visible` | Show or hide the node. |
 | `material.color` | Set the node material color from a Boolean-like value. |
 
@@ -74,8 +81,8 @@ controls.
 ## 2. Mapping values to scene targets
 
 `scale` and `offset` are optional finite JSON numbers. They default to `1` and
-`0`, respectively. For position, rotation and scale targets, Marketplace
-calculates:
+`0`, respectively. For scalar targets and each component of whole-vector
+targets, Marketplace calculates:
 
 ```text
 sceneValue = fmiValue * scale + offset
@@ -92,6 +99,28 @@ limited to local coordinates within `[-100000, 100000]`.
 For a rotation in degrees, convert to radians with `scale: 0.017453292519943295`
 when the FMI output is degrees. The target itself is always assigned in
 radians.
+
+The glTF `rotation` target is different from the legacy Euler component
+targets: it requires the complete quaternion vector in glTF `[x, y, z, w]`
+order, then normalizes it. The whole `translation` and `scale` targets require
+three-component FMI arrays. A vector target with an unknown or wrong runtime
+shape is ignored safely.
+
+### Arrays and morph targets
+
+Use `indices` to map one FMI array element to a scalar target. Each entry is a
+zero-based coordinate for the corresponding declared dimension. For a
+multidimensional FMI array, coordinates follow FMI's row-major array ordering.
+The tuple length must match the FMI variable rank, and coordinates outside a
+known fixed dimension or structural-parameter maximum are invalid. At runtime,
+the selected element must also exist in the current configured array.
+
+For `weights`, omit `index` and bind a one-dimensional FMI array whose length
+matches the mesh's morph-target influence count to update the complete weights
+vector. Set `index` to bind one scalar FMI variable to a single zero-based
+morph target. To bind one FMI array element to one morph target, provide both
+`indices` (the FMI array coordinate) and `index` (the glTF morph-target index).
+The bound glTF node must reference a mesh with compatible morph targets.
 
 ### Visibility
 
@@ -124,7 +153,7 @@ color are left unchanged.
 `visibleWhenGreaterThanOrEqual`, `trueColor` and `falseColor` have meaning only
 for their corresponding targets. Other known binding fields are ignored for a
 target that does not use them. Unknown members have no defined meaning in
-version 1.0.0; producers MUST NOT rely on them, and readers MUST ignore them.
+version 1.x; producers MUST NOT rely on them, and readers MUST ignore them.
 
 ## 3. Binding FMI outputs
 
@@ -144,9 +173,10 @@ An input binding enables dragging only when all of these conditions hold:
 1. The FMI variable has causality `input` and a numeric type. Marketplace
    recognizes `Real`, `Integer`, `Float32`, `Float64`, `Int8`, `Int16`, `Int32`,
    `Int64`, `UInt8`, `UInt16`, `UInt32` and `UInt64` (case-insensitive).
-2. `target` is `position.x`, `position.y` or `position.z`.
+2. `target` is a `position.*` or `translation.*` axis. An FMI array input must
+   include `indices` to select the element dragged on that axis.
 3. `scale` is finite and non-zero, so the value mapping can be inverted.
-4. The node has no other eligible binding using that same position target.
+4. The node has no other eligible binding using that same translation axis.
 5. The active Gateway policy permits runtime writes for that variable.
 6. The simulation is live in Step by step or Continuous mode, input editing is
    enabled, and input markers are shown.
@@ -161,11 +191,13 @@ When FMU minimum or maximum values are available, Marketplace clamps the result
 to those limits. Integer variables are rounded to the nearest integer and
 clamped to the integer range represented by the FMU limits. Dragging controls
 the node's local position on the selected axis. Rotation, scale, `visible`,
-`material.color`, and FMI parameters are not draggable inputs in version 1.0.0.
+`material.color`, whole-vector targets, and FMI parameters are not draggable inputs.
+When the input is an array, Marketplace sends the updated complete array with
+only the selected element changed.
 Before the first simulation sample, an input-bound node uses the FMI variable's
 start value when one is available.
 
-If another eligible binding on the node shares the input's position target,
+If another eligible binding on the node shares the input's translation axis,
 Marketplace disables dragging for that input and Gateway reports a
 `competing_input_target` finding. Output-to-output target conflicts are not
 currently reported by Gateway; avoid them as well.
@@ -192,10 +224,11 @@ the published schema.
 
 ## 6. Versioning
 
-Version 1.0.0 is the version identified by this document and by the schema's
-`$id` (`urn:decentralabs:glb-fmi-bindings:1.0.0`). The binding array does not
-carry an in-band version field; existing and new arrays described here use
-version 1.0.0. Patch releases clarify wording without changing interpretation.
+Version 1.1.0 is the version identified by this document and by the schema's
+`$id` (`urn:decentralabs:glb-fmi-bindings:1.1.0`). It adds glTF core vector and
+morph-weight targets plus FMI array-element selection. The binding array does
+not carry an in-band version field; existing and new arrays described here use
+version 1.1.0. Patch releases clarify wording without changing interpretation.
 Additive optional fields or targets that older readers can safely ignore
 require a new minor version. Changes to existing field meaning, required
 fields, or mapping behavior require a new major version and a distinct schema
@@ -205,7 +238,7 @@ in-band version marker before its semantics can be selected at runtime.
 
 ## 7. JSON Schema and examples
 
-- [Version 1.0.0 JSON Schema](./fmi-glb-bindings.schema.json)
+- [Version 1.1.0 JSON Schema](./fmi-glb-bindings.schema.json)
 - [Simple output transform](#simple-output-transform)
 - [Writable gate input](#writable-gate-input)
 
@@ -223,9 +256,26 @@ This maps an FMI position in centimeters into the GLB's local position units.
 
 ```json
 "fmiBindings": [
-  { "variable": "gatePosition", "target": "position.x", "scale": 0.5, "offset": 1 }
+  { "variable": "gatePosition", "target": "translation.x", "scale": 0.5, "offset": 1 }
 ]
 ```
 
 Dragging the node to local `x = 3` sends input value `(3 - 1) / 0.5 = 4`,
 subject to the FMU's input limits and the live-write conditions above.
+
+### glTF vectors and FMI arrays
+
+```json
+"fmiBindings": [
+  { "variable": "body.translation", "target": "translation" },
+  { "variable": "body.orientation", "target": "rotation" },
+  { "variable": "body.morphWeights", "target": "weights" },
+  { "variable": "jointPositions", "indices": [1, 0], "target": "translation.x" },
+  { "variable": "morphValues", "indices": [2], "index": 0, "target": "weights" }
+]
+```
+
+The first three variables are FMI arrays with ranks and runtime lengths of 3,
+4 and the mesh's morph-target count. The last two select one FMI element by
+zero-based coordinates; the final mapping assigns that scalar to morph target
+0. FMI array payloads use FMI's row-major ordering.

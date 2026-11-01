@@ -6,7 +6,7 @@ import {
   resolveInputSchedule,
 } from '../utils/simulationParameters'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
-import { createFmuStateModelValues, createFmuStateSample } from '../utils/fmuStateCheckpoint'
+import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
 
 export const SIM_STATE = {
@@ -66,7 +66,6 @@ export default function useSimulationExecution({
   options,
   setOptions,
   inputEvents,
-  isModelExchange,
   isScheduledExecution,
   supportsInputSchedule,
   scheduledRuntimeVariables,
@@ -75,7 +74,6 @@ export default function useSimulationExecution({
   selectedFmiLsExperimentId,
   selectableFmiLsExperiments,
   setCandidateFmuStateCheckpoint,
-  solver,
   twinSimulationType,
 }) {
   const [simState, setSimState] = useState(SIM_STATE.IDLE)
@@ -147,6 +145,11 @@ export default function useSimulationExecution({
   }, [setParameters])
 
   const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, stateOptions = {}) => {
+    if (twinSimulationType === 'ModelExchange') {
+      setErrorMsg('Model Exchange is not supported by DecentraLabs. Use an FMI Co-Simulation FMU.')
+      setSimState(SIM_STATE.ERROR)
+      return
+    }
     if (variableAccessState !== 'ready' || !variableAccess) {
       setErrorMsg('Variable access is not ready for this reservation.')
       setSimState(SIM_STATE.ERROR)
@@ -221,10 +224,6 @@ export default function useSimulationExecution({
 
       const reqOptions = { ...resolvedActiveOptions }
       if (isScheduledExecution) delete reqOptions.stepSize
-      if (isModelExchange) {
-        reqOptions.fmiType = 'ModelExchange'
-        reqOptions.solver = solver
-      }
 
       const writableInitializationNames = new Set(editableVariables.map((variable) => variable.name))
       const initializationValues = Object.fromEntries(Object.entries(activeParameters).filter(([name, value]) => (
@@ -282,24 +281,16 @@ export default function useSimulationExecution({
           case 'completed':
           case 'sim.done':
             finalMeta = event
-            if (event.checkpoint && Number.isFinite(event.time ?? event.simulationTime)) {
-              const checkpointTime = Number(event.time ?? event.simulationTime)
-              const latestOutputs = Object.fromEntries(Object.entries(accumulatedOutputs).map(([name, values]) => (
-                [name, values.at(-1)]
-              )))
-              const sample = createFmuStateSample(checkpointTime, latestOutputs)
-              const modelValues = createFmuStateModelValues(
+            if (event.checkpoint) {
+              const checkpointCandidate = createFmuStateCheckpointCandidate(
+                event,
                 { ...activeParameters, ...(checkpointBundle?.modelValues || {}) },
                 inputSchedule,
-                checkpointTime,
               )
-              setCandidateFmuStateCheckpoint?.({
-                version: 1,
-                simTime: checkpointTime,
-                checkpoint: event.checkpoint,
-                ...(sample ? { sample } : {}),
-                ...(Object.keys(modelValues).length ? { modelValues } : {}),
-              })
+              if (!checkpointCandidate) {
+                throw new Error('The FMU state checkpoint response is invalid.')
+              }
+              setCandidateFmuStateCheckpoint?.(checkpointCandidate)
             }
             break
           case 'error':
@@ -334,7 +325,7 @@ export default function useSimulationExecution({
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isModelExchange, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, solver, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const loadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''

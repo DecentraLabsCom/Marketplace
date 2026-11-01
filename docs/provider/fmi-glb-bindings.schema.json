@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:decentralabs:glb-fmi-bindings:1.0.0",
-  "title": "DecentraLabs FMI bindings for glTF nodes, version 1.0.0",
+  "$id": "urn:decentralabs:glb-fmi-bindings:1.1.0",
+  "title": "DecentraLabs FMI bindings for glTF nodes, version 1.1.0",
   "description": "Schema for the value of nodes[*].extras.fmiBindings in a glTF 2.0 or GLB asset. FMU-dependent semantics are validated separately.",
-  "$comment": "Apply this schema to the fmiBindings value on a glTF node. Unknown properties are ignored by version 1.0.0 readers. See fmi-glb-bindings-contract.md for normative semantics.",
+  "$comment": "Apply this schema to the fmiBindings value on a glTF node. Unknown properties are ignored by 1.x readers. See fmi-glb-bindings-contract.md for normative semantics.",
   "type": "array",
   "items": {
     "$ref": "#/$defs/binding"
@@ -47,6 +47,13 @@
             "position.x",
             "position.y",
             "position.z",
+            "translation.x",
+            "translation.y",
+            "translation.z",
+            "translation",
+            "rotation",
+            "scale",
+            "weights",
             "rotation.x",
             "rotation.y",
             "rotation.z",
@@ -60,7 +67,7 @@
         "scale": {
           "type": "number",
           "default": 1,
-          "description": "Multiplier in sceneValue = fmiValue * scale + offset. Draggable inputs require a non-zero value."
+          "description": "Multiplier in sceneValue = fmiValue * scale + offset, applied to each vector element for whole-vector targets. Draggable inputs require a non-zero value."
         },
         "offset": {
           "type": "number",
@@ -100,8 +107,59 @@
             }
           ],
           "description": "Optional Three.js color string or 24-bit hexadecimal color integer used for a false-like FMI value."
+        },
+        "indices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Zero-based, row-major coordinate tuple selecting one element from an FMI array. Required for array values bound to scalar scene targets."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based glTF morph-target weight index when target is weights and one scalar FMI value drives one morph target. Combine with indices to select an FMI array element."
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "required": ["index"]
+          },
+          "then": {
+            "properties": {
+              "target": { "const": "weights" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target": { "enum": ["translation", "rotation", "scale"] }
+            },
+            "required": ["target"]
+          },
+          "then": {
+            "not": {
+              "required": ["indices"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target": { "const": "weights" }
+            },
+            "required": ["target", "indices"]
+          },
+          "then": {
+            "required": ["index"]
+          }
+        }
+      ],
       "additionalProperties": true
     }
   }

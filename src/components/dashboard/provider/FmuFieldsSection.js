@@ -153,7 +153,7 @@ export default function FmuFieldsSection({
         {describeFetch.error && (
           <p className="text-red-500 text-sm mt-1!">Auto-detect failed: {describeFetch.error}</p>
         )}
-        {describeFetch.fetched && (
+        {describeFetch.fetched && localLab?.simulationType !== 'ModelExchange' && (
           <p className="text-green-600 text-sm mt-1!">✓ FMU metadata loaded successfully</p>
         )}
       </div>
