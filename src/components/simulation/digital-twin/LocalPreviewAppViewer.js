@@ -89,7 +89,6 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
       inputEvents={inputEvents}
       onInputEventsChange={onInputEventsChange}
       startTime={viewerProps.startTime ?? access?.defaultStartTime ?? 0}
-      stopTime={viewerProps.stopTime ?? access?.defaultStopTime ?? 1}
       stepSize={viewerProps.stepSize ?? access?.defaultStepSize}
     />
   )

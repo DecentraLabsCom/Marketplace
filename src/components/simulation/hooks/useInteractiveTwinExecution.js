@@ -313,10 +313,10 @@ export default function useInteractiveTwinExecution({
       }
 
       const currentTime = simulationTimeRef.current
-      const stopTime = Number(options.stopTime)
+      const stopTime = Number.isFinite(options.stopTime) ? options.stopTime : null
       const stepSize = Number(options.stepSize)
-      const remainingTime = stopTime - currentTime
-      if (!Number.isFinite(remainingTime) || hasReachedSimulationTime(currentTime, stopTime)) {
+      const remainingTime = stopTime === null ? Infinity : stopTime - currentTime
+      if (stopTime !== null && hasReachedSimulationTime(currentTime, stopTime)) {
         await finishSession('completed', null, controller)
         return false
       }
@@ -329,24 +329,30 @@ export default function useInteractiveTwinExecution({
         let plan = batchPolicy === 'adaptive'
           ? getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
           : {
-            targetTime: Math.min(stopTime, currentTime + stepSize * fixedBatchSamples),
+            targetTime: stopTime === null
+              ? currentTime + stepSize * fixedBatchSamples
+              : Math.min(stopTime, currentTime + stepSize * fixedBatchSamples),
             maxSamples: fixedBatchSamples,
             maxComputeMs: FIXED_BATCH_MAX_COMPUTE_MS,
           }
         const realtimePacing = realtimePacingRef.current
         if (realtimePacing) {
           const elapsedRealTime = Math.max(0, performance.now() - realtimePacing.wallTime) / 1000
-          const availableSimulationTime = Math.min(stopTime, realtimePacing.simTime + elapsedRealTime)
+          const availableSimulationTime = stopTime === null
+            ? realtimePacing.simTime + elapsedRealTime
+            : Math.min(stopTime, realtimePacing.simTime + elapsedRealTime)
           const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
-          const remainingTime = stopTime - currentTime
           let availableSamples = Math.floor((availableSimulationTime - currentTime + tolerance) / stepSize)
-          if (remainingTime < stepSize - tolerance && availableSimulationTime >= stopTime - tolerance) {
+          if (stopTime !== null && remainingTime < stepSize - tolerance
+            && availableSimulationTime >= stopTime - tolerance) {
             availableSamples = Math.max(availableSamples, 1)
           }
           const pacedSamples = Math.min(plan.maxSamples, Math.max(1, availableSamples))
           plan = {
             ...plan,
-            targetTime: Math.min(stopTime, currentTime + stepSize * pacedSamples),
+            targetTime: stopTime === null
+              ? currentTime + stepSize * pacedSamples
+              : Math.min(stopTime, currentTime + stepSize * pacedSamples),
             maxSamples: pacedSamples,
           }
         }
@@ -432,7 +438,7 @@ export default function useInteractiveTwinExecution({
           })
           : null
         if (nextController) batchControllerRef.current = nextController
-        if (hasReachedSimulationTime(nextTime, stopTime) || response.finished === true) {
+        if ((stopTime !== null && hasReachedSimulationTime(nextTime, stopTime)) || response.finished === true) {
           await finishSession('completed', null, controller)
           return false
         }
@@ -443,7 +449,7 @@ export default function useInteractiveTwinExecution({
         return true
       }
 
-      const deltaT = Math.min(stepSize, remainingTime)
+      const deltaT = stopTime === null ? stepSize : Math.min(stepSize, remainingTime)
       const response = await requestRealtimeOperation(session, 'sim.step', 'sim.outputs', {
         currentCommunicationPoint: currentTime,
         deltaT,
@@ -455,7 +461,7 @@ export default function useInteractiveTwinExecution({
       const hasSequence = Number.isSafeInteger(sequence) && sequence > 0
       const sameTime = Math.abs(nextTime - currentTime) <= tolerance
       if (!Number.isFinite(nextTime) || nextTime < currentTime - tolerance
-        || nextTime > stopTime + tolerance
+        || (stopTime !== null && nextTime > stopTime + tolerance)
         || (sameTime && (!hasSequence || (Number.isSafeInteger(lastSampleSequenceRef.current)
           && sequence <= lastSampleSequenceRef.current)))
         || (hasSequence && Number.isSafeInteger(lastSampleSequenceRef.current)
@@ -476,7 +482,7 @@ export default function useInteractiveTwinExecution({
       }
       appendSamples([sample])
 
-      if (hasReachedSimulationTime(nextTime, stopTime) || response.terminated === true
+      if ((stopTime !== null && hasReachedSimulationTime(nextTime, stopTime)) || response.terminated === true
         || response.terminateSimulation === true || response.finished === true) {
         await finishSession('completed', null, controller)
         return false
@@ -501,11 +507,11 @@ export default function useInteractiveTwinExecution({
     if (!pacing) return true
 
     const stepSize = Number(options.stepSize)
-    const stopTime = Number(options.stopTime)
+    const stopTime = Number.isFinite(options.stopTime) ? options.stopTime : null
     while (continuousRequestedRef.current && sessionRef.current) {
       controller.signal.throwIfAborted()
       const currentTime = simulationTimeRef.current
-      const nextTime = Math.min(stopTime, currentTime + stepSize)
+      const nextTime = stopTime === null ? currentTime + stepSize : Math.min(stopTime, currentTime + stepSize)
       const dueAt = pacing.wallTime + (nextTime - pacing.simTime) * 1000
       const waitMs = dueAt - performance.now()
       if (waitMs <= 0) return true
@@ -582,8 +588,8 @@ export default function useInteractiveTwinExecution({
     }
     const checkpointBundle = stateOptions.checkpoint
     const checkpointTime = Number(checkpointBundle?.simTime)
-    const activeOptions = normalizeSimulationTimeOptions(options, { includeStepSize: true })
-    const optionsError = getSimulationOptionsError(activeOptions, { includeStepSize: true })
+    const activeOptions = normalizeSimulationTimeOptions(options, { includeStepSize: true, requireStopTime: false })
+    const optionsError = getSimulationOptionsError(activeOptions, { includeStepSize: true, requireStopTime: false })
     if (optionsError) {
       onRunFinish({ state: 'error', message: optionsError })
       return
@@ -594,7 +600,8 @@ export default function useInteractiveTwinExecution({
       return
     }
     if (checkpointBundle && (!Number.isFinite(checkpointTime)
-      || checkpointTime < activeOptions.startTime || checkpointTime >= activeOptions.stopTime)) {
+      || checkpointTime < activeOptions.startTime
+      || (Number.isFinite(activeOptions.stopTime) && checkpointTime >= activeOptions.stopTime))) {
       onRunFinish({ state: 'error', message: 'The saved FMU state must be within the simulation interval. Stop time is absolute and must be later than the saved state.' })
       return
     }

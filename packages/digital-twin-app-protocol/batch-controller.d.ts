@@ -25,7 +25,7 @@ export interface AdaptiveBatchController {
 
 export declare function createAdaptiveBatchController(options: {
   startTime: number
-  stopTime: number
+  stopTime?: number
   stepSize: number
   maxSamples?: number
   targetResponseMs?: number

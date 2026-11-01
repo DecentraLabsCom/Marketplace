@@ -55,7 +55,7 @@ InputScheduleDialog.propTypes = {
   initialValues: PropTypes.object.isRequired,
   events: PropTypes.arrayOf(PropTypes.object),
   startTime: PropTypes.number,
-  stopTime: PropTypes.number.isRequired,
+  stopTime: PropTypes.number,
   stepSize: PropTypes.number,
   validationError: PropTypes.string,
   disabled: PropTypes.bool,

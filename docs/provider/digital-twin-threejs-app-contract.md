@@ -115,7 +115,11 @@ replaying a queue at one simulation second per wall-clock second; all collected
 samples remain available for replay after the run. The viewer shows the last and
 planned batch sizes, model-time delta, request cycle, compute time, payload size,
 presentation acknowledgement and stop reason. The batch limit is independent of
-the configured simulation horizon.
+the configured simulation horizon. Omit `stopTime` for an open-ended SDK run;
+the client keeps requesting finite bounded advances until cancellation, FMU
+termination or the authorized session/runtime ends. The generated GLB viewer
+also leaves Stop Time blank by default. Batch mode in that viewer requires a
+finite stop time to delimit the collected result.
 
 The Gateway enforces the effective AAS/FMI variable-access policy for every
 runtime write and filters output values. Interactive modes use a short-lived
@@ -140,7 +144,9 @@ the Marketplace CSP configuration.
 3. Once its view is ready, the app sends `decentralabs:digital-twin-ready`.
 4. To start execution, the app requests a connection with
    `decentralabs:fmu-connection-request`, a unique `requestId` and optional
-   `options` containing finite `startTime`, `stopTime` and `stepSize` values.
+   `options` containing finite `startTime` and `stepSize`, plus an optional
+   finite `stopTime`. Omit `stopTime` for an open-ended run; provide it to bound
+   the run.
 5. Marketplace calls `POST /api/simulations/connection`, forwarding only its
    server-side resource credential to the authorized Gateway endpoint
    `POST /fmu/api/v1/fmu/connection/{labId}?reservationKey=...`.

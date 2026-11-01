@@ -34,6 +34,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [parameters, setParameters] = useState({})
   const [inputEvents, setInputEvents] = useState([])
   const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
+  const glbStopTimeDefaultedRef = useRef(false)
   const [showHistory, setShowHistory] = useState(false)
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
@@ -72,6 +73,13 @@ export default function SimulationRunner({ lab, reservationKey }) {
     ? variableAccess?.simulationType
     : fmuMeta?.simulationType
   const supportsTwinInputSchedule = twinSimulationType === 'CoSimulation'
+  const supportsInteractiveTwinModes = Boolean(
+    twinAsset?.type === 'glb'
+    && reservationKey
+    && variableAccessState === 'ready'
+    && supportsFmiLsInteractiveModes(variableAccess?.simulationType, variableAccess?.fmiVersion),
+  )
+  const effectiveExecutionMode = supportsInteractiveTwinModes ? executionMode : 'batch'
   const simulationTypeLabel = formatFmuSimulationType(twinSimulationType)
   const proxyDownload = useProxyFmuDownload({
     fetchGateway,
@@ -129,7 +137,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
   })
   const isResumingFromCheckpoint = Boolean(isGlbTwin && resumeFromFmuState && fmuStateCheckpoint)
   let inputScheduleError = ''
-  const simulationOptionsError = getSimulationOptionsError(effectiveOptions, { includeStepSize: !isScheduledExecution })
+  const simulationOptionsError = getSimulationOptionsError(effectiveOptions, {
+    includeStepSize: !isScheduledExecution,
+    requireStopTime: effectiveExecutionMode === 'batch',
+  })
   try {
     resolveInputSchedule({
       experiment: selectedFmiLsExperiment,
@@ -176,13 +187,18 @@ export default function SimulationRunner({ lab, reservationKey }) {
     handleInteractiveRunStart,
     handleInteractiveRunFinish,
   } = execution
-  const supportsInteractiveTwinModes = Boolean(
-    twinAsset?.type === 'glb'
-    && reservationKey
-    && variableAccessState === 'ready'
-    && supportsFmiLsInteractiveModes(variableAccess?.simulationType, variableAccess?.fmiVersion),
-  )
-  const effectiveExecutionMode = supportsInteractiveTwinModes ? executionMode : 'batch'
+  useEffect(() => {
+    glbStopTimeDefaultedRef.current = false
+  }, [labId])
+
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb' || glbStopTimeDefaultedRef.current) return
+    glbStopTimeDefaultedRef.current = true
+    const metadataStopTime = getInitialSimulationOptions(fmuMeta).stopTime
+    setOptions((current) => current.stopTime === metadataStopTime
+      ? { ...current, stopTime: '' }
+      : current)
+  }, [fmuMeta, twinAsset?.type])
   useEffect(() => {
     if (variableAccessState !== 'ready') return
     setParameters((current) => {
@@ -519,7 +535,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
           inputEvents={inputEvents}
           onInputEventsChange={setInputEvents}
           startTime={Number(options.startTime)}
-          stopTime={Number(options.stopTime)}
           stepSize={Number(options.stepSize)}
           downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
           fullScreen
@@ -634,7 +649,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
           onInputInteractionEnd={interactiveExecution.commitRuntimeInputInteraction}
           isRunning={simState === SIM_STATE.RUNNING}
           startTime={Number(effectiveOptions.startTime)}
-          stopTime={Number(effectiveOptions.stopTime)}
+          stopTime={effectiveOptions.stopTime === '' ? undefined : Number(effectiveOptions.stopTime)}
           followLatest={interactiveExecution.mode !== null}
           onDisplayedSampleChange={interactiveExecution.reportDisplayedSample}
         />

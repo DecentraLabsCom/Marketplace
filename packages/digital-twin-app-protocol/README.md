@@ -33,7 +33,8 @@ const app = createDigitalTwinAppClient({
   onPlaybackRate(rate) { replay.setRate(rate) },
 })
 initializeView().then(() => app.reportReady())
-runButton.onclick = () => app.run({ parameters: readInputs(), options: { stopTime: 60 } }).catch(showError)
+// Omit stopTime to keep the FMU running until the app cancels it or the provider/runtime ends the session. Pass a finite stopTime for a bounded run.
+runButton.onclick = () => app.run({ parameters: readInputs() }).catch(showError)
 window.addEventListener('pagehide', () => app.dispose(), { once: true })
 ```
 

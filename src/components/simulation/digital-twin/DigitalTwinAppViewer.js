@@ -27,7 +27,7 @@ const FMU_STATE_CHECKPOINTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECK
 export default function DigitalTwinAppViewer({
   appUrl, title = 'Digital Twin', onConnect, modelVariables = [], fmiLsParameterPresets = [], fmiLsExperiments = [], enableInputSchedule = false,
   scheduleVariables,
-  inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stopTime = 1, stepSize,
+  inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stepSize,
   fmiLsStruct,
   fmuStateAvailable = false,
   fmuStateScopeKey = '',
@@ -85,7 +85,11 @@ export default function DigitalTwinAppViewer({
 
   async function handleConnectionRequest({ options, capabilities, signal }) {
     const runOptions = { ...options, ...(selectedFmiLsExperiment?.options || {}) }
-    const interval = { startTime, stopTime, stepSize, ...runOptions }
+    const interval = {
+      startTime: runOptions.startTime ?? startTime,
+      ...(runOptions.stopTime !== undefined ? { stopTime: runOptions.stopTime } : {}),
+      stepSize: runOptions.stepSize ?? stepSize,
+    }
     const schedule = resolveInputSchedule({
       experiment: selectedFmiLsExperiment,
       inputEvents: scheduledInputEvents,
@@ -147,7 +151,11 @@ export default function DigitalTwinAppViewer({
 
   const isRunning = execution.state === 'running'
   const activeRunId = execution.runId
-  const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
+  const executionStartTime = Number(execution.options?.startTime ?? startTime)
+  const executionStopTime = Number(execution.options?.stopTime)
+  const modelDuration = Number.isFinite(executionStartTime) && Number.isFinite(executionStopTime)
+    ? executionStopTime - executionStartTime
+    : 0
   const hasSystemConfigurationControl = appState === 'ready'
     && availableFmiLsParameterPresets.length > 0
     && appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY)
@@ -200,7 +208,9 @@ export default function DigitalTwinAppViewer({
       modelVariables,
       options: {
         startTime: selectedFmiLsExperiment?.options?.startTime ?? startTime,
-        stopTime: selectedFmiLsExperiment?.options?.stopTime ?? stopTime,
+        ...(selectedFmiLsExperiment?.options?.stopTime !== undefined
+          ? { stopTime: selectedFmiLsExperiment.options.stopTime }
+          : {}),
         stepSize: selectedFmiLsExperiment?.options?.stepSize ?? stepSize,
       },
       enabled: enableInputSchedule,
@@ -400,13 +410,12 @@ export default function DigitalTwinAppViewer({
                 ) : null}
 
                 {hasExecutionPaceControl ? (
-                  <section className="rounded-xl border border-[#263a42] bg-[#0c171c] p-3">
-                    <ExecutionPaceSelector
-                      executionPace={executionPace}
-                      onChange={setExecutionPace}
-                      disabled={isRunning}
-                    />
-                  </section>
+                  <ExecutionPaceSelector
+                    executionPace={executionPace}
+                    onChange={setExecutionPace}
+                    disabled={isRunning}
+                    toolbar
+                  />
                 ) : null}
 
                 {hasPlaybackRateControl ? (
@@ -493,7 +502,7 @@ export default function DigitalTwinAppViewer({
         initialValues={{ ...inputValues, ...(selectedFmiLsExperiment?.parameters || {}) }}
         events={scheduledInputEvents}
         startTime={selectedFmiLsExperiment?.options.startTime ?? startTime}
-        stopTime={selectedFmiLsExperiment?.options.stopTime ?? stopTime}
+        stopTime={selectedFmiLsExperiment?.options.stopTime}
         stepSize={selectedFmiLsExperiment?.options.stepSize ?? stepSize}
         validationError={scheduleError}
         disabled={isRunning}
@@ -535,7 +544,7 @@ DigitalTwinAppViewer.propTypes = {
   onFmuStateValuesLoad: PropTypes.func,
   inputValues: PropTypes.object,
   inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
-  startTime: PropTypes.number, stopTime: PropTypes.number, stepSize: PropTypes.number,
+  startTime: PropTypes.number, stepSize: PropTypes.number,
   onModelChangeRequest: PropTypes.func, hostExtensions: PropTypes.object,
   downloadError: PropTypes.string, simulationError: PropTypes.string, fullScreen: PropTypes.bool,
 }

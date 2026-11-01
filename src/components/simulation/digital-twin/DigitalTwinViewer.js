@@ -138,6 +138,7 @@ export default function DigitalTwinViewer({
   const streamingResults = isRunning ? streamingResultsRef?.current : null
   const activeResults = streamingResults || results
   const times = Array.isArray(activeResults?.time) ? activeResults.time : []
+  const sampleIndexOffset = Number(activeResults?.sampleIndexOffset) || 0
   const lastIndex = Math.max(times.length - 1, 0)
   const displayedSampleIndex = isRunning && followLatest ? lastIndex : Math.min(sampleIndex, lastIndex)
   const interpolatableVariables = useMemo(() => new Set(modelVariables
@@ -162,7 +163,9 @@ export default function DigitalTwinViewer({
   interpolatableVariablesRef.current = interpolatableVariables
   const modelDuration = times.length > 1
     ? Number(times[lastIndex]) - Number(times[0])
-    : Number(stopTime) - Number(startTime)
+    : Number.isFinite(Number(stopTime)) && Number.isFinite(Number(startTime))
+      ? Number(stopTime) - Number(startTime)
+      : 0
 
   useEffect(() => {
     setSampleIndex(0)
@@ -336,7 +339,9 @@ export default function DigitalTwinViewer({
             showInputMarkers={inputMarkersVisible}
             onStatus={setLoadState}
             sampleIndex={displayedSampleIndex}
-            onSampleRendered={isRunning && followLatest ? onDisplayedSampleChange : undefined}
+            onSampleRendered={isRunning && followLatest && onDisplayedSampleChange
+              ? (index, frameTime) => onDisplayedSampleChange(index + sampleIndexOffset, frameTime)
+              : undefined}
           />
           {loadState === 'ready' ? (
             <div className="absolute left-3 top-3 z-30 flex gap-2">
@@ -659,5 +664,4 @@ DigitalTwinViewer.defaultProps = {
   isRunning: false,
   followLatest: false,
   startTime: 0,
-  stopTime: 1,
 }

@@ -18,6 +18,7 @@ export default function SimulationOptions({
   options,
   onChange,
   simulationType,
+  requireStopTime = true,
   disabled = false,
   readOnlyStartTime = false,
 }) {
@@ -31,7 +32,13 @@ export default function SimulationOptions({
         : 'Beginning of the simulation interval.',
       readOnly: readOnlyStartTime,
     },
-    { key: 'stopTime', label: 'Stop Time (s)', description: 'End of the simulation interval.' },
+    {
+      key: 'stopTime',
+      label: 'Stop Time (s)',
+      description: requireStopTime
+        ? 'Required end time for a batch run.'
+        : 'Optional end time. Leave blank to keep running until you stop it.',
+    },
     ...(includeStepSize ? [{
       key: 'stepSize',
       label: 'Step Size (s)',
@@ -40,7 +47,7 @@ export default function SimulationOptions({
         : 'Preferred simulation step, when supported by the FMU type.',
     }] : []),
   ]
-  const validationError = getSimulationOptionsError(options, { includeStepSize })
+  const validationError = getSimulationOptionsError(options, { includeStepSize, requireStopTime })
 
   function handleWheel(event, key) {
     if (disabled || event.currentTarget !== document.activeElement || (readOnlyStartTime && key === 'startTime')
@@ -102,6 +109,7 @@ SimulationOptions.propTypes = {
   }).isRequired,
   onChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
+  requireStopTime: PropTypes.bool,
   disabled: PropTypes.bool,
   readOnlyStartTime: PropTypes.bool,
 }

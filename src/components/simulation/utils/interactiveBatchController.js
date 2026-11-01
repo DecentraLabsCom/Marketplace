@@ -9,7 +9,9 @@ export const createInteractiveBatchController = createAdaptiveBatchController
 export function getInteractiveBatchPlan(controller, currentTime, stopTime, stepSize) {
   const maxSamples = getAdaptiveBatchSize(controller)
   return {
-    targetTime: Math.min(stopTime, currentTime + stepSize * maxSamples),
+    targetTime: Number.isFinite(stopTime)
+      ? Math.min(stopTime, currentTime + stepSize * maxSamples)
+      : currentTime + stepSize * maxSamples,
     maxSamples,
     maxComputeMs: controller.maxComputeMs,
   }

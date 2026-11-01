@@ -446,7 +446,9 @@ export function createDigitalTwinAppClient({
     try {
       let time = run.resumeTime ?? run.options.startTime
       let eventIndex = 0
-      while (time < run.options.stopTime - 1e-12) {
+      const stopTime = run.options.stopTime
+      const hasStopTime = Number.isFinite(stopTime)
+      while (!hasStopTime || time < stopTime - 1e-12) {
         run.controller.signal.throwIfAborted()
         const scheduleTolerance = Math.max(1e-9, Math.abs(run.options.stepSize) * 1e-7)
         while (eventIndex < run.schedule.length && run.schedule[eventIndex].time <= time + scheduleTolerance) {
@@ -458,7 +460,9 @@ export function createDigitalTwinAppClient({
             run.inputControllerTimes[run.inputControllerTimeIndex] ?? Infinity,
           )
           : Infinity
-        const controllerTargetTime = Math.min(run.options.stopTime, nextControllerTime)
+        const controllerTargetTime = hasStopTime
+          ? Math.min(stopTime, nextControllerTime)
+          : nextControllerTime
         const controllerSampleLimit = run.inputController && run.inputControllerInterval
           ? Math.max(1, Math.ceil((controllerTargetTime - time) / run.options.stepSize) + 1)
           : 1
@@ -468,10 +472,9 @@ export function createDigitalTwinAppClient({
             ? Math.min(run.maxBatchSamples, controllerSampleLimit)
             : run.maxBatchSamples
         const outputSampleEverySteps = run.advanceOptions.outputSampleEverySteps ?? 1
-        const maxSampleTargetTime = Math.min(
-          run.options.stopTime,
-          time + maxSamples * outputSampleEverySteps * run.options.stepSize,
-        )
+        const maxSampleTargetTime = hasStopTime
+          ? Math.min(stopTime, time + maxSamples * outputSampleEverySteps * run.options.stepSize)
+          : time + maxSamples * outputSampleEverySteps * run.options.stepSize
         // Scheduled advances are rejected before execution when their time
         // span would produce more samples than maxSamples. Keep the schedule
         // horizon within the current batch budget, including the first
@@ -483,8 +486,12 @@ export function createDigitalTwinAppClient({
           ? scheduleBatch.events.at(-1).time
           : Infinity
         let targetTime = Math.min(controllerTargetTime, maxSampleTargetTime, scheduledTargetTime)
-        if (!Number.isFinite(targetTime)) targetTime = run.options.stopTime
-        if (targetTime <= time + scheduleTolerance) targetTime = Math.min(run.options.stopTime, time + run.options.stepSize)
+        if (!Number.isFinite(targetTime)) targetTime = maxSampleTargetTime
+        if (targetTime <= time + scheduleTolerance) {
+          targetTime = hasStopTime
+            ? Math.min(stopTime, time + run.options.stepSize)
+            : time + run.options.stepSize
+        }
         await waitForRealtimeTarget(run, targetTime)
         const result = await operation(run, 'sim.advance', 'sim.samples', {
           targetTime,
@@ -695,21 +702,21 @@ export function createDigitalTwinAppClient({
         : { ...(checkpointBundle?.modelValues || {}) }
       current.options = {
         startTime: options.startTime ?? model.defaultStartTime ?? 0,
-        stopTime: options.stopTime ?? model.defaultStopTime ?? 1,
+        ...(options.stopTime !== undefined ? { stopTime: options.stopTime } : {}),
         stepSize: options.stepSize ?? model.defaultStepSize ?? 0.001,
       }
       const { startTime, stopTime, stepSize } = current.options
-      if (!isValidOptions(current.options) || stopTime <= startTime || stepSize <= 0) throw errorWithCode('Invalid simulation interval.', 'INVALID_RUN_REQUEST')
+      if (!isValidOptions(current.options) || (stopTime !== undefined && stopTime <= startTime) || stepSize <= 0) throw errorWithCode('Invalid simulation interval.', 'INVALID_RUN_REQUEST')
       const resumeTime = checkpointBundle?.simTime ?? startTime
       if (checkpointBundle && resumeTime < startTime) {
         throw errorWithCode('The saved FMU state is earlier than the configured simulation start time.', 'INVALID_RUN_REQUEST')
       }
-      if (resumeTime >= stopTime) {
+      if (stopTime !== undefined && resumeTime >= stopTime) {
         throw errorWithCode('Stop time must be later than the saved FMU state. Stop time is absolute.', 'INVALID_RUN_REQUEST')
       }
       current.resumeTime = resumeTime
       current.runOptions = { ...current.options, startTime: resumeTime }
-      if (current.inputControllerTimes.some((time) => time < resumeTime || time > stopTime)) {
+      if (current.inputControllerTimes.some((time) => time < resumeTime || (stopTime !== undefined && time > stopTime))) {
         throw errorWithCode('An input controller time is outside the simulation interval.', 'INVALID_INPUT')
       }
       current.nextControllerTime = inputControllerInterval === undefined ? Infinity : resumeTime + inputControllerInterval
@@ -728,7 +735,7 @@ export function createDigitalTwinAppClient({
       const schedule = checkpointBundle && Array.isArray(candidateSchedule)
         ? candidateSchedule.filter((event) => event.time >= checkpointBundle.simTime - 1e-12)
         : candidateSchedule
-      if (!isValidRunInputSchedule(schedule) || schedule.some((event) => event.time < startTime || event.time > stopTime)) throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
+      if (!isValidRunInputSchedule(schedule) || schedule.some((event) => event.time < startTime || (stopTime !== undefined && event.time > stopTime))) throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
       if (schedule.length && current.session.capabilities.advanceInputValues !== true) {
         throw errorWithCode('The provider FMU runtime cannot apply scheduled inputs during advance.', 'UNSUPPORTED_SCHEDULED_INPUTS')
       }

@@ -50,7 +50,8 @@ export default function DigitalTwinSimulationForm({
   )
   const inputVariables = variables.filter((variable) => variable?.causality === 'input')
   const tunableParameterVariables = variables.filter((variable) => variable?.causality === 'parameter')
-  const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize })
+  const requireStopTime = executionMode === 'batch'
+  const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize, requireStopTime })
   let inputScheduleError = ''
   try {
     resolveInputSchedule({
@@ -201,6 +202,7 @@ export default function DigitalTwinSimulationForm({
           options={simulationOptions}
           onChange={onSimulationOptionChange}
           simulationType={simulationType}
+          requireStopTime={requireStopTime}
           disabled={running}
           readOnlyStartTime
         />
@@ -215,7 +217,9 @@ export default function DigitalTwinSimulationForm({
           initialValues={values}
           events={inputEvents}
           startTime={Number(simulationOptions.startTime)}
-          stopTime={Number(simulationOptions.stopTime)}
+          stopTime={simulationOptions.stopTime === '' || simulationOptions.stopTime == null
+            ? undefined
+            : Number(simulationOptions.stopTime)}
           stepSize={Number(simulationOptions.stepSize)}
           validationError={inputScheduleError}
           disabled={running}

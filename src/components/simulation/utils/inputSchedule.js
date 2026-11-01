@@ -8,15 +8,18 @@ export function normalizeInputSchedule(events, scheduledVariables, modelVariable
   const allowedVariables = new Map(scheduledVariables.map((variable) => [variable.name, variable]))
   const groupedEvents = new Map()
   const start = Number(startTime)
-  const stop = Number(stopTime)
+  const stopIsBlank = stopTime === null || stopTime === undefined || stopTime === ''
+  const stop = stopIsBlank ? null : Number(stopTime)
   const step = stepSize === '' || stepSize === null || stepSize === undefined ? null : Number(stepSize)
 
   for (const event of events) {
     const time = Number(event?.time)
     const variable = allowedVariables.get(event?.variable)
     if (!variable) throw new Error('A scheduled change refers to a variable that is not available for runtime changes in this FMU.')
-    if (!Number.isFinite(time) || !Number.isFinite(start) || !Number.isFinite(stop) || time < start || time >= stop) {
-      throw new Error(`The scheduled change for ${variable.name} must occur between ${start} s and the end of the simulation.`)
+    if (!Number.isFinite(time) || !Number.isFinite(start) || (!stopIsBlank && !Number.isFinite(stop))
+      || time < start || (stop !== null && time >= stop)) {
+      const intervalEnd = stop === null ? 'a later simulation time' : `the end of the simulation (${stop} s)`
+      throw new Error(`The scheduled change for ${variable.name} must occur between ${start} s and ${intervalEnd}.`)
     }
 
     if (Number.isFinite(step) && step > 0) {

@@ -42,13 +42,16 @@ export function resolveEffectiveSimulationStartTime({
     ?? FALLBACK_SIMULATION_OPTIONS.startTime
 }
 
-export function getSimulationOptionsError(options, { includeStepSize = true } = {}) {
+export function getSimulationOptionsError(options, { includeStepSize = true, requireStopTime = true } = {}) {
   const startTime = parseOptionalFiniteNumber(options?.startTime)
   if (startTime === null) return 'Enter a finite start time.'
 
+  const stopIsBlank = options?.stopTime === null || options?.stopTime === undefined
+    || (typeof options.stopTime === 'string' && options.stopTime.trim() === '')
   const stopTime = parseOptionalFiniteNumber(options?.stopTime)
-  if (stopTime === null) return 'Enter a finite stop time.'
-  if (stopTime <= startTime) return 'Stop time must be greater than start time.'
+  if (!stopIsBlank && stopTime === null) return 'Enter a finite stop time or leave it blank.'
+  if (requireStopTime && stopTime === null) return 'Enter a finite stop time for batch execution.'
+  if (stopTime !== null && stopTime <= startTime) return 'Stop time must be greater than start time.'
 
   if (includeStepSize) {
     const stepSize = parseOptionalFiniteNumber(options?.stepSize)
@@ -58,13 +61,15 @@ export function getSimulationOptionsError(options, { includeStepSize = true } = 
   return ''
 }
 
-export function normalizeSimulationTimeOptions(options, { includeStepSize = true } = {}) {
-  const error = getSimulationOptionsError(options, { includeStepSize })
+export function normalizeSimulationTimeOptions(options, { includeStepSize = true, requireStopTime = true } = {}) {
+  const error = getSimulationOptionsError(options, { includeStepSize, requireStopTime })
   if (error) throw new Error(error)
 
   return {
     startTime: Number(options.startTime),
-    stopTime: Number(options.stopTime),
+    ...(parseOptionalFiniteNumber(options.stopTime) !== null
+      ? { stopTime: parseOptionalFiniteNumber(options.stopTime) }
+      : {}),
     ...(includeStepSize ? { stepSize: Number(options.stepSize) } : {}),
   }
 }

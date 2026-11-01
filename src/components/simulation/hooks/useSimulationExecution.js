@@ -6,6 +6,7 @@ import { resolveInputSchedule } from '../utils/inputSchedule'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
+import { MAX_INTERACTIVE_HISTORY_SAMPLES } from '../utils/interactiveSampleHistory'
 
 export const SIM_STATE = {
   IDLE: 'idle',
@@ -107,11 +108,13 @@ export default function useSimulationExecution({
         const sampleValues = samples.map((sample) => (
           Object.prototype.hasOwnProperty.call(sample.outputs || {}, name) ? sample.outputs[name] : null
         ))
-        return [name, [...previousValues, ...sampleValues]]
+        return [name, [...previousValues, ...sampleValues].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES)]
       }))
+      const droppedSamples = Math.max(0, previousTimes.length + samples.length - MAX_INTERACTIVE_HISTORY_SAMPLES)
       const time = samples[samples.length - 1].time
       return {
-        time: [...previousTimes, ...samples.map((sample) => sample.time)],
+        time: [...previousTimes, ...samples.map((sample) => sample.time)].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES),
+        sampleIndexOffset: (Number(current?.sampleIndexOffset) || 0) + droppedSamples,
         sampleMetadata: [
           ...previousSampleMetadata,
           ...samples.map((sample) => Object.fromEntries(
@@ -119,7 +122,7 @@ export default function useSimulationExecution({
               .filter((key) => sample[key] !== undefined)
               .map((key) => [key, sample[key]]),
           )),
-        ],
+        ].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES),
         discontinuities: [
           ...previousDiscontinuities,
           ...samples.map((sample, index) => Boolean(
@@ -130,7 +133,7 @@ export default function useSimulationExecution({
             || (previousTimes.length + index > 0
               && Number(sample.time) <= Number((index > 0 ? samples[index - 1]?.time : previousTimes.at(-1)))),
           )),
-        ],
+        ].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES),
         outputs: nextOutputs,
         outputVariables: [...outputNames],
         simulationTime: time,

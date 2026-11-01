@@ -177,7 +177,7 @@ function InputScheduleRow({ event, variables, modelVariables, initialValues, eve
           aria-label={`Time for ${variable.name}`}
           type="number"
           min={startTime}
-          max={stopTime}
+          max={Number.isFinite(stopTime) ? stopTime : undefined}
           step={timeStep}
           value={event.time}
           onChange={(change) => onChange(event.id, { time: change.target.value })}
@@ -217,7 +217,7 @@ InputScheduleRow.propTypes = {
   initialValues: PropTypes.object.isRequired,
   events: PropTypes.arrayOf(PropTypes.object).isRequired,
   startTime: PropTypes.number.isRequired,
-  stopTime: PropTypes.number.isRequired,
+  stopTime: PropTypes.number,
   timeStep: PropTypes.number.isRequired,
   disabled: PropTypes.bool,
   tooltipPortal: PropTypes.bool,
@@ -240,39 +240,41 @@ export default function InputScheduleEditor({
 }) {
   // Callers can omit the list or pass null; keep schedule operations on an array.
   const scheduledEvents = Array.isArray(events) ? events : []
-  const canSchedule = variables.length > 0 && stopTime > startTime
+  const finiteStopTime = Number.isFinite(stopTime)
+  const canSchedule = variables.length > 0 && Number.isFinite(startTime)
+    && (!finiteStopTime || stopTime > startTime)
   const effectiveStep = Number.isFinite(Number(stepSize)) && Number(stepSize) > 0
     ? Number(stepSize)
-    : Math.max((stopTime - startTime) / 100, 0.001)
+    : finiteStopTime ? Math.max((stopTime - startTime) / 100, 0.001) : 0.01
   const sortedEvents = [...scheduledEvents].sort((left, right) => Number(left.time) - Number(right.time))
 
   function addEvent() {
     if (!canSchedule || disabled || scheduledEvents.length >= MAX_INPUT_EVENTS) return
     const variable = variables[0]
-    const duration = stopTime - startTime
+    const duration = finiteStopTime ? stopTime - startTime : null
     const previousTimes = scheduledEvents
       .filter((event) => event.variable === variable.name)
       .map((event) => Number(event.time))
       .filter(Number.isFinite)
     const preferredTime = previousTimes.length > 0
-      ? Math.max(...previousTimes) + Math.max(duration * 0.1, effectiveStep)
-      : startTime + duration * 0.1
+      ? Math.max(...previousTimes) + (duration === null ? Math.max(effectiveStep, 1) : Math.max(duration * 0.1, effectiveStep))
+      : startTime + (duration === null ? Math.max(effectiveStep, 1) : duration * 0.1)
     let stepIndex = Math.max(0, Math.ceil((preferredTime - startTime) / effectiveStep - 1e-9))
     let time = startTime + stepIndex * effectiveStep
     const occupiedTimes = new Set(previousTimes.map((previousTime) => String(previousTime)))
-    while (time < stopTime && occupiedTimes.has(String(time))) {
+    while ((!finiteStopTime || time < stopTime) && occupiedTimes.has(String(time))) {
       stepIndex += 1
       time = startTime + stepIndex * effectiveStep
     }
-    if (time >= stopTime) {
+    if (finiteStopTime && time >= stopTime) {
       stepIndex = 0
       time = startTime
-      while (time < stopTime && occupiedTimes.has(String(time))) {
+      while ((!finiteStopTime || time < stopTime) && occupiedTimes.has(String(time))) {
         stepIndex += 1
         time = startTime + stepIndex * effectiveStep
       }
     }
-    if (time >= stopTime) return
+    if (finiteStopTime && time >= stopTime) return
 
     const value = findDefaultValue(variable, initialValues, scheduledEvents, time, null, modelVariables)
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
@@ -346,7 +348,7 @@ InputScheduleEditor.propTypes = {
   initialValues: PropTypes.object.isRequired,
   events: PropTypes.arrayOf(PropTypes.object),
   startTime: PropTypes.number,
-  stopTime: PropTypes.number.isRequired,
+  stopTime: PropTypes.number,
   stepSize: PropTypes.number,
   validationError: PropTypes.string,
   disabled: PropTypes.bool,
