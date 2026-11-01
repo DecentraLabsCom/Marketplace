@@ -118,6 +118,8 @@ export default function DigitalTwinViewer({
   interactiveInputVariables = [],
   inputEditingEnabled = false,
   onInputChange,
+  onInputInteractionStart,
+  onInputInteractionEnd,
   isRunning,
   startTime,
   stopTime,
@@ -327,6 +329,8 @@ export default function DigitalTwinViewer({
             interactiveInputVariables={interactiveInputVariables}
             inputEditingEnabled={inputEditingEnabled}
             onInputChange={onInputChange}
+            onInputInteractionStart={onInputInteractionStart}
+            onInputInteractionEnd={onInputInteractionEnd}
             onSceneInputBindingsReady={setSceneInputBindingNames}
             showOutputMarkers={outputMarkersVisible}
             showInputMarkers={inputMarkersVisible}
@@ -635,6 +639,8 @@ DigitalTwinViewer.propTypes = {
   interactiveInputVariables: PropTypes.arrayOf(PropTypes.object),
   inputEditingEnabled: PropTypes.bool,
   onInputChange: PropTypes.func,
+  onInputInteractionStart: PropTypes.func,
+  onInputInteractionEnd: PropTypes.func,
   isRunning: PropTypes.bool,
   startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   stopTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

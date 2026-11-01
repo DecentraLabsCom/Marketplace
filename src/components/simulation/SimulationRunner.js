@@ -630,6 +630,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
           interactiveInputVariables={sceneInputVariables}
           inputEditingEnabled={sceneInputVariables.length > 0}
           onInputChange={interactiveExecution.handleInputChange}
+          onInputInteractionStart={interactiveExecution.beginRuntimeInputInteraction}
+          onInputInteractionEnd={interactiveExecution.commitRuntimeInputInteraction}
           isRunning={simState === SIM_STATE.RUNNING}
           startTime={Number(effectiveOptions.startTime)}
           stopTime={Number(effectiveOptions.stopTime)}

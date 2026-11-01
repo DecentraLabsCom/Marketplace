@@ -133,6 +133,7 @@ export default function useInteractiveTwinExecution({
   const advanceInFlightRef = useRef(false)
   const continuousRequestedRef = useRef(false)
   const continuousLoopActiveRef = useRef(false)
+  const continuousLoopPromiseRef = useRef(null)
   const endAfterAdvanceRef = useRef(false)
   const simulationTimeRef = useRef(0)
   const latestSampleRef = useRef(null)
@@ -524,28 +525,34 @@ export default function useInteractiveTwinExecution({
       ? { simTime: simulationTimeRef.current, wallTime: performance.now() }
       : null
     if (mountedRef.current) setStatus('continuous')
-    try {
-      while (continuousRequestedRef.current && sessionRef.current === session) {
-        if (realtimePacingRef.current && !await waitForRealtimeStep(controller)) break
-        const canContinue = await advanceStep({ continuous: true })
-        if (!canContinue) break
+    const loopPromise = (async () => {
+      try {
+        while (continuousRequestedRef.current && sessionRef.current === session) {
+          if (realtimePacingRef.current && !await waitForRealtimeStep(controller)) break
+          const canContinue = await advanceStep({ continuous: true })
+          if (!canContinue) break
+        }
+      } catch (error) {
+        const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
+        void finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
+      } finally {
+        continuousLoopActiveRef.current = false
+        realtimePacingRef.current = null
+        if (controllerRef.current === controller && sessionRef.current === session
+          && !continuousRequestedRef.current && mountedRef.current) {
+          setStatus('paused')
+        }
       }
-    } catch (error) {
-      const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
-      void finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
-    } finally {
-      continuousLoopActiveRef.current = false
-      realtimePacingRef.current = null
-      if (controllerRef.current === controller && sessionRef.current === session
-        && !continuousRequestedRef.current && mountedRef.current) {
-        setStatus('paused')
-      }
-    }
+    })()
+    continuousLoopPromiseRef.current = loopPromise
+    await loopPromise
+    if (continuousLoopPromiseRef.current === loopPromise) continuousLoopPromiseRef.current = null
   }, [advanceStep, executionPace, finishSession, waitForRealtimeStep])
 
   const pauseContinuous = useCallback(() => {
     continuousRequestedRef.current = false
     if (mountedRef.current) setStatus(advanceInFlightRef.current || continuousLoopActiveRef.current ? 'pausing' : 'paused')
+    return continuousLoopPromiseRef.current || Promise.resolve()
   }, [])
 
   const end = useCallback(() => {
@@ -771,6 +778,26 @@ export default function useInteractiveTwinExecution({
     onParameterChange(name, value)
   }, [onParameterChange, runtimeVariables])
 
+  const beginRuntimeInputInteraction = useCallback(() => {
+    const waitForPause = ['continuous', 'pausing'].includes(status)
+    return {
+      pausePromise: waitForPause ? pauseContinuous() : Promise.resolve(),
+      waitForPause,
+      resumeContinuous: status === 'continuous',
+    }
+  }, [pauseContinuous, status])
+
+  const commitRuntimeInputInteraction = useCallback(async ({ inputInteraction, hasInputChange } = {}) => {
+    try {
+      await inputInteraction?.pausePromise
+      if (hasInputChange && sessionRef.current && controllerRef.current) await advanceStep()
+    } finally {
+      if (inputInteraction?.resumeContinuous && sessionRef.current && controllerRef.current) {
+        void startContinuous()
+      }
+    }
+  }, [advanceStep, startContinuous])
+
   const hasActiveSession = ['connecting', 'paused', 'stepping', 'continuous', 'pausing', 'stopping'].includes(status)
   const runtimeInputEditing = ['paused', 'continuous', 'pausing'].includes(status)
 
@@ -790,6 +817,8 @@ export default function useInteractiveTwinExecution({
     reportDisplayedSample,
     captureState,
     clearRetainedSession: releaseCompletedSession,
+    beginRuntimeInputInteraction,
+    commitRuntimeInputInteraction,
     canCaptureState,
     capturingState,
     checkpointError,

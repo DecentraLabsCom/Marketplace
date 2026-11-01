@@ -276,6 +276,8 @@ export default function DigitalTwinCanvas({
   interactiveInputVariables = [],
   inputEditingEnabled = false,
   onInputChange,
+  onInputInteractionStart,
+  onInputInteractionEnd,
   onSceneInputBindingsReady,
   showOutputMarkers = false,
   showInputMarkers = false,
@@ -290,6 +292,8 @@ export default function DigitalTwinCanvas({
   const interactiveInputVariablesRef = useRef(interactiveInputVariables)
   const inputEditingEnabledRef = useRef(inputEditingEnabled)
   const onInputChangeRef = useRef(onInputChange)
+  const onInputInteractionStartRef = useRef(onInputInteractionStart)
+  const onInputInteractionEndRef = useRef(onInputInteractionEnd)
   const onSceneInputBindingsReadyRef = useRef(onSceneInputBindingsReady)
   const showOutputMarkersRef = useRef(showOutputMarkers)
   const showInputMarkersRef = useRef(showInputMarkers)
@@ -304,6 +308,8 @@ export default function DigitalTwinCanvas({
   interactiveInputVariablesRef.current = interactiveInputVariables
   inputEditingEnabledRef.current = inputEditingEnabled
   onInputChangeRef.current = onInputChange
+  onInputInteractionStartRef.current = onInputInteractionStart
+  onInputInteractionEndRef.current = onInputInteractionEnd
   onSceneInputBindingsReadyRef.current = onSceneInputBindingsReady
   showOutputMarkersRef.current = showOutputMarkers
   showInputMarkersRef.current = showInputMarkers
@@ -519,29 +525,102 @@ export default function DigitalTwinCanvas({
         worldUnitsPerLocalUnit,
       })
     }
+    const snapshotPointerEvent = (event) => ({
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      preventDefault() {},
+      stopPropagation() {},
+    })
+    const initializeDragAfterPause = async (drag) => {
+      const inputInteraction = await drag.inputInteractionReady.catch(() => undefined)
+      drag.inputInteraction = inputInteraction
+      if (inputInteraction?.waitForPause) {
+        await Promise.resolve(inputInteraction.pausePromise).catch(() => {})
+        await new Promise((resolve) => window.requestAnimationFrame(resolve))
+      }
+      if (activeDrag !== drag) return
+
+      const {
+        node,
+        variable,
+        normalizedBinding,
+        pointerDownEvent,
+        hasOutputDrivenTarget,
+        relativeRotationInput,
+      } = drag
+      if (!drag.isRotationDrag) {
+        const context = getNodeAxisDragContext(node, normalizedBinding.axis)
+        if (!context || !setPointerRay(pointerDownEvent)) {
+          drag.waitingForPause = false
+          handlePointerUp(pointerDownEvent)
+          return
+        }
+        const pointerCoordinate = getAxisCoordinateFromRay(raycaster.ray, context)
+        if (pointerCoordinate === null) {
+          drag.waitingForPause = false
+          handlePointerUp(pointerDownEvent)
+          return
+        }
+        drag.context = context
+        drag.pointerCoordinate = pointerCoordinate
+        drag.lastPointerCoordinate = pointerCoordinate
+      }
+      const sceneCoordinate = node[normalizedBinding.property][normalizedBinding.axis]
+      const currentInputValue = getSceneVariableValue(variable, valuesRef.current)
+      const initialInputValue = numericValue(currentInputValue)
+      const minimumInputValue = numericValue(variable?.min)
+      const maximumInputValue = numericValue(variable?.max)
+      // A relative rotation gesture may change the bounded command by at most
+      // half its declared range, so one drag cannot jump from one extreme to the other.
+      const maxRelativeInputChange = relativeRotationInput
+        && Number.isFinite(minimumInputValue)
+        && Number.isFinite(maximumInputValue)
+        && maximumInputValue > minimumInputValue
+        ? (maximumInputValue - minimumInputValue) / 2
+        : null
+      const lastInputValue = relativeRotationInput
+        ? initialInputValue
+        : hasOutputDrivenTarget
+          ? getFmiSceneInputValueFromCoordinate(sceneCoordinate, normalizedBinding)
+          : numericValue(getFmiSceneBindingValue(
+            currentInputValue,
+            normalizedBinding,
+            variablesRef.current || [],
+            valuesRef.current || {},
+          ))
+
+      drag.sceneCoordinate = sceneCoordinate
+      drag.currentInputValue = currentInputValue
+      drag.initialInputValue = initialInputValue
+      drag.lastInputValue = lastInputValue
+      drag.maxRelativeInputChange = maxRelativeInputChange
+      drag.waitingForPause = false
+
+      const pendingMove = drag.pendingPointerMove
+      const pendingUp = drag.pendingPointerUp
+      drag.pendingPointerMove = null
+      drag.pendingPointerUp = null
+      if (pendingMove) handlePointerMove(pendingMove)
+      if (pendingUp) handlePointerUp(pendingUp)
+    }
     const handlePointerDown = (event) => {
       const match = getInteractiveBindingAtPointer(event)
       if (!match) return
 
       const { node, variable, normalizedBinding } = match
       const isRotationDrag = normalizedBinding.property === 'rotation'
-      const context = isRotationDrag ? null : getNodeAxisDragContext(node, normalizedBinding.axis)
-      const pointerCoordinate = isRotationDrag
-        ? event.clientX
-        : getAxisCoordinateFromRay(raycaster.ray, context)
-      if (pointerCoordinate === null) return
+      const pointerCoordinate = isRotationDrag ? event.clientX : null
       pendingDragPreview = null
-      const sceneCoordinate = node[normalizedBinding.property][normalizedBinding.axis]
       const hasOutputDrivenTarget = outputDrivenTargetsByNode.get(node)?.has(getSceneBindingTargetKey(normalizedBinding)) === true
-      const currentInputValue = getSceneVariableValue(variable, valuesRef.current)
-      const lastInputValue = hasOutputDrivenTarget
-        ? getFmiSceneInputValueFromCoordinate(sceneCoordinate, normalizedBinding)
-        : numericValue(getFmiSceneBindingValue(
-          currentInputValue,
-          normalizedBinding,
-          variablesRef.current || [],
-          valuesRef.current || {},
-        ))
+      const relativeRotationInput = hasOutputDrivenTarget && isRotationDrag
+      let inputInteractionReady = Promise.resolve()
+      try {
+        inputInteractionReady = Promise.resolve(onInputInteractionStartRef.current?.())
+      } catch (error) {
+        inputInteractionReady = Promise.reject(error)
+      }
+      inputInteractionReady.catch(() => {})
 
       activeDrag = {
         pointerId: event.pointerId,
@@ -549,12 +628,23 @@ export default function DigitalTwinCanvas({
         variable,
         normalizedBinding,
         isRotationDrag,
-        context,
+        context: null,
         pointerCoordinate,
-        sceneCoordinate,
-        currentInputValue,
-        lastInputValue,
+        lastPointerCoordinate: pointerCoordinate,
+        pointerDownEvent: snapshotPointerEvent(event),
+        sceneCoordinate: null,
+        currentInputValue: null,
+        initialInputValue: null,
+        lastInputValue: null,
+        maxRelativeInputChange: null,
         hasOutputDrivenTarget,
+        relativeRotationInput,
+        hasInputChange: false,
+        inputInteractionReady,
+        inputInteraction: null,
+        waitingForPause: true,
+        pendingPointerMove: null,
+        pendingPointerUp: null,
         previewSceneCoordinate: null,
         controlsWereEnabled: controls.enabled,
       }
@@ -568,9 +658,16 @@ export default function DigitalTwinCanvas({
       }
       event.preventDefault()
       event.stopPropagation()
+      void initializeDragAfterPause(activeDrag)
     }
     const handlePointerMove = (event) => {
       if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+      if (activeDrag.waitingForPause) {
+        activeDrag.pendingPointerMove = snapshotPointerEvent(event)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       const canEditVariable = inputEditingEnabledRef.current
         && showInputMarkersRef.current
         && (interactiveInputVariablesRef.current || []).some((variable) => variable?.name === activeDrag.variable.name)
@@ -587,12 +684,32 @@ export default function DigitalTwinCanvas({
       const coordinateDelta = activeDrag.isRotationDrag
         ? (coordinate - activeDrag.pointerCoordinate) * (Math.PI * 2 / Math.max(renderer.domElement.clientWidth, 1))
         : coordinate - activeDrag.pointerCoordinate
+      const relativeCoordinateDelta = activeDrag.isRotationDrag
+        ? (coordinate - activeDrag.lastPointerCoordinate) * (Math.PI * 2 / Math.max(renderer.domElement.clientWidth, 1))
+        : coordinate - activeDrag.lastPointerCoordinate
+      activeDrag.lastPointerCoordinate = coordinate
       const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinateDelta
-      const nextInputValue = getFmiSceneInputValueFromCoordinate(nextSceneCoordinate, activeDrag.normalizedBinding)
+      const inputCoordinate = activeDrag.relativeRotationInput
+        ? (Number(activeDrag.currentInputValue) + (relativeCoordinateDelta / activeDrag.normalizedBinding.scale))
+          * activeDrag.normalizedBinding.scale + activeDrag.normalizedBinding.offset
+        : nextSceneCoordinate
+      let nextInputValue = getFmiSceneInputValueFromCoordinate(inputCoordinate, activeDrag.normalizedBinding)
+      if (activeDrag.relativeRotationInput
+        && Number.isFinite(activeDrag.maxRelativeInputChange)
+        && Number.isFinite(activeDrag.initialInputValue)
+        && Number.isFinite(nextInputValue)) {
+        const minimumInputValue = activeDrag.initialInputValue - activeDrag.maxRelativeInputChange
+        const maximumInputValue = activeDrag.initialInputValue + activeDrag.maxRelativeInputChange
+        nextInputValue = Math.max(minimumInputValue, Math.min(maximumInputValue, nextInputValue))
+      }
       if (nextInputValue === null || Object.is(nextInputValue, activeDrag.lastInputValue)) return
 
       activeDrag.lastInputValue = nextInputValue
-      if (activeDrag.hasOutputDrivenTarget) {
+      if (activeDrag.relativeRotationInput) {
+        activeDrag.currentInputValue = nextInputValue
+        activeDrag.previewSceneCoordinate = activeDrag.sceneCoordinate
+          + ((nextInputValue - activeDrag.initialInputValue) * activeDrag.normalizedBinding.scale)
+      } else if (activeDrag.hasOutputDrivenTarget) {
         activeDrag.previewSceneCoordinate = getFmiSceneBoundValue(nextInputValue, activeDrag.normalizedBinding)
       }
       if (activeDrag.normalizedBinding.indices) {
@@ -606,8 +723,11 @@ export default function DigitalTwinCanvas({
         )
         if (!nextArrayValue) return
         activeDrag.currentInputValue = nextArrayValue
+        activeDrag.hasInputChange = true
         onInputChangeRef.current?.(activeDrag.variable.name, nextArrayValue)
       } else {
+        activeDrag.currentInputValue = nextInputValue
+        activeDrag.hasInputChange = true
         onInputChangeRef.current?.(activeDrag.variable.name, nextInputValue)
       }
       renderer.domElement.style.cursor = 'grabbing'
@@ -616,15 +736,40 @@ export default function DigitalTwinCanvas({
     }
     const handlePointerUp = (event) => {
       if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
-      const { controlsWereEnabled, hasOutputDrivenTarget, normalizedBinding, node, previewSceneCoordinate } = activeDrag
+      if (activeDrag.waitingForPause) {
+        activeDrag.pendingPointerUp = snapshotPointerEvent(event)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      const {
+        controlsWereEnabled,
+        hasOutputDrivenTarget,
+        hasInputChange,
+        inputInteraction,
+        normalizedBinding,
+        node,
+        previewSceneCoordinate,
+      } = activeDrag
+      let dragPreview = null
       if (hasOutputDrivenTarget && previewSceneCoordinate !== null) {
-        pendingDragPreview = {
+        const targetKey = getSceneBindingTargetKey(normalizedBinding)
+        const outputBinding = boundObjects.find((binding) => (
+          binding.node === node
+          && binding.isOutputBinding
+          && getSceneBindingTargetKey(binding.normalizedBinding) === targetKey
+        )) || null
+        dragPreview = {
           node,
           property: normalizedBinding.property,
           axis: normalizedBinding.axis,
           coordinate: previewSceneCoordinate,
+          originalCoordinate: activeDrag.sceneCoordinate,
+          outputBinding,
           sampleIndex: sampleIndexRef.current,
+          commitComplete: false,
         }
+        pendingDragPreview = dragPreview
       }
       activeDrag = null
       controls.enabled = controlsWereEnabled
@@ -635,6 +780,17 @@ export default function DigitalTwinCanvas({
         }
       } catch {
         // Ignore release errors from browsers that already dropped pointer capture.
+      }
+      try {
+        Promise.resolve(onInputInteractionEndRef.current?.({ inputInteraction, hasInputChange }))
+          .then(() => {
+            if (dragPreview && pendingDragPreview === dragPreview) dragPreview.commitComplete = true
+          })
+          .catch(() => {
+            if (dragPreview && pendingDragPreview === dragPreview) pendingDragPreview = null
+          })
+      } catch {
+        if (dragPreview && pendingDragPreview === dragPreview) pendingDragPreview = null
       }
       event.preventDefault()
       event.stopPropagation()
@@ -1006,9 +1162,30 @@ export default function DigitalTwinCanvas({
           node[property][axis] = mapped
         }
       }
-      if (pendingDragPreview
-        && (!inputEditingEnabledRef.current || sampleIndexRef.current !== pendingDragPreview.sampleIndex)) {
-        pendingDragPreview = null
+      if (pendingDragPreview) {
+        if (!inputEditingEnabledRef.current && pendingDragPreview.commitComplete) {
+          pendingDragPreview = null
+        } else if (pendingDragPreview.commitComplete
+          && sampleIndexRef.current !== pendingDragPreview.sampleIndex) {
+          if (!pendingDragPreview.outputBinding) {
+            pendingDragPreview = null
+          } else {
+            const { variable, normalizedBinding } = pendingDragPreview.outputBinding
+            const rawValue = valuesRef.current?.[variable.name]
+            const bindingValue = getFmiSceneBindingValue(
+              rawValue,
+              normalizedBinding,
+              variablesRef.current || [],
+              valuesRef.current || {},
+            )
+            const outputCoordinate = numericValue(getFmiSceneBoundValue(bindingValue, normalizedBinding))
+            const tolerance = Math.max(1e-7, Math.abs(pendingDragPreview.originalCoordinate) * 1e-9)
+            if (Number.isFinite(outputCoordinate)
+              && Math.abs(outputCoordinate - pendingDragPreview.originalCoordinate) > tolerance) {
+              pendingDragPreview = null
+            }
+          }
+        }
       }
       const dragPreview = activeDrag?.hasOutputDrivenTarget && activeDrag.previewSceneCoordinate !== null
         ? {
