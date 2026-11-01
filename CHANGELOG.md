@@ -20,6 +20,8 @@ browser behavior.
 ### Simulation
 
 - Added batch, step-by-step and continuous live execution modes to generated GLB digital-twin views. Runtime edits are sent at the next step for variables the Gateway permits.
+- Added a real-time (1x) pace for Continuous mode, which follows the wall clock without skipping model steps.
+- Added an opt-in Pace selector for Three.js SDK apps. The SDK applies the user's real-time or fastest choice while app developers retain control of batch strategy.
 - Added generic GLB dragging for nodes bound to writable numeric position inputs, available only during live Step by step and Continuous execution while input markers are shown. Existing `fmiBindings` transforms, FMI limits, Gateway permissions and the interactive-session input path are reused.
 - Added independently toggleable turquoise output markers and yellow writable-input markers to GLB scenes.
 - Added configurable simulation result visualizations: time series, arbitrary

@@ -63,6 +63,7 @@ function setup({
   options = { startTime: 0, stopTime: 2, stepSize: 1 },
   parameters = {},
   fmuStateSupported = false,
+  executionPace = 'realtime',
 } = {}) {
   connectFmuSession.mockResolvedValue(session)
   const callbacks = {
@@ -84,6 +85,7 @@ function setup({
     variableAccessState,
     supported: true,
     fmuStateSupported,
+    executionPace,
     ...callbacks,
   }))
   return { ...hook, callbacks, getConnection, session }
@@ -190,7 +192,7 @@ describe('useInteractiveTwinExecution', () => {
 
   test('continuous mode advances in batches until the configured stop time', async () => {
     const session = makeSession()
-    const { result, callbacks } = setup({ session })
+    const { result, callbacks } = setup({ session, executionPace: 'fastest' })
 
     await act(async () => result.current.start('continuous'))
     await waitFor(() => expect(result.current.status).toBe('completed'))
@@ -253,6 +255,7 @@ describe('useInteractiveTwinExecution', () => {
       session,
       options: { startTime: 0, stopTime: 3, stepSize: 1 },
       parameters: { speed: 1 },
+      executionPace: 'fastest',
     })
 
     await act(async () => result.current.start('continuous'))

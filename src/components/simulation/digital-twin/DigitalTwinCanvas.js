@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import styles from './DigitalTwinCanvas.module.css'
 import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
 import {
   getFmiSceneBindingValue,
@@ -336,25 +337,14 @@ export default function DigitalTwinCanvas({
     renderer.toneMappingExposure = 0.92
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    renderer.domElement.className = 'h-full w-full outline-none'
+    renderer.domElement.className = styles.canvas
     renderer.domElement.setAttribute('aria-label', 'Interactive 3D digital twin scene')
     renderer.domElement.tabIndex = 0
     host.appendChild(renderer.domElement)
 
     const tooltip = document.createElement('div')
+    tooltip.className = styles.tooltip
     tooltip.setAttribute('role', 'tooltip')
-    tooltip.style.position = 'absolute'
-    tooltip.style.zIndex = '20'
-    tooltip.style.display = 'none'
-    tooltip.style.maxWidth = '280px'
-    tooltip.style.maxHeight = 'min(70%, 240px)'
-    tooltip.style.overflowY = 'auto'
-    tooltip.style.pointerEvents = 'none'
-    tooltip.style.border = '1px solid rgba(148, 181, 190, 0.34)'
-    tooltip.style.borderRadius = '10px'
-    tooltip.style.background = 'rgba(7, 16, 20, 0.94)'
-    tooltip.style.padding = '9px 11px'
-    tooltip.style.boxShadow = '0 10px 28px rgba(0, 0, 0, 0.36)'
     host.appendChild(tooltip)
 
     let keyLight = null
@@ -858,65 +848,19 @@ export default function DigitalTwinCanvas({
             .map((members) => ({ members, variable, kind })))
 
         for (const { members, variable, kind } of markerClusters) {
-          const markerStyle = kind === 'input'
-            ? {
-              waveBorder: 'rgba(255, 209, 102, 0.9)',
-              waveShadow: '0 0 6px rgba(255, 209, 102, 0.5)',
-              coreBorder: 'rgba(255, 241, 189, 0.95)',
-              coreBackground: '#ffd166',
-              coreShadow: '0 0 9px 2px rgba(255, 209, 102, 0.65)',
-            }
-            : {
-              waveBorder: 'rgba(114, 243, 228, 0.9)',
-              waveShadow: '0 0 6px rgba(84, 213, 201, 0.5)',
-              coreBorder: 'rgba(156, 247, 235, 0.95)',
-              coreBackground: '#72f3e4',
-              coreShadow: '0 0 9px 2px rgba(84, 213, 201, 0.65)',
-            }
           const marker = document.createElement('div')
+          marker.className = `${styles.marker} ${kind === 'input' ? styles.markerInput : styles.markerOutput}`
           marker.setAttribute('aria-hidden', 'true')
-          marker.style.position = 'absolute'
-          marker.style.left = '0'
-          marker.style.top = '0'
-          marker.style.width = '12px'
-          marker.style.height = '12px'
-          marker.style.zIndex = '12'
-          marker.style.transform = 'translate(-50%, -50%)'
-          marker.style.pointerEvents = 'none'
-          marker.style.display = 'none'
-          marker.style.willChange = 'left, top'
 
           const waves = [0, 0.5].map((phaseOffset) => {
             const wave = document.createElement('span')
-            wave.style.position = 'absolute'
-            wave.style.left = '50%'
-            wave.style.top = '50%'
-            wave.style.width = '10px'
-            wave.style.height = '10px'
-            wave.style.boxSizing = 'border-box'
-            wave.style.border = `1px solid ${markerStyle.waveBorder}`
-            wave.style.borderRadius = '50%'
-            wave.style.boxShadow = markerStyle.waveShadow
-            wave.style.transform = 'translate(-50%, -50%) scale(1.15)'
-            wave.style.opacity = '0'
-            wave.style.display = 'none'
-            wave.style.willChange = 'transform, opacity'
+            wave.className = styles.markerWave
             marker.appendChild(wave)
             return { element: wave, phaseOffset }
           })
 
           const core = document.createElement('span')
-          core.style.position = 'absolute'
-          core.style.left = '50%'
-          core.style.top = '50%'
-          core.style.width = '10px'
-          core.style.height = '10px'
-          core.style.boxSizing = 'border-box'
-          core.style.border = `1px solid ${markerStyle.coreBorder}`
-          core.style.borderRadius = '50%'
-          core.style.background = markerStyle.coreBackground
-          core.style.boxShadow = markerStyle.coreShadow
-          core.style.transform = 'translate(-50%, -50%)'
+          core.className = styles.markerCore
           marker.appendChild(core)
           host.appendChild(marker)
 

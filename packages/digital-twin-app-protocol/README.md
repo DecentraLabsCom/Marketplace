@@ -22,6 +22,8 @@ The package does not register modules or impose an SDK requirement on providers.
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
 const app = createDigitalTwinAppClient({
+  executionPaceControl: true,
+  defaultExecutionPace: 'realtime',
   onFmiLsParameterPreset(preset) { applyParametersToControls(preset.parameters) },
   onSamples(samples) { timeline.append(samples) },
   onReset() { timeline.clear() },
@@ -48,6 +50,18 @@ matching `run()` options. FMU defaults apply to variables not listed in the
 experiment. An optional `onFmiLsExperiment(experiment)` callback lets an app
 also reflect the selection in its own controls; it receives `null` when
 cleared.
+
+Apps may opt in to the Marketplace **Pace** selector with
+`executionPaceControl: true`. The app can choose `defaultExecutionPace` and
+optionally observe each effective run pace with `onExecutionPace`. The host
+returns the user's selection with the next connection grant; the SDK then
+applies it to that run. **Real time (1x)** waits for each output interval and
+uses one output sample per advance. If the FMU, callbacks or connection cannot
+keep up, simulation time falls behind the clock without skipping steps.
+**Fastest** follows the app's configured batching. `batchPolicy`,
+`maxBatchSamples` and `adaptiveBatchOptions` stay in the app's `run()` call and
+are not presented as end-user controls. A run-level `executionPace` is also
+available for standalone clients; a Marketplace selection takes precedence.
 
 The SDK also advertises `fmu-state-checkpoints`. When the authorized Gateway
 reports that the FMU supports both Get/Set and serialized state, the shared
@@ -137,7 +151,9 @@ FMI step size, and its maximum batch is independent of the configured horizon.
 The initial policy targets a 200 ms request cycle and a soft 50 ms Executor compute
 budget, with a 50 ms presentation reserve when the app has not confirmed rendering.
 Apps can tune these with `adaptiveBatchOptions`; `maxBatchSamples` and the Executor's
-frame limit remain hard caps. The Executor checks the compute budget between FMI
+frame limit remain hard caps. `model.description` responses have a separate 32 MiB
+ceiling for FMUs with large variable inventories; other response frames retain the
+1,000,000-byte limit. The Executor checks the compute budget between FMI
 steps, so a single slow `doStep()` can exceed it; the response reports the overrun.
 Adaptive mode requires the session capabilities `advanceComputeBudget` and
 `advanceSampleSequences`; fixed execution remains available without them.

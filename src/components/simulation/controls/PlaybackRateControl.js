@@ -6,6 +6,8 @@ import { ChevronDown } from 'lucide-react'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 
 const PLAYBACK_RATE_PRESETS = [0.25, 0.5, 1, 2, 4, 8]
+const COMPACT_PLAYBACK_RATE_PRESETS = [0.2, 0.5, 1, 2, 4, 8]
+const PLAYBACK_RATE_DESCRIPTION = "Controls how quickly the completed simulation is replayed; it does not change the model's execution speed."
 const MIN_PLAYBACK_RATE = 0.01
 const MAX_PLAYBACK_RATE = 100_000
 const PLAYBACK_RATE_DECIMAL_PLACES = 4
@@ -37,13 +39,52 @@ export default function PlaybackRateControl({ rate, onChange, modelDuration, dis
     onChange(Math.round((nextRate + Number.EPSILON) * PLAYBACK_RATE_SCALE) / PLAYBACK_RATE_SCALE)
   }
 
+  if (compact) {
+    const hasCompactPreset = COMPACT_PLAYBACK_RATE_PRESETS.includes(validRate)
+    const selectedValue = hasCompactPreset ? String(validRate) : 'current'
+
+    return (
+      <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#30464d] bg-[#101d23] transition hover:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]">
+        <span aria-hidden="true" className="flex items-baseline justify-center gap-px font-semibold text-white">
+          <span className="text-xs leading-none">{formatRate(validRate)}</span>
+          <span className="text-[9px] leading-none">x</span>
+        </span>
+        <select
+          aria-label="Replay speed"
+          value={selectedValue}
+          onChange={(event) => {
+            if (event.target.value === 'current') return
+            setCustomMode(false)
+            updateRate(event.target.value)
+          }}
+          disabled={disabled}
+          style={{
+            colorScheme: 'dark',
+            appearance: 'none',
+            WebkitAppearance: 'none',
+            MozAppearance: 'none',
+            backgroundImage: 'none',
+          }}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-md bg-transparent p-0 opacity-0 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {!hasCompactPreset ? <option value="current">{formatRate(validRate)}x</option> : null}
+          {COMPACT_PLAYBACK_RATE_PRESETS.map((preset) => (
+            <option key={preset} value={preset} className="bg-[#101a20] text-sm text-[#f1f7f8]">
+              {formatRate(preset)}x
+            </option>
+          ))}
+        </select>
+      </span>
+    )
+  }
+
   return (
-    <div className={compact ? 'w-[min(13rem,calc(100vw-4rem))]' : 'w-full'}>
+    <div className="w-full">
       <div className="grid gap-2">
         <div className="flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
           <VariableDescriptionTooltip
             name="Replay speed"
-            description="Controls how quickly the completed simulation is replayed; it does not change the model's execution speed."
+            description={PLAYBACK_RATE_DESCRIPTION}
           >
             <label htmlFor={`${controlId}-preset`} className="shrink-0 cursor-help">Replay speed</label>
           </VariableDescriptionTooltip>

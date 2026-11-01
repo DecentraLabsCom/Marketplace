@@ -14,7 +14,7 @@ export interface FmuAdvanceOptions {
 }
 export interface DigitalTwinAppClientOptions {
   /** Supply this to use the app independently of a Marketplace parent window. */
-  getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[] }>
+  getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[]; executionPace?: 'fastest' | 'realtime' }>
   onHostReady?: (extensions: Record<string, unknown>) => void
   /** Called per sample when onSamples is not supplied. */
   onSample?: (sample: DigitalTwinSample, context: SampleProcessingContext) => void | Promise<void>
@@ -26,6 +26,12 @@ export interface DigitalTwinAppClientOptions {
   onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState; options?: RunOptions }) => void
   onResultsComplete?: (message: ResultCompletion, context: SampleProcessingContext) => void | Promise<void>
   onPlaybackRate?: (rate: number, message: PlaybackControlMessage) => void
+  /** Opt in to the Marketplace Pace selector; the SDK applies its selection to each hosted run. */
+  executionPaceControl?: boolean
+  /** Pace used by the SDK when no host selection or per-run override is available. */
+  defaultExecutionPace?: 'fastest' | 'realtime'
+  /** Called with the effective pace when an FMU run starts. */
+  onExecutionPace?: (pace: 'fastest' | 'realtime') => void
   /** Apply an FMI-LS-REF parameter set selected in the Marketplace host UI. */
   onFmiLsParameterPreset?: (preset: FmiLsParameterPreset) => void
   /** Reflect the selected FMI-LS-REF experiment in app-owned controls. The SDK applies its parameters and options on run. */
@@ -50,6 +56,8 @@ export interface DigitalTwinAppClient {
     inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
     inputControllerInterval?: number; inputControllerTimes?: number[]
     batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
+    /** Pace override for standalone runs. A host selection takes precedence. */
+    executionPace?: 'fastest' | 'realtime'
     advanceOptions?: FmuAdvanceOptions
     /** Resume from this checkpoint bundle or from the one selected by the host controls. */
     checkpoint?: FmuStateCheckpointBundle

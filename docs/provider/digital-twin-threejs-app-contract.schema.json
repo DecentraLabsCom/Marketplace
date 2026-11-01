@@ -215,6 +215,12 @@
           "exclusiveMinimum": 0,
           "maximum": 100000
         },
+        "defaultExecutionPace": {
+          "enum": [
+            "fastest",
+            "realtime"
+          ]
+        },
         "playbackControlPosition": {
           "enum": [
             "top-left",
@@ -224,6 +230,27 @@
           ]
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "defaultExecutionPace"
+            ]
+          },
+          "then": {
+            "required": [
+              "capabilities"
+            ],
+            "properties": {
+              "capabilities": {
+                "contains": {
+                  "const": "execution-pace"
+                }
+              }
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "appError": {
@@ -294,6 +321,12 @@
         },
         "inputSchedule": {
           "$ref": "#/$defs/inputSchedule"
+        },
+        "executionPace": {
+          "enum": [
+            "fastest",
+            "realtime"
+          ]
         }
       },
       "additionalProperties": false

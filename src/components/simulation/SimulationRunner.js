@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
-import { resolveInputSchedule } from './utils/simulationParameters'
+import { resolveInputSchedule } from './utils/inputSchedule'
 import {
   getInitialSimulationOptions,
   getSimulationOptionsError,
@@ -40,8 +40,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [fmiLsParameterPresets, setFmiLsParameterPresets] = useState([])
   const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
   const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
-  const [executionMode, setExecutionMode] = useState('batch')
+  const [executionMode, setExecutionMode] = useState('continuous')
   const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
+  const [continuousExecutionPace, setContinuousExecutionPace] = useState('realtime')
   const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
   const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
   const [candidateFmuStateCheckpoint, setCandidateFmuStateCheckpoint] = useState(null)
@@ -181,6 +182,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     && variableAccessState === 'ready'
     && supportsFmiLsInteractiveModes(variableAccess?.simulationType, variableAccess?.fmiVersion),
   )
+  const effectiveExecutionMode = supportsInteractiveTwinModes ? executionMode : 'batch'
   useEffect(() => {
     if (variableAccessState !== 'ready') return
     setParameters((current) => {
@@ -284,6 +286,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     onFmuStateCheckpoint: handleInteractiveFmuStateCheckpoint,
     batchPolicy: continuousBatchPolicy,
     fixedBatchSamples,
+    executionPace: continuousExecutionPace,
     onRunStart: handleInteractiveRunStart,
     onSamples: appendInteractiveSamples,
     onRunFinish: handleInteractiveRunFinish,
@@ -391,17 +394,17 @@ export default function SimulationRunner({ lab, reservationKey }) {
     const checkpoint = resumeFromFmuState ? fmuStateCheckpoint : null
     setCandidateFmuStateCheckpoint(null)
     if (checkpoint) setResumeFromFmuState(false)
-    if (twinAsset?.type === 'glb' && executionMode !== 'batch') {
-      return interactiveExecution.start(executionMode, { checkpoint })
+    if (twinAsset?.type === 'glb' && effectiveExecutionMode !== 'batch') {
+      return interactiveExecution.start(effectiveExecutionMode, { checkpoint })
     }
     const stateOptions = {
       checkpoint,
-      captureFmuState: twinAsset?.type === 'glb' && executionMode === 'batch' && supportsFmuState,
+      captureFmuState: twinAsset?.type === 'glb' && effectiveExecutionMode === 'batch' && supportsFmuState,
     }
     return Array.isArray(scheduledEvents)
       ? runSimulation(null, null, scheduledEvents, stateOptions)
       : runSimulation(null, null, null, stateOptions)
-  }, [executionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, supportsFmuState, twinAsset?.type])
+  }, [effectiveExecutionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, supportsFmuState, twinAsset?.type])
 
   const checkpointBusy = simState === SIM_STATE.RUNNING && !interactiveExecution.hasActiveSession
     || (interactiveExecution.hasActiveSession && interactiveExecution.status !== 'paused')
@@ -555,10 +558,12 @@ export default function SimulationRunner({ lab, reservationKey }) {
             onExperimentSelect: handleExperimentSelect,
           }}
           interactive={{
-            executionMode,
+            executionMode: effectiveExecutionMode,
             onExecutionModeChange: setExecutionMode,
             continuousBatchPolicy,
             onContinuousBatchPolicyChange: setContinuousBatchPolicy,
+            continuousExecutionPace,
+            onContinuousExecutionPaceChange: setContinuousExecutionPace,
             fixedBatchSamples,
             onFixedBatchSamplesChange: setFixedBatchSamples,
             supportedModes: supportsInteractiveTwinModes,

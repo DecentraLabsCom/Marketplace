@@ -16,7 +16,6 @@ export default function FmiLsResourceSelect({
   const valueId = useId()
   const listboxId = useId()
   const rootRef = useRef(null)
-  const triggerRef = useRef(null)
   const listboxRef = useRef(null)
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -28,12 +27,15 @@ export default function FmiLsResourceSelect({
   ), customChoice.name)
   const selectedIndex = Math.max(0, options.findIndex((option) => option.id === selectedOptionId))
   const selectedOption = options[selectedIndex] || customChoice
+  const selectorDescription = choiceLabel === 'Experiment'
+    ? 'Sets up a predefined test with its parameters, simulation times and scheduled input changes.'
+    : 'Applies a predefined set of model parameters before running the simulation.'
 
   useEffect(() => {
     if (!isOpen) return undefined
 
     const updateMenuPosition = () => {
-      const trigger = triggerRef.current
+      const trigger = rootRef.current?.querySelector('button[aria-haspopup="listbox"]')
       if (!trigger) return
 
       const bounds = trigger.getBoundingClientRect()
@@ -95,7 +97,7 @@ export default function FmiLsResourceSelect({
   function closeMenu({ restoreFocus = false } = {}) {
     setIsOpen(false)
     setMenuPosition(null)
-    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus())
+    if (restoreFocus) requestAnimationFrame(() => rootRef.current?.querySelector('button[aria-haspopup="listbox"]')?.focus())
   }
 
   function selectOption(option) {
@@ -129,12 +131,12 @@ export default function FmiLsResourceSelect({
       closeMenu({ restoreFocus: true })
       return
     } else if (event.key === 'Tab') {
-      const dialog = triggerRef.current?.closest('[role="dialog"][aria-modal="true"]')
+      const dialog = rootRef.current?.closest('[role="dialog"][aria-modal="true"]')
       const focusScope = dialog || document
       const focusableElements = Array.from(focusScope.querySelectorAll(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       )).filter((element) => element.tabIndex >= 0)
-      const triggerIndex = focusableElements.indexOf(triggerRef.current)
+      const triggerIndex = focusableElements.indexOf(rootRef.current?.querySelector('button[aria-haspopup="listbox"]'))
       const targetIndex = triggerIndex + (event.shiftKey ? -1 : 1)
       if (triggerIndex >= 0 && focusableElements[targetIndex]) {
         event.preventDefault()
@@ -157,30 +159,31 @@ export default function FmiLsResourceSelect({
 
   return (
     <div ref={rootRef} className={`relative gap-1 text-xs text-text-secondary ${fitContent ? 'inline-flex w-max min-w-0 max-w-full' : 'grid min-w-52'}`}>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={selectedOption.id ? `${choiceLabel}: ${selectedOption.name}` : choiceLabel}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-controls={isOpen && menuPosition ? listboxId : undefined}
-        onClick={() => (isOpen ? closeMenu() : openMenu())}
-        onKeyDown={handleTriggerKeyDown}
-        disabled={disabled}
-        className={`inline-flex min-h-10 ${fitContent ? 'w-max min-w-0 max-w-full' : 'w-full'} items-center justify-between gap-3 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-left text-xs font-semibold text-[#dce9e9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50`}
-      >
-        {fitContent ? (
-          <span className="grid min-w-0">
-            <span id={valueId} className="col-start-1 row-start-1 truncate">{selectedOption.name}</span>
-            <span aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-nowrap">{longestOptionName}</span>
-          </span>
-        ) : (
-          <span id={valueId} className="truncate">{selectedOption.name}</span>
-        )}
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 shrink-0 text-[#9ab8bd] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-          <path fillRule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-        </svg>
-      </button>
+      <VariableDescriptionTooltip name={choiceLabel} description={selectorDescription} disabled={isOpen}>
+        <button
+          type="button"
+          aria-label={selectedOption.id ? `${choiceLabel}: ${selectedOption.name}` : choiceLabel}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={isOpen && menuPosition ? listboxId : undefined}
+          onClick={() => (isOpen ? closeMenu() : openMenu())}
+          onKeyDown={handleTriggerKeyDown}
+          disabled={disabled}
+          className={`inline-flex min-h-10 ${fitContent ? 'w-max min-w-0 max-w-full' : 'w-full'} items-center justify-between gap-3 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-left text-xs font-semibold text-[#dce9e9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          {fitContent ? (
+            <span className="grid min-w-0">
+              <span id={valueId} className="col-start-1 row-start-1 truncate">{selectedOption.name}</span>
+              <span aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-nowrap">{longestOptionName}</span>
+            </span>
+          ) : (
+            <span id={valueId} className="truncate">{selectedOption.name}</span>
+          )}
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 shrink-0 text-[#9ab8bd] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+            <path fillRule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </button>
+      </VariableDescriptionTooltip>
       {isOpen && menuPosition && typeof document !== 'undefined' ? createPortal(
         <div
           ref={listboxRef}

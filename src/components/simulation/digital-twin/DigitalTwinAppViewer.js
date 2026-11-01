@@ -4,20 +4,22 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import Modal from '@/components/ui/Modal'
 import InputScheduleDialog from '../controls/InputScheduleDialog'
+import ExecutionPaceSelector from '../controls/ExecutionPaceSelector'
 import PlaybackRateControl from '../controls/PlaybackRateControl'
 import FmiLsResourceSelect from '../controls/FmiLsResourceSelect'
 import FmuStateCheckpointControls from '../controls/FmuStateCheckpointControls'
 import { filterFmuStateModelValues } from '../utils/fmuStateCheckpoint'
-import { resolveInputSchedule } from '../utils/simulationParameters'
-import FmiLsStructMapPanel from './FmiLsStructMapPanel'
+import { resolveInputSchedule } from '../utils/inputSchedule'
+import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
 import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
+import useDigitalTwinAppHost from './useDigitalTwinAppHost'
 import {
-  DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidAppMessage,
-  isValidFmiLsExperiment, isValidFmuStateCheckpointBundle, isValidHostMessage, makeProtocolMessage, isRecord,
+  DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidFmiLsExperiment,
 } from './digitalTwinAppProtocol'
 
 const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
+const EXECUTION_PACE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.EXECUTION_PACE
 const FMI_LS_PARAMETER_PRESETS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS
 const FMI_LS_EXPERIMENTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS
 const FMU_STATE_CHECKPOINTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECKPOINTS
@@ -32,29 +34,13 @@ export default function DigitalTwinAppViewer({
   onFmuStateValuesLoad,
   onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
-  const iframeRef = useRef(null)
   const controlsButtonRef = useRef(null)
   const controlsMenuRef = useRef(null)
-  const connectRef = useRef(onConnect)
-  const modelChangeRef = useRef(onModelChangeRequest)
-  const extensionRef = useRef(hostExtensions)
-  const grantRef = useRef(null)
-  const loadedDocumentRef = useRef(false)
-  const hostReadyAttemptedRef = useRef(false)
-  const hostReadyRetryTimerRef = useRef(null)
-  const stateRef = useRef('loading')
-  connectRef.current = onConnect
-  modelChangeRef.current = onModelChangeRequest
-  extensionRef.current = hostExtensions
-  const [appState, setAppState] = useState('loading')
-  const [appFailureReason, setAppFailureReason] = useState('')
-  const [frameLoaded, setFrameLoaded] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [controlsOpen, setControlsOpen] = useState(false)
   const [activeControlDialog, setActiveControlDialog] = useState(null)
-  const [appCapabilities, setAppCapabilities] = useState([])
   const [playbackRate, setPlaybackRate] = useState(1)
-  const [execution, setExecution] = useState({ state: 'idle' })
+  const [executionPace, setExecutionPace] = useState('realtime')
   const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
   const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
   const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
@@ -64,9 +50,6 @@ export default function DigitalTwinAppViewer({
   const [fmuStateError, setFmuStateError] = useState('')
   const fmuStateScopeRef = useRef(fmuStateScopeKey)
   const parameterPresetsInitializedRef = useRef(false)
-  const isRunning = execution.state === 'running'
-  const activeRunId = execution.runId
-  const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
   const scheduledVariables = useMemo(
     () => (Array.isArray(scheduleVariables)
       ? scheduleVariables
@@ -97,6 +80,74 @@ export default function DigitalTwinAppViewer({
   )
   const selectedFmiLsParameterPreset = availableFmiLsParameterPresets.find((preset) => preset.id === selectedFmiLsParameterPresetId)
   const selectedFmiLsExperiment = availableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
+  const updateScheduledInputEvents = onInputEventsChange || (() => {})
+
+  async function handleConnectionRequest({ options, capabilities, signal }) {
+    const runOptions = { ...options, ...(selectedFmiLsExperiment?.options || {}) }
+    const interval = { startTime, stopTime, stepSize, ...runOptions }
+    const schedule = resolveInputSchedule({
+      experiment: selectedFmiLsExperiment,
+      inputEvents: scheduledInputEvents,
+      scheduleVariables: scheduledVariables,
+      modelVariables,
+      options: interval,
+      enabled: enableInputSchedule,
+    })
+    const connection = await onConnect({ options: runOptions, signal })
+    return {
+      connection,
+      inputSchedule: schedule,
+      ...(capabilities.includes(EXECUTION_PACE_CAPABILITY) ? { executionPace } : {}),
+    }
+  }
+
+  const {
+    iframeRef,
+    appState,
+    appFailureReason,
+    frameLoaded,
+    appCapabilities,
+    execution,
+    send,
+    handleFrameLoad,
+    handleFrameError,
+  } = useDigitalTwinAppHost({
+    appUrl,
+    reloadKey,
+    hostExtensions,
+    onAppReady: (message) => {
+      setPlaybackRate(message.defaultPlaybackRate || 1)
+      setExecutionPace(message.defaultExecutionPace || 'realtime')
+    },
+    onExecutionState: (message) => {
+      if (message.state === 'running') {
+        setResumeFromFmuState(false)
+        setFmuStateCaptureAvailable(false)
+      } else if (message.state === 'completed') {
+        setFmuStateCaptureAvailable(true)
+      } else {
+        setFmuStateCaptureAvailable(false)
+      }
+    },
+    onFmuStateSaved: (bundle) => {
+      setFmuStateCheckpoint(bundle)
+      setResumeFromFmuState(false)
+      setCapturingFmuState(false)
+      setFmuStateCaptureAvailable(false)
+      setFmuStateError('')
+    },
+    onFmuStateError: () => {
+      setCapturingFmuState(false)
+      setFmuStateError('The FMU state could not be saved. Check the model and provider runtime.')
+    },
+    onModelChangeRequest,
+    onConnectionRequest: typeof onConnect === 'function' ? handleConnectionRequest : null,
+  })
+
+  const isRunning = execution.state === 'running'
+  const activeRunId = execution.runId
+  const modelDuration = Number(execution.options?.stopTime ?? stopTime) - Number(execution.options?.startTime ?? startTime)
   const hasSystemConfigurationControl = appState === 'ready'
     && availableFmiLsParameterPresets.length > 0
     && appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY)
@@ -104,6 +155,7 @@ export default function DigitalTwinAppViewer({
     && availableFmiLsExperiments.length > 0
     && appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)
   const hasPlaybackRateControl = appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)
+  const hasExecutionPaceControl = appState === 'ready' && appCapabilities.includes(EXECUTION_PACE_CAPABILITY)
   const hasScheduleControl = appState === 'ready'
     && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
   const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapCount > 0
@@ -111,10 +163,15 @@ export default function DigitalTwinAppViewer({
   const hasFmuStateControl = appState === 'ready' && fmuStateAvailable && appSupportsFmuStateControl
   const hasCancelControl = Boolean(isRunning && activeRunId
     && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
-  const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl
+  const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl || hasExecutionPaceControl
     || hasScheduleControl || hasFmiLsStructMapsControl || hasCancelControl || hasFmuStateControl
-  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
-  const updateScheduledInputEvents = onInputEventsChange || (() => {})
+  useEffect(() => {
+    setControlsOpen(false)
+    setActiveControlDialog(null)
+    setPlaybackRate(1)
+    setExecutionPace('realtime')
+    setSelectedFmiLsExperimentId('')
+  }, [appUrl, reloadKey])
   useEffect(() => {
     if (fmuStateScopeRef.current === fmuStateScopeKey) return
     fmuStateScopeRef.current = fmuStateScopeKey
@@ -187,137 +244,6 @@ export default function DigitalTwinAppViewer({
     })
   }, [appSupportsFmuStateControl, fmuStateAvailable, fmuStateCheckpoint, resumeFromFmuState])
 
-  function send(type, payload = {}) {
-    const message = makeProtocolMessage(type, payload)
-    if (isValidHostMessage(message)) iframeRef.current?.contentWindow?.postMessage(message, '*')
-  }
-
-  function sendHostReady() {
-    hostReadyAttemptedRef.current = true
-    send(MESSAGE.HOST_READY, isRecord(extensionRef.current) && Object.keys(extensionRef.current).length ? { extensions: extensionRef.current } : {})
-  }
-
-  function clearHostReadyRetry() {
-    if (hostReadyRetryTimerRef.current === null) return
-    window.clearTimeout(hostReadyRetryTimerRef.current)
-    hostReadyRetryTimerRef.current = null
-  }
-
-  function scheduleHostReadyRetry() {
-    clearHostReadyRetry()
-    hostReadyRetryTimerRef.current = window.setTimeout(() => {
-      hostReadyRetryTimerRef.current = null
-      if (stateRef.current === 'loading') sendHostReady()
-    }, 250)
-  }
-
-  useEffect(() => {
-    stateRef.current = 'loading'
-    loadedDocumentRef.current = false
-    hostReadyAttemptedRef.current = false
-    setAppState('loading')
-    setAppFailureReason('')
-    setFrameLoaded(false)
-    setControlsOpen(false)
-    setActiveControlDialog(null)
-    setAppCapabilities([])
-    setPlaybackRate(1)
-    setExecution({ state: 'idle' })
-    setSelectedFmiLsExperimentId('')
-    const timeout = window.setTimeout(() => {
-      if (stateRef.current !== 'loading') return
-      clearHostReadyRetry()
-      stateRef.current = 'error'
-      setAppState('error')
-      setAppFailureReason('The provider application did not initialize successfully. Check its bundled assets and browser console errors.')
-    }, 30_000)
-    return () => {
-      window.clearTimeout(timeout)
-      clearHostReadyRetry()
-      grantRef.current?.abort()
-      grantRef.current = null
-    }
-  }, [appUrl, reloadKey])
-
-  useEffect(() => {
-    async function receive(event) {
-      if (event.source !== iframeRef.current?.contentWindow || !isValidAppMessage(event.data)) return
-      const message = event.data
-      if (message.type === MESSAGE.APP_HELLO) {
-        if (stateRef.current !== 'loading') return
-        // The initial iframe load can precede the app's listener. A late hello
-        // means the app may have missed that first host-ready message.
-        sendHostReady()
-        scheduleHostReadyRetry()
-      } else if (message.type === MESSAGE.APP_READY) {
-        if (stateRef.current !== 'loading') return
-        clearHostReadyRetry()
-        stateRef.current = 'ready'
-        setAppState('ready')
-        setAppCapabilities(message.capabilities || [])
-        setPlaybackRate(message.defaultPlaybackRate || 1)
-      } else if (message.type === MESSAGE.APP_ERROR) {
-        clearHostReadyRetry()
-        stateRef.current = 'error'
-        setAppState('error')
-      } else if (message.type === MESSAGE.EXECUTION_STATE && stateRef.current === 'ready') {
-        setExecution({ state: message.state, runId: message.runId, options: message.options })
-        if (message.state === 'running') {
-          setResumeFromFmuState(false)
-          setFmuStateCaptureAvailable(false)
-        } else if (message.state === 'completed') {
-          setFmuStateCaptureAvailable(true)
-        } else {
-          setFmuStateCaptureAvailable(false)
-        }
-      } else if (message.type === MESSAGE.FMU_STATE_SAVED && stateRef.current === 'ready'
-        && isValidFmuStateCheckpointBundle(message.bundle)) {
-        setFmuStateCheckpoint(message.bundle)
-        setResumeFromFmuState(false)
-        setCapturingFmuState(false)
-        setFmuStateCaptureAvailable(false)
-        setFmuStateError('')
-      } else if (message.type === MESSAGE.FMU_STATE_ERROR && stateRef.current === 'ready') {
-        setCapturingFmuState(false)
-        setFmuStateError('The FMU state could not be saved. Check the model and provider runtime.')
-      } else if (message.type === MESSAGE.MODEL_CHANGE && stateRef.current === 'ready') {
-        modelChangeRef.current?.(message.modelId)
-      } else if (message.type === MESSAGE.CONNECTION_REQUEST && stateRef.current === 'ready') {
-        const target = event.source
-        const reply = (type, payload) => {
-          const response = makeProtocolMessage(type, { requestId: message.requestId, ...payload })
-          if (target === iframeRef.current?.contentWindow && isValidHostMessage(response)) target.postMessage(response, '*')
-        }
-        if (grantRef.current || typeof connectRef.current !== 'function') {
-          reply(MESSAGE.CONNECTION_ERROR, { code: 'CONNECTION_UNAVAILABLE' })
-          return
-        }
-        const controller = new AbortController()
-        grantRef.current = controller
-        try {
-          const runOptions = { ...(message.options || {}), ...(selectedFmiLsExperiment?.options || {}) }
-          const interval = { startTime, stopTime, stepSize, ...runOptions }
-          const schedule = resolveInputSchedule({
-            experiment: selectedFmiLsExperiment,
-            inputEvents: scheduledInputEvents,
-            scheduleVariables: scheduledVariables,
-            modelVariables,
-            options: interval,
-            enabled: enableInputSchedule,
-          })
-          const connection = await connectRef.current({ options: runOptions, signal: controller.signal })
-          if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_READY, { connection, inputSchedule: schedule })
-        } catch {
-          if (!controller.signal.aborted) reply(MESSAGE.CONNECTION_ERROR, { code: 'CONNECTION_AUTHORIZATION_FAILED' })
-        } finally {
-          if (grantRef.current === controller) grantRef.current = null
-        }
-      }
-    }
-    window.addEventListener('message', receive)
-    return () => window.removeEventListener('message', receive)
-  }, [enableInputSchedule, scheduledVariables, modelVariables, inputEvents, startTime, stopTime, stepSize, selectedFmiLsExperiment])
-
   useEffect(() => {
     if (appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) {
       send(MESSAGE.PLAYBACK_CONTROL, { rate: playbackRate, rateUnit: 'model-seconds-per-real-second' })
@@ -346,23 +272,6 @@ export default function DigitalTwinAppViewer({
     }
   }, [activeControlDialog, controlsOpen])
 
-  function handleFrameLoad() {
-    if (loadedDocumentRef.current) {
-      grantRef.current?.abort()
-      grantRef.current = null
-      clearHostReadyRetry()
-      hostReadyAttemptedRef.current = false
-      stateRef.current = 'loading'
-      setAppState('loading')
-      setExecution({ state: 'idle' })
-    }
-    loadedDocumentRef.current = true
-    setFrameLoaded(true)
-    if (stateRef.current === 'loading' && !hostReadyAttemptedRef.current) {
-      sendHostReady()
-      scheduleHostReadyRetry()
-    }
-  }
   function cancelCurrentSimulation() {
     if (activeRunId) send(MESSAGE.EXECUTION_CANCEL, { runId: activeRunId })
   }
@@ -394,12 +303,7 @@ export default function DigitalTwinAppViewer({
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         onLoad={handleFrameLoad}
-        onError={() => {
-          grantRef.current?.abort()
-          clearHostReadyRetry()
-          stateRef.current = 'error'
-          setAppState('error')
-        }}
+        onError={handleFrameError}
         className="absolute inset-0 h-full w-full border-0"
       />
       {appState === 'loading' && (
@@ -479,7 +383,6 @@ export default function DigitalTwinAppViewer({
                       setSelectedFmiLsParameterPresetId(id)
                     }}
                     disabled={isRunning}
-                    fitContent
                   />
                 ) : null}
 
@@ -493,8 +396,17 @@ export default function DigitalTwinAppViewer({
                     }}
                     choiceLabel="Experiment"
                     disabled={isRunning}
-                    fitContent
                   />
+                ) : null}
+
+                {hasExecutionPaceControl ? (
+                  <section className="rounded-xl border border-[#263a42] bg-[#0c171c] p-3">
+                    <ExecutionPaceSelector
+                      executionPace={executionPace}
+                      onChange={setExecutionPace}
+                      disabled={isRunning}
+                    />
+                  </section>
                 ) : null}
 
                 {hasPlaybackRateControl ? (

@@ -184,7 +184,11 @@ execution modes when the FMU supports interactive sessions:
   run length. It follows the latest sample while interactive and keeps the full
   timeline for replay afterward. You can change
   runtime-writable inputs while it runs; pending values are applied before the
-  next batch, after the current batch completes.
+  next batch, after the current batch completes. **Real time (1x)** is the
+  default pace and targets one simulation second per real second. **Fastest**
+  runs at the provider's maximum speed. If the model or connection cannot keep
+  up, the scene falls behind the real-time clock without skipping simulation
+  steps.
 
 All three modes use the same starting inputs and simulation-time settings. The
 Gateway enforces the provider's variable-write permissions. Interactive modes

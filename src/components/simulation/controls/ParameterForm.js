@@ -3,12 +3,11 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import {
-  formatVariableDisplayValue,
   fromVariableDisplayValue,
   getVariableDisplayName,
   getVariableDisplayUnit,
-  getVariableInputDetails,
 } from '../utils/simulationParameters'
+import { getVariableEditorModel } from '../utils/variableEditorModel'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
 
@@ -50,7 +49,7 @@ export default function ParameterForm({
   const unmappedVariables = variables.filter((variable) => !mappedNames.has(variable.name))
 
   const renderVariableRow = (variable) => {
-    const details = getVariableInputDetails(variable, modelVariables)
+    const details = getVariableEditorModel(variable, modelVariables, values[variable.name])
     const displayName = getVariableDisplayName(variable)
     const displayUnit = getVariableDisplayUnit(variable)
     const hintId = `parameter-hint-${String(variable.name).replace(/[^a-zA-Z0-9_-]/g, '-')}`
@@ -83,10 +82,10 @@ export default function ParameterForm({
           ) : (
             <input
               type={details.inputType}
-              step={details.step}
+              step={details.inputStep}
               min={details.min}
               max={details.max}
-              value={formatVariableDisplayValue(variable, values[variable.name])}
+              value={details.formattedValue}
               onChange={(event) => onChange(variable.name, fromVariableDisplayValue(variable, event.target.value))}
               disabled={disabled}
               placeholder={details.valueCount > 1 ? details.format.replace('Format: ', '') : undefined}

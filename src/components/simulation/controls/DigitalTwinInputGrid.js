@@ -4,16 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import DigitalTwinInput from './DigitalTwinInput'
 import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
-import { fromVariableDisplayValue, getVariableValueCount, toVariableDisplayValue } from '../utils/simulationParameters'
-
-function arrayValues(value) {
-  if (Array.isArray(value)) return value.flat(Infinity)
-  if (typeof value === 'string' && /[\s,]/.test(value.trim())) return value.trim().split(/[\s,]+/).filter(Boolean)
-  return value === undefined || value === null || value === '' ? [] : [value]
-}
+import { fromVariableDisplayValue, toVariableDisplayValue } from '../utils/simulationParameters'
+import { getVariableEditorModel, getVariableVectorEditorValues } from '../utils/variableEditorModel'
 
 function FmiLsStructMemberInput({ member, variable, modelVariables, value, onChange, disabled }) {
-  const valueCount = getVariableValueCount(variable, modelVariables)
+  const editor = getVariableEditorModel(variable, modelVariables, value)
+  const { valueCount, isNumeric: numeric, isBooleanType: boolean, isInteger: integer } = editor
   const isArray = valueCount > 1 && valueCount <= 128
   if (!isArray) {
     return (
@@ -23,11 +19,7 @@ function FmiLsStructMemberInput({ member, variable, modelVariables, value, onCha
     )
   }
 
-  const currentValues = arrayValues(value ?? variable.start)
-  const rows = Array.from({ length: valueCount }, (_, index) => currentValues[index] ?? '')
-  const numeric = /^(Real|Float32|Float64|Integer|Enumeration|Int8|UInt8|Int16|UInt16|Int32|UInt32|Int64|UInt64)$/i.test(variable.type || '')
-  const boolean = String(variable.type || '').toLowerCase() === 'boolean'
-  const integer = /^(Integer|Enumeration|Int8|UInt8|Int16|UInt16|Int32|UInt32|Int64|UInt64)$/i.test(variable.type || '')
+  const rows = getVariableVectorEditorValues(value ?? variable.start, valueCount)
 
   function updateElement(index, rawValue) {
     const next = [...rows]

@@ -3,34 +3,16 @@
 import { useEffect, useId, useRef } from 'react'
 import PropTypes from 'prop-types'
 import {
-  formatVariableDisplayValue,
   fromVariableDisplayValue,
-  getLeastSignificantDigitStep,
   getVariableDescription,
-  getVariableDisplayBounds,
   getVariableDisplayName,
   getVariableDisplayUnit,
-  getVariableEnumerationItems,
-  getVariableValueCount,
-  toVariableDisplayValue,
 } from '../utils/simulationParameters'
+import { getVariableEditorModel } from '../utils/variableEditorModel'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
-
-const NUMERIC_TYPES = new Set([
-  'Real', 'Float32', 'Float64', 'Integer', 'Enumeration', 'Int8', 'UInt8', 'Int16', 'UInt16', 'Int32', 'UInt32', 'Int64', 'UInt64',
-])
-const INTEGER_TYPES = new Set([
-  'Integer', 'Enumeration', 'Int8', 'UInt8', 'Int16', 'UInt16', 'Int32', 'UInt32', 'Int64', 'UInt64',
-])
 
 function isChecked(value) {
   return value === true || String(value).trim().toLowerCase() === 'true'
-}
-
-function displayNumericValue(value, variable) {
-  const numericValue = Number(toVariableDisplayValue(variable, value))
-  if (!Number.isFinite(numericValue)) return String(value ?? '—')
-  return numericValue
 }
 
 function getWheelAdjustedValue(currentValue, direction, step, min, max, integer) {
@@ -43,14 +25,6 @@ function getWheelAdjustedValue(currentValue, direction, step, min, max, integer)
   const roundedValue = integer ? Math.round(steppedValue) : Number(steppedValue.toPrecision(12))
   const nextValue = Math.min(upperBound, Math.max(lowerBound, roundedValue))
   return nextValue === current ? null : nextValue
-}
-
-function getVariableWheelStep(variable, value) {
-  const currentStep = getLeastSignificantDigitStep(toVariableDisplayValue(variable, value))
-  const declaredStartStep = getLeastSignificantDigitStep(
-    toVariableDisplayValue(variable, variable.start),
-  )
-  return Math.min(currentStep, declaredStartStep)
 }
 
 function VariableNameAndUnit({ variable, displayName, displayUnit, className = '' }) {
@@ -75,10 +49,25 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
   const declaredUnit = getVariableDisplayUnit(variable).trim()
   const displayUnit = declaredUnit && declaredUnit !== '1' ? declaredUnit : '-'
   const accessibleDescription = variableDescription || displayName
-  const valueCount = getVariableValueCount(variable, modelVariables)
-  const isScalarNumber = NUMERIC_TYPES.has(variable.type) && valueCount === 1
-  const isBoolean = String(variable.type || '').toLowerCase() === 'boolean' && valueCount === 1
-  const enumItems = valueCount === 1 ? getVariableEnumerationItems(variable) : []
+  const editor = getVariableEditorModel(variable, modelVariables, value)
+  const {
+    isScalarNumber,
+    isBoolean,
+    isEnumeration,
+    isInteger,
+    scalarEnumItems: enumItems,
+    bounds,
+    min,
+    max,
+    hasRange,
+    numericDisplayValue: displayValue,
+    formattedValue,
+    formattedNumericValue,
+    wheelStep,
+    rangeStep,
+  } = editor
+  const boundMin = bounds.min
+  const boundMax = bounds.max
   const inputId = `digital-twin-input-${useId()}`
   const numberInputRef = useRef(null)
   const rangeInputRef = useRef(null)
@@ -86,12 +75,8 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
   useEffect(() => {
     if (disabled || !isScalarNumber) return undefined
 
-    const displayValue = Number(toVariableDisplayValue(variable, value))
-    const integer = INTEGER_TYPES.has(variable.type)
-    const numberStep = integer ? 1 : getVariableWheelStep(variable, value)
-    const bounds = getVariableDisplayBounds(variable)
-    const min = bounds.min == null ? -Infinity : Number(bounds.min)
-    const max = bounds.max == null ? Infinity : Number(bounds.max)
+    const minimum = boundMin == null ? -Infinity : Number(boundMin)
+    const maximum = boundMax == null ? Infinity : Number(boundMax)
 
     const attachWheelHandler = (element, step, preventUnfocusedChange) => {
       if (!element) return () => {}
@@ -111,9 +96,9 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
           displayValue,
           event.deltaY < 0 ? 1 : -1,
           step,
-          min,
-          max,
-          integer,
+          minimum,
+          maximum,
+          isInteger,
         )
         if (nextValue !== null) {
           onChange(variable.name, fromVariableDisplayValue(variable, nextValue))
@@ -126,16 +111,13 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
       return () => element.removeEventListener('wheel', handleNativeWheel)
     }
 
-    const cleanupNumber = attachWheelHandler(numberInputRef.current, numberStep, true)
-    const sliderStep = integer
-      ? 1
-      : Math.max(Math.min((max - min) / 100, 0.01), 0.000001)
-    const cleanupRange = attachWheelHandler(rangeInputRef.current, sliderStep, false)
+    const cleanupNumber = attachWheelHandler(numberInputRef.current, wheelStep, true)
+    const cleanupRange = attachWheelHandler(rangeInputRef.current, rangeStep, false)
     return () => {
       cleanupNumber()
       cleanupRange()
     }
-  }, [disabled, isScalarNumber, onChange, value, variable])
+  }, [boundMax, boundMin, disabled, displayValue, isInteger, isScalarNumber, onChange, rangeStep, value, variable, wheelStep])
   if (isBoolean) {
     return (
       <div className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-sm">
@@ -160,7 +142,7 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
     )
   }
 
-  if (String(variable.type || '').toLowerCase() === 'enumeration' && enumItems.length > 0) {
+  if (isEnumeration && enumItems.length > 0) {
     return (
       <div className="min-w-0 rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
         <div className="mb-2 flex min-w-0 items-center">
@@ -189,20 +171,7 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
     )
   }
 
-  const bounds = getVariableDisplayBounds(variable)
-  const min = Number(bounds.min)
-  const max = Number(bounds.max)
-  const displayValue = Number(toVariableDisplayValue(variable, value))
-  const hasRange = NUMERIC_TYPES.has(variable.type)
-    && valueCount === 1
-    && Number.isFinite(min)
-    && Number.isFinite(max)
-    && max > min
-
   if (hasRange) {
-    const integer = INTEGER_TYPES.has(variable.type)
-    const step = integer ? 1 : Math.max(Math.min((max - min) / 100, 0.01), 0.000001)
-    const wheelStep = integer ? 1 : getVariableWheelStep(variable, value)
     const hasInputValue = value !== undefined && value !== null && value !== ''
     const sliderValue = hasInputValue && Number.isFinite(displayValue)
       ? Math.min(max, Math.max(min, displayValue))
@@ -237,7 +206,7 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
             type="range"
             min={min}
             max={max}
-            step={step}
+            step={rangeStep}
             value={sliderValue}
             onChange={(event) => onChange(variable.name, fromVariableDisplayValue(variable, Number(event.target.value)))}
             ref={rangeInputRef}
@@ -251,7 +220,7 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
             min={min}
             max={max}
             step={wheelStep}
-            value={hasInputValue && Number.isFinite(displayValue) ? displayNumericValue(value, variable) : ''}
+            value={hasInputValue && Number.isFinite(displayValue) ? formattedNumericValue : ''}
             onChange={handleRangeValueChange}
             disabled={disabled}
             className="min-w-0 w-[30%] shrink-0 rounded-lg border border-[#26383f] bg-[#0c171c] px-2 py-1.5 text-right font-mono tabular-nums text-sm text-white [appearance:textfield] focus:border-[#54d5c9] focus:outline-none disabled:opacity-40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -261,9 +230,6 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
     )
   }
 
-  const fieldWheelStep = INTEGER_TYPES.has(variable.type)
-    ? 1
-    : getVariableWheelStep(variable, value)
   return (
     <div className="min-w-0 rounded-xl border border-[#26383f] bg-[#142128] px-3 py-2 text-xs text-[#a9bec2]">
       <div className="flex min-w-0 items-center">
@@ -281,10 +247,10 @@ export default function DigitalTwinInput({ variable, modelVariables, value, onCh
         ref={numberInputRef}
         aria-label={accessibleDescription}
         type={isScalarNumber ? 'number' : 'text'}
-        step={isScalarNumber ? fieldWheelStep : undefined}
+        step={isScalarNumber ? wheelStep : undefined}
         min={isScalarNumber ? bounds.min : undefined}
         max={isScalarNumber ? bounds.max : undefined}
-        value={formatVariableDisplayValue(variable, value)}
+        value={formattedValue}
         onChange={(event) => onChange(variable.name, fromVariableDisplayValue(variable, event.target.value))}
         disabled={disabled}
         className="mt-2 w-full rounded-lg border border-[#26383f] bg-[#0c171c] px-2 py-1.5 text-sm text-white focus:border-[#54d5c9] focus:outline-none disabled:opacity-40"

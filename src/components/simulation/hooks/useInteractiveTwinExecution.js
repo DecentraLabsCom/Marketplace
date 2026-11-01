@@ -39,6 +39,14 @@ function sameParameterValue(left, right) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
+function getSimulationTimeTolerance(...times) {
+  return Math.max(1e-12, ...times.map((time) => Math.abs(time) * 1e-12))
+}
+
+function hasReachedSimulationTime(currentTime, targetTime) {
+  return currentTime >= targetTime - getSimulationTimeTolerance(currentTime, targetTime)
+}
+
 function getReadableOutputNames(modelVariables, access) {
   return modelVariables
     .filter((variable) => variable?.causality === 'output' && access?.variables?.[variable.name]?.read === true)
@@ -104,6 +112,7 @@ export default function useInteractiveTwinExecution({
   onFmuStateCheckpoint = () => {},
   batchPolicy = 'adaptive',
   fixedBatchSamples = MAX_SAMPLES_PER_BATCH,
+  executionPace = 'realtime',
   onRunStart,
   onSample,
   onSamples,
@@ -114,7 +123,6 @@ export default function useInteractiveTwinExecution({
   const [mode, setMode] = useState(null)
   const [simulationTime, setSimulationTime] = useState(0)
   const [liveParameters, setLiveParameters] = useState({})
-  const [batchMetrics, setBatchMetrics] = useState(null)
   const [checkpointError, setCheckpointError] = useState('')
   const [canCaptureState, setCanCaptureState] = useState(false)
   const [capturingState, setCapturingState] = useState(false)
@@ -124,6 +132,7 @@ export default function useInteractiveTwinExecution({
   const controllerRef = useRef(null)
   const advanceInFlightRef = useRef(false)
   const continuousRequestedRef = useRef(false)
+  const continuousLoopActiveRef = useRef(false)
   const endAfterAdvanceRef = useRef(false)
   const simulationTimeRef = useRef(0)
   const latestSampleRef = useRef(null)
@@ -135,6 +144,7 @@ export default function useInteractiveTwinExecution({
   const lastSampleSequenceRef = useRef(null)
   const renderDelayRef = useRef(null)
   const batchControllerRef = useRef(null)
+  const realtimePacingRef = useRef(null)
   const liveParametersRef = useRef({})
   const appliedRuntimeParametersRef = useRef({})
   const pendingRuntimeInputChangedAtRef = useRef(null)
@@ -194,9 +204,6 @@ export default function useInteractiveTwinExecution({
     pendingPresentationSampleIndexRef.current = null
     latestBatchReceivedAtRef.current = null
     renderDelayRef.current = renderDelayMs
-    if (mountedRef.current) {
-      setBatchMetrics((current) => current ? { ...current, renderDelayMs, presentationConfirmed: true } : current)
-    }
   }, [])
 
   const finishSession = useCallback(async (nextState, message = null, controller = controllerRef.current) => {
@@ -206,6 +213,7 @@ export default function useInteractiveTwinExecution({
     continuousRequestedRef.current = false
     endAfterAdvanceRef.current = false
     batchControllerRef.current = null
+    realtimePacingRef.current = null
     const session = sessionRef.current
     const retainCompletedSession = nextState === 'completed'
       && session?.capabilities?.fmuState?.getAndSet === true
@@ -307,7 +315,7 @@ export default function useInteractiveTwinExecution({
       const stopTime = Number(options.stopTime)
       const stepSize = Number(options.stepSize)
       const remainingTime = stopTime - currentTime
-      if (!Number.isFinite(remainingTime) || remainingTime <= 1e-12) {
+      if (!Number.isFinite(remainingTime) || hasReachedSimulationTime(currentTime, stopTime)) {
         await finishSession('completed', null, controller)
         return false
       }
@@ -317,13 +325,30 @@ export default function useInteractiveTwinExecution({
         if (batchPolicy === 'adaptive' && !batchController) {
           throw new Error('The continuous batch controller is unavailable.')
         }
-        const plan = batchPolicy === 'adaptive'
+        let plan = batchPolicy === 'adaptive'
           ? getInteractiveBatchPlan(batchController, currentTime, stopTime, stepSize)
           : {
             targetTime: Math.min(stopTime, currentTime + stepSize * fixedBatchSamples),
             maxSamples: fixedBatchSamples,
             maxComputeMs: FIXED_BATCH_MAX_COMPUTE_MS,
           }
+        const realtimePacing = realtimePacingRef.current
+        if (realtimePacing) {
+          const elapsedRealTime = Math.max(0, performance.now() - realtimePacing.wallTime) / 1000
+          const availableSimulationTime = Math.min(stopTime, realtimePacing.simTime + elapsedRealTime)
+          const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
+          const remainingTime = stopTime - currentTime
+          let availableSamples = Math.floor((availableSimulationTime - currentTime + tolerance) / stepSize)
+          if (remainingTime < stepSize - tolerance && availableSimulationTime >= stopTime - tolerance) {
+            availableSamples = Math.max(availableSamples, 1)
+          }
+          const pacedSamples = Math.min(plan.maxSamples, Math.max(1, availableSamples))
+          plan = {
+            ...plan,
+            targetTime: Math.min(stopTime, currentTime + stepSize * pacedSamples),
+            maxSamples: pacedSamples,
+          }
+        }
         if (!plan || !Number.isInteger(plan.maxSamples) || plan.maxSamples < 1
           || plan.maxSamples > MAX_SAMPLES_PER_BATCH) {
           throw new Error('The continuous batch settings are invalid.')
@@ -393,7 +418,6 @@ export default function useInteractiveTwinExecution({
         const hasFreshRenderDelay = renderedSampleIndexRef.current > observedRenderedSampleIndexRef.current
         const renderDelayMs = hasFreshRenderDelay ? renderDelayRef.current : null
         if (hasFreshRenderDelay) observedRenderedSampleIndexRef.current = renderedSampleIndexRef.current
-
         const nextController = batchPolicy === 'adaptive'
           ? observeInteractiveBatch(batchController, {
             responseMs: responseMetrics?.responseMs,
@@ -407,30 +431,7 @@ export default function useInteractiveTwinExecution({
           })
           : null
         if (nextController) batchControllerRef.current = nextController
-        if (mountedRef.current) {
-          setBatchMetrics({
-            policy: batchPolicy,
-            responseMs: nextController?.responseEwmaMs ?? responseMetrics?.responseMs ?? 0,
-            computeMs: nextController?.computeEwmaMs ?? response.computeMs,
-            renderDelayMs: nextController?.consumerDelayEwmaMs ?? renderDelayMs,
-            presentationConfirmed: hasFreshRenderDelay,
-            interactionDelayMs,
-            interactionDelayEwmaMs: nextController?.interactionDelayEwmaMs ?? interactionDelayMs,
-            simulationDelta: nextTime - currentTime,
-            nextBatchSamples: nextController?.sampleCount ?? fixedBatchSamples,
-            samples: samples.length,
-            sampleBytes: response.sampleBytes,
-            maxComputeMs: plan.maxComputeMs,
-            computeBudgetOverrunMs: response.computeBudgetOverrunMs ?? 0,
-            stopReason: response.stopReason || 'unknown',
-            targetReachable: nextController?.targetReachable ?? null,
-            estimatedBatchResponseMs: nextController?.estimatedBatchResponseMs ?? null,
-            batchConstraint: nextController?.batchConstraint ?? 'fixed-sample-cap',
-            rateLimitWaitMs: responseMetrics?.rateLimitWaitMs ?? 0,
-          })
-        }
-
-        if (nextTime >= stopTime - 1e-12 || response.finished === true) {
+        if (hasReachedSimulationTime(nextTime, stopTime) || response.finished === true) {
           await finishSession('completed', null, controller)
           return false
         }
@@ -474,7 +475,7 @@ export default function useInteractiveTwinExecution({
       }
       appendSamples([sample])
 
-      if (nextTime >= stopTime - 1e-12 || response.terminated === true
+      if (hasReachedSimulationTime(nextTime, stopTime) || response.terminated === true
         || response.terminateSimulation === true || response.finished === true) {
         await finishSession('completed', null, controller)
         return false
@@ -494,21 +495,57 @@ export default function useInteractiveTwinExecution({
     }
   }, [appendSamples, batchPolicy, finishSession, fixedBatchSamples, modelVariables, options.stepSize, options.stopTime, runtimeVariables])
 
-  const startContinuous = useCallback(async () => {
-    if (!sessionRef.current || continuousRequestedRef.current) return
-    continuousRequestedRef.current = true
-    endAfterAdvanceRef.current = false
-    if (mountedRef.current) setStatus('continuous')
+  const waitForRealtimeStep = useCallback(async (controller) => {
+    const pacing = realtimePacingRef.current
+    if (!pacing) return true
+
+    const stepSize = Number(options.stepSize)
+    const stopTime = Number(options.stopTime)
     while (continuousRequestedRef.current && sessionRef.current) {
-      const canContinue = await advanceStep({ continuous: true })
-      if (!canContinue) break
+      controller.signal.throwIfAborted()
+      const currentTime = simulationTimeRef.current
+      const nextTime = Math.min(stopTime, currentTime + stepSize)
+      const dueAt = pacing.wallTime + (nextTime - pacing.simTime) * 1000
+      const waitMs = dueAt - performance.now()
+      if (waitMs <= 0) return true
+      await waitForRealtimeRetry(Math.max(1, Math.min(waitMs, 100)), controller.signal, 100)
     }
-    if (sessionRef.current && !continuousRequestedRef.current && mountedRef.current) setStatus('paused')
-  }, [advanceStep])
+    return false
+  }, [options.stepSize, options.stopTime])
+
+  const startContinuous = useCallback(async () => {
+    const session = sessionRef.current
+    const controller = controllerRef.current
+    if (!session || !controller || continuousRequestedRef.current) return
+    continuousRequestedRef.current = true
+    continuousLoopActiveRef.current = true
+    endAfterAdvanceRef.current = false
+    realtimePacingRef.current = executionPace === 'realtime'
+      ? { simTime: simulationTimeRef.current, wallTime: performance.now() }
+      : null
+    if (mountedRef.current) setStatus('continuous')
+    try {
+      while (continuousRequestedRef.current && sessionRef.current === session) {
+        if (realtimePacingRef.current && !await waitForRealtimeStep(controller)) break
+        const canContinue = await advanceStep({ continuous: true })
+        if (!canContinue) break
+      }
+    } catch (error) {
+      const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
+      void finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
+    } finally {
+      continuousLoopActiveRef.current = false
+      realtimePacingRef.current = null
+      if (controllerRef.current === controller && sessionRef.current === session
+        && !continuousRequestedRef.current && mountedRef.current) {
+        setStatus('paused')
+      }
+    }
+  }, [advanceStep, executionPace, finishSession, waitForRealtimeStep])
 
   const pauseContinuous = useCallback(() => {
     continuousRequestedRef.current = false
-    if (mountedRef.current) setStatus(advanceInFlightRef.current ? 'pausing' : 'paused')
+    if (mountedRef.current) setStatus(advanceInFlightRef.current || continuousLoopActiveRef.current ? 'pausing' : 'paused')
   }, [])
 
   const end = useCallback(() => {
@@ -611,6 +648,9 @@ export default function useInteractiveTwinExecution({
       if (!['adaptive', 'fixed'].includes(batchPolicy)) {
         throw new Error('The continuous batch policy is invalid.')
       }
+      if (!['fastest', 'realtime'].includes(executionPace)) {
+        throw new Error('The continuous execution pace is invalid.')
+      }
       if (!Number.isInteger(fixedBatchSamples) || fixedBatchSamples < 1
         || fixedBatchSamples > MAX_SAMPLES_PER_BATCH) {
         throw new Error(`Fixed batch size must be between 1 and ${MAX_SAMPLES_PER_BATCH} samples.`)
@@ -632,8 +672,6 @@ export default function useInteractiveTwinExecution({
       pendingRuntimeInputChangedAtRef.current = null
       lastInputUpdateAtRef.current = null
       renderDelayRef.current = null
-      if (mountedRef.current) setBatchMetrics(null)
-
       const connection = await getConnection({ signal: controller.signal })
       ensureCurrentRun()
       const session = await connectFmuSession(connection, { signal: controller.signal })
@@ -686,7 +724,7 @@ export default function useInteractiveTwinExecution({
       const wasCancelled = controller.signal.aborted || error?.name === 'AbortError'
       finishSession(wasCancelled ? 'cancelled' : 'error', error?.message, controller)
     }
-  }, [appendSamples, batchPolicy, editableVariables, finishSession, fixedBatchSamples, fmuStateSupported, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, releaseCompletedSession, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
+  }, [appendSamples, batchPolicy, editableVariables, executionPace, finishSession, fixedBatchSamples, fmuStateSupported, getConnection, modelVariables, onRunFinish, onRunStart, options, parameters, releaseCompletedSession, runtimeVariables, startContinuous, supported, variableAccess, variableAccessState])
 
   const captureState = useCallback(async () => {
     const session = sessionRef.current
@@ -741,7 +779,6 @@ export default function useInteractiveTwinExecution({
     mode,
     simulationTime,
     liveParameters,
-    batchMetrics,
     hasActiveSession,
     runtimeInputEditing,
     start,

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { getVariableDescription } from '../utils/simulationParameters'
 
-export default function VariableDescriptionTooltip({ name, description, align = 'right', portal = false, positionKey, children }) {
+export default function VariableDescriptionTooltip({ name, description, align = 'right', portal = false, positionKey, disabled = false, children }) {
   const tooltipId = useId()
   const triggerRef = useRef(null)
   const tooltipRef = useRef(null)
@@ -13,9 +13,16 @@ export default function VariableDescriptionTooltip({ name, description, align = 
   const [focused, setFocused] = useState(false)
   const [position, setPosition] = useState(null)
   const [positionRevision, setPositionRevision] = useState(0)
-  const helpText = getVariableDescription({ name, description })
+  const helpText = disabled ? '' : getVariableDescription({ name, description })
   const usesPortal = portal || Boolean(children)
   const portalOpen = usesPortal && (hovered || focused)
+
+  useEffect(() => {
+    if (!disabled) return
+    setHovered(false)
+    setFocused(false)
+    setPosition(null)
+  }, [disabled])
 
   useEffect(() => {
     if (!portalOpen) return undefined
@@ -156,5 +163,6 @@ VariableDescriptionTooltip.propTypes = {
   align: PropTypes.oneOf(['left', 'right']),
   portal: PropTypes.bool,
   positionKey: PropTypes.any,
+  disabled: PropTypes.bool,
   children: PropTypes.element,
 }

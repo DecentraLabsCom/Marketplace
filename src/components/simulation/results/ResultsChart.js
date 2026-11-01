@@ -397,7 +397,7 @@ function ThreeDimensionalPlot({ points, xLabel, yLabel, zLabel, colorLabel }) {
  * default time-series view lightweight while exposing arbitrary numeric axes
  * for phase/state-space plots and an SVG-projected 3D trajectory.
  */
-export default function ResultsChart({ outputs, time, variableMetadata }) {
+export default function ResultsChart({ outputs, time, variableMetadata, defaultSelectedSeries }) {
   const normalizedOutputs = useMemo(
     () => normalizeSimulationOutputs(outputs, variableMetadata),
     [outputs, variableMetadata],
@@ -415,7 +415,7 @@ export default function ResultsChart({ outputs, time, variableMetadata }) {
   )
   const stateDefaults = useMemo(() => getStateSpaceDefaults(numericNames), [numericNames])
   const [mode, setMode] = useState('time')
-  const [selectedSeries, setSelectedSeries] = useState(numericNames)
+  const [selectedSeries, setSelectedSeries] = useState(null)
   const [xAxis, setXAxis] = useState(TIME_KEY)
   const [yAxis, setYAxis] = useState(numericNames[0] || TIME_KEY)
   const [zAxis, setZAxis] = useState(numericNames[2] || numericNames[1] || TIME_KEY)
@@ -423,14 +423,24 @@ export default function ResultsChart({ outputs, time, variableMetadata }) {
 
   useEffect(() => {
     setSelectedSeries((previous) => {
+      const preferred = Array.isArray(defaultSelectedSeries)
+        ? defaultSelectedSeries.filter((name) => numericNames.includes(name))
+        : []
+      if (previous === null) {
+        if (!numericNames.length) return null
+        return preferred.length ? preferred : numericNames
+      }
       const kept = previous.filter((name) => numericNames.includes(name))
-      return kept.length ? kept : numericNames
+      if (previous.length > 0 && kept.length === 0) {
+        return preferred.length ? preferred : numericNames
+      }
+      return kept
     })
     setXAxis((previous) => axisOptions.some((option) => option.value === previous) ? previous : (axisOptions[0]?.value || TIME_KEY))
     setYAxis((previous) => axisOptions.some((option) => option.value === previous) ? previous : (numericNames[0] || TIME_KEY))
     setZAxis((previous) => axisOptions.some((option) => option.value === previous) ? previous : (numericNames[2] || numericNames[1] || TIME_KEY))
     setColorBy((previous) => axisOptions.some((option) => option.value === previous) ? previous : TIME_KEY)
-  }, [axisOptions, numericNames])
+  }, [axisOptions, defaultSelectedSeries, numericNames])
 
   const handleModeChange = (event) => {
     const nextMode = event.target.value
@@ -452,9 +462,9 @@ export default function ResultsChart({ outputs, time, variableMetadata }) {
   }
 
   const toggleSeries = (name) => {
-    setSelectedSeries((previous) => previous.includes(name)
+    setSelectedSeries((previous) => (previous || []).includes(name)
       ? previous.filter((item) => item !== name)
-      : [...previous, name])
+      : [...(previous || []), name])
   }
 
   const handleAxisChange = (axis, value) => {
@@ -465,7 +475,7 @@ export default function ResultsChart({ outputs, time, variableMetadata }) {
   }
 
   const timeSeries = numericNames
-    .filter((name) => selectedSeries.includes(name))
+    .filter((name) => (selectedSeries || []).includes(name))
     .map((name) => ({ name, values: normalizedOutputs[name] || [] }))
   const plottedPoints = useMemo(() => buildPoints({
     xAxis,
@@ -482,7 +492,7 @@ export default function ResultsChart({ outputs, time, variableMetadata }) {
       <ChartControls
         mode={mode}
         onModeChange={handleModeChange}
-        selectedSeries={selectedSeries}
+        selectedSeries={selectedSeries || []}
         onSeriesToggle={toggleSeries}
         numericNames={numericNames}
         variableMetadata={variableMetadata}
@@ -541,4 +551,5 @@ ResultsChart.propTypes = {
   outputs: PropTypes.object.isRequired,
   time: PropTypes.array,
   variableMetadata: PropTypes.array,
+  defaultSelectedSeries: PropTypes.arrayOf(PropTypes.string),
 }

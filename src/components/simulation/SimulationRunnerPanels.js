@@ -1,4 +1,4 @@
-import FmiLsStructMapPanel from './digital-twin/FmiLsStructMapPanel'
+import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
 import FmiLsResourceSelect from './controls/FmiLsResourceSelect'
 import DigitalTwinSimulationForm from './controls/DigitalTwinSimulationForm'
 import InputScheduleEditor from './controls/InputScheduleEditor'
@@ -37,6 +37,8 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
     onExecutionModeChange,
     continuousBatchPolicy,
     onContinuousBatchPolicyChange,
+    continuousExecutionPace,
+    onContinuousExecutionPaceChange,
     fixedBatchSamples,
     onFixedBatchSamplesChange,
     supportedModes,
@@ -104,14 +106,15 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
         selectedExperiment={selectedExperiment}
         fmuStateControls={fmuStateControls}
         executionMode={executionMode}
-        continuousMetrics={execution.mode === 'continuous' && execution.hasActiveSession ? execution.batchMetrics : null}
         executionModeControl={supportedModes ? (
           <DigitalTwinExecutionModeSelector
             executionMode={executionMode}
             onExecutionModeChange={onExecutionModeChange}
-            executionModes={['batch', 'step', 'continuous']}
+            executionModes={['continuous', 'batch', 'step']}
             batchPolicy={continuousBatchPolicy}
             onBatchPolicyChange={onContinuousBatchPolicyChange}
+            executionPace={continuousExecutionPace}
+            onExecutionPaceChange={onContinuousExecutionPaceChange}
             fixedBatchSamples={fixedBatchSamples}
             onFixedBatchSamplesChange={onFixedBatchSamplesChange}
             running={state === SIM_STATE.RUNNING}

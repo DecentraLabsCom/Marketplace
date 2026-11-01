@@ -2,16 +2,12 @@
 
 import PropTypes from 'prop-types'
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Settings } from 'lucide-react'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import Modal from '@/components/ui/Modal'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
+import ExecutionPaceSelector from './ExecutionPaceSelector'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
-
-function formatPayloadBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes < 0) return 'unknown size'
-  return bytes < 1024 ? `${Math.round(bytes)} B` : `${(bytes / 1024).toFixed(1)} KB`
-}
 
 const EXECUTION_MODE_HELP = {
   batch: {
@@ -36,59 +32,105 @@ export function DigitalTwinExecutionModeSelector({
   onBatchPolicyChange = () => {},
   fixedBatchSamples = MAX_SAMPLES_PER_BATCH,
   onFixedBatchSamplesChange = () => {},
+  executionPace = 'realtime',
+  onExecutionPaceChange = () => {},
   running,
   status,
 }) {
+  const [continuousSettingsOpen, setContinuousSettingsOpen] = useState(false)
   const hasInteractiveSession = ['connecting', 'paused', 'stepping', 'continuous', 'pausing', 'stopping'].includes(status)
   const controlsDisabled = running || hasInteractiveSession
   const executionModeHelp = EXECUTION_MODE_HELP[executionMode]
+  const hasExecutionModeChoice = executionModes.length > 1
+  const hasContinuousMode = executionModes.includes('continuous')
 
-  if (executionModes.length <= 1) return null
+  if (!hasExecutionModeChoice && !(executionMode === 'continuous' && hasContinuousMode)) return null
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
-        <VariableDescriptionTooltip
-          name={executionModeHelp.name}
-          description={executionModeHelp.description}
-        >
-          <label htmlFor="execution-mode" className="cursor-help">Execution mode</label>
-        </VariableDescriptionTooltip>
-        <span className="relative inline-flex min-h-8 items-center">
-          <select
-            id="execution-mode"
-            aria-label="Execution mode"
-            value={executionMode}
-            onChange={(event) => onExecutionModeChange(event.target.value)}
-            disabled={controlsDisabled}
-            style={{
-              colorScheme: 'dark',
-              appearance: 'none',
-              WebkitAppearance: 'none',
-              MozAppearance: 'none',
-              backgroundImage: 'none',
-            }}
-            className="h-8 w-max min-w-0 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option title={EXECUTION_MODE_HELP.batch.description} value="batch" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Batch</option>
-            <option title={EXECUTION_MODE_HELP.step.description} value="step" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Step by step</option>
-            <option title={EXECUTION_MODE_HELP.continuous.description} value="continuous" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Continuous</option>
-          </select>
-          <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
-        </span>
-      </div>
-      {executionMode === 'continuous' && executionModes.includes('continuous') ? (
-        <>
+    <>
+      <div className="flex flex-wrap items-end gap-2">
+        {hasExecutionModeChoice ? (
           <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
+            <VariableDescriptionTooltip
+              name={executionModeHelp.name}
+              description={executionModeHelp.description}
+            >
+              <label htmlFor="execution-mode" className="cursor-help">Execution mode</label>
+            </VariableDescriptionTooltip>
+            <span className="relative inline-flex min-h-8 items-center">
+              <select
+                id="execution-mode"
+                aria-label="Execution mode"
+                value={executionMode}
+                onChange={(event) => {
+                  const nextMode = event.target.value
+                  onExecutionModeChange(nextMode)
+                  setContinuousSettingsOpen(nextMode === 'continuous')
+                }}
+                disabled={controlsDisabled}
+                style={{
+                  colorScheme: 'dark',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  backgroundImage: 'none',
+                }}
+                className="h-8 w-max min-w-0 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option title={EXECUTION_MODE_HELP.continuous.description} value="continuous" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Continuous</option>
+                <option title={EXECUTION_MODE_HELP.batch.description} value="batch" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Batch</option>
+                <option title={EXECUTION_MODE_HELP.step.description} value="step" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8] hover:bg-[#20b7aa] hover:text-[#061416] focus:bg-[#20b7aa] focus:text-[#061416]">Step by step</option>
+              </select>
+              <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
+            </span>
+          </div>
+        ) : null}
+        {executionMode === 'continuous' && hasContinuousMode ? (
+          <VariableDescriptionTooltip
+            name="Continuous settings"
+            description="Adjust pace and batch strategy."
+          >
+            <button
+              type="button"
+              onClick={() => setContinuousSettingsOpen(true)}
+              aria-label="Continuous settings"
+              aria-haspopup="dialog"
+              className="grid h-10 w-10 place-items-center rounded-lg border border-[#30464d] bg-[#142128] text-[#a9bec2] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Settings size={16} aria-hidden="true" />
+            </button>
+          </VariableDescriptionTooltip>
+        ) : null}
+      </div>
+
+      <Modal
+        isOpen={continuousSettingsOpen}
+        onClose={() => setContinuousSettingsOpen(false)}
+        title="Continuous settings"
+        size="md"
+        theme="dark"
+        className="border border-[#263a42] bg-[#101a20]!"
+        portal
+      >
+        <div className="grid gap-4">
+          <section className="rounded-xl border border-[#263a42] bg-[#0c171c] p-3">
+            <ExecutionPaceSelector
+              executionPace={executionPace}
+              onChange={onExecutionPaceChange}
+              disabled={controlsDisabled}
+            />
+          </section>
+
+          <section className="rounded-xl border border-[#263a42] bg-[#0c171c] p-3">
             <VariableDescriptionTooltip
               name={batchPolicy === 'adaptive' ? 'Adaptive batches' : 'Fixed batches'}
               description={batchPolicy === 'adaptive'
                 ? 'Adjusts batch size to measured runtime and display performance.'
                 : 'Uses your selected sample cap for each request.'}
             >
-              <label htmlFor="continuous-batch-strategy" className="cursor-help">Batch strategy</label>
+              <label htmlFor="continuous-batch-strategy" className="mb-2 block cursor-help text-xs font-semibold text-[#dce9e9]">Batch strategy</label>
             </VariableDescriptionTooltip>
-            <span className="relative inline-flex min-h-8 items-center">
+            <span className="relative block">
               <select
                 id="continuous-batch-strategy"
                 aria-label="Continuous batch strategy"
@@ -102,21 +144,21 @@ export function DigitalTwinExecutionModeSelector({
                   MozAppearance: 'none',
                   backgroundImage: 'none',
                 }}
-                className="h-8 w-max min-w-0 appearance-none border-0 bg-transparent py-0 pl-1 pr-6 text-xs font-semibold text-[#f1f7f8] shadow-none outline-none ring-0 focus:border-transparent focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-10 w-full appearance-none rounded-lg border border-[#30464d] bg-[#142128] px-3 pr-9 text-sm font-semibold text-[#f1f7f8] outline-none transition focus:border-[#54d5c9] focus:ring-2 focus:ring-[#54d5c9]/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="adaptive" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Adaptive</option>
-                <option value="fixed" className="bg-[#101a20] text-sm font-medium text-[#f1f7f8]">Fixed sample cap</option>
+                <option value="adaptive" className="bg-[#101a20] text-[#f1f7f8]">Adaptive</option>
+                <option value="fixed" className="bg-[#101a20] text-[#f1f7f8]">Fixed sample cap</option>
               </select>
-              <ChevronDown size={14} aria-hidden="true" className="pointer-events-none absolute right-1 text-[#9ab8bd]" />
+              <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9ab8bd]" />
             </span>
-          </div>
-          {batchPolicy === 'fixed' ? (
-            <div className="flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs text-[#a9bec2] transition focus-within:border-[#54d5c9] focus-within:ring-2 focus-within:ring-[#54d5c9]/30">
-              <label htmlFor="maximum-fixed-batch-samples">Size</label>
-              <VariableDescriptionTooltip
-                name="Fixed batch size"
-                description={`Caps each request at this many samples (up to ${MAX_SAMPLES_PER_BATCH}). The Executor may stop earlier at its compute limit or an FMU event.`}
-              >
+            {batchPolicy === 'fixed' ? (
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <VariableDescriptionTooltip
+                  name="Fixed batch size"
+                  description={`Caps each request at this many samples (up to ${MAX_SAMPLES_PER_BATCH}).`}
+                >
+                  <label htmlFor="maximum-fixed-batch-samples" className="cursor-help text-xs text-[#a9bec2]">Maximum samples per batch</label>
+                </VariableDescriptionTooltip>
                 <input
                   id="maximum-fixed-batch-samples"
                   aria-label="Maximum samples per fixed batch"
@@ -132,45 +174,15 @@ export function DigitalTwinExecutionModeSelector({
                     }
                   }}
                   disabled={controlsDisabled}
-                  className="h-8 w-[3.75rem] rounded-md border border-[#30464d] bg-[#101a20] px-2 text-xs font-semibold text-[#f1f7f8] outline-none focus:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-9 w-24 rounded-md border border-[#30464d] bg-[#101a20] px-2 text-xs font-semibold text-[#f1f7f8] outline-none focus:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
                 />
-              </VariableDescriptionTooltip>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </div>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      </Modal>
+    </>
   )
-}
-
-export function DigitalTwinContinuousMetrics({ metrics }) {
-  if (!metrics) return null
-
-  return (
-    <p className="mt-1 text-center text-[11px] leading-relaxed text-[#8da9ae]" title={metrics.policy === 'fixed'
-      ? 'The request uses a fixed sample cap and the Executor compute budget. The model step size stays fixed.'
-      : 'Batch size uses measured Executor compute, full request-cycle time, payload size and confirmed presentation latency. The model step size stays fixed.'}>
-      {metrics.policy === 'fixed' ? `Fixed cap ${metrics.nextBatchSamples} · ` : 'Adaptive · '}{metrics.samples} samples · {formatPayloadBytes(metrics.sampleBytes)} · cycle {Math.round(metrics.responseMs)} ms · Executor {Number.isFinite(metrics.computeMs) ? `${Math.round(metrics.computeMs)} ms` : 'measuring'} · display {metrics.presentationConfirmed ? `${Math.round(metrics.renderDelayMs ?? 0)} ms` : 'unconfirmed'} · input-to-sample {Number.isFinite(metrics.interactionDelayEwmaMs) ? `${Math.round(metrics.interactionDelayEwmaMs)} ms` : 'not measured'}{metrics.policy === 'adaptive' ? ` · next ${metrics.nextBatchSamples} · ${metrics.targetReachable === false ? 'latency target unreachable' : metrics.batchConstraint}` : ''} · {metrics.stopReason.replaceAll('_', ' ')}{metrics.computeBudgetOverrunMs > 0 ? ` (+${Math.round(metrics.computeBudgetOverrunMs)} ms over budget)` : ''}
-    </p>
-  )
-}
-
-DigitalTwinContinuousMetrics.propTypes = {
-  metrics: PropTypes.shape({
-    samples: PropTypes.number,
-    sampleBytes: PropTypes.number,
-    policy: PropTypes.oneOf(['adaptive', 'fixed']),
-    responseMs: PropTypes.number,
-    computeMs: PropTypes.number,
-    presentationConfirmed: PropTypes.bool,
-    renderDelayMs: PropTypes.number,
-    interactionDelayEwmaMs: PropTypes.number,
-    nextBatchSamples: PropTypes.number,
-    targetReachable: PropTypes.bool,
-    batchConstraint: PropTypes.string,
-    stopReason: PropTypes.string,
-    computeBudgetOverrunMs: PropTypes.number,
-  }),
 }
 
 export function DigitalTwinExecutionSessionActions({
@@ -295,6 +307,8 @@ export default function DigitalTwinExecutionControls({
   onBatchPolicyChange,
   fixedBatchSamples,
   onFixedBatchSamplesChange,
+  executionPace,
+  onExecutionPaceChange,
   running,
   status,
   mode,
@@ -324,6 +338,8 @@ export default function DigitalTwinExecutionControls({
               onBatchPolicyChange={onBatchPolicyChange}
               fixedBatchSamples={fixedBatchSamples}
               onFixedBatchSamplesChange={onFixedBatchSamplesChange}
+              executionPace={executionPace}
+              onExecutionPaceChange={onExecutionPaceChange}
               running={running}
               status={status}
             />
@@ -360,6 +376,8 @@ DigitalTwinExecutionModeSelector.propTypes = {
   onBatchPolicyChange: PropTypes.func,
   fixedBatchSamples: PropTypes.number,
   onFixedBatchSamplesChange: PropTypes.func,
+  executionPace: PropTypes.oneOf(['fastest', 'realtime']),
+  onExecutionPaceChange: PropTypes.func,
   running: PropTypes.bool.isRequired,
   status: PropTypes.string.isRequired,
 }
@@ -388,6 +406,8 @@ DigitalTwinExecutionControls.propTypes = {
   onBatchPolicyChange: PropTypes.func,
   fixedBatchSamples: PropTypes.number,
   onFixedBatchSamplesChange: PropTypes.func,
+  executionPace: PropTypes.oneOf(['fastest', 'realtime']),
+  onExecutionPaceChange: PropTypes.func,
   running: PropTypes.bool.isRequired,
   status: PropTypes.string.isRequired,
   mode: PropTypes.oneOf(['step', 'continuous']),

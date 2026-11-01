@@ -478,16 +478,24 @@ export default function DigitalTwinViewer({
                 {formatTime(times[lastIndex])}
               </span>
               {!(isRunning && followLatest) ? (
-                <button
-                  type="button"
-                  onClick={togglePlayback}
-                  disabled={times.length < 2}
-                  aria-label={playing ? 'Pause replay' : 'Replay simulation'}
-                  title={playing ? 'Pause replay' : 'Replay'}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#35736f] bg-[#173e40] text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
-                </button>
+                <>
+                  <PlaybackRateControl
+                    rate={playbackRate}
+                    onChange={setPlaybackRate}
+                    modelDuration={modelDuration}
+                    compact
+                  />
+                  <button
+                    type="button"
+                    onClick={togglePlayback}
+                    disabled={times.length < 2}
+                    aria-label={playing ? 'Pause replay' : 'Replay simulation'}
+                    title={playing ? 'Pause replay' : 'Replay'}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#35736f] bg-[#173e40] text-[#b8fff1] transition hover:bg-[#205856] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+                  </button>
+                </>
               ) : null}
             </>
           ) : (

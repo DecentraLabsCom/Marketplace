@@ -89,6 +89,14 @@ inputs and simulation-time settings:
 | **Step by step** | Opens a reservation-scoped FMU session in external time mode and sends one `sim.step` request when the user advances. | Edit runtime-writable variables while paused; the new values are sent before the next step. |
 | **Continuous (live)** | Uses `sim.advance` to return bounded batches of intermediate samples. It starts with one sample and adapts from measured Executor compute cost, request cycle, payload size and confirmed presentation delay. It never changes the configured FMI step size. | Edit runtime-writable variables at any time; pending values are sent before the next batch. The current batch must finish before a new value can be applied. |
 
+Continuous mode offers two pacing choices. **Real time (1x)** is the default; it
+only requests simulation steps due by the real-time clock, targeting one
+simulation second per real second. **Fastest** uses the adaptive or fixed batch
+policy without a wall-clock cap. If model execution or Gateway communication is
+slower, the scene falls behind the clock and continues without skipping model
+steps. Pausing and resuming resets the pacing clock, so time spent paused does
+not cause a jump.
+
 The continuous batch controller targets a 200 ms full request cycle and a soft
 50 ms Executor compute budget by default. Its compute budget is checked between
 FMI steps, so one slow `doStep()` can exceed the budget; the response reports
@@ -243,6 +251,17 @@ presentation remains unknown and the controller uses its reserve.
 Apps that implement the protocol without the convenience client manage their own
 batching.
 
+Apps using the convenience client can opt in to a user-facing Pace selector with
+`executionPaceControl: true`. The app may select its initial
+`defaultExecutionPace` and receive the effective value through
+`onExecutionPace`. Marketplace includes the user's choice in the next
+connection grant, and the SDK applies it to that run. **Real time (1x)** waits
+for each output interval and uses one output sample per advance; if execution,
+callbacks or communication fall behind, the simulation follows without
+skipping steps. **Fastest** uses the app's batching configuration. Batch policy,
+sample caps and adaptive-controller settings remain developer choices in
+`run()`.
+
 Sample callbacks may be asynchronous. The client requests another batch only
 after the preceding callback finishes, and respects the session's advertised
 output rate. With `onSamples`, batches are delivered once; otherwise each entry
@@ -267,7 +286,8 @@ app and uses this mode in one FMU execution.
 Marketplace groups its Three.js host controls under one floating button in the
 bottom-left corner. The menu contains playback speed, system configurations,
 FMI-LS-REF experiments, scheduled input changes, FMI-LS-STRUCT maps, and
-cancellation when each feature is available. The schedule editor and
+cancellation when each feature is available. Apps that declare
+`execution-pace` also receive a Pace selector. The schedule editor and
 FMI-LS-STRUCT maps open in dialogs; simple controls stay in the menu.
 Gateway FMI metadata and reservation permissions determine availability on
 both GLB and Three.js routes. FMI-LS-STRUCT maps are rendered by Marketplace
@@ -279,6 +299,12 @@ receive or report something.
   sets the starting rate. Marketplace fixes the menu to the bottom-left corner;
   `playbackControlPosition` does not move it.
   `decentralabs:fmi-playback-control` changes visualization speed only.
+* `execution-pace` is enabled by the SDK client's `executionPaceControl: true`
+  option. `defaultExecutionPace` chooses the starting value. The SDK applies the
+  user's Pace selection to its next `run()`; this controls model execution,
+  independently of Replay speed. Real-time pacing uses one output sample per
+  advance, while `batchPolicy` and adaptive options remain app-developer
+  settings.
 * `execution-control` allows the app to report `decentralabs:execution-state`
   with run ID, lifecycle state and time options. Marketplace uses these values
   for its Cancel simulation control and Fit to run duration. They are UI

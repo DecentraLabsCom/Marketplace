@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import PropTypes from 'prop-types'
+import { Settings } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
-import { resolveInputSchedule } from '../utils/simulationParameters'
-import { DigitalTwinContinuousMetrics } from './DigitalTwinExecutionControls'
+import { resolveInputSchedule } from '../utils/inputSchedule'
 import DigitalTwinInputGrid from './DigitalTwinInputGrid'
 import InputScheduleDialog from './InputScheduleDialog'
 import SimulationOptions from './SimulationOptions'
+import VariableDescriptionTooltip from './VariableDescriptionTooltip'
 import { getSimulationOptionsError } from '../utils/simulationTime'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 
@@ -26,7 +27,6 @@ export default function DigitalTwinSimulationForm({
   configurationSelector = null,
   selectedExperiment = null,
   executionSessionControls = null,
-  continuousMetrics = null,
   stickyToolbar = false,
   stickyToolbarOffset = 0,
   enableInputSchedule = true,
@@ -95,27 +95,39 @@ export default function DigitalTwinSimulationForm({
           {configurationSelector}
           {executionModeControl}
           {canScheduleInputChanges ? (
+            <VariableDescriptionTooltip
+              name="Schedule changes"
+              description="Set input and parameter values to change during the simulation."
+            >
+              <button
+                type="button"
+                aria-label={`Schedule changes (${inputEvents.length})`}
+                aria-haspopup="dialog"
+                onClick={() => setActiveDialog('schedule')}
+                disabled={running}
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-[#30464d] bg-[#142128] px-2 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Settings size={16} aria-hidden="true" />
+                <span className="min-w-5 rounded-full bg-[#20363d] px-1.5 py-0.5 text-center font-mono text-[10px] text-[#9ab8bd]">{inputEvents.length}</span>
+              </button>
+            </VariableDescriptionTooltip>
+          ) : null}
+          <VariableDescriptionTooltip
+            name="Run Controls"
+            description="Set model inputs and simulation time for the next run"
+            disabled={activeDialog === 'run-controls'}
+          >
             <button
               type="button"
               aria-haspopup="dialog"
-              onClick={() => setActiveDialog('schedule')}
+              onClick={() => setActiveDialog('run-controls')}
               disabled={running}
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span>Schedule changes</span>
-              <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{inputEvents.length}</span>
+              <span>Run Controls</span>
+              <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
             </button>
-          ) : null}
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => setActiveDialog('run-controls')}
-            disabled={running}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#30464d] bg-[#142128] px-3 text-xs font-semibold text-[#dce9e9] transition hover:border-[#54d5c9] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span>Run Controls</span>
-            <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{variables.length}</span>
-          </button>
+          </VariableDescriptionTooltip>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {executionSessionControls}
@@ -136,12 +148,6 @@ export default function DigitalTwinSimulationForm({
           </p>
         ) : null}
       </section>
-
-      {executionMode === 'continuous' && continuousMetrics ? (
-        <div className="-mt-3 mb-4">
-          <DigitalTwinContinuousMetrics metrics={continuousMetrics} />
-        </div>
-      ) : null}
 
       <Modal
         isOpen={activeDialog === 'run-controls'}
@@ -239,7 +245,6 @@ DigitalTwinSimulationForm.propTypes = {
   configurationSelector: PropTypes.node,
   selectedExperiment: PropTypes.object,
   executionSessionControls: PropTypes.node,
-  continuousMetrics: PropTypes.object,
   stickyToolbar: PropTypes.bool,
   stickyToolbarOffset: PropTypes.number,
   enableInputSchedule: PropTypes.bool,

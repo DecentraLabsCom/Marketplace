@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
 import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
-import {
-  normalizeInitializationParameters,
-  resolveInputSchedule,
-} from '../utils/simulationParameters'
+import { normalizeInitializationParameters } from '../utils/simulationParameters'
+import { resolveInputSchedule } from '../utils/inputSchedule'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
