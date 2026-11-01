@@ -13,6 +13,7 @@
   "scripts": {
     "test": "jest",
     "test:scene-presentation-export": "node --test packages/digital-twin-app-protocol/tests/scene-presentation-export.test.mjs",
+    "test:webapp-archive": "node --test scripts/tests/webapp-archive.test.mjs",
     "test:digital-twin-protocol": "jest --runInBand src/components/simulation/__tests__/digitalTwinAppProtocol.test.js src/components/simulation/__tests__/digitalTwinAppClient.test.js src/components/simulation/__tests__/fmuSessionClient.test.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -27,7 +28,6 @@
     "test:e2e:demo": "node cypress/run-cypress.js run --spec cypress/e2e/demo-live.cy.js",
     "test:e2e:release-gate": "node cypress/run-e2e.js run --spec cypress/e2e/release-gate.cy.js",
     "test:integration:blob": "node scripts/run-vercel-blob-integration.js",
-    "build:local-demo-webapps": "node scripts/build-local-demo-webapps.mjs",
     "dev": "next dev --turbopack",
     "dev:turbo": "next dev --turbopack",
     "dev:webpack": "next dev",

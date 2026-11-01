@@ -77,6 +77,10 @@ The SDK is optional. An app can implement the documented messages directly or
 use its own FMU client. A GLB scene is a separate presentation mode with
 generated controls; it does not require this web app integration.
 
+For Marketplace-maintained local demos, the app-specific bundling workflow and
+shared static ZIP helper are documented in
+[local Three.js demo build tooling](../development/local-threejs-demo-builds.md).
+
 ## Generated GLB viewer execution modes
 
 For a reserved FMI 2/3 Co-Simulation lab linked to a GLB scene, the generated
