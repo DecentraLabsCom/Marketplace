@@ -15,7 +15,12 @@ import {
   normalizeFmiSceneBinding,
   setFmiSceneArrayElementValue,
 } from './fmiSceneBindings'
-import { createAxisDragContext, getAxisCoordinateFromRay } from './fmiSceneInteraction'
+import {
+  createAxisDragContext,
+  createScreenAxisDragContext,
+  getAxisCoordinateFromRay,
+  getScreenAxisCoordinateFromPointer,
+} from './fmiSceneInteraction'
 import { getVariableDescription } from '../utils/simulationParameters'
 import {
   applySceneMaterialRendering,
@@ -50,6 +55,7 @@ function numericValue(value) {
 function getSceneVariableValue(variable, values) {
   const current = values?.[variable?.name]
   if (current !== null && current !== undefined) return current
+  if (variable?.type === 'Boolean') return getFmiInitialValue(variable)
   if (variable?.start !== null && variable?.start !== undefined) return variable.start
   return getFmiInitialValue(variable)
 }
@@ -515,8 +521,26 @@ export default function DigitalTwinCanvas({
       const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cameraQuaternion)
       const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraQuaternion)
       const worldAxisDirection = worldAxisVector.normalize()
+      camera.updateMatrixWorld(true)
+      const canvasBounds = renderer.domElement.getBoundingClientRect()
+      const projectLocalPosition = (position) => {
+        const projected = position.clone().applyMatrix4(parentWorld).project(camera)
+        return [
+          canvasBounds.left + ((projected.x + 1) * 0.5 * canvasBounds.width),
+          canvasBounds.top + ((1 - projected.y) * 0.5 * canvasBounds.height),
+        ]
+      }
+      const screenAxisOrigin = projectLocalPosition(node.position)
+      const screenAxisEndLocal = node.position.clone()
+      screenAxisEndLocal[axis] += 1
+      const screenAxisEnd = projectLocalPosition(screenAxisEndLocal)
+      const screenContext = createScreenAxisDragContext({
+        origin: screenAxisOrigin,
+        direction: [screenAxisEnd[0] - screenAxisOrigin[0], screenAxisEnd[1] - screenAxisOrigin[1]],
+        coordinate: node.position[axis],
+      })
 
-      return createAxisDragContext({
+      const rayContext = createAxisDragContext({
         axisOrigin: axisOrigin.toArray(),
         axisDirection: worldAxisDirection.toArray(),
         cameraDirection: cameraDirection.toArray(),
@@ -524,6 +548,7 @@ export default function DigitalTwinCanvas({
         cameraRight: cameraRight.toArray(),
         worldUnitsPerLocalUnit,
       })
+      return rayContext || screenContext ? { ray: rayContext, screen: screenContext } : null
     }
     const snapshotPointerEvent = (event) => ({
       pointerId: event.pointerId,
@@ -551,18 +576,26 @@ export default function DigitalTwinCanvas({
       } = drag
       if (!drag.isRotationDrag) {
         const context = getNodeAxisDragContext(node, normalizedBinding.axis)
-        if (!context || !setPointerRay(pointerDownEvent)) {
+        if (!context) {
           drag.waitingForPause = false
           handlePointerUp(pointerDownEvent)
           return
         }
-        const pointerCoordinate = getAxisCoordinateFromRay(raycaster.ray, context)
+        const hasPointerRay = setPointerRay(pointerDownEvent)
+        const rayCoordinate = hasPointerRay && context.ray
+          ? getAxisCoordinateFromRay(raycaster.ray, context.ray)
+          : null
+        const pointerCoordinate = rayCoordinate ?? getScreenAxisCoordinateFromPointer(
+          [pointerDownEvent.clientX, pointerDownEvent.clientY],
+          context.screen,
+        )
         if (pointerCoordinate === null) {
           drag.waitingForPause = false
           handlePointerUp(pointerDownEvent)
           return
         }
         drag.context = context
+        drag.coordinateMode = rayCoordinate === null ? 'screen' : 'ray'
         drag.pointerCoordinate = pointerCoordinate
         drag.lastPointerCoordinate = pointerCoordinate
       }
@@ -629,6 +662,7 @@ export default function DigitalTwinCanvas({
         normalizedBinding,
         isRotationDrag,
         context: null,
+        coordinateMode: null,
         pointerCoordinate,
         lastPointerCoordinate: pointerCoordinate,
         pointerDownEvent: snapshotPointerEvent(event),
@@ -676,9 +710,17 @@ export default function DigitalTwinCanvas({
         return
       }
       if (!setPointerRay(event)) return
+      const screenCoordinate = activeDrag.isRotationDrag
+        ? null
+        : getScreenAxisCoordinateFromPointer([event.clientX, event.clientY], activeDrag.context.screen)
+      const rayCoordinate = !activeDrag.isRotationDrag && activeDrag.coordinateMode !== 'screen'
+        ? getAxisCoordinateFromRay(raycaster.ray, activeDrag.context.ray)
+        : null
       const coordinate = activeDrag.isRotationDrag
         ? event.clientX
-        : getAxisCoordinateFromRay(raycaster.ray, activeDrag.context)
+        : activeDrag.coordinateMode === 'screen'
+          ? screenCoordinate
+          : rayCoordinate ?? screenCoordinate
       if (coordinate === null) return
 
       const coordinateDelta = activeDrag.isRotationDrag
@@ -954,7 +996,9 @@ export default function DigitalTwinCanvas({
               variablesRef.current || [],
               valuesRef.current || {},
             )
-            if (initialValue !== undefined && initialValue !== null) node.visible = isFmiBindingVisible(initialValue, binding)
+            node.visible = initialValue !== undefined && initialValue !== null
+              ? isFmiBindingVisible(initialValue, binding)
+              : false
           }
           boundObjects.push(boundObject)
           if (isDraggableFmiSceneBinding(normalizedBinding)) {
@@ -1043,7 +1087,7 @@ export default function DigitalTwinCanvas({
         const sceneSize = (framingBounds || gltfBounds).getSize(new THREE.Vector3())
         const largestSceneDimension = Math.max(sceneSize.x, sceneSize.y, sceneSize.z, 0.1)
         const clusterScale = Math.min(Math.max(largestSceneDimension * 0.006, 0.004), 0.12)
-        const maximumClusterGap = Math.max(largestSceneDimension * 0.012, clusterScale * 2)
+        const maximumClusterGap = Math.max(largestSceneDimension * 0.015, clusterScale * 2)
         const markerClusters = [...markerEntriesByVariable.values()]
           .flatMap(({ variable, kind, entries }) => clusterNearbyBindings(entries, maximumClusterGap)
             .map((members) => ({ members, variable, kind })))

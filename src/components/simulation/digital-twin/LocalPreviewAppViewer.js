@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import useSimulationModelResources from '../hooks/useSimulationModelResources'
+import { supportsFmiScheduledInputChanges } from '@/utils/fmiLsEligibility'
 
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
 const APP_REFERENCE_RE = /^\/digital-twin-apps\/(local_demo_[a-f0-9]{24})\/([a-f0-9]{64})\/index\.html$/i
@@ -24,8 +25,7 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
   })
   const inputEvents = viewerProps.inputEvents ?? localInputEvents
   const onInputEventsChange = viewerProps.onInputEventsChange ?? setLocalInputEvents
-  const supportsInputSchedule = access?.simulationType === 'CoSimulation'
-    || access?.simulationType === 'ModelExchange'
+  const supportsInputSchedule = supportsFmiScheduledInputChanges(access?.simulationType)
 
   useEffect(() => {
     const controller = new AbortController()

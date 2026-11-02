@@ -69,3 +69,24 @@ export function getAxisCoordinateFromRay(ray, context) {
   const distanceOnWorldAxis = dot(subtract(intersection, context.axisOrigin), context.axisDirection)
   return distanceOnWorldAxis / context.worldUnitsPerLocalUnit
 }
+
+export function createScreenAxisDragContext({ origin, direction, coordinate = 0 }) {
+  if (!Array.isArray(origin) || origin.length !== 2 || !origin.every(Number.isFinite)
+    || !Array.isArray(direction) || direction.length !== 2 || !direction.every(Number.isFinite)
+    || !Number.isFinite(coordinate)) return null
+
+  const directionLengthSquared = (direction[0] * direction[0]) + (direction[1] * direction[1])
+  if (directionLengthSquared <= VECTOR_EPSILON ** 2) return null
+
+  return { origin, direction, coordinate, directionLengthSquared }
+}
+
+export function getScreenAxisCoordinateFromPointer(pointer, context) {
+  if (!context || !Array.isArray(pointer) || pointer.length !== 2 || !pointer.every(Number.isFinite)) return null
+  const offsetX = pointer[0] - context.origin[0]
+  const offsetY = pointer[1] - context.origin[1]
+  const coordinateOffset = ((offsetX * context.direction[0]) + (offsetY * context.direction[1]))
+    / context.directionLengthSquared
+  const coordinate = context.coordinate + coordinateOffset
+  return Number.isFinite(coordinate) ? coordinate : null
+}

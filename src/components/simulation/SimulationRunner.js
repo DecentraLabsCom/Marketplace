@@ -14,7 +14,10 @@ import useGlbSimulationConfiguration from './hooks/useGlbSimulationConfiguration
 import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
 import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
-import { supportsInteractiveFmiModes } from '@/utils/fmiLsEligibility'
+import {
+  supportsFmiScheduledInputChanges,
+  supportsInteractiveFmiModes,
+} from '@/utils/fmiLsEligibility'
 import useSimulationModelResources from './hooks/useSimulationModelResources'
 import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecution'
 import useProxyFmuDownload from './hooks/useProxyFmuDownload'
@@ -72,7 +75,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const twinSimulationType = twinAsset
     ? variableAccess?.simulationType
     : fmuMeta?.simulationType
-  const supportsTwinInputSchedule = twinSimulationType === 'CoSimulation' || twinSimulationType === 'ModelExchange'
+  const supportsTwinInputSchedule = supportsFmiScheduledInputChanges(twinSimulationType)
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
     && reservationKey

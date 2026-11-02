@@ -50,6 +50,10 @@ export function supportsInteractiveFmiModes(simulationType, fmiVersion) {
     && ['2', '3'].includes(majorVersion)
 }
 
+export function supportsFmiScheduledInputChanges(simulationType) {
+  return simulationType === 'CoSimulation' || simulationType === 'ModelExchange'
+}
+
 export function canScheduleFmiLsInputChanges(enabled, variables, executionMode) {
   return enabled === true
     && Array.isArray(variables)
