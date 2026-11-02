@@ -44,9 +44,10 @@ export function filterFmiLsExperimentsForVariables(experiments, editableVariable
   ))
 }
 
-export function supportsFmiLsInteractiveModes(simulationType, fmiVersion) {
+export function supportsInteractiveFmiModes(simulationType, fmiVersion) {
   const majorVersion = String(fmiVersion || '').match(/^\s*(\d+)\./)?.[1]
-  return simulationType === 'CoSimulation' && ['2', '3'].includes(majorVersion)
+  return ['CoSimulation', 'ModelExchange'].includes(simulationType)
+    && ['2', '3'].includes(majorVersion)
 }
 
 export function canScheduleFmiLsInputChanges(enabled, variables, executionMode) {

@@ -22,7 +22,7 @@ export default function SimulationOptions({
   disabled = false,
   readOnlyStartTime = false,
 }) {
-  const includeStepSize = !['ScheduledExecution', 'ModelExchange'].includes(simulationType)
+  const includeStepSize = simulationType !== 'ScheduledExecution'
   const fields = [
     {
       key: 'startTime',

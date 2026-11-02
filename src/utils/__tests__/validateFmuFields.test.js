@@ -84,14 +84,14 @@ describe('validateFmuFields', () => {
       expect(errors.simulationType).toBeUndefined()
     })
 
-    test('rejects ModelExchange because DecentraLabs cannot execute it', () => {
+    test('accepts ModelExchange', () => {
       const errors = validateFmuFields({ ...validFmu, simulationType: 'ModelExchange' })
-      expect(errors.simulationType).toContain('Model Exchange FMUs are not executable on DecentraLabs')
+      expect(errors.simulationType).toBeUndefined()
     })
 
     test('rejects invalid type', () => {
       const errors = validateFmuFields({ ...validFmu, simulationType: 'Invalid' })
-      expect(errors.simulationType).toContain('CoSimulation')
+      expect(errors.simulationType).toContain('CoSimulation or ModelExchange')
     })
   })
 

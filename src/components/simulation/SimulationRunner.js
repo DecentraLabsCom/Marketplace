@@ -14,7 +14,7 @@ import useGlbSimulationConfiguration from './hooks/useGlbSimulationConfiguration
 import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
 import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
 import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
-import { supportsFmiLsInteractiveModes } from '@/utils/fmiLsEligibility'
+import { supportsInteractiveFmiModes } from '@/utils/fmiLsEligibility'
 import useSimulationModelResources from './hooks/useSimulationModelResources'
 import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecution'
 import useProxyFmuDownload from './hooks/useProxyFmuDownload'
@@ -52,9 +52,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
     && variableAccess?.fmuState?.serialize === true
 
-  const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
-  const isScheduledExecution = fmuMeta?.simulationType === 'ScheduledExecution'
-  const supportsInputSchedule = !isModelExchange && !isScheduledExecution
+  const effectiveSimulationType = variableAccess?.simulationType || fmuMeta?.simulationType
+  const isScheduledExecution = effectiveSimulationType === 'ScheduledExecution'
+  const supportsInputSchedule = !isScheduledExecution
   const checkpointReservationScopeRef = useRef(stateScopeKey)
   const interactiveSessionScopeRef = useRef(stateScopeKey)
   useEffect(() => {
@@ -72,12 +72,15 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const twinSimulationType = twinAsset
     ? variableAccess?.simulationType
     : fmuMeta?.simulationType
-  const supportsTwinInputSchedule = twinSimulationType === 'CoSimulation'
+  const supportsTwinInputSchedule = twinSimulationType === 'CoSimulation' || twinSimulationType === 'ModelExchange'
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
     && reservationKey
     && variableAccessState === 'ready'
-    && supportsFmiLsInteractiveModes(variableAccess?.simulationType, variableAccess?.fmiVersion),
+    && supportsInteractiveFmiModes(
+      variableAccess?.simulationType,
+      variableAccess?.fmiVersion,
+    ),
   )
   const effectiveExecutionMode = supportsInteractiveTwinModes ? executionMode : 'batch'
   const simulationTypeLabel = formatFmuSimulationType(twinSimulationType)

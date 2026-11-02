@@ -993,12 +993,13 @@ describe("SimulationRunner", () => {
     });
   });
 
-  test("explains that ModelExchange FMUs cannot be executed", async () => {
+  test("allows ModelExchange FMUs to run", async () => {
     const meLab = { ...fmuLab, simulationType: "ModelExchange" };
     renderReservedSimulationRunner(meLab);
-    expect(await screen.findByText(/Model Exchange FMUs can be described, but DecentraLabs does not execute them/)).toBeInTheDocument();
+    await waitForStandardSimulationView();
+    expect(screen.getByText(/Model Exchange/)).toBeInTheDocument();
     expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
-    expect(screen.getByRole("button", { name: "Run Simulation" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Run Simulation" })).toBeEnabled();
   });
 
   test("does not show solver selector for CoSimulation FMUs", async () => {

@@ -90,6 +90,9 @@ export async function POST(request) {
     const simulationType = ['CoSimulation', 'ModelExchange', 'ScheduledExecution'].includes(access.simulationType)
       ? access.simulationType
       : undefined
+    if (access.supportsFmiLsDae !== undefined && typeof access.supportsFmiLsDae !== 'boolean') {
+      throw new GatewayValidationError('The provider returned invalid FMI-LS-DAE capability metadata.', 502)
+    }
     const fmuState = access.fmuState && typeof access.fmuState === 'object' && !Array.isArray(access.fmuState)
       && typeof access.fmuState.getAndSet === 'boolean' && typeof access.fmuState.serialize === 'boolean'
       ? { getAndSet: access.fmuState.getAndSet, serialize: access.fmuState.serialize }
@@ -102,6 +105,7 @@ export async function POST(request) {
       fmiLsExperiments,
       ...(fmiVersion ? { fmiVersion } : {}),
       ...(simulationType ? { simulationType } : {}),
+      ...(access.supportsFmiLsDae === true ? { supportsFmiLsDae: true } : {}),
       ...(fmuState ? { fmuState } : {}),
       ...(fmiLsStruct ? { fmiLsStruct } : {}),
     }, { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } })

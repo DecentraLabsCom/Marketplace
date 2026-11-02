@@ -309,10 +309,8 @@ export function validateFmuFields(localLab) {
         }
         if (!simulationType) {
             errors.simulationType = 'Simulation type is required when FMU metadata is present';
-        } else if (simulationType === 'ModelExchange') {
-            errors.simulationType = 'Model Exchange FMUs are not executable on DecentraLabs. Use an FMI Co-Simulation FMU.';
-        } else if (simulationType !== 'CoSimulation') {
-            errors.simulationType = 'Simulation type must be CoSimulation';
+        } else if (!['CoSimulation', 'ModelExchange'].includes(simulationType)) {
+            errors.simulationType = 'Simulation type must be CoSimulation or ModelExchange';
         }
         if (!hasModelVariables) {
             errors.modelVariables = 'Model variables are required when FMU metadata is present';

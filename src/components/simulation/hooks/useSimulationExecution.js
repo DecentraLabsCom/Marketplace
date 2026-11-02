@@ -137,10 +137,10 @@ export default function useSimulationExecution({
         outputs: nextOutputs,
         outputVariables: [...outputNames],
         simulationTime: time,
-        fmiType: 'CoSimulation',
+        fmiType: variableAccess?.simulationType || 'CoSimulation',
       }
     })
-  }, [])
+  }, [variableAccess?.simulationType])
 
   const handleInteractiveRunStart = useCallback(() => {
     simulationInFlightRef.current = true
@@ -160,11 +160,6 @@ export default function useSimulationExecution({
   }, [setParameters])
 
   const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, stateOptions = {}) => {
-    if (twinSimulationType === 'ModelExchange') {
-      setErrorMsg('Model Exchange is not supported by DecentraLabs. Use an FMI Co-Simulation FMU.')
-      setSimState(SIM_STATE.ERROR)
-      return
-    }
     if (variableAccessState !== 'ready' || !variableAccess) {
       setErrorMsg('Variable access is not ready for this reservation.')
       setSimState(SIM_STATE.ERROR)

@@ -25,6 +25,7 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
   const inputEvents = viewerProps.inputEvents ?? localInputEvents
   const onInputEventsChange = viewerProps.onInputEventsChange ?? setLocalInputEvents
   const supportsInputSchedule = access?.simulationType === 'CoSimulation'
+    || access?.simulationType === 'ModelExchange'
 
   useEffect(() => {
     const controller = new AbortController()
