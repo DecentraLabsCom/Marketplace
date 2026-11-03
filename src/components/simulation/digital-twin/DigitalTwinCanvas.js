@@ -289,6 +289,8 @@ export default function DigitalTwinCanvas({
   showInputMarkers = false,
   onStatus,
   sampleIndex,
+  sampleSequence,
+  sampleOrdinal,
   onSampleRendered,
 }) {
   const hostRef = useRef(null)
@@ -305,6 +307,8 @@ export default function DigitalTwinCanvas({
   const showInputMarkersRef = useRef(showInputMarkers)
   const onStatusRef = useRef(onStatus)
   const sampleIndexRef = useRef(sampleIndex)
+  const sampleSequenceRef = useRef(sampleSequence)
+  const sampleOrdinalRef = useRef(sampleOrdinal)
   const onSampleRenderedRef = useRef(onSampleRendered)
   const renderedSampleIndexRef = useRef(null)
 
@@ -321,6 +325,8 @@ export default function DigitalTwinCanvas({
   showInputMarkersRef.current = showInputMarkers
   onStatusRef.current = onStatus
   sampleIndexRef.current = sampleIndex
+  sampleSequenceRef.current = sampleSequence
+  sampleOrdinalRef.current = sampleOrdinal
   onSampleRenderedRef.current = onSampleRendered
 
   useEffect(() => {
@@ -601,7 +607,13 @@ export default function DigitalTwinCanvas({
       }
       const sceneCoordinate = node[normalizedBinding.property][normalizedBinding.axis]
       const currentInputValue = getSceneVariableValue(variable, valuesRef.current)
-      const initialInputValue = numericValue(currentInputValue)
+      const boundInputValue = getFmiSceneBindingValue(
+        currentInputValue,
+        normalizedBinding,
+        variablesRef.current || [],
+        valuesRef.current || {},
+      )
+      const initialInputValue = numericValue(boundInputValue)
       const minimumInputValue = numericValue(variable?.min)
       const maximumInputValue = numericValue(variable?.max)
       // A relative rotation gesture may change the bounded command by at most
@@ -616,12 +628,7 @@ export default function DigitalTwinCanvas({
         ? initialInputValue
         : hasOutputDrivenTarget
           ? getFmiSceneInputValueFromCoordinate(sceneCoordinate, normalizedBinding)
-          : numericValue(getFmiSceneBindingValue(
-            currentInputValue,
-            normalizedBinding,
-            variablesRef.current || [],
-            valuesRef.current || {},
-          ))
+          : initialInputValue
 
       drag.sceneCoordinate = sceneCoordinate
       drag.currentInputValue = currentInputValue
@@ -731,8 +738,17 @@ export default function DigitalTwinCanvas({
         : coordinate - activeDrag.lastPointerCoordinate
       activeDrag.lastPointerCoordinate = coordinate
       const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinateDelta
+      const currentBoundInputValue = activeDrag.relativeRotationInput
+        ? numericValue(getFmiSceneBindingValue(
+          activeDrag.currentInputValue,
+          activeDrag.normalizedBinding,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        ))
+        : null
+      if (activeDrag.relativeRotationInput && currentBoundInputValue === null) return
       const inputCoordinate = activeDrag.relativeRotationInput
-        ? (Number(activeDrag.currentInputValue) + (relativeCoordinateDelta / activeDrag.normalizedBinding.scale))
+        ? (currentBoundInputValue + (relativeCoordinateDelta / activeDrag.normalizedBinding.scale))
           * activeDrag.normalizedBinding.scale + activeDrag.normalizedBinding.offset
         : nextSceneCoordinate
       let nextInputValue = getFmiSceneInputValueFromCoordinate(inputCoordinate, activeDrag.normalizedBinding)
@@ -748,7 +764,6 @@ export default function DigitalTwinCanvas({
 
       activeDrag.lastInputValue = nextInputValue
       if (activeDrag.relativeRotationInput) {
-        activeDrag.currentInputValue = nextInputValue
         activeDrag.previewSceneCoordinate = activeDrag.sceneCoordinate
           + ((nextInputValue - activeDrag.initialInputValue) * activeDrag.normalizedBinding.scale)
       } else if (activeDrag.hasOutputDrivenTarget) {
@@ -795,20 +810,13 @@ export default function DigitalTwinCanvas({
       } = activeDrag
       let dragPreview = null
       if (hasOutputDrivenTarget && previewSceneCoordinate !== null) {
-        const targetKey = getSceneBindingTargetKey(normalizedBinding)
-        const outputBinding = boundObjects.find((binding) => (
-          binding.node === node
-          && binding.isOutputBinding
-          && getSceneBindingTargetKey(binding.normalizedBinding) === targetKey
-        )) || null
         dragPreview = {
           node,
           property: normalizedBinding.property,
           axis: normalizedBinding.axis,
           coordinate: previewSceneCoordinate,
-          originalCoordinate: activeDrag.sceneCoordinate,
-          outputBinding,
-          sampleIndex: sampleIndexRef.current,
+          sampleOrdinal: sampleOrdinalRef.current,
+          sampleSequence: sampleSequenceRef.current,
           commitComplete: false,
         }
         pendingDragPreview = dragPreview
@@ -1209,26 +1217,13 @@ export default function DigitalTwinCanvas({
       if (pendingDragPreview) {
         if (!inputEditingEnabledRef.current && pendingDragPreview.commitComplete) {
           pendingDragPreview = null
-        } else if (pendingDragPreview.commitComplete
-          && sampleIndexRef.current !== pendingDragPreview.sampleIndex) {
-          if (!pendingDragPreview.outputBinding) {
-            pendingDragPreview = null
-          } else {
-            const { variable, normalizedBinding } = pendingDragPreview.outputBinding
-            const rawValue = valuesRef.current?.[variable.name]
-            const bindingValue = getFmiSceneBindingValue(
-              rawValue,
-              normalizedBinding,
-              variablesRef.current || [],
-              valuesRef.current || {},
-            )
-            const outputCoordinate = numericValue(getFmiSceneBoundValue(bindingValue, normalizedBinding))
-            const tolerance = Math.max(1e-7, Math.abs(pendingDragPreview.originalCoordinate) * 1e-9)
-            if (Number.isFinite(outputCoordinate)
-              && Math.abs(outputCoordinate - pendingDragPreview.originalCoordinate) > tolerance) {
-              pendingDragPreview = null
-            }
-          }
+        } else if (pendingDragPreview.commitComplete) {
+          const hasSequencePair = Number.isSafeInteger(pendingDragPreview.sampleSequence)
+            && Number.isSafeInteger(sampleSequenceRef.current)
+          const hasNewSample = hasSequencePair
+            ? sampleSequenceRef.current > pendingDragPreview.sampleSequence
+            : sampleOrdinalRef.current !== pendingDragPreview.sampleOrdinal
+          if (hasNewSample) pendingDragPreview = null
         }
       }
       const dragPreview = activeDrag?.hasOutputDrivenTarget && activeDrag.previewSceneCoordinate !== null

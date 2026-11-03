@@ -141,6 +141,8 @@ export default function DigitalTwinViewer({
   const sampleIndexOffset = Number(activeResults?.sampleIndexOffset) || 0
   const lastIndex = Math.max(times.length - 1, 0)
   const displayedSampleIndex = isRunning && followLatest ? lastIndex : Math.min(sampleIndex, lastIndex)
+  const displayedSampleSequence = activeResults?.sampleMetadata?.[displayedSampleIndex]?.sequence
+  const displayedSampleOrdinal = sampleIndexOffset + displayedSampleIndex
   const interpolatableVariables = useMemo(() => new Set(modelVariables
     .filter((variable) => variable?.causality === 'output'
       && ['Real', 'Float32', 'Float64'].includes(variable?.type)
@@ -339,6 +341,8 @@ export default function DigitalTwinViewer({
             showInputMarkers={inputMarkersVisible}
             onStatus={setLoadState}
             sampleIndex={displayedSampleIndex}
+            sampleSequence={displayedSampleSequence}
+            sampleOrdinal={displayedSampleOrdinal}
             onSampleRendered={isRunning && followLatest && onDisplayedSampleChange
               ? (index, frameTime) => onDisplayedSampleChange(index + sampleIndexOffset, frameTime)
               : undefined}
@@ -636,6 +640,7 @@ DigitalTwinViewer.propTypes = {
   results: PropTypes.shape({
     time: PropTypes.array,
     outputs: PropTypes.object,
+    sampleMetadata: PropTypes.arrayOf(PropTypes.object),
     discontinuities: PropTypes.arrayOf(PropTypes.bool),
   }),
   streamingResultsRef: PropTypes.shape({ current: PropTypes.object }),
