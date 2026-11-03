@@ -50,6 +50,7 @@ export default function DigitalTwinSimulationForm({
   )
   const inputVariables = variables.filter((variable) => variable?.causality === 'input')
   const tunableParameterVariables = variables.filter((variable) => variable?.causality === 'parameter')
+  const structuralParameterVariables = variables.filter((variable) => variable?.causality === 'structuralParameter')
   const requireStopTime = executionMode === 'batch'
   const simulationOptionsError = getSimulationOptionsError(simulationOptions, { includeStepSize, requireStopTime })
   let inputScheduleError = ''
@@ -163,7 +164,7 @@ export default function DigitalTwinSimulationForm({
         <section className="mb-4 grid gap-3" aria-label="Inputs and tunable parameters">
           {variables.length === 0 ? (
             <p className="rounded-lg border border-[#26383f] bg-[#0c171c] px-3 py-2 text-xs text-[#829ba1]">
-              This FMU has no editable input variables or parameters.
+              This FMU has no editable inputs or parameters.
             </p>
           ) : (
             <div className="max-h-[min(55vh,17.5rem)] overflow-y-auto overscroll-contain pr-2">
@@ -186,6 +187,19 @@ export default function DigitalTwinSimulationForm({
                     <h3 id="digital-twin-run-parameters-title" className="mb-2 text-sm font-semibold text-white">Tunable parameters</h3>
                     <DigitalTwinInputGrid
                       variables={tunableParameterVariables}
+                      modelVariables={modelVariables}
+                      fmiLsStruct={fmiLsStruct}
+                      values={values}
+                      onChange={onInputChange}
+                      disabled={running}
+                    />
+                  </section>
+                ) : null}
+                {structuralParameterVariables.length > 0 ? (
+                  <section aria-labelledby="digital-twin-run-structural-parameters-title">
+                    <h3 id="digital-twin-run-structural-parameters-title" className="mb-2 text-sm font-semibold text-white">Structural parameters</h3>
+                    <DigitalTwinInputGrid
+                      variables={structuralParameterVariables}
                       modelVariables={modelVariables}
                       fmiLsStruct={fmiLsStruct}
                       values={values}

@@ -49,6 +49,8 @@ test('classifies controls across FMI causality, variability, and read/write phas
     { name: 'independentTime', causality: 'independent', variability: 'continuous', start: 10 },
     { name: 'privateLocal', causality: 'local', variability: 'continuous', start: 11 },
     { name: 'structural', causality: 'structuralParameter', variability: 'fixed', start: 12 },
+    { name: 'daeMode', causality: 'structuralParameter', variability: 'tunable', start: false },
+    { name: 'runtimeStructural', causality: 'structuralParameter', variability: 'tunable', start: false },
   ]
   const access = {
     variables: {
@@ -64,6 +66,8 @@ test('classifies controls across FMI causality, variability, and read/write phas
       independentTime: { read: true, writeAt: [] },
       privateLocal: { read: false, writeAt: [] },
       structural: { read: true, writeAt: [] },
+      daeMode: { read: true, writeAt: ['configuration', 'reconfiguration'] },
+      runtimeStructural: { read: true, writeAt: ['reconfiguration'] },
     },
   }
 
@@ -71,6 +75,7 @@ test('classifies controls across FMI causality, variability, and read/write phas
     'initializationInput',
     'fixedParameter',
     'tunableParameter',
+    'daeMode',
   ])
   expect(getRuntimeWritableInputVariables(modelVariables, access).map(({ name }) => name)).toEqual([
     'runtimeInput',
@@ -86,5 +91,7 @@ test('classifies controls across FMI causality, variability, and read/write phas
     'readableOutput',
     'independentTime',
     'structural',
+    'daeMode',
+    'runtimeStructural',
   ])
 })

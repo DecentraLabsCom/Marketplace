@@ -16,13 +16,16 @@ export function filterModelVariablesByAccess(modelVariables, access) {
 }
 
 export function getInitializationEditableVariables(modelVariables, access) {
-  return filterModelVariablesByAccess(modelVariables, access).filter((variable) => (
-    canWriteVariableAt(access, variable.name, 'initialization')
-    && (
-      variable.causality === 'input'
-      || (variable.causality === 'parameter' && variable.variability !== 'constant')
-    )
-  ))
+  return filterModelVariablesByAccess(modelVariables, access).filter((variable) => {
+    if (variable.causality === 'structuralParameter') {
+      return canWriteVariableAt(access, variable.name, 'configuration')
+    }
+    return canWriteVariableAt(access, variable.name, 'initialization')
+      && (
+        variable.causality === 'input'
+        || (variable.causality === 'parameter' && variable.variability !== 'constant')
+      )
+  })
 }
 
 export function getRuntimeWritableInputVariables(modelVariables, access) {

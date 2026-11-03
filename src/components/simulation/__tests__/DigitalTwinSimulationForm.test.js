@@ -97,4 +97,33 @@ describe('DigitalTwinSimulationForm', () => {
     expect(screen.queryByRole('button', { name: 'Run model' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run Controls/ })).toBeInTheDocument()
   })
+
+  test('shows FMI 3 structural parameters in run controls', () => {
+    const daeMode = {
+      name: 'ODE_DAE_Switch',
+      causality: 'structuralParameter',
+      variability: 'tunable',
+      type: 'Boolean',
+      start: false,
+      description: 'Enable DAE mode.',
+    }
+
+    render(
+      <DigitalTwinSimulationForm
+        variables={[daeMode]}
+        modelVariables={[daeMode]}
+        values={{ ODE_DAE_Switch: false }}
+        onInputChange={jest.fn()}
+        simulationOptions={{ startTime: 0, stopTime: 1, stepSize: 0.01 }}
+        onSimulationOptionChange={jest.fn()}
+        simulationType="ModelExchange"
+        onRun={jest.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Run Controls/ }))
+
+    expect(screen.getByRole('heading', { name: 'Structural parameters' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Enable DAE mode.')).toHaveAttribute('type', 'checkbox')
+  })
 })
