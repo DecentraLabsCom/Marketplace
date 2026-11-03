@@ -50,7 +50,7 @@ export async function POST(request) {
       }
       const writeAt = permission.writeAt ?? []
       if (typeof permission.read !== 'boolean' || !Array.isArray(writeAt)
-        || writeAt.some((phase) => !['initialization', 'runtime'].includes(phase))
+        || writeAt.some((phase) => !['initialization', 'runtime', 'configuration', 'reconfiguration'].includes(phase))
         || new Set(writeAt).size !== writeAt.length) {
         throw new GatewayValidationError('The provider returned an invalid variable access policy.', 502)
       }
