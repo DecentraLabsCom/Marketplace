@@ -53,6 +53,21 @@ test('returns the reservation-bound variable policy without caching it', async (
   expect(gatewayFetch).toHaveBeenCalledWith('https://provider.example/fmu/api/v1/simulations/access', expect.objectContaining({ cache: 'no-store' }))
 })
 
+test('preserves all FMI write phases, including configuration and reconfiguration', async () => {
+  const phasePolicy = {
+    ...policy,
+    variables: {
+      structural: { read: true, writeAt: ['configuration', 'reconfiguration'] },
+    },
+  }
+  gatewayFetch.mockResolvedValue(new Response(JSON.stringify(phasePolicy)))
+
+  const response = await POST(request())
+
+  expect(response.status).toBe(200)
+  expect((await response.json()).variables).toEqual(phasePolicy.variables)
+})
+
 test('rejects cross-site and malformed requests before contacting the Gateway', async () => {
   expect((await POST(request(undefined, { Origin: 'https://attacker.example' }))).status).toBe(403)
   expect((await POST(request({ labId: '42', reservationKey: '' }))).status).toBe(400)
