@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  MAX_SAMPLES_PER_BATCH,
+  MAX_SAMPLE_BATCH_JSON_CHARS,
   DIGITAL_TWIN_MESSAGE as MESSAGE,
   isValidAppMessage,
   isValidFmuStateCheckpointBundle,
@@ -7,6 +9,11 @@ import {
   makeProtocolMessage,
   isRecord,
 } from './digitalTwinAppProtocol'
+import {
+  normalizeSimulationStreamEvent,
+  readNdjsonStream,
+  selectSimulationOutputs,
+} from '@decentralabs/digital-twin-app-protocol/simulation-stream'
 
 const INITIALIZATION_TIMEOUT_MS = 30_000
 const HOST_READY_RETRY_MS = 250
@@ -22,13 +29,17 @@ export default function useDigitalTwinAppHost({
   onFmuStateError,
   onModelChangeRequest,
   onConnectionRequest,
+  onBatchSimulation,
 }) {
   const iframeRef = useRef(null)
   const callbacksRef = useRef({})
   const extensionsRef = useRef(hostExtensions)
   const capabilitiesRef = useRef([])
   const grantRef = useRef(null)
+  const batchRequestsRef = useRef(new Map())
+  const batchAcknowledgementsRef = useRef(new Map())
   const loadedDocumentRef = useRef(false)
+  const documentGenerationRef = useRef(0)
   const hostReadyAttemptedRef = useRef(false)
   const hostReadyRetryTimerRef = useRef(null)
   const stateRef = useRef('loading')
@@ -40,6 +51,7 @@ export default function useDigitalTwinAppHost({
     onFmuStateError,
     onModelChangeRequest,
     onConnectionRequest,
+    onBatchSimulation,
   }
   extensionsRef.current = hostExtensions
 
@@ -105,6 +117,8 @@ export default function useDigitalTwinAppHost({
       clearHostReadyRetry()
       grantRef.current?.abort()
       grantRef.current = null
+      for (const controller of batchRequestsRef.current.values()) controller.abort()
+      batchRequestsRef.current.clear()
     }
   }, [appUrl, clearHostReadyRetry, reloadKey])
 
@@ -156,6 +170,8 @@ export default function useDigitalTwinAppHost({
           const payload = await connectionRequest({
             options: message.options || {},
             capabilities: capabilitiesRef.current,
+            transport: message.transport || 'websocket',
+            executionPace: message.executionPace,
             signal: controller.signal,
           })
           if (!controller.signal.aborted) {
@@ -168,6 +184,136 @@ export default function useDigitalTwinAppHost({
         } finally {
           if (grantRef.current === controller) grantRef.current = null
         }
+      } else if (message.type === MESSAGE.BATCH_EXECUTION_CANCEL && stateRef.current === 'ready') {
+        batchRequestsRef.current.get(message.requestId)?.abort(new DOMException('Cancelled', 'AbortError'))
+      } else if (message.type === MESSAGE.BATCH_EXECUTION_ACK && stateRef.current === 'ready') {
+        const acknowledgement = batchAcknowledgementsRef.current.get(message.requestId)
+        if (acknowledgement?.eventId === message.eventId) acknowledgement.resolve()
+      } else if (message.type === MESSAGE.BATCH_EXECUTION_REQUEST && stateRef.current === 'ready') {
+        const requestId = message.requestId
+        const target = event.source
+        const documentGeneration = documentGenerationRef.current
+        const batchSimulation = callbacksRef.current.onBatchSimulation
+        if (typeof batchSimulation !== 'function' || batchRequestsRef.current.has(requestId)) {
+          send(MESSAGE.BATCH_EXECUTION_END, { requestId, code: 'BATCH_EXECUTION_UNAVAILABLE' })
+          return
+        }
+        const controller = new AbortController()
+        batchRequestsRef.current.set(requestId, controller)
+        const sendBatchMessage = (type, payload = {}) => {
+          if (target !== iframeRef.current?.contentWindow
+            || documentGeneration !== documentGenerationRef.current
+            || stateRef.current !== 'ready') return false
+          const response = makeProtocolMessage(type, { requestId, ...payload })
+          if (!isValidHostMessage(response)) return false
+          target.postMessage(response, '*')
+          return true
+        }
+        const selectedOutputs = message.batchOptions.outputVariables
+        const maxSamples = Math.min(message.batchOptions.maxSamples, MAX_SAMPLES_PER_BATCH)
+        let sampleBatch = []
+        let lastSampleTime
+        let lastSample
+        let lastDeliveredSampleKey = null
+        let nextEventId = 0
+        const waitForAcknowledgement = (eventId) => new Promise((resolve, reject) => {
+          let timeout
+          const cleanup = () => {
+            window.clearTimeout(timeout)
+            controller.signal.removeEventListener('abort', onAbort)
+            if (batchAcknowledgementsRef.current.get(requestId)?.eventId === eventId) {
+              batchAcknowledgementsRef.current.delete(requestId)
+            }
+          }
+          const onAbort = () => {
+            cleanup()
+            reject(controller.signal.reason || new DOMException('Cancelled', 'AbortError'))
+          }
+          timeout = window.setTimeout(() => {
+            cleanup()
+            reject(new Error('BATCH_ACK_TIMEOUT'))
+          }, 60_000)
+          batchAcknowledgementsRef.current.set(requestId, {
+            eventId,
+            resolve: () => { cleanup(); resolve() },
+          })
+          controller.signal.addEventListener('abort', onAbort, { once: true })
+          if (controller.signal.aborted) onAbort()
+        })
+        const sendBatchEvent = async (event) => {
+          const eventId = ++nextEventId
+          if (!sendBatchMessage(MESSAGE.BATCH_EXECUTION_EVENT, { eventId, event })) {
+            throw new Error('BATCH_IFRAME_UNAVAILABLE')
+          }
+          await waitForAcknowledgement(eventId)
+        }
+        const flushSamples = async () => {
+          if (!sampleBatch.length) return
+          await sendBatchEvent({ kind: 'samples', samples: sampleBatch })
+          sampleBatch = []
+        }
+        try {
+          const response = await batchSimulation({
+            body: message.body,
+            batchOptions: message.batchOptions,
+            runId: message.runId,
+            signal: controller.signal,
+          })
+          if (!response?.ok) throw new Error('BATCH_SIMULATION_FAILED')
+          const sequence = { nextSequence: 0 }
+          await readNdjsonStream(response, async (event) => {
+            if (controller.signal.aborted) return
+            const normalized = normalizeSimulationStreamEvent(event, sequence)
+            if (normalized.kind === 'samples') {
+              for (const sample of normalized.samples) {
+                lastSample = sample
+                const filtered = { ...sample, outputs: selectSimulationOutputs(sample.outputs, selectedOutputs) }
+                const candidate = [...sampleBatch, filtered]
+                const encodedSize = new TextEncoder().encode(JSON.stringify({ kind: 'samples', samples: candidate })).length
+                if (sampleBatch.length && (candidate.length > maxSamples || encodedSize > MAX_SAMPLE_BATCH_JSON_CHARS)) await flushSamples()
+                const singleSampleSize = new TextEncoder().encode(JSON.stringify({ kind: 'samples', samples: [filtered] })).length
+                if (singleSampleSize > MAX_SAMPLE_BATCH_JSON_CHARS) throw new Error('BATCH_SAMPLE_TOO_LARGE')
+                sampleBatch.push(filtered)
+                lastSampleTime = filtered.time
+                lastDeliveredSampleKey = `${filtered.time}:${filtered.sequence ?? ''}`
+                if (sampleBatch.length >= maxSamples) await flushSamples()
+              }
+            } else if (normalized.kind === 'completed') {
+              if (lastSample && `${lastSample.time}:${lastSample.sequence ?? ''}` !== lastDeliveredSampleKey) {
+                const filtered = { ...lastSample, outputs: selectSimulationOutputs(lastSample.outputs, selectedOutputs) }
+                if (sampleBatch.length >= maxSamples) await flushSamples()
+                sampleBatch.push(filtered)
+                lastDeliveredSampleKey = `${filtered.time}:${filtered.sequence ?? ''}`
+              }
+              await flushSamples()
+              const time = normalized.time ?? lastSampleTime
+              if (!Number.isFinite(time)) throw new Error('BATCH_INVALID_COMPLETION')
+              const checkpointTime = normalized.checkpointTime ?? normalized.time
+              const checkpointOutputs = normalized.metadata?.checkpointOutputs
+              await sendBatchEvent({
+                kind: 'completed', time,
+                ...(normalized.finishReason ? { finishReason: normalized.finishReason } : {}),
+                ...(normalized.checkpoint ? { checkpoint: normalized.checkpoint } : {}),
+                ...(normalized.checkpointTime === undefined ? {} : { checkpointTime: normalized.checkpointTime }),
+                ...(normalized.checkpoint && Number.isFinite(checkpointTime) && checkpointOutputs
+                  && typeof checkpointOutputs === 'object' && !Array.isArray(checkpointOutputs)
+                  ? { checkpointSample: { time: checkpointTime, outputs: selectSimulationOutputs(checkpointOutputs, selectedOutputs) } }
+                  : {}),
+              })
+            } else if (normalized.kind === 'error') {
+              await sendBatchEvent({ kind: 'error', code: normalized.code, message: 'The simulation could not be completed.' })
+              throw new Error('BATCH_SIMULATION_FAILED')
+            }
+          }, { signal: controller.signal })
+          await flushSamples()
+          if (!controller.signal.aborted) sendBatchMessage(MESSAGE.BATCH_EXECUTION_END)
+        } catch {
+          if (!controller.signal.aborted) sendBatchMessage(MESSAGE.BATCH_EXECUTION_END, { code: 'BATCH_SIMULATION_FAILED' })
+        } finally {
+          batchAcknowledgementsRef.current.get(requestId)?.resolve()
+          if (batchRequestsRef.current.get(requestId) === controller) batchRequestsRef.current.delete(requestId)
+          batchAcknowledgementsRef.current.delete(requestId)
+        }
       }
     }
 
@@ -176,9 +322,12 @@ export default function useDigitalTwinAppHost({
   }, [clearHostReadyRetry, replyToConnectionRequest, scheduleHostReadyRetry, sendHostReady])
 
   const handleFrameLoad = useCallback(() => {
+    documentGenerationRef.current += 1
     if (loadedDocumentRef.current) {
       grantRef.current?.abort()
       grantRef.current = null
+      for (const controller of batchRequestsRef.current.values()) controller.abort()
+      batchRequestsRef.current.clear()
       clearHostReadyRetry()
       hostReadyAttemptedRef.current = false
       stateRef.current = 'loading'
@@ -196,6 +345,8 @@ export default function useDigitalTwinAppHost({
   const handleFrameError = useCallback(() => {
     grantRef.current?.abort()
     grantRef.current = null
+    for (const controller of batchRequestsRef.current.values()) controller.abort()
+    batchRequestsRef.current.clear()
     clearHostReadyRetry()
     stateRef.current = 'error'
     setAppState('error')

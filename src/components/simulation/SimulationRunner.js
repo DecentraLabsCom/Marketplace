@@ -24,6 +24,7 @@ import useProxyFmuDownload from './hooks/useProxyFmuDownload'
 import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
 import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
 import { createFmuStateResults, filterFmuStateModelValues } from './utils/fmuStateCheckpoint'
+import { postSimulationStream } from './utils/simulationStreamTransport'
 
 const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
@@ -538,6 +539,17 @@ export default function SimulationRunner({ lab, reservationKey }) {
             if (!response.ok) throw new Error('The provider FMU connection could not be authorized.')
             return response.json()
           }}
+          onBatchSimulation={({ body, signal }) => postSimulationStream({
+            url: '/api/simulations/stream',
+            fetchImpl: fetchGateway,
+            credentials: 'include',
+            signal,
+            body: {
+              labId: String(lab.id ?? lab.tokenId),
+              reservationKey,
+              ...body,
+            },
+          })}
           modelVariables={accessibleModelVariables}
           fmiLsParameterPresets={twinFmiLsParameterPresets}
           fmiLsExperiments={twinFmiLsExperiments}

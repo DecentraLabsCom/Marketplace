@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import useSimulationModelResources from '../hooks/useSimulationModelResources'
+import { postSimulationStream } from '../utils/simulationStreamTransport'
 import { supportsFmiScheduledInputChanges } from '@/utils/fmiLsEligibility'
 
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
@@ -79,6 +80,11 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
     <DigitalTwinAppViewer
       {...viewerProps}
       appUrl={appUrl}
+      onBatchSimulation={viewerProps.onBatchSimulation || (({ body, signal }) => postSimulationStream({
+        url: `/api/dev/glb-demo/${encodeURIComponent(demo)}/simulations/stream`,
+        signal,
+        body,
+      }))}
       fmiLsParameterPresets={fmiLsParameterPresets}
       fmiLsExperiments={fmiLsExperiments}
       modelVariables={viewerProps.modelVariables ?? accessibleModelVariables}

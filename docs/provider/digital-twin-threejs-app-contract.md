@@ -1,22 +1,28 @@
 # Digital twin web app integration
 
-A complete provider app owns its HMI and connects directly from the user browser
-to the provider Gateway. The Gateway forwards execution to the private FMU
-Executor on Lab Station. Marketplace authorizes access and embeds the app;
-simulation inputs and output samples do not pass through Marketplace.
+A complete provider app owns its HMI. Marketplace embeds it in an isolated
+iframe and keeps reservation credentials in the parent page. Finite batch runs
+use the Marketplace HTTP stream; interactive runs connect from the iframe to
+the provider Gateway WebSocket. The Gateway forwards execution to the private
+FMU Executor on Lab Station.
 
 ```mermaid
 flowchart LR
-  Marketplace[Marketplace reservation and authorization] -->|one-use session grant| App[Provider app in isolated iframe]
-  App -->|FMU session WebSocket| Gateway[Provider Gateway Full or Lite]
-  Gateway -->|session responses| App
+  Marketplace[Marketplace reservation and authorization] -->|host protocol| App[Provider app in isolated iframe]
+  App -->|batch request via postMessage| Marketplace
+  Marketplace -->|authenticated HTTP stream| Gateway[Provider Gateway Full or Lite]
+  Gateway -->|NDJSON samples| Marketplace
+  Marketplace -->|sample batches via postMessage| App
+  App -->|interactive FMU session WebSocket| Gateway
+  Gateway -->|interactive session responses| App
   Gateway -->|private connection| Station[Lab Station and FMU Executor]
   Station -->|session responses| Gateway
 ```
 
-The sequence below shows how these responsibilities work together. Marketplace
-authorizes and issues the one-use grant; after that, the app's FMU session and
-all simulation traffic use the provider Gateway directly.
+The sequence below shows the transport split. The parent page makes finite
+batch requests with its reservation context and relays only bounded result
+batches to the iframe. Interactive sessions use a one-use Gateway ticket and
+send simulation traffic directly from the app.
 
 ```mermaid
 sequenceDiagram
@@ -27,20 +33,29 @@ sequenceDiagram
   participant S as Lab Station FMU Executor
   M->>A: Embed app and complete Host Integration v2 handshake
   A->>M: Request reservation-scoped FMU connection grant
-  M->>G: Authorize through the existing proxy.fmu ticket issuer
-  G-->>M: Short-lived, one-use ticket and Gateway WSS endpoint
-  M-->>A: Return connection grant to the requesting iframe
-  A->>G: Open WSS and create session with ticket
-  G->>S: Redeem ticket and open private FMU session
-  S-->>G: Session ready
-  G-->>A: Session ready
-  loop FMI execution
-    A->>G: FMI operations and input values
-    G->>S: Forward operations to the FMU
+  alt finite fastest batch
+    A->>M: Request batch HTTP transport
+    M->>G: POST simulation stream with reservation authorization
+    G->>S: Execute bounded batch
     S-->>G: Output samples
-    G-->>A: Output samples
+    G-->>M: NDJSON response stream
+    M-->>A: Bounded sample batches and completion via postMessage
+  else interactive, continuous or open-ended
+    M->>G: Authorize through existing proxy.fmu ticket issuer
+    G-->>M: Short-lived, one-use ticket and Gateway WSS endpoint
+    M-->>A: Return connection grant to requesting iframe
+    A->>G: Open WSS and create session with ticket
+    G->>S: Redeem ticket and open private FMU session
+    S-->>G: Session ready
+    G-->>A: Session ready
+    loop FMI execution
+      A->>G: FMI operations and input values
+      G->>S: Forward operations to the FMU
+      S-->>G: Output samples
+      G-->>A: Output samples
+    end
   end
-  Note over M,G: Marketplace authorizes access but does not relay simulation traffic.
+  Note over A,M: Marketplace cookies, reservation credentials and Gateway tickets are never exposed to the iframe except the scoped one-use ticket for direct WebSocket use.
 ```
 
 There are two independent contracts:
@@ -121,12 +136,16 @@ termination or the authorized session/runtime ends. The generated GLB viewer
 also leaves Stop Time blank by default. Batch mode in that viewer requires a
 finite stop time to delimit the collected result.
 
-The Gateway enforces the effective AAS/FMI variable-access policy for every
-runtime write and filters output values. Interactive modes use a short-lived
-connection grant and the Gateway WebSocket directly; Marketplace does not relay
-step requests or samples. Models outside FMI 2/3 Co-Simulation continue to use
-the batch interface. The provider Gateway must allow the exact Marketplace page
-origin for its FMU WebSocket. The Marketplace deployment must also include each
+The Gateway enforces the effective AAS/FMI variable-access policy for runtime
+writes and filters output values in both transports. The generated GLB viewer's
+user-facing **Batch** mode uses the Marketplace HTTP/NDJSON endpoint. A Three.js
+SDK run uses that endpoint only when it is finite, uses Fastest Pace and fixed
+batching, and has no input-controller, model-validation or parameter-derivation
+callbacks. Other SDK runs use a short-lived connection grant and the Gateway
+WebSocket directly. The iframe cannot attach Marketplace cookies or reservation
+credentials. The provider Gateway must allow the exact Marketplace page origin
+for its FMU
+WebSocket. The Marketplace deployment must also include each
 provider Gateway's exact WebSocket origin (for example, `wss://gateway.example`)
 in `CSP_CONNECT_SRC`; its restrictive `connect-src` policy otherwise blocks the
 browser connection. Production Gateway configuration supplies the Marketplace
@@ -142,18 +161,31 @@ the Marketplace CSP configuration.
    responds with `decentralabs:digital-twin-host-ready`. The host also sends
    this response after iframe load, so asynchronous React startup is supported.
 3. Once its view is ready, the app sends `decentralabs:digital-twin-ready`.
-4. To start execution, the app requests a connection with
-   `decentralabs:fmu-connection-request`, a unique `requestId` and optional
-   `options` containing finite `startTime` and `stepSize`, plus an optional
-   finite `stopTime`. Omit `stopTime` for an open-ended run; provide it to bound
-   the run.
-5. Marketplace calls `POST /api/simulations/connection`, forwarding only its
-   server-side resource credential to the authorized Gateway endpoint
-   `POST /fmu/api/v1/fmu/connection/{labId}?reservationKey=...`.
-6. Gateway uses the **same ticket issuance service and authorization checks as
+4. The app requests a run with `decentralabs:fmu-connection-request`, a unique
+   `requestId`, `options`, a transport preference and an execution pace. The SDK
+   prefers `batch-http` only for finite Fastest runs with fixed batching and no
+   input-controller, model-validation or parameter-derivation callbacks. The
+   Marketplace host may authorize that transport; otherwise it returns a
+   WebSocket grant. Omit `stopTime` for an open-ended run, which uses WebSocket.
+5. For `batch-http`, the SDK sends `decentralabs:batch-execution-request` with
+   the run parameters, finite time interval, optional scheduled changes and
+   bounded sample preferences. Requested output variables and sample stride
+   are passed to Gateway/Executor as simulation options, while the parent
+   enforces the iframe batch size and message-size limits. The parent calls
+   `POST /api/simulations/stream` with its server-side reservation context,
+   reads the NDJSON stream and relays sample batches of at most 256 samples and
+   1 MB to the iframe. The SDK acknowledges each batch with
+   `decentralabs:batch-execution-ack`; the parent waits for that acknowledgement
+   before reading further, so a slow renderer does not accumulate the full run
+   in the iframe. Cancellation aborts the parent request. The iframe never
+   receives the Marketplace cookie or reservation key.
+6. For `websocket`, Marketplace calls `POST /api/simulations/connection`,
+   forwarding only its server-side resource credential to the authorized
+   Gateway endpoint `POST /fmu/api/v1/fmu/connection/{labId}?reservationKey=...`.
+   Gateway uses the **same ticket issuance service and authorization checks as
    proxy.fmu**. Full gateways use their issuer; Lite gateways use their configured
    remote Full/standalone issuer. Marketplace validates the returned endpoint,
-   lab, reservation and ticket expiry before returning the grant to that iframe.
+   lab, reservation and ticket expiry before returning the scoped grant.
 7. The app opens the returned `gatewayWsUrl` and sends `session.create` with
    the one-use ticket. Gateway redeems it with the existing issuer service,
    rechecks the reservation and creates the Station session. Session-start
@@ -173,7 +205,7 @@ app ZIPs. The app never receives the Marketplace session cookie, Gateway JWT
 or Station internal token. A new execution obtains a fresh grant; a consumed
 ticket must not be retried as a new session.
 
-A connection response has this shape:
+A WebSocket connection response has this shape:
 
 ```js
 {
@@ -188,11 +220,16 @@ A connection response has this shape:
 }
 ```
 
+A batch grant has no ticket or connection details. It advertises only that the
+parent can execute a finite POST stream and may provide the FMU's default start
+time, step size, authorized input schedule and state-capture availability.
+
 `decentralabs:fmu-connection-error` returns the same request ID and a bounded
 error code. The connection-ready message can carry the authorized `inputSchedule`
-shown above; host messages do not carry initialization parameters or FMU output
-samples. Host messages must come from `window.parent`; the host accepts app
-messages only from the current iframe window. All field sets are closed.
+shown above. In batch mode, the dedicated request and event messages carry the
+app's run parameters and bounded output sample batches. Host messages must come
+from `window.parent`; the host accepts app messages only from the current iframe
+window. All field sets are closed.
 Unknown message types and optional capabilities are ignored. Namespaced
 `host-ready.extensions` allow explicitly configured host data.
 
@@ -204,10 +241,12 @@ The package `@decentralabs/digital-twin-app-protocol` provides:
 * `/fmu-client`: `connectFmuSession(connection)`, independent of Marketplace;
 * `/client`: `createDigitalTwinAppClient()`, composing the direct FMU client
   with optional host startup, authorization and visualization controls.
+* `/simulation-stream`: shared NDJSON parsing and event normalization for
+  SDK-hosted batch runs and GLB execution.
 
 With a bundler, import the desired entry. For a static app without a bundler,
 copy `index.js`, `fmu-client.js`, `parameter-defaults.js`,
-`batch-controller.js`, `input-update-quota.js` and `client.js` together into
+`batch-controller.js`, `simulation-stream.js`, `input-update-quota.js` and `client.js` together into
 `sdk/` in the ZIP. If the app also exports GLB scenes, copy
 `scene-presentation.js` into that directory too.
 Create a package tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`.

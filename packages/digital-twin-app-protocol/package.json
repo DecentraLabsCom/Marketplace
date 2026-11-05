@@ -1,7 +1,7 @@
 {
   "name": "@decentralabs/digital-twin-app-protocol",
   "version": "2.0.0",
-  "description": "Optional host authorization and direct FMU WebSocket clients for provider apps.",
+  "description": "Host authorization, batch HTTP stream and direct FMU WebSocket clients for provider apps.",
   "browserBundleFile": "index.js",
   "type": "module",
   "main": "./index.js",
@@ -26,6 +26,11 @@
       "types": "./batch-controller.d.ts",
       "import": "./batch-controller.js",
       "default": "./batch-controller.js"
+    },
+    "./simulation-stream": {
+      "types": "./simulation-stream.d.ts",
+      "import": "./simulation-stream.js",
+      "default": "./simulation-stream.js"
     },
     "./input-update-quota": {
       "types": "./input-update-quota.d.ts",
@@ -54,6 +59,8 @@
     "parameter-defaults.d.ts",
     "batch-controller.js",
     "batch-controller.d.ts",
+    "simulation-stream.js",
+    "simulation-stream.d.ts",
     "input-update-quota.js",
     "input-update-quota.d.ts",
     "README.md",

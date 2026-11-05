@@ -19,6 +19,63 @@ test('delivers only the scoped connection grant to the ready iframe', async () =
   await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: 'decentralabs:fmu-connection-ready', version: 2, connection }), '*'))
   expect(onConnect).toHaveBeenCalledWith(expect.objectContaining({ options: { stopTime: 20 }, signal: expect.any(AbortSignal) }))
 })
+
+test('authorizes a batch stream without issuing a WebSocket ticket and relays its samples', async () => {
+  const onConnect = jest.fn()
+  const encoder = new TextEncoder()
+  const lines = [
+    { type: 'sim.step', sequence: 1, time: 1, outputs: { x: 2 } },
+    { type: 'sim.done', time: 1, finishReason: 'target reached' },
+  ].map((event) => `${JSON.stringify(event)}\n`)
+  const chunks = lines.map((line) => encoder.encode(line))
+  const onBatchSimulation = jest.fn().mockResolvedValue({
+    ok: true,
+    body: { getReader: () => ({ read: jest.fn()
+      .mockResolvedValueOnce({ done: false, value: chunks[0] })
+      .mockResolvedValueOnce({ done: false, value: chunks[1] })
+      .mockResolvedValueOnce({ done: true }) }) },
+  })
+  const { post, send } = mount(onConnect, {
+    onBatchSimulation, startTime: 0, stepSize: 1,
+    modelVariables: [{ name: 'gain', type: 'Real', start: 2 }],
+  })
+  send({
+    type: 'decentralabs:fmu-connection-request', requestId: 'grant:batch',
+    transport: 'batch-http', executionPace: 'fastest', options: { stopTime: 1 },
+  })
+  await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'decentralabs:fmu-connection-ready', transport: 'batch-http', executionPace: 'fastest',
+  }), '*'))
+  expect(onConnect).not.toHaveBeenCalled()
+
+  send({
+    type: 'decentralabs:batch-execution-request', requestId: 'batch:1', runId: 'run:1',
+    body: { parameters: { gain: 2, offset: 3 }, options: { startTime: 0, stopTime: 1, stepSize: 1 }, inputSchedule: [] },
+    batchOptions: { maxSamples: 4, outputVariables: ['x'], outputSampleEverySteps: 3 },
+  })
+  await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'decentralabs:batch-execution-event',
+    eventId: 1,
+    event: { kind: 'samples', samples: [{ time: 1, sequence: 1, outputs: { x: 2 } }] },
+  }), '*'))
+  expect(onBatchSimulation).toHaveBeenCalledWith(expect.objectContaining({
+    body: {
+      parameters: { offset: 3 },
+      options: { startTime: 0, stopTime: 1, stepSize: 1, outputVariables: ['x'], outputSampleEverySteps: 3 },
+      inputSchedule: [],
+    },
+    signal: expect.any(AbortSignal),
+  }))
+  send({ type: 'decentralabs:batch-execution-ack', requestId: 'batch:1', eventId: 1 })
+  await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'decentralabs:batch-execution-event', eventId: 2,
+    event: { kind: 'completed', time: 1, finishReason: 'target reached' },
+  }), '*'))
+  send({ type: 'decentralabs:batch-execution-ack', requestId: 'batch:1', eventId: 2 })
+  await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'decentralabs:batch-execution-end', requestId: 'batch:1',
+  }), '*'))
+})
 test('accepts current requests only from the iframe using the current protocol version', () => {
   const onConnect = jest.fn()
   const { send } = mount(onConnect)

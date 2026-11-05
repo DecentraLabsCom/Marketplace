@@ -22,6 +22,21 @@
       "$ref": "#/$defs/connectionError"
     },
     {
+      "$ref": "#/$defs/batchExecutionRequest"
+    },
+    {
+      "$ref": "#/$defs/batchExecutionCancel"
+    },
+    {
+      "$ref": "#/$defs/batchExecutionAck"
+    },
+    {
+      "$ref": "#/$defs/batchExecutionEvent"
+    },
+    {
+      "$ref": "#/$defs/batchExecutionEnd"
+    },
+    {
       "$ref": "#/$defs/executionState"
     },
     {
@@ -166,6 +181,56 @@
         "additionalProperties": false
       }
     },
+    "digitalTwinSample": {
+      "type": "object",
+      "required": ["time", "outputs"],
+      "properties": {
+        "time": { "type": "number" },
+        "outputs": { "$ref": "#/$defs/fmuStateSample/properties/outputs" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "eventOccurred": { "type": "boolean" },
+        "eventHandlingNeeded": { "type": "boolean" },
+        "earlyReturn": { "type": "boolean" },
+        "terminateSimulation": { "type": "boolean" },
+        "finished": { "type": "boolean" },
+        "finishReason": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    "batchSimulationBody": {
+      "type": "object",
+      "required": ["parameters", "options"],
+      "properties": {
+        "parameters": { "$ref": "#/$defs/parameters" },
+        "options": {
+          "type": "object",
+          "required": ["startTime", "stopTime", "stepSize"],
+          "properties": {
+            "startTime": { "type": "number" },
+            "stopTime": { "type": "number" },
+            "stepSize": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "inputSchedule": { "$ref": "#/$defs/inputSchedule" },
+        "checkpoint": { "$ref": "#/$defs/fmuStateCheckpoint" },
+        "captureFmuState": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "batchOptions": {
+      "type": "object",
+      "required": ["maxSamples"],
+      "properties": {
+        "maxSamples": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "outputVariables": {
+          "type": "array", "minItems": 1, "maxItems": 512, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" }
+        },
+        "outputSampleEverySteps": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      },
+      "additionalProperties": false
+    },
     "hostReady": {
       "type": "object",
       "required": [
@@ -294,18 +359,19 @@
         },
         "options": {
           "$ref": "#/$defs/options"
+        },
+        "transport": {
+          "enum": ["websocket", "batch-http"]
+        },
+        "executionPace": {
+          "enum": ["fastest", "realtime"]
         }
       },
       "additionalProperties": false
     },
     "connectionReady": {
       "type": "object",
-      "required": [
-        "type",
-        "version",
-        "requestId",
-        "connection"
-      ],
+      "required": ["type", "version", "requestId"],
       "properties": {
         "type": {
           "const": "decentralabs:fmu-connection-ready"
@@ -316,6 +382,7 @@
         "requestId": {
           "$ref": "#/$defs/id"
         },
+        "transport": { "enum": ["websocket", "batch-http"] },
         "connection": {
           "$ref": "#/$defs/connection"
         },
@@ -327,7 +394,106 @@
             "fastest",
             "realtime"
           ]
+        },
+        "defaultStartTime": { "type": "number" },
+        "defaultStepSize": { "type": "number", "exclusiveMinimum": 0 },
+        "captureFmuStateAvailable": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "transport": { "const": "batch-http" } }, "required": ["transport"] },
+          "then": { "not": { "required": ["connection"] } },
+          "else": { "required": ["connection"] }
         }
+      ],
+      "additionalProperties": false
+    },
+    "batchExecutionRequest": {
+      "type": "object",
+      "required": ["type", "version", "requestId", "runId", "body", "batchOptions"],
+      "properties": {
+        "type": { "const": "decentralabs:batch-execution-request" },
+        "version": { "const": 2 },
+        "requestId": { "$ref": "#/$defs/id" },
+        "runId": { "$ref": "#/$defs/id" },
+        "body": { "$ref": "#/$defs/batchSimulationBody" },
+        "batchOptions": { "$ref": "#/$defs/batchOptions" }
+      },
+      "additionalProperties": false
+    },
+    "batchExecutionCancel": {
+      "type": "object",
+      "required": ["type", "version", "requestId"],
+      "properties": {
+        "type": { "const": "decentralabs:batch-execution-cancel" },
+        "version": { "const": 2 },
+        "requestId": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "batchExecutionAck": {
+      "type": "object",
+      "required": ["type", "version", "requestId", "eventId"],
+      "properties": {
+        "type": { "const": "decentralabs:batch-execution-ack" },
+        "version": { "const": 2 },
+        "requestId": { "$ref": "#/$defs/id" },
+        "eventId": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      },
+      "additionalProperties": false
+    },
+    "batchExecutionEvent": {
+      "type": "object",
+      "required": ["type", "version", "requestId", "eventId", "event"],
+      "properties": {
+        "type": { "const": "decentralabs:batch-execution-event" },
+        "version": { "const": 2 },
+        "requestId": { "$ref": "#/$defs/id" },
+        "eventId": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "event": {
+          "oneOf": [
+            {
+              "type": "object", "required": ["kind", "samples"],
+              "properties": {
+                "kind": { "const": "samples" },
+                "samples": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/digitalTwinSample" } }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object", "required": ["kind", "time"],
+              "properties": {
+                "kind": { "const": "completed" },
+                "time": { "type": "number" },
+                "finishReason": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "checkpoint": { "$ref": "#/$defs/fmuStateCheckpoint" },
+                "checkpointTime": { "type": "number" },
+                "checkpointSample": { "$ref": "#/$defs/digitalTwinSample" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object", "required": ["kind", "code"],
+              "properties": {
+                "kind": { "const": "error" },
+                "code": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "message": { "type": "string", "minLength": 1, "maxLength": 512 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "batchExecutionEnd": {
+      "type": "object",
+      "required": ["type", "version", "requestId"],
+      "properties": {
+        "type": { "const": "decentralabs:batch-execution-end" },
+        "version": { "const": 2 },
+        "requestId": { "$ref": "#/$defs/id" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 128 }
       },
       "additionalProperties": false
     },

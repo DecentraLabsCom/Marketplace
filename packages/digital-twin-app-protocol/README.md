@@ -1,22 +1,28 @@
 # @decentralabs/digital-twin-app-protocol
 
-Optional browser clients and schemas for provider web apps. Simulation traffic
-flows directly between the app and the provider Gateway, using the same
-reservation-ticket WebSocket as `proxy.fmu`. Marketplace only hands the app a
-one-use connection grant and optional visualization controls.
+Optional browser clients and schemas for provider web apps. Finite, fastest
+batch runs use Marketplace's authenticated HTTP/NDJSON stream; interactive,
+continuous and open-ended runs use the reservation-ticket WebSocket directly
+between the app and provider Gateway. Marketplace credentials and session
+cookies remain in the host page and are never exposed to the app iframe.
 
 ## Entry points
 
 * Package root: host integration **v2** constants, validators and TypeScript types.
-* `/fmu-client`: `connectFmuSession(grant)`, a direct Gateway WS client with no
+* `/fmu-client`: `connectFmuSession(grant)`, a direct Gateway WebSocket client with no
   dependency on Marketplace or a parent window.
 * `/client`: `createDigitalTwinAppClient()`, composing direct execution with
   optional Marketplace startup, authorization and visualization integration.
+  Eligible hosted finite runs are routed through the parent-owned HTTP stream;
+  interactive runs retain the direct WebSocket session.
+* `/simulation-stream`: shared NDJSON decoding and event normalization used by
+  the SDK host bridge and the generated GLB runner. Sample batches use an
+  acknowledgement before the host reads the next part of the HTTP stream.
 * `/schema-v2`: the JSON Schema for the host messages.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
 `index.js`, `fmu-client.js`, `parameter-defaults.js`, `batch-controller.js`,
-`input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory.
+`simulation-stream.js`, `input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory.
 If the app also exports scenes, copy `scene-presentation.js` into that directory
 too. The package does not register modules or impose an SDK requirement on
 providers.
@@ -160,6 +166,17 @@ the abort signal and settle so asynchronous result finalization can complete.
 `onResultsComplete` follows the last successful sample callback.
 If both `onSamples` and `onSample` are supplied, only `onSamples` receives
 samples, including the initial sample; otherwise `onSample` receives each one.
+
+When embedded in Marketplace, a finite run using **Fastest** Pace, fixed
+batching, and no input-controller, model-validation or parameter-derivation
+callbacks can use the parent-owned POST/NDJSON stream. The Marketplace host
+makes the authenticated
+request, relays bounded sample batches and waits for the SDK acknowledgement
+before reading further. Requested output variables and sample stride are
+forwarded as simulation options so Gateway and Executor can apply them before
+returning samples. Adaptive, continuous, step-by-step, real-time, open-ended
+and model-feedback runs continue over the direct Gateway WebSocket. Standalone
+use with `getConnection` is unchanged.
 
 Before initialization, the SDK requests the authorized variable descriptors and
 omits any supplied value that exactly matches that variable's declared FMI

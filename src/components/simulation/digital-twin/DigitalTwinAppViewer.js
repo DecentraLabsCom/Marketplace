@@ -14,6 +14,7 @@ import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
 import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 import useDigitalTwinAppHost from './useDigitalTwinAppHost'
+import { omitParametersMatchingFmiStart } from '@decentralabs/digital-twin-app-protocol/parameter-defaults'
 import {
   DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidFmiLsExperiment,
 } from './digitalTwinAppProtocol'
@@ -32,7 +33,7 @@ export default function DigitalTwinAppViewer({
   fmuStateAvailable = false,
   fmuStateScopeKey = '',
   onFmuStateValuesLoad,
-  onModelChangeRequest, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
+  onModelChangeRequest, onBatchSimulation, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
 }) {
   const controlsButtonRef = useRef(null)
   const controlsMenuRef = useRef(null)
@@ -82,8 +83,23 @@ export default function DigitalTwinAppViewer({
   const selectedFmiLsExperiment = availableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
+  async function handleBatchSimulation(request) {
+    const { outputVariables, outputSampleEverySteps } = request.batchOptions || {}
+    return onBatchSimulation({
+      ...request,
+      body: {
+        ...request.body,
+        options: {
+          ...request.body.options,
+          ...(outputVariables ? { outputVariables } : {}),
+          ...(outputSampleEverySteps === undefined ? {} : { outputSampleEverySteps }),
+        },
+        parameters: omitParametersMatchingFmiStart(request.body.parameters, modelVariables),
+      },
+    })
+  }
 
-  async function handleConnectionRequest({ options, capabilities, signal }) {
+  async function handleConnectionRequest({ options, capabilities, signal, transport, executionPace: requestedPace }) {
     const runOptions = { ...options, ...(selectedFmiLsExperiment?.options || {}) }
     const interval = {
       startTime: runOptions.startTime ?? startTime,
@@ -98,11 +114,28 @@ export default function DigitalTwinAppViewer({
       options: interval,
       enabled: enableInputSchedule,
     })
+    const effectivePace = capabilities.includes(EXECUTION_PACE_CAPABILITY)
+      ? executionPace
+      : requestedPace || 'fastest'
+    if (transport === 'batch-http' && effectivePace === 'fastest' && typeof onBatchSimulation === 'function') {
+      return {
+        transport: 'batch-http',
+        inputSchedule: schedule,
+        executionPace: effectivePace,
+        defaultStartTime: startTime,
+        ...(Number.isFinite(stepSize) && stepSize > 0 ? { defaultStepSize: stepSize } : {}),
+        captureFmuStateAvailable: fmuStateAvailable,
+      }
+    }
+    if (typeof onConnect !== 'function') throw new Error('The provider FMU connection is unavailable.')
     const connection = await onConnect({ options: runOptions, signal })
     return {
+      transport: 'websocket',
       connection,
       inputSchedule: schedule,
-      ...(capabilities.includes(EXECUTION_PACE_CAPABILITY) ? { executionPace } : {}),
+      executionPace: effectivePace,
+      defaultStartTime: startTime,
+      ...(Number.isFinite(stepSize) && stepSize > 0 ? { defaultStepSize: stepSize } : {}),
     }
   }
 
@@ -119,7 +152,10 @@ export default function DigitalTwinAppViewer({
   } = useDigitalTwinAppHost({
     appUrl,
     reloadKey,
-    hostExtensions,
+    hostExtensions: {
+      ...hostExtensions,
+      ...(typeof onBatchSimulation === 'function' ? { batchPostStream: true } : {}),
+    },
     onAppReady: (message) => {
       setPlaybackRate(message.defaultPlaybackRate || 1)
       setExecutionPace(message.defaultExecutionPace || 'realtime')
@@ -146,7 +182,8 @@ export default function DigitalTwinAppViewer({
       setFmuStateError('The FMU state could not be saved. Check the model and provider runtime.')
     },
     onModelChangeRequest,
-    onConnectionRequest: typeof onConnect === 'function' ? handleConnectionRequest : null,
+    onConnectionRequest: typeof onConnect === 'function' || typeof onBatchSimulation === 'function' ? handleConnectionRequest : null,
+    onBatchSimulation: typeof onBatchSimulation === 'function' ? handleBatchSimulation : null,
   })
 
   const isRunning = execution.state === 'running'
@@ -537,6 +574,7 @@ export default function DigitalTwinAppViewer({
 
 DigitalTwinAppViewer.propTypes = {
   appUrl: PropTypes.string.isRequired, title: PropTypes.string, onConnect: PropTypes.func,
+  onBatchSimulation: PropTypes.func,
   modelVariables: PropTypes.array, fmiLsParameterPresets: PropTypes.array, fmiLsExperiments: PropTypes.array,
   enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
   fmiLsStruct: PropTypes.object,

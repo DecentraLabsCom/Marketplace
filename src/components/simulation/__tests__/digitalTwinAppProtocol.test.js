@@ -7,9 +7,20 @@ const grant = { protocolVersion: '1.0', gatewayWsUrl: 'wss://provider.example/fm
 const examples = [
   ['app', { type: 'decentralabs:digital-twin-ready', version: 2, capabilities: ['playback-rate', 'execution-control'] }],
   ['app', { type: 'decentralabs:fmu-connection-request', version: 2, requestId: 'grant:1', options: { stopTime: 20 } }],
+  ['app', { type: 'decentralabs:fmu-connection-request', version: 2, requestId: 'grant:batch', transport: 'batch-http', executionPace: 'fastest', options: { stopTime: 20 } }],
+  ['app', {
+    type: 'decentralabs:batch-execution-request', version: 2, requestId: 'batch:1', runId: 'run:1',
+    body: { parameters: { gain: 2 }, options: { startTime: 0, stopTime: 2, stepSize: 0.1 }, inputSchedule: [] },
+    batchOptions: { maxSamples: 64, outputVariables: ['y'] },
+  }],
   ['app', { type: 'decentralabs:execution-state', version: 2, runId: 'run:1', state: 'completed' }],
   ['host', { type: 'decentralabs:digital-twin-host-ready', version: 2, extensions: { qfmu: { enableModelSelection: true } } }],
   ['host', { type: 'decentralabs:fmu-connection-ready', version: 2, requestId: 'grant:1', connection: grant, inputSchedule: [{ time: 1, values: { x: 3 } }] }],
+  ['host', { type: 'decentralabs:fmu-connection-ready', version: 2, requestId: 'grant:batch', transport: 'batch-http', executionPace: 'fastest', defaultStartTime: 0, defaultStepSize: 0.1, captureFmuStateAvailable: true, inputSchedule: [] }],
+  ['host', { type: 'decentralabs:batch-execution-event', version: 2, requestId: 'batch:1', eventId: 1, event: { kind: 'samples', samples: [{ time: 1, outputs: { y: 2 } }] } }],
+  ['host', { type: 'decentralabs:batch-execution-event', version: 2, requestId: 'batch:1', eventId: 2, event: { kind: 'completed', time: 2, finishReason: 'target reached' } }],
+  ['app', { type: 'decentralabs:batch-execution-ack', version: 2, requestId: 'batch:1', eventId: 1 }],
+  ['host', { type: 'decentralabs:batch-execution-end', version: 2, requestId: 'batch:1' }],
   ['host', { type: 'decentralabs:execution-cancel', version: 2, runId: 'run:1' }],
 ]
 test('the published schema matches the SDK schema', () => expect(JSON.parse(readFileSync('docs/provider/digital-twin-threejs-app-contract.schema.json', 'utf8'))).toEqual(schema))

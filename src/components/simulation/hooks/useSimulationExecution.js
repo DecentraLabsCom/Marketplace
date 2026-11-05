@@ -7,6 +7,8 @@ import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
 import { MAX_INTERACTIVE_HISTORY_SAMPLES } from '../utils/interactiveSampleHistory'
+import { postSimulationStream } from '../utils/simulationStreamTransport'
+import { normalizeSimulationStreamEvent, readNdjsonStream } from '@decentralabs/digital-twin-app-protocol/simulation-stream'
 
 export const SIM_STATE = {
   IDLE: 'idle',
@@ -80,24 +82,6 @@ function createStreamingPreview(time, outputs, { preserveExtrema = false } = {})
       selectedIndices.map((index) => values[index] ?? null),
     ])),
   }
-}
-
-async function readNdjsonStream(response, onEvent) {
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop()
-    for (const line of lines) {
-      if (line.trim()) onEvent(JSON.parse(line))
-    }
-  }
-  if (buffer.trim()) onEvent(JSON.parse(buffer))
 }
 
 function resolveDigitalTwinSimulationOptions(baseOptions, requestedOptions, simulationType) {
@@ -316,12 +300,12 @@ export default function useSimulationExecution({
         ...(stateOptions?.captureFmuState ? { captureFmuState: true } : {}),
       }
 
-      const response = await fetchGateway('/api/simulations/stream', {
-        method: 'POST',
+      const response = await postSimulationStream({
+        url: '/api/simulations/stream',
+        fetchImpl: fetchGateway,
         credentials: 'include',
         signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body,
       })
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -344,28 +328,41 @@ export default function useSimulationExecution({
         lastPublishedAt = now
         return true
       }
+      const streamSequence = { nextSequence: 0 }
       await readNdjsonStream(response, (event) => {
-        switch (event.type) {
+        const normalized = normalizeSimulationStreamEvent(event, streamSequence)
+        switch (normalized.kind) {
           case 'started':
-            devLog.log('Simulation started:', event.simId)
+            devLog.log('Simulation started:', normalized.event.simId)
             break
           case 'progress':
-            setProgress((previous) => ({ ...previous, elapsedSeconds: event.elapsedSeconds }))
+            setProgress((previous) => ({ ...previous, elapsedSeconds: normalized.event.elapsedSeconds }))
             break
-          case 'sim.step':
-            if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs, false)) {
-              publishStreamingPreview()
-            }
-            break
-          case 'data':
-            if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs)) {
-              if (publishStreamingPreview()) {
-                setProgress((previous) => ({ ...previous, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
+          case 'samples': {
+            const samples = normalized.samples || []
+            const outputNames = new Set(samples.flatMap((sample) => Object.keys(sample.outputs || {})))
+            const outputSeries = Object.fromEntries([...outputNames].map((name) => [
+              name,
+              samples.map((sample) => sample.outputs?.[name]),
+            ]))
+            if (appendSimulationSamples(
+              accumulatedTime,
+              accumulatedOutputs,
+              samples.map((sample) => sample.time),
+              outputSeries,
+            )) {
+              if (publishStreamingPreview() && normalized.event?.type === 'data') {
+                setProgress((previous) => ({
+                  ...previous,
+                  chunkIndex: normalized.event.chunkIndex,
+                  totalChunks: normalized.event.totalChunks,
+                }))
               }
             }
             break
-          case 'completed':
-          case 'sim.done':
+          }
+          case 'completed': {
+            const event = normalized.metadata || {}
             finalMeta = event
             if (event.checkpoint) {
               const checkpointCandidate = createFmuStateCheckpointCandidate(
@@ -379,12 +376,13 @@ export default function useSimulationExecution({
               setCandidateFmuStateCheckpoint?.(checkpointCandidate)
             }
             break
+          }
           case 'error':
-            throw new Error(event.detail || event.message || 'Simulation error')
+            throw new Error(normalized.message || 'Simulation error')
           default:
             break
         }
-      })
+      }, { signal: controller.signal })
 
       if (controller.signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
       const chart = createStreamingPreview(accumulatedTime, accumulatedOutputs, { preserveExtrema: true })

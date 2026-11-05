@@ -313,6 +313,68 @@ test('uses the parent only to obtain a connection capability', async () => {
   } finally { Object.defineProperty(window, 'parent', parent) }
 })
 
+test('uses the host POST stream for a finite fastest run when the host advertises it', async () => {
+  const parent = Object.getOwnPropertyDescriptor(window, 'parent')
+  const host = { postMessage: jest.fn() }
+  Object.defineProperty(window, 'parent', { configurable: true, value: host })
+  try {
+    const send = (message) => window.dispatchEvent(new MessageEvent('message', { source: host, data: { version: 2, ...message } }))
+    const seen = []
+    let resolveCompletion
+    const completion = new Promise((resolve) => { resolveCompletion = resolve })
+    const client = create({
+      defaultExecutionPace: 'fastest',
+      onSamples: (samples) => seen.push(...samples),
+      onResultsComplete: resolveCompletion,
+    })
+    client.reportReady()
+    send({ type: 'decentralabs:digital-twin-host-ready', extensions: { batchPostStream: true } })
+
+    const started = client.run({ parameters: { gain: 2 }, options: { stopTime: 2, stepSize: 1 } })
+    const connectionRequest = () => host.postMessage.mock.calls.map(([message]) => message)
+      .find((message) => message.type === 'decentralabs:fmu-connection-request')
+    await waitForMessage(host, connectionRequest)
+    const grantRequest = connectionRequest()
+    expect(grantRequest.transport).toBe('batch-http')
+    send({
+      type: 'decentralabs:fmu-connection-ready', requestId: grantRequest.requestId,
+      transport: 'batch-http', executionPace: 'fastest', defaultStartTime: 0, defaultStepSize: 1,
+      inputSchedule: [],
+    })
+    await started
+
+    const batchRequest = () => host.postMessage.mock.calls.map(([message]) => message)
+      .find((message) => message.type === 'decentralabs:batch-execution-request')
+    await waitForMessage(host, batchRequest)
+    expect(batchRequest().body).toMatchObject({ parameters: { gain: 2 }, options: { startTime: 0, stopTime: 2, stepSize: 1 } })
+    send({
+      type: 'decentralabs:batch-execution-event', requestId: batchRequest().requestId,
+      eventId: 1,
+      event: { kind: 'samples', samples: [{ time: 1, sequence: 1, outputs: { x: 3 } }, { time: 2, sequence: 2, outputs: { x: 4 }, finished: true }] },
+    })
+    send({
+      type: 'decentralabs:batch-execution-event', requestId: batchRequest().requestId,
+      eventId: 2,
+      event: { kind: 'completed', time: 2, finishReason: 'target reached' },
+    })
+    send({ type: 'decentralabs:batch-execution-end', requestId: batchRequest().requestId })
+    expect((await completion).state).toBe('completed')
+    expect(seen.map(({ time }) => time)).toEqual([1, 2])
+    expect(connectFmuSession).not.toHaveBeenCalled()
+    expect(host.postMessage.mock.calls.map(([message]) => message).filter((message) => (
+      message.type === 'decentralabs:batch-execution-ack'
+    )).map(({ requestId, eventId }) => ({ requestId, eventId }))).toEqual([
+      { requestId: batchRequest().requestId, eventId: 1 },
+      { requestId: batchRequest().requestId, eventId: 2 },
+    ])
+  } finally { Object.defineProperty(window, 'parent', parent) }
+})
+
+async function waitForMessage(host, findMessage) {
+  for (let attempt = 0; attempt < 20 && !findMessage(); attempt += 1) await flush()
+  expect(findMessage()).toBeTruthy()
+}
+
 test('keeps the run active until asynchronous result finalization finishes', async () => {
   runtime()
   let complete

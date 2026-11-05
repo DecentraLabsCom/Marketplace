@@ -2,7 +2,7 @@ import {
   createProtocolId, DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE,
   isHostMessageEvent, isValidOptions, isValidParameters,
   isValidSample, isRecord, postToHost, MAX_SAMPLES_PER_BATCH,
-  isValidFmuStateCheckpointBundle,
+  isValidFmuStateCheckpointBundle, isValidBatchOptions, isValidBatchSimulationBody,
 } from './index.js'
 import { connectFmuSession } from './fmu-client.js'
 import {
@@ -150,7 +150,9 @@ export function createDigitalTwinAppClient({
   let resumeFromFmuStateCheckpoint = false
   let captureFmuStateOnCompletion = false
   let lastLoadedCheckpointId = null
+  let hostExtensions = {}
   const grants = new Map()
+  const batchRequests = new Map()
   const capabilities = [DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL]
   capabilities.push(DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS)
   capabilities.push(DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECKPOINTS)
@@ -191,15 +193,23 @@ export function createDigitalTwinAppClient({
     if (disposed || !isHostMessageEvent(event)) return
     const message = event.data
     if (message.type === MESSAGE.HOST_READY) {
-      if (!hostReady) { hostReady = true; try { onHostReady?.(message.extensions || {}) } catch (error) { report(error) } }
+      hostExtensions = message.extensions || {}
+      if (!hostReady) {
+        hostReady = true
+        try { onHostReady?.(hostExtensions) } catch (error) { report(error) }
+      }
       readySent = false
       if (startupError) postToHost(MESSAGE.APP_ERROR, { code: startupError })
       else sendReady()
     } else if (message.type === MESSAGE.CONNECTION_READY) {
       finishGrant(message.requestId, null, {
-        connection: message.connection,
+        ...(message.connection ? { connection: message.connection } : {}),
+        ...(message.transport ? { transport: message.transport } : {}),
         inputSchedule: message.inputSchedule || [],
         ...(message.executionPace === undefined ? {} : { executionPace: message.executionPace }),
+        ...(message.defaultStartTime === undefined ? {} : { defaultStartTime: message.defaultStartTime }),
+        ...(message.defaultStepSize === undefined ? {} : { defaultStepSize: message.defaultStepSize }),
+        ...(message.captureFmuStateAvailable === undefined ? {} : { captureFmuStateAvailable: message.captureFmuStateAvailable }),
       })
     } else if (message.type === MESSAGE.CONNECTION_ERROR) {
       finishGrant(message.requestId, errorWithCode('The provider connection could not be authorized.', message.code))
@@ -248,6 +258,21 @@ export function createDigitalTwinAppClient({
           } catch (error) { report(error) }
         }
       }
+    } else if (message.type === MESSAGE.BATCH_EXECUTION_EVENT) {
+      const request = batchRequests.get(message.requestId)
+      if (request && !request.closed) {
+        request.queue.push({ event: message.event, eventId: message.eventId })
+        request.wake?.()
+        request.wake = null
+      }
+    } else if (message.type === MESSAGE.BATCH_EXECUTION_END) {
+      const request = batchRequests.get(message.requestId)
+      if (request && !request.closed) {
+        request.closed = true
+        if (message.code) request.error = errorWithCode('The batch simulation could not be completed.', message.code)
+        request.wake?.()
+        request.wake = null
+      }
     } else if (message.type === MESSAGE.FMU_STATE_CAPTURE) {
       void captureState().catch(report)
     } else if (message.type === MESSAGE.EXECUTION_CANCEL && active?.runId === message.runId) cancel(message.runId)
@@ -257,7 +282,7 @@ export function createDigitalTwinAppClient({
   postToHost(MESSAGE.APP_HELLO)
   if (getConnection) queueMicrotask(() => { if (!disposed) { try { onHostReady?.({}) } catch (error) { report(error) } } })
 
-  function requestConnection(options, signal) {
+  function requestConnection(options, signal, { transport = 'websocket', executionPace } = {}) {
     if (getConnection) return Promise.resolve(getConnection({ options, signal })).then((grant) => grant.connection ? grant : { connection: grant, inputSchedule: [] })
     if (!hostReady || !readySent) return Promise.reject(errorWithCode('The host is not ready to authorize an FMU connection.', 'HOST_NOT_READY'))
     const requestId = createProtocolId('grant')
@@ -266,8 +291,57 @@ export function createDigitalTwinAppClient({
       const timer = setTimeout(() => finishGrant(requestId, errorWithCode('The connection grant timed out.', 'REQUEST_TIMEOUT')), runRequestTimeoutMs)
       grants.set(requestId, { resolve, reject, timer, signal, abort })
       signal.addEventListener('abort', abort, { once: true })
-      postToHost(MESSAGE.CONNECTION_REQUEST, { requestId, options })
+      postToHost(MESSAGE.CONNECTION_REQUEST, {
+        requestId,
+        options,
+        transport,
+        ...(executionPace ? { executionPace } : {}),
+      })
     })
+  }
+
+  function requestBatchSimulation(run, body, batchOptions) {
+    if (!isValidBatchSimulationBody(body) || !isValidBatchOptions(batchOptions)) {
+      throw errorWithCode('The batch simulation request is invalid.', 'INVALID_RUN_REQUEST')
+    }
+    const requestId = createProtocolId('batch')
+    run.batchRequestId = requestId
+    const pending = { queue: [], closed: false, error: null, wake: null }
+    batchRequests.set(requestId, pending)
+    const abort = () => {
+      postToHost(MESSAGE.BATCH_EXECUTION_CANCEL, { requestId })
+      pending.closed = true
+      pending.error = run.controller.signal.reason || new DOMException('Cancelled', 'AbortError')
+      pending.wake?.()
+      pending.wake = null
+    }
+    run.controller.signal.addEventListener('abort', abort, { once: true })
+    if (run.controller.signal.aborted) abort()
+    if (!postToHost(MESSAGE.BATCH_EXECUTION_REQUEST, { requestId, runId: run.runId, body, batchOptions })) {
+      pending.closed = true
+      pending.error = errorWithCode('The host cannot execute batch simulations.', 'BATCH_EXECUTION_UNAVAILABLE')
+    }
+    return {
+      async *[Symbol.asyncIterator]() {
+        try {
+          while (true) {
+            if (pending.queue.length) {
+              yield pending.queue.shift()
+              continue
+            }
+            if (pending.closed) {
+              if (pending.error) throw pending.error
+              return
+            }
+            await new Promise((resolve) => { pending.wake = resolve })
+          }
+        } finally {
+          if (!pending.closed) postToHost(MESSAGE.BATCH_EXECUTION_CANCEL, { requestId })
+          run.controller.signal.removeEventListener('abort', abort)
+          batchRequests.delete(requestId)
+        }
+      },
+    }
   }
 
   function state(run, value) {
@@ -354,6 +428,11 @@ export function createDigitalTwinAppClient({
     postToHost(MESSAGE.FMU_STATE_SAVED, { bundle })
   }
   async function captureState(run = active || completedRun) {
+    if (run?.batchCheckpointBundle) {
+      notifyCheckpoint(run.batchCheckpointBundle)
+      if (run === completedRun) releaseCompletedRun()
+      return run.batchCheckpointBundle
+    }
     if (!run?.session) throw errorWithCode('There is no active FMU session to capture.', 'RUN_UNAVAILABLE')
     try {
       const capturedBundle = await run.session.captureState()
@@ -391,8 +470,8 @@ export function createDigitalTwinAppClient({
       }
     }
     const retainCompletedRun = outcome === 'completed' && !disposed
-      && run.session?.capabilities?.fmuState?.getAndSet === true
-      && run.session.capabilities?.fmuState?.serialize === true
+      && (run.batchCheckpointBundle || (run.session?.capabilities?.fmuState?.getAndSet === true
+        && run.session.capabilities?.fmuState?.serialize === true))
     if (retainCompletedRun) {
       releaseCompletedRun()
       completedRun = run
@@ -440,6 +519,57 @@ export function createDigitalTwinAppClient({
       run.pendingInputValues = { ...(run.pendingInputValues || {}), ...values }
     }
   }
+
+  async function pumpBatchHttp(run, body, batchOptions) {
+    try {
+      let completedEvent = null
+      for await (const { event, eventId } of requestBatchSimulation(run, body, batchOptions)) {
+        run.controller.signal.throwIfAborted()
+        try {
+          if (event.kind === 'samples') {
+            await deliver(run, event.samples)
+          } else if (event.kind === 'completed') {
+            completedEvent = event
+            if (event.checkpoint) {
+              const checkpointTime = event.checkpointTime ?? event.time
+              const modelValues = { ...(run.modelValues || {}) }
+              for (const scheduled of run.schedule || []) {
+                if (scheduled.time <= checkpointTime + 1e-12) Object.assign(modelValues, scheduled.values)
+              }
+              const sample = event.checkpointSample
+                || (run.lastSample && Math.abs(run.lastSample.time - checkpointTime) <= 1e-9
+                  ? run.lastSample
+                  : undefined)
+              const checkpointBundle = {
+                version: 1,
+                simTime: checkpointTime,
+                checkpoint: event.checkpoint,
+                ...(sample ? { sample } : {}),
+                ...(Object.keys(modelValues).length ? { modelValues } : {}),
+              }
+              if (!isValidFmuStateCheckpointBundle(checkpointBundle)) {
+                throw errorWithCode('The FMU state checkpoint response is invalid.', 'INVALID_FMU_STATE')
+              }
+              run.batchCheckpointBundle = checkpointBundle
+            }
+          } else if (event.kind === 'error') {
+            throw errorWithCode(event.message || 'The batch simulation could not be completed.', event.code)
+          }
+        } finally {
+          postToHost(MESSAGE.BATCH_EXECUTION_ACK, { requestId: run.batchRequestId, eventId })
+        }
+      }
+      if (!completedEvent) throw errorWithCode('The batch simulation ended without a completion result.', 'INVALID_FMU_RESPONSE')
+      if (run.batchCaptureExpected && !run.batchCheckpointBundle) {
+        throw errorWithCode('The provider did not return the requested FMU state checkpoint.', 'FMU_STATE_CAPTURE_FAILED')
+      }
+      run.finalTime = completedEvent.time
+      await finish(run, 'completed')
+    } catch (error) {
+      await finish(run, run.controller.signal.aborted ? 'cancelled' : 'error', error)
+    }
+  }
+
   async function pump(run) {
     try {
       let time = run.resumeTime ?? run.options.startTime
@@ -640,6 +770,85 @@ export function createDigitalTwinAppClient({
     } catch (error) { await finish(run, run.controller.signal.aborted ? 'cancelled' : 'error', error) }
   }
 
+  async function startBatchHttpRun(run, grant, {
+    parameters, options, inputSchedule, composeInputSchedule, shouldCaptureFmuState,
+  }) {
+    if (grant.executionPace !== 'fastest') {
+      throw errorWithCode('The host authorized an incompatible execution pace for HTTP batch mode.', 'INVALID_HOST_MESSAGE')
+    }
+    const startTime = options.startTime ?? grant.defaultStartTime ?? 0
+    const stopTime = options.stopTime
+    const stepSize = options.stepSize ?? grant.defaultStepSize ?? 0.001
+    const resolvedOptions = {
+      startTime,
+      ...(stopTime === undefined ? {} : { stopTime }),
+      stepSize,
+    }
+    if (!isValidOptions(resolvedOptions) || !Number.isFinite(stopTime)
+      || stopTime <= startTime || stepSize <= 0) {
+      throw errorWithCode('HTTP batch execution requires a finite, valid simulation interval.', 'INVALID_RUN_REQUEST')
+    }
+    const resumeTime = run.checkpointBundle?.simTime ?? startTime
+    if (run.checkpointBundle && resumeTime < startTime) {
+      throw errorWithCode('The saved FMU state is earlier than the configured simulation start time.', 'INVALID_RUN_REQUEST')
+    }
+    if (resumeTime >= stopTime) {
+      throw errorWithCode('Stop time must be later than the saved FMU state. Stop time is absolute.', 'INVALID_RUN_REQUEST')
+    }
+    if (shouldCaptureFmuState && grant.captureFmuStateAvailable !== true) {
+      throw errorWithCode('The provider FMU runtime does not support serialized FMU states.', 'UNSUPPORTED_FMU_STATE')
+    }
+
+    const runParameters = { ...parameters }
+    run.modelValues = { ...runParameters, ...(run.checkpointBundle?.modelValues || {}) }
+    run.options = resolvedOptions
+    run.resumeTime = resumeTime
+    run.runOptions = { ...resolvedOptions, startTime: resumeTime }
+    run.executionPace = 'fastest'
+    run.batchPolicy = 'fixed'
+    run.schedule = []
+    run.batchCaptureExpected = grant.captureFmuStateAvailable === true
+
+    const candidateSchedule = composeInputSchedule
+      ? await composeInputSchedule([...(grant.inputSchedule || [])])
+      : inputSchedule ?? grant.inputSchedule ?? []
+    if (!isValidRunInputSchedule(candidateSchedule)) {
+      throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
+    }
+    const schedule = run.checkpointBundle
+      ? candidateSchedule.filter((event) => event.time >= resumeTime - 1e-12)
+      : candidateSchedule
+    if (!isValidRunInputSchedule(schedule)
+      || schedule.some((event) => event.time < resumeTime || event.time >= stopTime)) {
+      throw errorWithCode('Invalid input schedule.', 'INVALID_INPUT_SCHEDULE')
+    }
+    run.schedule = [...schedule].sort((a, b) => a.time - b.time)
+
+    const body = {
+      parameters: run.checkpointBundle ? {} : runParameters,
+      options: { ...resolvedOptions, startTime: resumeTime },
+      ...(run.schedule.length ? { inputSchedule: run.schedule } : {}),
+      ...(run.checkpointBundle ? { checkpoint: run.checkpointBundle.checkpoint } : {}),
+      ...(grant.captureFmuStateAvailable || shouldCaptureFmuState ? { captureFmuState: true } : {}),
+    }
+    const batchOptions = {
+      maxSamples: run.maxBatchSamples,
+      ...(run.advanceOptions.outputVariables ? { outputVariables: run.advanceOptions.outputVariables } : {}),
+      ...(run.advanceOptions.outputSampleEverySteps === undefined
+        ? {} : { outputSampleEverySteps: run.advanceOptions.outputSampleEverySteps }),
+    }
+    if (!isValidBatchSimulationBody(body) || !isValidBatchOptions(batchOptions)) {
+      throw errorWithCode('The HTTP batch simulation request is invalid.', 'INVALID_RUN_REQUEST')
+    }
+
+    onReset?.(run.runId)
+    state(run, 'running')
+    onRunAccepted?.({ runId: run.runId })
+    try { onExecutionPace?.('fastest') } catch (error) { report(error) }
+    void pumpBatchHttp(run, body, batchOptions).catch(report)
+    return { runId: run.runId }
+  }
+
   async function run({
     parameters = {}, options = {}, inputSchedule, composeInputSchedule, inputController, batchPolicy,
     maxBatchSamples = MAX_SAMPLES_PER_BATCH, adaptiveBatchOptions = {}, advanceOptions = {},
@@ -713,12 +922,37 @@ export function createDigitalTwinAppClient({
     }
     active = current
     try {
-      const grant = await requestConnection(options, current.controller.signal)
+      const preferredPace = requestedExecutionPace ?? configuredExecutionPace
+      const canUseBatchHttp = !getConnection
+        && hostExtensions.batchPostStream === true
+        && Number.isFinite(options.stopTime)
+        && !inputController
+        && !inputControllerTimes.length
+        && inputControllerInterval === undefined
+        && !validateModel
+        && !parametersFromModel
+        && batchPolicy !== 'adaptive'
+        && preferredPace === 'fastest'
+      const grant = await requestConnection(options, current.controller.signal, {
+        transport: canUseBatchHttp ? 'batch-http' : 'websocket',
+        executionPace: preferredPace,
+      })
       current.controller.signal.throwIfAborted()
       if (grant.executionPace !== undefined && !VALID_EXECUTION_PACES.has(grant.executionPace)) {
         throw errorWithCode('The host returned an invalid execution pace.', 'INVALID_HOST_MESSAGE')
       }
       current.executionPace = grant.executionPace ?? requestedExecutionPace ?? configuredExecutionPace
+      if (grant.transport === 'batch-http') {
+        current.maxBatchSamples = maxBatchSamples
+        await startBatchHttpRun(current, grant, {
+          parameters,
+          options,
+          inputSchedule,
+          composeInputSchedule,
+          shouldCaptureFmuState,
+        })
+        return { runId: current.runId }
+      }
       current.batchPolicy = batchPolicy ?? (current.executionPace === 'realtime' ? 'adaptive' : 'fixed')
       current.maxBatchSamples = maxBatchSamples
       const perSampleInputController = Boolean(inputController)
