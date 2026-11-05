@@ -285,7 +285,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
 
-  const getInteractiveConnection = useCallback(async ({ signal }) => {
+  const requestFmuConnection = useCallback(async ({ signal }) => {
     const response = await fetchGateway('/api/simulations/connection', {
       method: 'POST',
       credentials: 'include',
@@ -306,7 +306,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   }, [])
 
   const interactiveExecution = useInteractiveTwinExecution({
-    getConnection: getInteractiveConnection,
+    getConnection: requestFmuConnection,
     options: effectiveOptions,
     parameters,
     modelVariables: twinModelVariables,
@@ -530,15 +530,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
         <DigitalTwinAppViewer
           appUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
-          onConnect={async ({ signal }) => {
-            const response = await fetchGateway('/api/simulations/connection', {
-              method: 'POST', credentials: 'include', signal,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ labId: String(lab.id ?? lab.tokenId), reservationKey }),
-            })
-            if (!response.ok) throw new Error('The provider FMU connection could not be authorized.')
-            return response.json()
-          }}
+          onConnect={requestFmuConnection}
           onBatchSimulation={({ body, signal }) => postSimulationStream({
             url: '/api/simulations/stream',
             fetchImpl: fetchGateway,
