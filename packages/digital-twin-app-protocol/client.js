@@ -8,6 +8,8 @@ import { connectFmuSession } from './fmu-client.js'
 import {
   createAdaptiveBatchController,
   getAdaptiveBatchSize,
+  getRealtimePaceWaitMs,
+  getRealtimePacedBatchSize,
   observeAdaptiveBatch,
 } from './batch-controller.js'
 import {
@@ -119,17 +121,6 @@ const wait = (ms, signal) => new Promise((resolve, reject) => {
   signal.addEventListener('abort', aborted, { once: true })
   if (signal.aborted) aborted()
 })
-
-async function waitForRealtimeTarget(run, targetTime) {
-  if (run.executionPace !== 'realtime' || !run.paceClock) return
-  const targetWallTime = run.paceClock.wallTime + Math.max(0, targetTime - run.paceClock.simTime) * 1000
-  while (true) {
-    run.controller.signal.throwIfAborted()
-    const remainingMs = targetWallTime - performance.now()
-    if (remainingMs <= 0) return
-    await wait(Math.max(1, Math.min(remainingMs, 100)), run.controller.signal)
-  }
-}
 
 /** Optional host UI integration composed with the independent direct FMU client. */
 export function createDigitalTwinAppClient({
@@ -304,7 +295,8 @@ export function createDigitalTwinAppClient({
   }
   async function operation(run, type, expected, payload) {
     const readsOutputs = ['sim.getOutputs', 'sim.advance'].includes(type)
-    const writesInputs = type === 'sim.setInputs'
+    const inputValues = type === 'sim.setInputs' ? payload.values : type === 'sim.advance' ? payload.inputValues : null
+    const writesInputs = isRecord(inputValues) && Object.keys(inputValues).length > 0
     const tracksAdaptiveResponse = run.batchPolicy === 'adaptive' && type === 'sim.advance'
     const operationStartedAt = performance.now()
     let rateLimitWaitMs = 0
@@ -313,7 +305,11 @@ export function createDigitalTwinAppClient({
       try {
         if (writesInputs && run.lastInputUpdateAt !== null) {
           const waitMs = run.lastInputUpdateAt + getInputUpdateIntervalMs(run.session.capabilities) - performance.now()
-          if (waitMs > 0) await wait(Math.ceil(waitMs), run.controller.signal)
+          if (waitMs > 0) {
+            const waitStartedAt = performance.now()
+            await wait(Math.ceil(waitMs), run.controller.signal)
+            rateLimitWaitMs += performance.now() - waitStartedAt
+          }
         }
         if (readsOutputs && run.nextOutputAt > performance.now()) {
           const throttleWaitStartedAt = performance.now()
@@ -323,7 +319,7 @@ export function createDigitalTwinAppClient({
         const response = await run.session.request(type, expected, payload)
         if (writesInputs) {
           run.lastInputUpdateAt = performance.now()
-          run.modelValues = { ...run.modelValues, ...payload.values }
+          run.modelValues = { ...run.modelValues, ...inputValues }
         }
         if (readsOutputs) {
           if (tracksAdaptiveResponse) {
@@ -341,7 +337,9 @@ export function createDigitalTwinAppClient({
           ? getInputUpdateRetryDelayMs(error, run.session.capabilities)
           : null
         if (inputRetryAfterMs !== null) {
+          const waitStartedAt = performance.now()
           await wait(inputRetryAfterMs, run.controller.signal)
+          rateLimitWaitMs += performance.now() - waitStartedAt
           continue
         }
         if (error.code !== 'OUTPUT_READ_RATE_LIMITED' || !Number.isFinite(error.retryAfterMs) || error.retryAfterMs < 1 || error.retryAfterMs > 10_000) throw error
@@ -439,7 +437,7 @@ export function createDigitalTwinAppClient({
     run.controller.signal.throwIfAborted()
     if (values && Object.keys(values).length) {
       if (!isValidParameters(values)) throw errorWithCode('Invalid controller inputs.', 'INVALID_INPUT')
-      await operation(run, 'sim.setInputs', 'sim.inputs.updated', { values })
+      run.pendingInputValues = { ...(run.pendingInputValues || {}), ...values }
     }
   }
   async function pump(run) {
@@ -451,8 +449,35 @@ export function createDigitalTwinAppClient({
       while (!hasStopTime || time < stopTime - 1e-12) {
         run.controller.signal.throwIfAborted()
         const scheduleTolerance = Math.max(1e-9, Math.abs(run.options.stepSize) * 1e-7)
+        const hasDueSchedule = eventIndex < run.schedule.length
+          && run.schedule[eventIndex].time <= time + scheduleTolerance
+        if (hasDueSchedule && run.pendingInputValues && Object.keys(run.pendingInputValues).length) {
+          await operation(run, 'sim.setInputs', 'sim.inputs.updated', { values: run.pendingInputValues })
+          run.pendingInputValues = null
+        }
         while (eventIndex < run.schedule.length && run.schedule[eventIndex].time <= time + scheduleTolerance) {
           await operation(run, 'sim.setInputs', 'sim.inputs.updated', { values: run.schedule[eventIndex++].values })
+        }
+        if (run.executionPace === 'realtime') {
+          let waitMs = getRealtimePaceWaitMs({
+            currentTime: time,
+            stopTime,
+            stepSize: run.options.stepSize,
+            sampleEverySteps: run.advanceOptions.outputSampleEverySteps ?? 1,
+            paceClock: run.paceClock,
+            now: performance.now(),
+          })
+          while (waitMs > 0) {
+            await wait(Math.min(waitMs, 100), run.controller.signal)
+            waitMs = getRealtimePaceWaitMs({
+              currentTime: time,
+              stopTime,
+              stepSize: run.options.stepSize,
+              sampleEverySteps: run.advanceOptions.outputSampleEverySteps ?? 1,
+              paceClock: run.paceClock,
+              now: performance.now(),
+            })
+          }
         }
         const nextControllerTime = run.inputController
           ? Math.min(
@@ -463,23 +488,36 @@ export function createDigitalTwinAppClient({
         const controllerTargetTime = hasStopTime
           ? Math.min(stopTime, nextControllerTime)
           : nextControllerTime
-        const controllerSampleLimit = run.inputController && run.inputControllerInterval
-          ? Math.max(1, Math.ceil((controllerTargetTime - time) / run.options.stepSize) + 1)
-          : 1
+        const outputSampleEverySteps = run.advanceOptions.outputSampleEverySteps ?? 1
+        const controllerSampleLimit = run.inputController
+          ? run.inputControllerInterval || run.inputControllerTimes.length
+            ? Math.max(1, Math.ceil((controllerTargetTime - time) / (run.options.stepSize * outputSampleEverySteps)) + 1)
+            : 1
+          : run.maxBatchSamples
         const maxSamples = run.batchPolicy === 'adaptive'
-          ? getAdaptiveBatchSize(run.batchController)
+          ? Math.min(getAdaptiveBatchSize(run.batchController), controllerSampleLimit)
           : run.inputController
             ? Math.min(run.maxBatchSamples, controllerSampleLimit)
             : run.maxBatchSamples
-        const outputSampleEverySteps = run.advanceOptions.outputSampleEverySteps ?? 1
+        const pacedMaxSamples = run.executionPace === 'realtime'
+          ? getRealtimePacedBatchSize({
+            currentTime: time,
+            stopTime,
+            stepSize: run.options.stepSize,
+            sampleEverySteps: outputSampleEverySteps,
+            maxSamples,
+            paceClock: run.paceClock,
+            now: performance.now(),
+          })
+          : maxSamples
         const maxSampleTargetTime = hasStopTime
-          ? Math.min(stopTime, time + maxSamples * outputSampleEverySteps * run.options.stepSize)
-          : time + maxSamples * outputSampleEverySteps * run.options.stepSize
+          ? Math.min(stopTime, time + pacedMaxSamples * outputSampleEverySteps * run.options.stepSize)
+          : time + pacedMaxSamples * outputSampleEverySteps * run.options.stepSize
         // Scheduled advances are rejected before execution when their time
         // span would produce more samples than maxSamples. Keep the schedule
         // horizon within the current batch budget, including the first
         // adaptive batch while its estimate is still one sample.
-        const scheduleBatch = run.schedule.length
+        let scheduleBatch = run.schedule.length
           ? createScheduledInputBatch(run, eventIndex, Math.min(controllerTargetTime, maxSampleTargetTime))
           : { events: [] }
         const scheduledTargetTime = scheduleBatch.events.length
@@ -487,20 +525,41 @@ export function createDigitalTwinAppClient({
           : Infinity
         let targetTime = Math.min(controllerTargetTime, maxSampleTargetTime, scheduledTargetTime)
         if (!Number.isFinite(targetTime)) targetTime = maxSampleTargetTime
+        if (run.pendingInputValues && Object.keys(run.pendingInputValues).length) {
+          // Current-time scheduled changes are sent before the next advance;
+          // flush a controller update first so schedule order remains intact.
+          const firstScheduledEvent = scheduleBatch.events[0]
+          if (firstScheduledEvent && firstScheduledEvent.time <= time + scheduleTolerance) {
+            await operation(run, 'sim.setInputs', 'sim.inputs.updated', { values: run.pendingInputValues })
+            run.pendingInputValues = null
+          }
+        }
+        if (scheduleBatch.events.length) {
+          const pacedScheduleBatch = createScheduledInputBatch(run, eventIndex, targetTime)
+          scheduleBatch = pacedScheduleBatch
+        }
         if (targetTime <= time + scheduleTolerance) {
           targetTime = hasStopTime
             ? Math.min(stopTime, time + run.options.stepSize)
             : time + run.options.stepSize
         }
-        await waitForRealtimeTarget(run, targetTime)
+        let pendingInputValues = run.pendingInputValues
+        if (pendingInputValues && Object.keys(pendingInputValues).length
+          && run.session.capabilities.advanceInputValues !== true) {
+          await operation(run, 'sim.setInputs', 'sim.inputs.updated', { values: pendingInputValues })
+          if (run.pendingInputValues === pendingInputValues) run.pendingInputValues = null
+          pendingInputValues = null
+        }
         const result = await operation(run, 'sim.advance', 'sim.samples', {
           targetTime,
-          maxSamples,
+          maxSamples: pacedMaxSamples,
           stepSize: run.options.stepSize,
           ...(scheduleBatch.events.length ? { inputSchedule: scheduleBatch.events } : {}),
+          ...(pendingInputValues && Object.keys(pendingInputValues).length ? { inputValues: pendingInputValues } : {}),
           ...run.advanceOptions,
           ...(run.batchPolicy === 'adaptive' ? { maxComputeMs: run.batchController.maxComputeMs } : {}),
         })
+        if (pendingInputValues && run.pendingInputValues === pendingInputValues) run.pendingInputValues = null
         const batchReceivedAt = run.batchPolicy === 'adaptive' ? performance.now() : null
         const tolerance = Math.max(1e-9, Math.abs(run.options.stepSize) * 1e-7)
         if (!Array.isArray(result.samples) || !result.samples.length || !Number.isFinite(result.simTime)
@@ -582,7 +641,7 @@ export function createDigitalTwinAppClient({
   }
 
   async function run({
-    parameters = {}, options = {}, inputSchedule, composeInputSchedule, inputController, batchPolicy = 'fixed',
+    parameters = {}, options = {}, inputSchedule, composeInputSchedule, inputController, batchPolicy,
     maxBatchSamples = MAX_SAMPLES_PER_BATCH, adaptiveBatchOptions = {}, advanceOptions = {},
     executionPace: requestedExecutionPace,
     validateModel, parametersFromModel,
@@ -633,7 +692,7 @@ export function createDigitalTwinAppClient({
     if (inputSchedule !== undefined && composeInputSchedule !== undefined) {
       throw errorWithCode('Use either inputSchedule or composeInputSchedule.', 'INVALID_INPUT')
     }
-    if (!['fixed', 'adaptive'].includes(batchPolicy)) throw errorWithCode('Invalid batch policy.', 'INVALID_INPUT')
+    if (batchPolicy !== undefined && !['fixed', 'adaptive'].includes(batchPolicy)) throw errorWithCode('Invalid batch policy.', 'INVALID_INPUT')
     if (!isRecord(adaptiveBatchOptions)) throw errorWithCode('Invalid adaptive batch options.', 'INVALID_INPUT')
     if (!isValidAdvanceOptions(advanceOptions)) throw errorWithCode('Invalid FMU advance options.', 'INVALID_INPUT')
     if (!Number.isInteger(maxBatchSamples) || maxBatchSamples < 1 || maxBatchSamples > MAX_SAMPLES_PER_BATCH) throw errorWithCode(`maxBatchSamples must be an integer from 1 to ${MAX_SAMPLES_PER_BATCH}.`, 'INVALID_INPUT')
@@ -650,6 +709,7 @@ export function createDigitalTwinAppClient({
       checkpointBundle, captureFmuStateOnComplete: shouldCaptureFmuState,
       batchPolicy, maxBatchSamples, adaptiveBatchOptions,
       lastSampleSequence: null, lastInputUpdateAt: null,
+      pendingInputValues: null,
     }
     active = current
     try {
@@ -659,14 +719,19 @@ export function createDigitalTwinAppClient({
         throw errorWithCode('The host returned an invalid execution pace.', 'INVALID_HOST_MESSAGE')
       }
       current.executionPace = grant.executionPace ?? requestedExecutionPace ?? configuredExecutionPace
-      current.batchPolicy = current.executionPace === 'realtime' ? 'fixed' : batchPolicy
-      current.maxBatchSamples = current.executionPace === 'realtime' ? 1 : maxBatchSamples
-      if (current.batchPolicy === 'adaptive' && inputController) {
-        throw errorWithCode('Adaptive batching cannot be combined with a per-sample input controller.', 'INVALID_INPUT')
+      current.batchPolicy = batchPolicy ?? (current.executionPace === 'realtime' ? 'adaptive' : 'fixed')
+      current.maxBatchSamples = maxBatchSamples
+      const perSampleInputController = Boolean(inputController)
+        && inputControllerInterval === undefined
+        && effectiveInputControllerTimes.length === 0
+      if (current.batchPolicy === 'adaptive' && perSampleInputController && batchPolicy === undefined) {
+        // Closed-loop controllers that need every sample retain one-step
+        // feedback; other real-time runs use the shared adaptive batching.
+        current.batchPolicy = 'fixed'
+        current.maxBatchSamples = 1
       }
-      if (inputController && !inputControllerInterval
-        && current.maxBatchSamples !== MAX_SAMPLES_PER_BATCH && current.maxBatchSamples !== 1) {
-        throw errorWithCode('maxBatchSamples must be 1 when using a per-sample input controller without an update interval.', 'INVALID_INPUT')
+      if (current.batchPolicy === 'adaptive' && perSampleInputController) {
+        throw errorWithCode('Adaptive batching cannot be combined with a per-sample input controller.', 'INVALID_INPUT')
       }
       try { onExecutionPace?.(current.executionPace) } catch (error) { report(error) }
       current.session = await connectFmuSession(grant.connection, { signal: current.controller.signal })

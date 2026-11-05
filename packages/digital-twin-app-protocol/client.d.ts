@@ -56,6 +56,7 @@ export interface DigitalTwinAppClient {
     composeInputSchedule?: (providerSchedule: InputEvent[]) => InputEvent[] | Promise<InputEvent[]>
     inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
     inputControllerInterval?: number; inputControllerTimes?: number[]
+    /** Defaults to adaptive for realtime Pace and fixed for fastest Pace. */
     batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
     /** Pace override for standalone runs. A host selection takes precedence. */
     executionPace?: 'fastest' | 'realtime'

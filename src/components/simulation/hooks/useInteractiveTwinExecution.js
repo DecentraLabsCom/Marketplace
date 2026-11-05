@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { connectFmuSession } from '@decentralabs/digital-twin-app-protocol/fmu-client'
+import {
+  getRealtimePaceWaitMs,
+  getRealtimePacedBatchSize,
+} from '@decentralabs/digital-twin-app-protocol/batch-controller'
 import { normalizeInitializationParameters, normalizeSimulationParameters } from '../utils/simulationParameters'
 import { getSimulationOptionsError, normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import {
@@ -84,6 +88,14 @@ async function requestRealtimeOperation(session, type, expectedType, payload, si
       })
       return response
     } catch (error) {
+      const inputRetryAfterMs = getInputUpdateRetryDelayMs(error, session.capabilities)
+      if (inputRetryAfterMs !== null && payload?.inputValues && Object.keys(payload.inputValues).length) {
+        const retryStartedAt = performance.now()
+        const quota = getInputUpdateQuota(session.capabilities)
+        await waitForRealtimeRetry(inputRetryAfterMs, signal, quota.windowMs + 1000)
+        rateLimitWaitMs += performance.now() - retryStartedAt
+        continue
+      }
       if (error?.code !== 'OUTPUT_READ_RATE_LIMITED') {
         onRequestComplete?.({
           responseMs: performance.now() - operationStartedAt,
@@ -136,6 +148,7 @@ export default function useInteractiveTwinExecution({
   const continuousLoopPromiseRef = useRef(null)
   const endAfterAdvanceRef = useRef(false)
   const simulationTimeRef = useRef(0)
+  const readableOutputNamesRef = useRef([])
   const latestSampleRef = useRef(null)
   const latestSampleIndexRef = useRef(-1)
   const latestBatchReceivedAtRef = useRef(null)
@@ -274,6 +287,8 @@ export default function useInteractiveTwinExecution({
       }
 
       let inputChangedAt = null
+      let submittedInputChangedAt = null
+      let changedValuesForAdvance = {}
       let changedValues = getChangedRuntimeValues()
       if (Object.keys(changedValues).length > 0) {
         const quota = getInputUpdateQuota(session.capabilities)
@@ -287,7 +302,11 @@ export default function useInteractiveTwinExecution({
           ensureCurrentSession()
           changedValues = getChangedRuntimeValues()
           if (Object.keys(changedValues).length === 0) break
-          const submittedInputChangedAt = pendingRuntimeInputChangedAtRef.current
+          submittedInputChangedAt = pendingRuntimeInputChangedAtRef.current
+          if (continuous && session.capabilities?.advanceInputValues === true) {
+            changedValuesForAdvance = changedValues
+            break
+          }
           try {
             await session.request('sim.setInputs', 'sim.inputs.updated', { values: changedValues })
             ensureCurrentSession()
@@ -321,6 +340,7 @@ export default function useInteractiveTwinExecution({
         return false
       }
 
+      const readableOutputNames = readableOutputNamesRef.current
       if (continuous) {
         const batchController = batchControllerRef.current
         if (batchPolicy === 'adaptive' && !batchController) {
@@ -337,17 +357,14 @@ export default function useInteractiveTwinExecution({
           }
         const realtimePacing = realtimePacingRef.current
         if (realtimePacing) {
-          const elapsedRealTime = Math.max(0, performance.now() - realtimePacing.wallTime) / 1000
-          const availableSimulationTime = stopTime === null
-            ? realtimePacing.simTime + elapsedRealTime
-            : Math.min(stopTime, realtimePacing.simTime + elapsedRealTime)
-          const tolerance = Math.max(1e-9, Math.abs(stepSize) * 1e-7)
-          let availableSamples = Math.floor((availableSimulationTime - currentTime + tolerance) / stepSize)
-          if (stopTime !== null && remainingTime < stepSize - tolerance
-            && availableSimulationTime >= stopTime - tolerance) {
-            availableSamples = Math.max(availableSamples, 1)
-          }
-          const pacedSamples = Math.min(plan.maxSamples, Math.max(1, availableSamples))
+          const pacedSamples = getRealtimePacedBatchSize({
+            currentTime,
+            stopTime,
+            stepSize,
+            maxSamples: plan.maxSamples,
+            paceClock: realtimePacing,
+            now: performance.now(),
+          })
           plan = {
             ...plan,
             targetTime: stopTime === null
@@ -366,8 +383,20 @@ export default function useInteractiveTwinExecution({
           maxSamples: plan.maxSamples,
           stepSize,
           maxComputeMs: plan.maxComputeMs,
+          ...(Object.keys(changedValuesForAdvance).length ? { inputValues: changedValuesForAdvance } : {}),
+          ...(readableOutputNames.length > 0 && readableOutputNames.length <= 512
+            ? { outputVariables: readableOutputNames }
+            : {}),
         }, controller.signal, (metrics) => { responseMetrics = metrics })
         ensureCurrentSession()
+        if (Object.keys(changedValues).length) {
+          lastInputUpdateAtRef.current = performance.now()
+          appliedRuntimeParametersRef.current = { ...appliedRuntimeParametersRef.current, ...changedValues }
+          inputChangedAt = submittedInputChangedAt
+          if (pendingRuntimeInputChangedAtRef.current === submittedInputChangedAt) {
+            pendingRuntimeInputChangedAtRef.current = null
+          }
+        }
 
         const samples = response.samples
         const nextTime = Number(response.simTime)
@@ -511,9 +540,13 @@ export default function useInteractiveTwinExecution({
     while (continuousRequestedRef.current && sessionRef.current) {
       controller.signal.throwIfAborted()
       const currentTime = simulationTimeRef.current
-      const nextTime = stopTime === null ? currentTime + stepSize : Math.min(stopTime, currentTime + stepSize)
-      const dueAt = pacing.wallTime + (nextTime - pacing.simTime) * 1000
-      const waitMs = dueAt - performance.now()
+      const waitMs = getRealtimePaceWaitMs({
+        currentTime,
+        stopTime,
+        stepSize,
+        paceClock: pacing,
+        now: performance.now(),
+      })
       if (waitMs <= 0) return true
       await waitForRealtimeRetry(Math.max(1, Math.min(waitMs, 100)), controller.signal, 100)
     }
@@ -715,6 +748,7 @@ export default function useInteractiveTwinExecution({
       ensureCurrentRun()
 
       const readableOutputNames = getReadableOutputNames(modelVariables, variableAccess)
+      readableOutputNamesRef.current = readableOutputNames
       let initialOutputs = {}
       let initialTime = activeOptions.startTime
       if (readableOutputNames.length > 0) {

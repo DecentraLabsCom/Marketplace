@@ -16,7 +16,71 @@ export const SIM_STATE = {
   ERROR: 'error',
 }
 
-const STREAMING_SAMPLE_UPDATE_INTERVAL = 16
+const STREAMING_SAMPLE_UPDATE_INTERVAL = 128
+const STREAMING_SAMPLE_UPDATE_MS = 250
+const MAX_STREAMING_PREVIEW_SAMPLES = 2_000
+const MAX_STREAMING_PREVIEW_VALUES = 250_000
+const MAX_PREVIEW_EXTREMA_SCAN_VALUES = 25_000_000
+
+function createStreamingPreview(time, outputs, { preserveExtrema = false } = {}) {
+  const sampleCount = time.length
+  const seriesCount = Object.values(outputs).filter(Array.isArray).length
+  const keepExtrema = preserveExtrema
+    && sampleCount * seriesCount <= MAX_PREVIEW_EXTREMA_SCAN_VALUES
+  const previewSampleLimit = Math.min(
+    MAX_STREAMING_PREVIEW_SAMPLES,
+    Math.max(2, Math.floor(MAX_STREAMING_PREVIEW_VALUES / Math.max(1, seriesCount))),
+  )
+  if (sampleCount <= previewSampleLimit) {
+    return {
+      time: [...time],
+      outputs: Object.fromEntries(Object.entries(outputs).map(([name, values]) => [name, [...values]])),
+    }
+  }
+
+  const indices = new Set([0, sampleCount - 1])
+  if (keepExtrema) {
+    const pointsPerBucket = 2 + (seriesCount * 2)
+    const bucketCount = Math.max(1, Math.floor((previewSampleLimit - 2) / pointsPerBucket))
+    for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+      const start = Math.floor((bucket * sampleCount) / bucketCount)
+      const end = Math.min(sampleCount, Math.floor(((bucket + 1) * sampleCount) / bucketCount))
+      if (end <= start) continue
+      indices.add(start)
+      indices.add(end - 1)
+      for (const values of Object.values(outputs)) {
+        if (!Array.isArray(values)) continue
+        let minimumIndex = -1
+        let maximumIndex = -1
+        let minimum = Infinity
+        let maximum = -Infinity
+        for (let index = start; index < end; index += 1) {
+          const rawValue = values[index]
+          const value = typeof rawValue === 'boolean' ? Number(rawValue) : rawValue
+          if (!Number.isFinite(value)) continue
+          if (value < minimum) { minimum = value; minimumIndex = index }
+          if (value > maximum) { maximum = value; maximumIndex = index }
+        }
+        if (minimumIndex >= 0) indices.add(minimumIndex)
+        if (maximumIndex >= 0) indices.add(maximumIndex)
+      }
+    }
+  } else {
+    for (let point = 1; point < previewSampleLimit - 1; point += 1) {
+      indices.add(Math.round((point * (sampleCount - 1)) / (previewSampleLimit - 1)))
+    }
+  }
+
+  const selectedIndices = [...indices].sort((left, right) => left - right)
+
+  return {
+    time: selectedIndices.map((index) => time[index]),
+    outputs: Object.fromEntries(Object.entries(outputs).map(([name, values]) => [
+      name,
+      selectedIndices.map((index) => values[index] ?? null),
+    ])),
+  }
+}
 
 async function readNdjsonStream(response, onEvent) {
   const reader = response.body.getReader()
@@ -267,6 +331,19 @@ export default function useSimulationExecution({
       const accumulatedTime = []
       const accumulatedOutputs = {}
       let finalMeta = {}
+      let lastPublishedSampleCount = 0
+      let lastPublishedAt = performance.now()
+      const publishStreamingPreview = (force = false) => {
+        const now = performance.now()
+        if (!force
+          && accumulatedTime.length - lastPublishedSampleCount < STREAMING_SAMPLE_UPDATE_INTERVAL
+          && now - lastPublishedAt < STREAMING_SAMPLE_UPDATE_MS) return false
+        const preview = createStreamingPreview(accumulatedTime, accumulatedOutputs)
+        setResults({ ...preview, chart: preview, streaming: true })
+        lastPublishedSampleCount = accumulatedTime.length
+        lastPublishedAt = now
+        return true
+      }
       await readNdjsonStream(response, (event) => {
         switch (event.type) {
           case 'started':
@@ -277,15 +354,14 @@ export default function useSimulationExecution({
             break
           case 'sim.step':
             if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs, false)) {
-              if (accumulatedTime.length % STREAMING_SAMPLE_UPDATE_INTERVAL === 0) {
-                setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
-              }
+              publishStreamingPreview()
             }
             break
           case 'data':
             if (appendSimulationSamples(accumulatedTime, accumulatedOutputs, event.time, event.outputs)) {
-              setProgress((previous) => ({ ...previous, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
-              setResults({ time: [...accumulatedTime], outputs: { ...accumulatedOutputs } })
+              if (publishStreamingPreview()) {
+                setProgress((previous) => ({ ...previous, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
+              }
             }
             break
           case 'completed':
@@ -311,9 +387,11 @@ export default function useSimulationExecution({
       })
 
       if (controller.signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
+      const chart = createStreamingPreview(accumulatedTime, accumulatedOutputs, { preserveExtrema: true })
       setResults({
         time: accumulatedTime,
         outputs: accumulatedOutputs,
+        chart,
         outputVariables: finalMeta.outputVariables || Object.keys(accumulatedOutputs),
         simulationTime: finalMeta.simulationTime ?? finalMeta.time,
         fmiType: finalMeta.fmiType,

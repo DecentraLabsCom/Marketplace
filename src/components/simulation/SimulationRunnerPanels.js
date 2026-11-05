@@ -252,7 +252,13 @@ export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, m
             Results
             {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
           </h3>
-          {results.outputs && Object.keys(results.outputs).length > 0 && <ResultsChart outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />}
+          {(results.chart?.outputs || results.outputs)
+            && Object.keys(results.chart?.outputs || results.outputs).length > 0
+            && <ResultsChart
+              outputs={results.chart?.outputs || results.outputs}
+              time={results.chart?.time || results.time}
+              variableMetadata={modelVariables}
+            />}
           {state === SIM_STATE.COMPLETED && results.outputs && <ResultsTable outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />}
           {state === SIM_STATE.COMPLETED && <DownloadButtons results={results} labName={lab?.name} variableMetadata={modelVariables} />}
         </div>

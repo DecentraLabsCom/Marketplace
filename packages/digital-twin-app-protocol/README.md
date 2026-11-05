@@ -82,10 +82,10 @@ Apps may opt in to the Marketplace **Pace** selector with
 `executionPaceControl: true`. The app can choose `defaultExecutionPace` and
 optionally observe each effective run pace with `onExecutionPace`. The host
 returns the user's selection with the next connection grant; the SDK then
-applies it to that run. **Real time (1x)** waits for each output interval and
-uses one output sample per advance. If the FMU, callbacks or connection cannot
-keep up, simulation time falls behind the clock without skipping steps.
-**Fastest** follows the app's configured batching. `batchPolicy`,
+applies it to that run. **Real time (1x)** paces advances to the wall clock and
+groups due output samples using its adaptive batch controller. If the FMU,
+callbacks or connection cannot keep up, simulation time falls behind the clock
+without skipping steps. **Fastest** follows the app's configured batching. `batchPolicy`,
 `maxBatchSamples` and `adaptiveBatchOptions` stay in the app's `run()` call and
 are not presented as end-user controls. A run-level `executionPace` is also
 available for standalone clients; a Marketplace selection takes precedence.
@@ -172,13 +172,13 @@ or writable, so its presence alone does not establish permission to write: the
 Gateway remains the authority and can reject an initialization or runtime write
 with `VARIABLE_ACCESS_DENIED`.
 
-`run()` keeps the provider app's existing fixed batch behavior by default: up to
-256 samples per response, or one sample when `inputController` performs
-per-sample feedback. A provider may set `maxBatchSamples` to cap that number, or
-explicitly request `batchPolicy: 'adaptive'` to let the SDK size each `sim.advance`
-request from the model's measured per-sample compute cost, transport overhead,
-payload size and an optional presentation acknowledgement. It does not change the
-FMI step size, and its maximum batch is independent of the configured horizon.
+`run()` uses adaptive batching by default for **Realtime** Pace and fixed batches
+for **Fastest** Pace. Fixed mode requests up to 256 samples per response. Adaptive
+mode sizes each `sim.advance` request from measured per-sample compute cost,
+transport overhead, payload size and an optional presentation acknowledgement.
+It does not change the FMI step size, and its maximum batch is independent of
+the configured horizon. Set `batchPolicy` explicitly when the app needs a
+different strategy; `maxBatchSamples` caps either strategy.
 The initial policy targets a 200 ms request cycle and a soft 50 ms Executor compute
 budget, with a 50 ms presentation reserve when the app has not confirmed rendering.
 Apps can tune these with `adaptiveBatchOptions`; `maxBatchSamples` and the Executor's
@@ -188,8 +188,13 @@ ceiling for FMUs with large variable inventories; other response frames retain t
 steps, so a single slow `doStep()` can exceed it; the response reports the overrun.
 Adaptive mode requires the session capabilities `advanceComputeBudget` and
 `advanceSampleSequences`; fixed execution remains available without them.
-Adaptive mode cannot be combined with `inputController`, because feedback must run
-after every sample. If the app supplies `onBatchRendered`, the SDK waits for it
+An `inputController` without an interval or scheduled times receives every
+sample and therefore uses one-sample advances. With the default policy, a
+Realtime run automatically keeps that per-sample feedback behavior; explicitly
+requesting adaptive batching with such a controller is rejected. Controllers
+with `inputControllerInterval` or `inputControllerTimes` can use adaptive batches;
+the SDK ends each batch at the next controller time so feedback is applied at
+the requested boundary. If the app supplies `onBatchRendered`, the SDK waits for it
 after `onSamples` and uses that acknowledgement as presentation telemetry. The app
 can resolve it after its renderer draws the last sample. Without an acknowledgement,
 presentation time stays unknown and the controller keeps its reserve rather than
@@ -217,7 +222,10 @@ Input schedules are applied at model timestamps. An optional per-run
 feedback; by default it receives every sample, or an app can set
 `inputControllerInterval` and `inputControllerTimes` to wake at chosen model
 times while the SDK advances in bounded batches. Its throughput depends on
-network latency and the provider's published write quota.
+network latency and the provider's published write quota. Controller updates are
+included in the next `sim.advance` when the runtime advertises
+`advanceInputValues`; otherwise the SDK sends `sim.setInputs` immediately before
+that advance. Both paths obey the same write permissions and provider quotas.
 
 Apps can pass `advanceOptions.outputSampleEverySteps` and
 `advanceOptions.outputVariables` to request sparse, focused output while the

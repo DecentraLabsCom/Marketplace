@@ -249,16 +249,20 @@ by output names and scalar sizes. The SDK accepts up to 512 outputs with names
 up to 256 characters, and a 1,000,000-byte limit for ordinary response frames.
 Model descriptions have a separate 32 MiB ceiling.
 
-The convenience client keeps the provider app's fixed batch behavior by default.
-An app may explicitly request `batchPolicy: 'adaptive'` to adjust the next
-`sim.advance` batch from measured per-sample compute, full request cycle, payload
-size and confirmed presentation delay. Defaults target a 200 ms request cycle, a
-soft 50 ms compute budget and a 50 ms presentation reserve when there is no render
-acknowledgement. The app can tune these with `adaptiveBatchOptions` and set
-`maxBatchSamples` as a hard cap. Adaptive mode requires the runtime's
-`advanceComputeBudget` and `advanceSampleSequences` capabilities; it cannot be
-combined with `inputController`, which advances one sample at a time for closed-
-loop feedback. To include actual presentation time, an app can provide
+The convenience client defaults to adaptive batches for Realtime Pace and fixed
+batches for Fastest Pace. Adaptive mode adjusts the next `sim.advance` batch from
+measured per-sample compute, full request cycle, payload size and confirmed
+presentation delay. Defaults target a 200 ms request cycle, a soft 50 ms compute
+budget and a 50 ms presentation reserve when there is no render acknowledgement.
+The app can tune these with `adaptiveBatchOptions` and set `maxBatchSamples` as a
+hard cap. Adaptive mode requires the runtime's `advanceComputeBudget` and
+`advanceSampleSequences` capabilities. An `inputController` with no interval or
+scheduled times receives every sample and keeps one-sample feedback; default
+Realtime runs select that behavior automatically, while explicitly combining
+adaptive batching with per-sample feedback is rejected. Controllers with
+`inputControllerInterval` or `inputControllerTimes` can use adaptive batches,
+which end at the next requested controller time. To include actual presentation
+time, an app can provide
 `onBatchRendered`; the client awaits it after `onSamples` and the app resolves it
 after its renderer has drawn the batch's last sample. Without that callback,
 presentation remains unknown and the controller uses its reserve.
@@ -269,12 +273,12 @@ Apps using the convenience client can opt in to a user-facing Pace selector with
 `executionPaceControl: true`. The app may select its initial
 `defaultExecutionPace` and receive the effective value through
 `onExecutionPace`. Marketplace includes the user's choice in the next
-connection grant, and the SDK applies it to that run. **Real time (1x)** waits
-for each output interval and uses one output sample per advance; if execution,
-callbacks or communication fall behind, the simulation follows without
-skipping steps. **Fastest** uses the app's batching configuration. Batch policy,
-sample caps and adaptive-controller settings remain developer choices in
-`run()`.
+connection grant, and the SDK applies it to that run. **Real time (1x)** paces
+advances to the wall clock and uses adaptive batches containing output samples
+that are due; if execution, callbacks or communication fall behind, the
+simulation follows without skipping steps. **Fastest** uses the app's batching
+configuration. Batch policy, sample caps and adaptive-controller settings
+remain developer choices in `run()`.
 
 Sample callbacks may be asynchronous. The client requests another batch only
 after the preceding callback finishes, and respects the session's advertised
@@ -294,10 +298,15 @@ schedule, use `composeInputSchedule(providerSchedule)` instead; it receives a
 copy and returns the complete effective schedule. The two run options are
 mutually exclusive. An optional `inputController(sample, context)` callback returns changed
 runtime-writable variables for closed-loop apps, including FMI 2.0 and FMI 3.0
-Co-Simulation tunable parameters when permitted. That mode advances one sample
-per request so feedback can affect the next step; network latency therefore
-limits controller speed. Water Tank owns its controller and fault logic in the
-app and uses this mode in one FMU execution.
+Co-Simulation tunable parameters when permitted. Without an interval or
+scheduled controller times, it advances one sample per request so feedback can
+affect the next step. With `inputControllerInterval` or `inputControllerTimes`,
+the SDK can batch until the next controller boundary. Controller updates are
+combined with the next `sim.advance` through `inputValues` when the runtime
+advertises `advanceInputValues`; otherwise the SDK sends `sim.setInputs` before
+advancing. Both paths use the Gateway's normal write authorization and quota
+checks. Water Tank owns its controller and fault logic in the app and uses this
+mode in one FMU execution.
 
 ## Optional host visualization controls
 

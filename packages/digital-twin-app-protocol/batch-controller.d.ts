@@ -36,6 +36,25 @@ export declare function createAdaptiveBatchController(options: {
 
 export declare function getAdaptiveBatchSize(controller: AdaptiveBatchController): number
 
+export declare function getRealtimePacedBatchSize(options: {
+  currentTime: number
+  stopTime?: number
+  stepSize: number
+  sampleEverySteps?: number
+  maxSamples: number
+  paceClock: { simTime: number; wallTime: number }
+  now: number
+}): number
+
+export declare function getRealtimePaceWaitMs(options: {
+  currentTime: number
+  stopTime?: number
+  stepSize: number
+  sampleEverySteps?: number
+  paceClock: { simTime: number; wallTime: number }
+  now: number
+}): number
+
 export declare function observeAdaptiveBatch(
   controller: AdaptiveBatchController,
   measurements: {
