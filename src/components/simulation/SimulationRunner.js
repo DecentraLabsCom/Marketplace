@@ -72,6 +72,16 @@ export default function SimulationRunner({ lab, reservationKey }) {
     labId,
     accessUri: lab.accessURI,
   })
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb' || !twinAsset.url || typeof document === 'undefined') return undefined
+    const preload = document.createElement('link')
+    preload.rel = 'preload'
+    preload.as = 'fetch'
+    preload.href = twinAsset.url
+    preload.crossOrigin = 'anonymous'
+    document.head.appendChild(preload)
+    return () => preload.remove()
+  }, [twinAsset?.type, twinAsset?.url])
   const twinSimulationType = twinAsset
     ? variableAccess?.simulationType
     : fmuMeta?.simulationType
