@@ -532,11 +532,10 @@ export default function SimulationRunner({ lab, reservationKey }) {
           appUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
           onConnect={requestFmuConnection}
-          onBatchSimulation={({ body, signal, connection }) => postFmuSimulationStream(
-            connection,
-            { labId, ...body },
-            { signal },
-          )}
+          onBatchSimulation={async ({ body, signal }) => {
+            const connection = await requestFmuConnection({ signal })
+            return postFmuSimulationStream(connection, { labId, ...body }, { signal })
+          }}
           modelVariables={accessibleModelVariables}
           fmiLsParameterPresets={twinFmiLsParameterPresets}
           fmiLsExperiments={twinFmiLsExperiments}

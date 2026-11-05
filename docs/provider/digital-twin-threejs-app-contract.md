@@ -172,10 +172,10 @@ CSP configuration.
    the run parameters, finite time interval, optional scheduled changes and
    bounded sample preferences. Requested output variables and sample stride
    are passed to Gateway/Executor as simulation options, while the parent
-   enforces the iframe batch size and message-size limits. The host obtains a
-   fresh reservation-scoped ticket through its existing connection endpoint
-   and keeps it in memory, then POSTs directly to
-   the returned Gateway origin at `/fmu/api/v1/simulations/stream` with the
+   enforces the iframe batch size and message-size limits. When the batch
+   starts, the host obtains a fresh reservation-scoped ticket through its
+   existing authorization endpoint and keeps it in memory, then POSTs directly
+   to the returned Gateway origin at `/fmu/api/v1/simulations/stream` with the
    ticket in the `Authorization` header. It reads NDJSON and relays sample
    batches of at most 256 samples and 1 MB to the iframe. The SDK acknowledges each batch with
    `decentralabs:batch-execution-ack`; the parent waits for that acknowledgement

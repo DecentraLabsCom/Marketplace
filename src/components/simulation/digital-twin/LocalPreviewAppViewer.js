@@ -85,11 +85,13 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
         signal,
         ...(typeof model === 'string' ? { model } : {}),
       }))}
-      onBatchSimulation={viewerProps.onBatchSimulation || (({ body, signal, connection }) => postFmuSimulationStream(
-        connection,
-        body,
-        { signal },
-      ))}
+      onBatchSimulation={viewerProps.onBatchSimulation || (async ({ body, signal }) => {
+        const connection = await requestPreviewConnection(demo, {
+          signal,
+          ...(typeof model === 'string' ? { model } : {}),
+        })
+        return postFmuSimulationStream(connection, body, { signal })
+      })}
       fmiLsParameterPresets={fmiLsParameterPresets}
       fmiLsExperiments={fmiLsExperiments}
       modelVariables={viewerProps.modelVariables ?? accessibleModelVariables}
