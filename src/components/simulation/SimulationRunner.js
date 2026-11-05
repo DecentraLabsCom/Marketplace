@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
+import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { resolveInputSchedule } from './utils/inputSchedule'
 import {
   getInitialSimulationOptions,
@@ -24,7 +25,6 @@ import useProxyFmuDownload from './hooks/useProxyFmuDownload'
 import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
 import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
 import { createFmuStateResults, filterFmuStateModelValues } from './utils/fmuStateCheckpoint'
-import { postSimulationStream } from './utils/simulationStreamTransport'
 
 const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
 const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
@@ -34,6 +34,20 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const { gatewaySessionOrigin, ensureGatewaySession, fetchGateway } = useSimulationGatewaySession({ lab, reservationKey })
   const labId = String(lab.id ?? lab.tokenId ?? '')
   const stateScopeKey = JSON.stringify([labId, reservationKey || ''])
+  const requestFmuConnection = useCallback(async ({ signal }) => {
+    const response = await fetchGateway('/api/simulations/connection', {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload.error || `The FMU session could not be authorized (${response.status}).`)
+    }
+    return response.json()
+  }, [fetchGateway, labId, reservationKey])
 
   const [parameters, setParameters] = useState({})
   const [inputEvents, setInputEvents] = useState([])
@@ -175,6 +189,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
     lab,
     reservationKey,
     fetchGateway,
+    getFmuConnection: requestFmuConnection,
+    directGatewayStream: isGlbTwin,
     variableAccess,
     variableAccessState,
     parameters,
@@ -284,21 +300,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setSelectedFmiLsExperimentId('')
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
-
-  const requestFmuConnection = useCallback(async ({ signal }) => {
-    const response = await fetchGateway('/api/simulations/connection', {
-      method: 'POST',
-      credentials: 'include',
-      signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId, reservationKey }),
-    })
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}))
-      throw new Error(payload.error || `The FMU session could not be authorized (${response.status}).`)
-    }
-    return response.json()
-  }, [fetchGateway, labId, reservationKey])
 
   const handleInteractiveFmuStateCheckpoint = useCallback((checkpoint) => {
     setFmuStateCheckpoint(checkpoint)
@@ -531,17 +532,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
           appUrl={twinAsset.url}
           title={lab?.name || 'Digital Twin'}
           onConnect={requestFmuConnection}
-          onBatchSimulation={({ body, signal }) => postSimulationStream({
-            url: '/api/simulations/stream',
-            fetchImpl: fetchGateway,
-            credentials: 'include',
-            signal,
-            body: {
-              labId: String(lab.id ?? lab.tokenId),
-              reservationKey,
-              ...body,
-            },
-          })}
+          onBatchSimulation={({ body, signal, connection }) => postFmuSimulationStream(
+            connection,
+            { labId, ...body },
+            { signal },
+          )}
           modelVariables={accessibleModelVariables}
           fmiLsParameterPresets={twinFmiLsParameterPresets}
           fmiLsExperiments={twinFmiLsExperiments}

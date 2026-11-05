@@ -2,15 +2,16 @@
 
 A complete provider app owns its HMI. Marketplace embeds it in an isolated
 iframe and keeps reservation credentials in the parent page. Finite batch runs
-use the Marketplace HTTP stream; interactive runs connect from the iframe to
-the provider Gateway WebSocket. The Gateway forwards execution to the private
-FMU Executor on Lab Station.
+use a direct browser POST/NDJSON connection from the Marketplace host page to
+the provider Gateway; interactive runs connect from the app iframe to the
+Gateway WebSocket. The Gateway forwards execution to the private FMU Executor
+on Lab Station.
 
 ```mermaid
 flowchart LR
   Marketplace[Marketplace reservation and authorization] -->|host protocol| App[Provider app in isolated iframe]
   App -->|batch request via postMessage| Marketplace
-  Marketplace -->|authenticated HTTP stream| Gateway[Provider Gateway Full or Lite]
+  Marketplace -->|Bearer ticket; POST/NDJSON| Gateway[Provider Gateway Full or Lite]
   Gateway -->|NDJSON samples| Marketplace
   Marketplace -->|sample batches via postMessage| App
   App -->|interactive FMU session WebSocket| Gateway
@@ -19,10 +20,11 @@ flowchart LR
   Station -->|session responses| Gateway
 ```
 
-The sequence below shows the transport split. The parent page makes finite
-batch requests with its reservation context and relays only bounded result
-batches to the iframe. Interactive sessions use a one-use Gateway ticket and
-send simulation traffic directly from the app.
+The sequence below shows the transport split. The parent page obtains a
+short-lived reservation ticket and makes finite batch requests directly to the
+Gateway, relaying only bounded result batches to the iframe. Interactive
+sessions use the same ticket-based authorization and send simulation traffic
+directly from the app. The ticket is never sent to the opaque-origin iframe.
 
 ```mermaid
 sequenceDiagram
@@ -35,14 +37,14 @@ sequenceDiagram
   A->>M: Request reservation-scoped FMU connection grant
   alt finite fastest batch
     A->>M: Request batch HTTP transport
-    M->>G: POST simulation stream with reservation authorization
+    M->>G: POST simulation stream with ticket in Authorization
     G->>S: Execute bounded batch
     S-->>G: Output samples
     G-->>M: NDJSON response stream
     M-->>A: Bounded sample batches and completion via postMessage
   else interactive, continuous or open-ended
-    M->>G: Authorize through existing proxy.fmu ticket issuer
-    G-->>M: Short-lived, one-use ticket and Gateway WSS endpoint
+    M->>G: Request grant through existing proxy.fmu ticket issuer
+    G-->>M: Short-lived ticket and Gateway WSS endpoint
     M-->>A: Return connection grant to requesting iframe
     A->>G: Open WSS and create session with ticket
     G->>S: Redeem ticket and open private FMU session
@@ -55,7 +57,7 @@ sequenceDiagram
       G-->>A: Output samples
     end
   end
-  Note over A,M: Marketplace cookies, reservation credentials and Gateway tickets are never exposed to the iframe except the scoped one-use ticket for direct WebSocket use.
+  Note over A,M: Marketplace cookies and reservation credentials stay in the host. The batch ticket stays in the host; a short-lived session ticket is sent to the iframe only for WebSocket setup.
 ```
 
 There are two independent contracts:
@@ -104,7 +106,7 @@ inputs and simulation-time settings:
 
 | Mode | Runtime behavior | Runtime input changes |
 | --- | --- | --- |
-| **Batch** | Runs the complete simulation through the existing Marketplace stream and displays the returned samples for replay. | Schedule input or tunable-parameter changes at model times before starting. |
+| **Batch** | The Marketplace browser page POSTs the run directly to Gateway and displays the returned samples for replay. | Schedule input or tunable-parameter changes at model times before starting. |
 | **Step by step** | Opens a reservation-scoped FMU session in external time mode and sends one `sim.step` request when the user advances. | Edit runtime-writable variables while paused; the new values are sent before the next step. |
 | **Continuous (live)** | Uses `sim.advance` to return bounded batches of intermediate samples. It starts with one sample and adapts from measured Executor compute cost, request cycle, payload size and confirmed presentation delay. It never changes the configured FMI step size. | Edit runtime-writable variables at any time; pending values are sent before the next batch. The current batch must finish before a new value can be applied. |
 
@@ -138,20 +140,19 @@ finite stop time to delimit the collected result.
 
 The Gateway enforces the effective AAS/FMI variable-access policy for runtime
 writes and filters output values in both transports. The generated GLB viewer's
-user-facing **Batch** mode uses the Marketplace HTTP/NDJSON endpoint. A Three.js
-SDK run uses that endpoint only when it is finite, uses Fastest Pace and fixed
+user-facing **Batch** mode uses the direct Gateway HTTP/NDJSON route. A Three.js
+SDK run uses that route only when it is finite, uses Fastest Pace and fixed
 batching, and has no input-controller, model-validation or parameter-derivation
 callbacks. Other SDK runs use a short-lived connection grant and the Gateway
 WebSocket directly. The iframe cannot attach Marketplace cookies or reservation
 credentials. The provider Gateway must allow the exact Marketplace page origin
-for its FMU
-WebSocket. The Marketplace deployment must also include each
-provider Gateway's exact WebSocket origin (for example, `wss://gateway.example`)
-in `CSP_CONNECT_SRC`; its restrictive `connect-src` policy otherwise blocks the
-browser connection. Production Gateway configuration supplies the Marketplace
-origin by default; Preview deployments should set their Preview origin explicitly
-in the Gateway CORS allowlist and the corresponding Gateway WebSocket origin in
-the Marketplace CSP configuration.
+for its HTTPS batch route and FMU WebSocket. The Marketplace deployment must
+include each provider Gateway's exact HTTPS and WSS origins in `CSP_CONNECT_SRC`;
+its restrictive `connect-src` policy otherwise blocks the browser connection.
+Production Gateway configuration supplies the Marketplace origin by default;
+Preview deployments should set their Preview origin explicitly in the Gateway
+CORS allowlist and the corresponding Gateway HTTPS/WSS origins in the Marketplace
+CSP configuration.
 
 ## Authorization and connection
 
@@ -171,10 +172,12 @@ the Marketplace CSP configuration.
    the run parameters, finite time interval, optional scheduled changes and
    bounded sample preferences. Requested output variables and sample stride
    are passed to Gateway/Executor as simulation options, while the parent
-   enforces the iframe batch size and message-size limits. The parent calls
-   `POST /api/simulations/stream` with its server-side reservation context,
-   reads the NDJSON stream and relays sample batches of at most 256 samples and
-   1 MB to the iframe. The SDK acknowledges each batch with
+   enforces the iframe batch size and message-size limits. The host obtains a
+   fresh reservation-scoped ticket through its existing connection endpoint
+   and keeps it in memory, then POSTs directly to
+   the returned Gateway origin at `/fmu/api/v1/simulations/stream` with the
+   ticket in the `Authorization` header. It reads NDJSON and relays sample
+   batches of at most 256 samples and 1 MB to the iframe. The SDK acknowledges each batch with
    `decentralabs:batch-execution-ack`; the parent waits for that acknowledgement
    before reading further, so a slow renderer does not accumulate the full run
    in the iframe. Cancellation aborts the parent request. The iframe never
@@ -187,7 +190,7 @@ the Marketplace CSP configuration.
    remote Full/standalone issuer. Marketplace validates the returned endpoint,
    lab, reservation and ticket expiry before returning the scoped grant.
 7. The app opens the returned `gatewayWsUrl` and sends `session.create` with
-   the one-use ticket. Gateway redeems it with the existing issuer service,
+   the short-lived ticket. Gateway redeems it with the existing issuer service,
    rechecks the reservation and creates the Station session. Session-start
    evidence, revocation, quotas and expiry use the existing proxy.fmu path.
 
@@ -200,10 +203,12 @@ allowed. The Marketplace host connection messages and schema do not carry the
 policy or replace this Gateway enforcement.
 
 Connection grants and API responses use `Cache-Control: no-store`. Keep a grant
-only in memory until used. Never place tickets in URLs, logs, local storage or
-app ZIPs. The app never receives the Marketplace session cookie, Gateway JWT
-or Station internal token. A new execution obtains a fresh grant; a consumed
-ticket must not be retried as a new session.
+only in memory. For batch, the ticket remains in the Marketplace host and is
+never sent to the iframe; for WebSocket, the host sends the scoped connection
+grant to the iframe only for the session handshake. Never place tickets in
+URLs, logs, local storage or app ZIPs. The app never receives the Marketplace
+session cookie, Gateway JWT or Station internal token. Tickets are short-lived
+and reservation-bound; request a fresh grant for a new run.
 
 A WebSocket connection response has this shape:
 
@@ -214,7 +219,7 @@ A WebSocket connection response has this shape:
     protocolVersion: '1.0',
     gatewayWsUrl: 'wss://provider.example/fmu/api/v1/fmu/sessions',
     labId: '42', reservationKey: 'reservation:example',
-    sessionTicket: '<one-use capability>', ticketExpiresAt: 1790000000,
+    sessionTicket: '<short-lived capability>', ticketExpiresAt: 1790000000,
   },
   inputSchedule: [],
 }

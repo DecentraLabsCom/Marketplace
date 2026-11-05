@@ -118,8 +118,12 @@ export default function DigitalTwinAppViewer({
       ? executionPace
       : requestedPace || 'fastest'
     if (transport === 'batch-http' && effectivePace === 'fastest' && typeof onBatchSimulation === 'function') {
+      const connection = typeof onConnect === 'function'
+        ? await onConnect({ options: runOptions, signal })
+        : undefined
       return {
         transport: 'batch-http',
+        ...(connection ? { connection } : {}),
         inputSchedule: schedule,
         executionPace: effectivePace,
         defaultStartTime: startTime,

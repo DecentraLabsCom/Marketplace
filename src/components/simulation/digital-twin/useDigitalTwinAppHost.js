@@ -14,6 +14,7 @@ import {
   readNdjsonStream,
   selectSimulationOutputs,
 } from '@decentralabs/digital-twin-app-protocol/simulation-stream'
+import { isValidConnectionConfig } from '@decentralabs/digital-twin-app-protocol'
 
 const INITIALIZATION_TIMEOUT_MS = 30_000
 const HOST_READY_RETRY_MS = 250
@@ -36,6 +37,7 @@ export default function useDigitalTwinAppHost({
   const extensionsRef = useRef(hostExtensions)
   const capabilitiesRef = useRef([])
   const grantRef = useRef(null)
+  const batchConnectionRef = useRef(null)
   const batchRequestsRef = useRef(new Map())
   const batchAcknowledgementsRef = useRef(new Map())
   const loadedDocumentRef = useRef(false)
@@ -95,6 +97,7 @@ export default function useDigitalTwinAppHost({
 
   useEffect(() => {
     stateRef.current = 'loading'
+    batchConnectionRef.current = null
     loadedDocumentRef.current = false
     hostReadyAttemptedRef.current = false
     setAppState('loading')
@@ -117,6 +120,7 @@ export default function useDigitalTwinAppHost({
       clearHostReadyRetry()
       grantRef.current?.abort()
       grantRef.current = null
+      batchConnectionRef.current = null
       for (const controller of batchRequestsRef.current.values()) controller.abort()
       batchRequestsRef.current.clear()
     }
@@ -175,7 +179,20 @@ export default function useDigitalTwinAppHost({
             signal: controller.signal,
           })
           if (!controller.signal.aborted) {
-            replyToConnectionRequest(target, requestId, MESSAGE.CONNECTION_READY, payload || {})
+            const responsePayload = { ...(payload || {}) }
+            if (responsePayload.transport === 'batch-http') {
+              batchConnectionRef.current = responsePayload.connection
+                && isValidConnectionConfig(responsePayload.connection)
+                ? responsePayload.connection
+                : null
+              // Keep the short-lived Gateway ticket in the host page. The app's
+              // opaque-origin iframe cannot read a cross-origin HTTP stream, so
+              // the host fetches it and relays bounded sample batches by message.
+              delete responsePayload.connection
+            } else {
+              batchConnectionRef.current = null
+            }
+            replyToConnectionRequest(target, requestId, MESSAGE.CONNECTION_READY, responsePayload)
           }
         } catch {
           if (!controller.signal.aborted) {
@@ -257,6 +274,7 @@ export default function useDigitalTwinAppHost({
             body: message.body,
             batchOptions: message.batchOptions,
             runId: message.runId,
+            connection: batchConnectionRef.current,
             signal: controller.signal,
           })
           if (!response?.ok) throw new Error('BATCH_SIMULATION_FAILED')
@@ -310,6 +328,7 @@ export default function useDigitalTwinAppHost({
         } catch {
           if (!controller.signal.aborted) sendBatchMessage(MESSAGE.BATCH_EXECUTION_END, { code: 'BATCH_SIMULATION_FAILED' })
         } finally {
+          batchConnectionRef.current = null
           batchAcknowledgementsRef.current.get(requestId)?.resolve()
           if (batchRequestsRef.current.get(requestId) === controller) batchRequestsRef.current.delete(requestId)
           batchAcknowledgementsRef.current.delete(requestId)
@@ -326,6 +345,7 @@ export default function useDigitalTwinAppHost({
     if (loadedDocumentRef.current) {
       grantRef.current?.abort()
       grantRef.current = null
+      batchConnectionRef.current = null
       for (const controller of batchRequestsRef.current.values()) controller.abort()
       batchRequestsRef.current.clear()
       clearHostReadyRetry()
@@ -345,6 +365,7 @@ export default function useDigitalTwinAppHost({
   const handleFrameError = useCallback(() => {
     grantRef.current?.abort()
     grantRef.current = null
+    batchConnectionRef.current = null
     for (const controller of batchRequestsRef.current.values()) controller.abort()
     batchRequestsRef.current.clear()
     clearHostReadyRetry()

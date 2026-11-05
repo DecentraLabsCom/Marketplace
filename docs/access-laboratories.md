@@ -196,7 +196,8 @@ are available for FMI 2/3 Co-Simulation models; other simulation types keep the
 batch controls. Interactive modes connect from the browser to the provider
 Gateway, so the Marketplace operator must allow that Gateway's WebSocket origin
 in `CSP_CONNECT_SRC`, and the provider must allow the Marketplace page origin in
-the Gateway CORS configuration.
+the Gateway CORS configuration. Include the Gateway HTTPS origin for direct
+batch POST/NDJSON as well as the WSS origin for interactive sessions.
 
 At the end of the reservation window, access is closed automatically by the provider-side access controls.
 

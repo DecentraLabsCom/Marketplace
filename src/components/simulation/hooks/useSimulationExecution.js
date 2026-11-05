@@ -8,6 +8,7 @@ import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
 import { MAX_INTERACTIVE_HISTORY_SAMPLES } from '../utils/interactiveSampleHistory'
 import { postSimulationStream } from '../utils/simulationStreamTransport'
+import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { normalizeSimulationStreamEvent, readNdjsonStream } from '@decentralabs/digital-twin-app-protocol/simulation-stream'
 
 export const SIM_STATE = {
@@ -106,6 +107,8 @@ export default function useSimulationExecution({
   lab,
   reservationKey,
   fetchGateway,
+  getFmuConnection,
+  directGatewayStream = false,
   variableAccess,
   variableAccessState,
   parameters,
@@ -300,16 +303,25 @@ export default function useSimulationExecution({
         ...(stateOptions?.captureFmuState ? { captureFmuState: true } : {}),
       }
 
-      const response = await postSimulationStream({
-        url: '/api/simulations/stream',
-        fetchImpl: fetchGateway,
-        credentials: 'include',
-        signal: controller.signal,
-        body,
-      })
+      let response
+      if (directGatewayStream) {
+        if (typeof getFmuConnection !== 'function') {
+          throw new Error('The provider FMU connection is unavailable.')
+        }
+        const connection = await getFmuConnection({ signal: controller.signal })
+        response = await postFmuSimulationStream(connection, body, { signal: controller.signal })
+      } else {
+        response = await postSimulationStream({
+          url: '/api/simulations/stream',
+          fetchImpl: fetchGateway,
+          credentials: 'include',
+          signal: controller.signal,
+          body,
+        })
+      }
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Simulation failed (${response.status})`)
+        throw new Error(errorData.error || errorData.detail || `Simulation failed (${response.status})`)
       }
 
       const accumulatedTime = []
@@ -411,7 +423,7 @@ export default function useSimulationExecution({
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, editableVariables, fetchGateway, inputEvents, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
+  }, [accessibleModelVariables, directGatewayStream, editableVariables, fetchGateway, getFmuConnection, inputEvents, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
 
   const loadResult = useCallback(async (simId) => {
     const gatewayUrl = lab.accessURI || ''

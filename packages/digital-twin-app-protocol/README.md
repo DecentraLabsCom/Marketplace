@@ -1,10 +1,11 @@
 # @decentralabs/digital-twin-app-protocol
 
 Optional browser clients and schemas for provider web apps. Finite, fastest
-batch runs use Marketplace's authenticated HTTP/NDJSON stream; interactive,
-continuous and open-ended runs use the reservation-ticket WebSocket directly
-between the app and provider Gateway. Marketplace credentials and session
-cookies remain in the host page and are never exposed to the app iframe.
+batch runs use a reservation-ticket HTTP/NDJSON stream opened directly from the
+Marketplace host page to the provider Gateway. Interactive, continuous and
+open-ended runs use the reservation-ticket WebSocket directly between the app
+and provider Gateway. Marketplace credentials and session cookies remain in
+the host page and are never exposed to the app iframe.
 
 ## Entry points
 
@@ -13,8 +14,9 @@ cookies remain in the host page and are never exposed to the app iframe.
   dependency on Marketplace or a parent window.
 * `/client`: `createDigitalTwinAppClient()`, composing direct execution with
   optional Marketplace startup, authorization and visualization integration.
-  Eligible hosted finite runs are routed through the parent-owned HTTP stream;
-  interactive runs retain the direct WebSocket session.
+  Eligible hosted finite runs are fetched by the parent page directly from
+  Gateway; the host relays bounded, acknowledged sample batches to the iframe.
+  Interactive runs retain the direct WebSocket session.
 * `/simulation-stream`: shared NDJSON decoding and event normalization used by
   the SDK host bridge and the generated GLB runner. Sample batches use an
   acknowledgement before the host reads the next part of the HTTP stream.
@@ -145,7 +147,7 @@ request `model.describe` immediately after connection, without `sim.initialize`
 or `sim.advance`; `session.capabilities` contains the negotiated runtime
 features. A direct `sim.initialize` with parameters automatically fetches the
 descriptors first if the app has not requested them. Close the session when
-finished and obtain a fresh one-use grant for a later session. Refresh the
+finished and obtain a fresh short-lived grant for a later session. Refresh the
 description when the model, session or effective access policy changes;
 descriptors are filtered by the Gateway and do not themselves prove write
 permission.
@@ -170,13 +172,14 @@ samples, including the initial sample; otherwise `onSample` receives each one.
 When embedded in Marketplace, a finite run using **Fastest** Pace, fixed
 batching, and no input-controller, model-validation or parameter-derivation
 callbacks can use the parent-owned POST/NDJSON stream. The Marketplace host
-makes the authenticated
-request, relays bounded sample batches and waits for the SDK acknowledgement
-before reading further. Requested output variables and sample stride are
-forwarded as simulation options so Gateway and Executor can apply them before
-returning samples. Adaptive, continuous, step-by-step, real-time, open-ended
-and model-feedback runs continue over the direct Gateway WebSocket. Standalone
-use with `getConnection` is unchanged.
+obtains a short-lived Gateway ticket, keeps it outside the opaque-origin iframe,
+and fetches the stream directly from Gateway without cookies. It relays bounded
+sample batches and waits for the SDK acknowledgement before reading further.
+Requested output variables and sample stride are forwarded as simulation
+options so Gateway and Executor can apply them before returning samples.
+Adaptive, continuous, step-by-step, real-time, open-ended and model-feedback
+runs continue over the direct Gateway WebSocket. Standalone use with
+`getConnection` is unchanged.
 
 Before initialization, the SDK requests the authorized variable descriptors and
 omits any supplied value that exactly matches that variable's declared FMI

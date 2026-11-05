@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import useSimulationModelResources from '../hooks/useSimulationModelResources'
-import { postSimulationStream } from '../utils/simulationStreamTransport'
+import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { supportsFmiScheduledInputChanges } from '@/utils/fmiLsEligibility'
+import { requestPreviewConnection } from '@/app/dev/fmuPreviewConnection'
 
 const DigitalTwinAppViewer = dynamic(() => import('./DigitalTwinAppViewer'), { ssr: false })
 const APP_REFERENCE_RE = /^\/digital-twin-apps\/(local_demo_[a-f0-9]{24})\/([a-f0-9]{64})\/index\.html$/i
@@ -80,11 +81,15 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
     <DigitalTwinAppViewer
       {...viewerProps}
       appUrl={appUrl}
-      onBatchSimulation={viewerProps.onBatchSimulation || (({ body, signal }) => postSimulationStream({
-        url: `/api/dev/glb-demo/${encodeURIComponent(demo)}/simulations/stream`,
+      onConnect={viewerProps.onConnect || (({ signal }) => requestPreviewConnection(demo, {
         signal,
-        body,
+        ...(typeof model === 'string' ? { model } : {}),
       }))}
+      onBatchSimulation={viewerProps.onBatchSimulation || (({ body, signal, connection }) => postFmuSimulationStream(
+        connection,
+        body,
+        { signal },
+      ))}
       fmiLsParameterPresets={fmiLsParameterPresets}
       fmiLsExperiments={fmiLsExperiments}
       modelVariables={viewerProps.modelVariables ?? accessibleModelVariables}
