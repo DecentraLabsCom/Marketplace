@@ -251,11 +251,15 @@ The package `@decentralabs/digital-twin-app-protocol` provides:
 
 With a bundler, import the desired entry. For a static app without a bundler,
 copy `index.js`, `fmu-client.js`, `parameter-defaults.js`,
-`batch-controller.js`, `simulation-stream.js`, `input-update-quota.js` and `client.js` together into
-`sdk/` in the ZIP. If the app also exports GLB scenes, copy
+`batch-controller.js`, `simulation-stream.js`, `input-update-quota.js`, `client.js` and
+`LICENSE.txt` together into `sdk/` in the ZIP. If the app also exports GLB scenes, copy
 `scene-presentation.js` into that directory too.
-Create a package tarball with `npm pack --workspace @decentralabs/digital-twin-app-protocol`.
-The workspace does not publish the npm package automatically.
+When bundling the SDK into an app, include its `LICENSE.txt` in the delivered app or third-party notices.
+After a version is released, download the `.tgz` from the [Marketplace GitHub Releases page](https://github.com/DecentraLabsCom/Marketplace/releases)
+and install it in the provider app project with `npm install ./decentralabs-digital-twin-app-protocol-X.Y.Z.tgz`.
+Each `digital-twin-app-protocol-vX.Y.Z` tag creates a release with the tarball and SHA-256 checksum; its version must match the package version. From a Marketplace checkout, the same package can be built with `npm pack --workspace @decentralabs/digital-twin-app-protocol`. The package is not currently published to the npm registry.
+
+The SDK is licensed under Apache-2.0, separately from the Marketplace repository's root GPL-3.0-only license. Include `LICENSE.txt` when copying SDK files into an app ZIP.
 
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'

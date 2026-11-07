@@ -2,6 +2,16 @@
   "name": "@decentralabs/digital-twin-app-protocol",
   "version": "2.0.0",
   "description": "Host authorization, batch HTTP stream and direct FMU WebSocket clients for provider apps.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DecentraLabsCom/Marketplace.git",
+    "directory": "packages/digital-twin-app-protocol"
+  },
+  "homepage": "https://github.com/DecentraLabsCom/Marketplace/tree/main/packages/digital-twin-app-protocol#readme",
+  "bugs": {
+    "url": "https://github.com/DecentraLabsCom/Marketplace/issues"
+  },
   "browserBundleFile": "index.js",
   "type": "module",
   "main": "./index.js",
@@ -64,6 +74,7 @@
     "input-update-quota.js",
     "input-update-quota.d.ts",
     "README.md",
+    "LICENSE.txt",
     "schema-v2.json",
     "fmu-client.js",
     "fmu-client.d.ts",

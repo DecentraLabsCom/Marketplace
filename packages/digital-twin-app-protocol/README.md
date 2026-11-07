@@ -7,6 +7,25 @@ open-ended runs use the reservation-ticket WebSocket directly between the app
 and provider Gateway. Marketplace credentials and session cookies remain in
 the host page and are never exposed to the app iframe.
 
+## Download and install
+
+Each version will be distributed as a `.tgz` asset on the
+[Marketplace GitHub Releases page](https://github.com/DecentraLabsCom/Marketplace/releases).
+After a release is available, download its asset and install it in a provider
+app project:
+
+```sh
+npm install ./decentralabs-digital-twin-app-protocol-X.Y.Z.tgz
+```
+
+The package is also a workspace dependency inside Marketplace. A provider who
+has the Marketplace checkout can build the same tarball locally with
+`npm pack --workspace @decentralabs/digital-twin-app-protocol`. It is not
+published to the npm registry; the GitHub Release tarball is the download.
+
+The SDK is licensed separately from the Marketplace repository under Apache-2.0;
+see `LICENSE.txt`. The Marketplace repository's root license remains unchanged.
+
 ## Entry points
 
 * Package root: host integration **v2** constants, validators and TypeScript types.
@@ -24,10 +43,12 @@ the host page and are never exposed to the app iframe.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
 `index.js`, `fmu-client.js`, `parameter-defaults.js`, `batch-controller.js`,
-`simulation-stream.js`, `input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory.
-If the app also exports scenes, copy `scene-presentation.js` into that directory
-too. The package does not register modules or impose an SDK requirement on
-providers.
+`simulation-stream.js`, `input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory,
+along with `LICENSE.txt`. If the app also exports scenes, copy
+`scene-presentation.js` into that directory too. The package does not register
+modules or impose an SDK requirement on providers.
+For bundled apps, include `LICENSE.txt` in the delivered app or its third-party
+notices.
 
 ```js
 import { createDigitalTwinAppClient } from './sdk/client.js'
@@ -287,8 +308,10 @@ See the [full contract](../../docs/provider/digital-twin-threejs-app-contract.md
 for startup, schema bounds, optional HMI and deployment details. The host
 integration uses protocol version 2; the native WS session protocol is version
 1.0.
-Use `npm pack --workspace @decentralabs/digital-twin-app-protocol` to create a
-tarball; this repository does not publish the npm package automatically.
+Version tags named `digital-twin-app-protocol-vX.Y.Z` create a GitHub Release
+with the standalone package tarball and its SHA-256 checksum. The tag version
+must match this package's `package.json` version. The release workflow does not
+publish to the npm registry; the GitHub release asset is the provider download.
 
 ## Three.js / GLB presentation parity
 

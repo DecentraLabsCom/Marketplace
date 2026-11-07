@@ -1,0 +1,55 @@
+name: Release Digital Twin App Protocol
+
+on:
+  push:
+    tags:
+      - 'digital-twin-app-protocol-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+
+      - name: Validate package version and create tarball
+        id: package
+        shell: bash
+        working-directory: packages/digital-twin-app-protocol
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          expected_tag="digital-twin-app-protocol-v${version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $version (expected $expected_tag)." >&2
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release tags must point to a commit already merged into main." >&2
+            exit 1
+          fi
+          tarball="${RUNNER_TEMP}/decentralabs-digital-twin-app-protocol-${version}.tgz"
+          npm pack --pack-destination "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && sha256sum "$(basename "$tarball")" > "$(basename "$tarball").sha256")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Publish downloadable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.package.outputs.tarball }}" \
+            "${{ steps.package.outputs.tarball }}.sha256" \
+            --title "Digital Twin App Protocol v${{ steps.package.outputs.version }}" \
+            --generate-notes
