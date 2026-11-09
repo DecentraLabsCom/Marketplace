@@ -126,3 +126,63 @@ active dashboard, booking, identity, intent, API and simulation suites remain.
 Lint reports no unused JavaScript variable/import warnings. Two existing
 Next.js internal-navigation warnings remain in `LabAccess` and `account.js`;
 changing navigation behavior is outside this cleanup.
+
+## Cross-project consumer verification
+
+The follow-up review includes all cleanup commits from `117763a4` through
+`e3ecb840`, covering 69 deleted files, 237 removed/private named exports and
+seven removed HTTP routes. Consumers were checked in Lab Gateway at `0b5fa44`
+and its canonical `blockchain-services` checkout at `5b9cced`. The root
+backend mirror was not used.
+
+The reference scan examined 980 Gateway text files and 544 backend text files,
+including implementation, browser assets, scripts, configuration templates,
+tests and documentation. It checked 381 path/name patterns, then traced the
+actual outbound HTTP clients, base-URL builders and role-derived endpoints.
+
+No consumer of a deleted Marketplace module or HTTP route was found. The
+removed routes are the two old provider mutation adapters and
+`/api/simulations/{history,result,run,stream,upload}`. The similarly named
+Gateway simulation endpoints remain independent and unchanged.
+
+The preserved external contracts were checked for HTTP method, route presence
+and unchanged source against the pre-cleanup Marketplace tree:
+
+| Consumer | Marketplace contract |
+| --- | --- |
+| Backend `InstitutionRegistrationService` / `InstitutionRole` | `POST /api/institutions/registerProvider`, `POST /api/institutions/registerConsumer` |
+| Backend pairing client | `POST /api/institutions/provisioning/pairings/inspect`, `/offer`, `/token` |
+| Backend `ProvisioningTokenService` | `GET /api/institutions/provisionToken/jwks`, `GET /api/institutions/provisionConsumer/jwks` |
+| Backend `MarketplaceKeyService` / JWT validation | `GET /.well-known/jwks.json`, `GET /.well-known/public-key.pem` |
+| Full/Lite Gateway demo guards and readiness | `GET /api/demo/eligibility` |
+
+All ten method/path contracts remain present and unchanged. The active
+`useInstitutionalOnboarding` hook, `/api/onboarding/session`, and the WebAuthn
+`key-status` and `options` proxy routes are also unchanged. The deleted
+`useOnboardingSession` was an unused React wrapper; the session endpoint and
+the backend's WebAuthn controllers/services were preserved.
+
+Name matches such as `normalizePeriodUnit`, classification constants and Java
+credit-conversion constants were inspected. They are defined and consumed
+within Gateway/backend code, without imports of the removed Marketplace
+exports. The SDK package entry points and runtime message contracts remain
+available to Gateway-served apps.
+
+Additional checks passed:
+
+- Backend: 98 tests covering institutional registration, provisioning tokens,
+  Marketplace JWKS/JWT verification, WebAuthn onboarding and SAML sessions.
+- Gateway: 256 Lua tests using the local production image's dependencies and a
+  read-only mount of the current source. Running bare LuaJIT required explicitly
+  adding OpenResty's Lua/C module paths.
+- Marketplace onboarding/access/API group: 96 tests across 11 suites.
+- Marketplace registration/pairing/demo/FMU group: 55 tests across 7 suites
+  (partially overlaps the previous group).
+
+The Gateway documentation still described the retired generic results viewer
+and `SimulationRunner` stream proxy. Its FMU/visual-assets guides were corrected
+to describe the proxy-FMU download flow. No runtime consumer needed restoration.
+
+These checks validate the current repositories and their declared contracts;
+they do not replace a live institutional WebAuthn/reservation ceremony against
+every independently deployed backend or custom third-party client.
