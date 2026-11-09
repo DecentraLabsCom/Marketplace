@@ -52,7 +52,7 @@ describe('FMU gateway context authorization', () => {
       userBinding: createFmuUserBinding({ id: userId }),
     })
 
-    return new Request('https://marketplace.example.com/api/simulations/run', {
+    return new Request('https://marketplace.example.com/api/simulations/connection', {
       headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
     })
   }

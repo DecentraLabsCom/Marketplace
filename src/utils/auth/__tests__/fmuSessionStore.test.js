@@ -35,7 +35,7 @@ describe('FMU Marketplace session contexts', () => {
   }
 
   function requestWith(encoded) {
-    return new Request('https://marketplace.example.com/api/simulations/history', {
+    return new Request('https://marketplace.example.com/api/simulations/proxy', {
       headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
     })
   }

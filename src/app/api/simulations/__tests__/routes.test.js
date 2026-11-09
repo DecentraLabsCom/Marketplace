@@ -32,11 +32,7 @@ jest.mock('@/utils/api/gatewayProxy', () => {
   }
 })
 
-import {
-  FMU_CONTEXT_COOKIE,
-  createFmuUserBinding,
-  encodeFmuContexts,
-} from '@/utils/auth/fmuSessionStore'
+import { FMU_CONTEXT_COOKIE, createFmuUserBinding, encodeFmuContexts } from '@/utils/auth/fmuSessionStore'
 
 let gatewayProxy
 let authGuards
@@ -57,247 +53,6 @@ function buildUrl(base, routePath, query = null) {
   }
   return url.toString()
 }
-
-// ─── POST /api/simulations/run ──────────────────────────────────────
-
-describe('POST /api/simulations/run', () => {
-  let POST
-
-  beforeEach(async () => {
-    jest.resetModules()
-    global.fetch = jest.fn()
-    await setupAuthenticatedUser()
-    gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
-    gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
-    const mod = await import('../run/route')
-    POST = mod.POST
-  })
-
-  afterEach(() => {
-    delete global.fetch
-  })
-
-  test('returns 400 when labId is missing', async () => {
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gatewayUrl: 'https://gw.example.com/auth' }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/labId/i)
-  })
-
-  test('uses resolved gateway when gatewayUrl is missing', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'completed' }),
-    })
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId: '1' }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).not.toHaveBeenCalled()
-    expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({
-      labId: '1',
-    })
-  })
-
-  test('proxies to gateway and returns simulation results', async () => {
-    const mockResult = { status: 'completed', time: [0, 0.1], outputs: { pos: [0, 1] } }
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockResult,
-    })
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        labId: '42',
-        reservationKey: '0xabc',
-        parameters: { mass: 1.5 },
-        options: { startTime: 0, stopTime: 10, stepSize: 0.1 },
-        gatewayUrl: 'https://gw.example.com/auth',
-      }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.status).toBe('completed')
-    expect(data.outputs.pos).toEqual([0, 1])
-
-    // Verify correct gateway URL construction
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://gw.example.com/fmu/api/v1/simulations/run',
-      expect.objectContaining({ method: 'POST' })
-    )
-  })
-
-  test('rejects a browser request without a resource context', async () => {
-    gatewayProxy.extractBearerHeader.mockReturnValueOnce(null)
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'completed' }),
-    })
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId: '42', gatewayUrl: 'https://gw.example.com/auth' }),
-    })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(401)
-    expect(gatewayProxy.resolveLabAccessGateway).toHaveBeenCalledWith({ labId: '42' })
-    expect(global.fetch).not.toHaveBeenCalled()
-  })
-
-  test('authorizes with the encrypted FMU capability after SSO expiry', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'completed' }),
-    })
-    authGuards.requireAuth.mockRejectedValueOnce(new authGuards.UnauthorizedError('expired'))
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
-    const { encoded } = encodeFmuContexts([], {
-      labId: '42',
-      reservationKey: '0xabc',
-      gatewayOrigin: 'https://gw.example.com',
-      resourceSessionId: 'session_identifier_aaaaaaaa',
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-      userBinding: 'A'.repeat(43),
-    })
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}`,
-      },
-      body: JSON.stringify({ labId: '42', reservationKey: '0xabc' }),
-    })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).not.toHaveBeenCalled()
-    expect(global.fetch.mock.calls[0][1].headers.Cookie).toBe(
-      'FMU_SESSION=session_identifier_aaaaaaaa',
-    )
-  })
-
-  test('rejects an old capability when another Marketplace user is active', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'completed' }),
-    })
-    authGuards.getOptionalSession.mockResolvedValueOnce({ id: 'user-2' })
-    gatewayProxy.extractBearerHeader.mockReturnValue(null)
-    const { encoded } = encodeFmuContexts([], {
-      labId: '42',
-      reservationKey: '0xabc',
-      gatewayOrigin: 'https://gw.example.com',
-      resourceSessionId: 'session_identifier_aaaaaaaa',
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-      userBinding: createFmuUserBinding({ id: 'user-1' }),
-    })
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}`,
-      },
-      body: JSON.stringify({ labId: '42', reservationKey: '0xabc' }),
-    })
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(401)
-    expect(global.fetch).not.toHaveBeenCalled()
-  })
-
-  test('forwards gateway error status', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 429,
-      text: async () => '{"detail": "Concurrency limit reached"}',
-    })
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        labId: '42',
-        gatewayUrl: 'https://gw.example.com/auth',
-      }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(429)
-  })
-
-  test('returns 500 on fetch failure', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'))
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        labId: '42',
-        gatewayUrl: 'https://gw.example.com/auth',
-      }),
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data.error).toBe('The simulation request could not be completed.')
-    expect(data).not.toHaveProperty('details')
-  })
-
-  test('does not forward browser cookies to gateway', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ status: 'completed' }),
-    })
-    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer token-123')
-
-    const request = new Request('http://localhost/api/simulations/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: 'session=abc123',
-        Authorization: 'Bearer token-123',
-      },
-      body: JSON.stringify({
-        labId: '42',
-        gatewayUrl: 'https://gw.example.com/auth',
-      }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(200)
-
-    const [, fetchOptions] = global.fetch.mock.calls[0]
-    expect(fetchOptions.headers.Authorization).toBe('Bearer token-123')
-    expect(fetchOptions.headers.Cookie).toBeUndefined()
-  })
-})
 
 // ─── GET /api/simulations/describe ──────────────────────────────────
 
@@ -408,210 +163,6 @@ describe('GET /api/simulations/describe', () => {
   })
 })
 
-// ─── POST /api/simulations/stream ───────────────────────────────────
-
-describe('POST /api/simulations/stream', () => {
-  let POST
-
-  beforeEach(async () => {
-    jest.resetModules()
-    global.fetch = jest.fn()
-    await setupAuthenticatedUser()
-    gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
-    gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
-    const mod = await import('../stream/route')
-    POST = mod.POST
-  })
-
-  afterEach(() => {
-    delete global.fetch
-  })
-
-  test('returns 400 when labId is missing', async () => {
-    const request = new Request('http://localhost/api/simulations/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gatewayUrl: 'https://gw.example.com/auth' }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(400)
-  })
-
-  test('returns 200 and NDJSON content type when proxy succeeds', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      body: '{"type":"started"}\n',
-    })
-
-    const request = new Request('http://localhost/api/simulations/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId: '42', gatewayUrl: 'https://gw.example.com/auth' }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).not.toHaveBeenCalled()
-    expect(response.headers.get('Content-Type')).toContain('application/x-ndjson')
-  })
-
-  test('forwards gateway error status', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 403,
-      text: async () => 'forbidden',
-    })
-
-    const request = new Request('http://localhost/api/simulations/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId: '42', gatewayUrl: 'https://gw.example.com/auth' }),
-    })
-
-    const response = await POST(request)
-    expect(response.status).toBe(403)
-  })
-})
-
-// ─── GET /api/simulations/history ────────────────────────────────────
-
-describe('GET /api/simulations/history', () => {
-  let GET
-
-  beforeEach(async () => {
-    jest.resetModules()
-    global.fetch = jest.fn()
-    await setupAuthenticatedUser()
-    gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
-    gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
-    const mod = await import('../history/route')
-    GET = mod.GET
-  })
-
-  afterEach(() => {
-    delete global.fetch
-  })
-
-  test('returns 400 when labId is missing', async () => {
-    const request = new Request(
-      'http://localhost/api/simulations/history?gatewayUrl=https://gw.example.com/auth'
-    )
-
-    const response = await GET(request)
-    expect(response.status).toBe(400)
-  })
-
-  test('returns 200 with simulation history', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ simulations: [{ id: 'sim-1' }] }),
-    })
-
-    const request = new Request(
-      'http://localhost/api/simulations/history?labId=42&gatewayUrl=https://gw.example.com/auth'
-    )
-
-    const response = await GET(request)
-    const data = await response.json()
-    expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).not.toHaveBeenCalled()
-    expect(data.simulations).toHaveLength(1)
-  })
-})
-
-// ─── GET /api/simulations/result ─────────────────────────────────────
-
-describe('GET /api/simulations/result', () => {
-  let GET
-
-  beforeEach(async () => {
-    jest.resetModules()
-    global.fetch = jest.fn()
-    await setupAuthenticatedUser()
-    gatewayProxy = await import('@/utils/api/gatewayProxy')
-    gatewayProxy.resolveLabAccessGateway.mockResolvedValue('https://gw.example.com')
-    gatewayProxy.buildGatewayTargetUrl.mockImplementation(buildUrl)
-    gatewayProxy.extractBearerHeader.mockReturnValue('Bearer test-token')
-    const mod = await import('../result/route')
-    GET = mod.GET
-  })
-
-  afterEach(() => {
-    delete global.fetch
-  })
-
-  test('returns 400 when simId is missing', async () => {
-    const request = new Request(
-      'http://localhost/api/simulations/result?labId=42&gatewayUrl=https://gw.example.com/auth'
-    )
-
-    const response = await GET(request)
-    expect(response.status).toBe(400)
-  })
-
-  test('returns 400 when labId is missing', async () => {
-    const request = new Request(
-      'http://localhost/api/simulations/result?simId=sim-1&gatewayUrl=https://gw.example.com/auth'
-    )
-
-    const response = await GET(request)
-    expect(response.status).toBe(400)
-  })
-
-  test('returns 200 with simulation result', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ result: { outputs: { y: [1, 2] } } }),
-    })
-
-    const request = new Request(
-      'http://localhost/api/simulations/result?simId=sim-1&labId=42&gatewayUrl=https://gw.example.com/auth'
-    )
-
-    const response = await GET(request)
-    const data = await response.json()
-    expect(response.status).toBe(200)
-    expect(authGuards.requireAuth).not.toHaveBeenCalled()
-    expect(data.result.outputs.y).toEqual([1, 2])
-  })
-})
-
-// ─── POST /api/simulations/upload ────────────────────────────────────
-
-describe('POST /api/simulations/upload', () => {
-  let POST
-
-  beforeEach(async () => {
-    jest.resetModules()
-    const mod = await import('../upload/route')
-    POST = mod.POST
-  })
-
-  afterEach(() => {
-    delete global.fetch
-  })
-
-  test('returns 410 because upload is disabled by architecture', async () => {
-    const formData = new FormData()
-    formData.append('file', new Blob(['dummy'], { type: 'application/octet-stream' }), 'test.fmu')
-    formData.append('labId', '42')
-    const request = new Request('http://localhost/api/simulations/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const response = await POST(request)
-    const data = await response.json()
-    expect(response.status).toBe(410)
-    expect(data.code).toBe('FMU_UPLOAD_DISABLED')
-  })
-})
-
 // --- GET /api/simulations/proxy --------------------------------------
 
 describe('GET /api/simulations/proxy', () => {
@@ -676,5 +227,56 @@ describe('GET /api/simulations/proxy', () => {
     expect(authGuards.requireAuth).not.toHaveBeenCalled()
     expect(response.headers.get('Content-Type')).toContain('application/octet-stream')
     expect(response.headers.get('Content-Disposition')).toContain('fmu-proxy-lab-42.fmu')
+  })
+
+  test('rejects a browser download without a reservation capability', async () => {
+    const response = await GET(new Request(
+      'http://localhost/api/simulations/proxy?labId=42&reservationKey=0xabc',
+    ))
+
+    expect(response.status).toBe(401)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  test('authorizes the proxy download with its encrypted capability after SSO expiry', async () => {
+    global.fetch.mockResolvedValue(new Response('proxy-bytes'))
+    authGuards.requireAuth.mockRejectedValueOnce(new authGuards.UnauthorizedError('expired'))
+    const { encoded } = encodeFmuContexts([], {
+      labId: '42',
+      reservationKey: '0xabc',
+      gatewayOrigin: 'https://gw.example.com',
+      resourceSessionId: 'session_identifier_aaaaaaaa',
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: 'A'.repeat(43),
+    })
+
+    const response = await GET(new Request(
+      'http://localhost/api/simulations/proxy?labId=42&reservationKey=0xabc',
+      { headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` } },
+    ))
+
+    expect(response.status).toBe(200)
+    expect(authGuards.requireAuth).not.toHaveBeenCalled()
+    expect(global.fetch.mock.calls[0][1].headers.Cookie).toBe('FMU_SESSION=session_identifier_aaaaaaaa')
+  })
+
+  test('rejects a proxy capability issued to a different Marketplace user', async () => {
+    authGuards.getOptionalSession.mockResolvedValueOnce({ id: 'user-2' })
+    const { encoded } = encodeFmuContexts([], {
+      labId: '42',
+      reservationKey: '0xabc',
+      gatewayOrigin: 'https://gw.example.com',
+      resourceSessionId: 'session_identifier_aaaaaaaa',
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      userBinding: createFmuUserBinding({ id: 'user-1' }),
+    })
+
+    const response = await GET(new Request(
+      'http://localhost/api/simulations/proxy?labId=42&reservationKey=0xabc',
+      { headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` } },
+    ))
+
+    expect(response.status).toBe(401)
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })

@@ -22,6 +22,9 @@ browser behavior.
 - Replaced the generic browser simulation panel for FMUs without a linked GLB
   scene or Three.js app with a styled proxy-FMU download guide for external FMI
   tools, preserving automatic download and adding a retry action.
+- Removed unused generic FMU controls, history/export components and Marketplace
+  execution/history/upload proxy routes. Linked GLB and custom apps continue to
+  execute directly on the provider Gateway; shared qFMU charts remain available.
 - Added batch, step-by-step and continuous live execution modes to generated GLB digital-twin views. Runtime edits are sent at the next step for variables the Gateway permits.
 - Added a real-time (1x) pace for Continuous mode, which follows the wall clock without skipping model steps.
 - Added an opt-in Pace selector for Three.js SDK apps. The SDK applies the user's real-time or fastest choice while app developers retain control of batch strategy.

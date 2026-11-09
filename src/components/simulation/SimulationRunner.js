@@ -127,9 +127,7 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
     document.head.appendChild(preload)
     return () => preload.remove()
   }, [twinAsset?.type, twinAsset?.url])
-  const twinSimulationType = twinAsset
-    ? variableAccess?.simulationType
-    : fmuMeta?.simulationType
+  const twinSimulationType = variableAccess?.simulationType
   const supportsTwinInputSchedule = supportsFmiScheduledInputChanges(twinSimulationType)
   const supportsInteractiveTwinModes = Boolean(
     twinAsset?.type === 'glb'
@@ -198,15 +196,12 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
   const execution = useSimulationExecution({
     lab,
     reservationKey,
-    fetchGateway,
     getFmuConnection: requestFmuConnection,
-    directGatewayStream: isGlbTwin,
     variableAccess,
     variableAccessState,
     parameters,
     setParameters,
     options: effectiveOptions,
-    setOptions,
     inputEvents,
     isScheduledExecution,
     supportsInputSchedule,
@@ -216,7 +211,6 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
     selectedFmiLsExperimentId,
     selectableFmiLsExperiments,
     setCandidateFmuStateCheckpoint,
-    twinSimulationType,
   })
   const {
     simState,
@@ -444,9 +438,7 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
       checkpoint,
       captureFmuState: twinAsset?.type === 'glb' && effectiveExecutionMode === 'batch' && supportsFmuState,
     }
-    return Array.isArray(scheduledEvents)
-      ? runSimulation(null, null, scheduledEvents, stateOptions)
-      : runSimulation(null, null, null, stateOptions)
+    return runSimulation(Array.isArray(scheduledEvents) ? scheduledEvents : undefined, stateOptions)
   }, [effectiveExecutionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, supportsFmuState, twinAsset?.type])
 
   const checkpointBusy = simState === SIM_STATE.RUNNING && !interactiveExecution.hasActiveSession

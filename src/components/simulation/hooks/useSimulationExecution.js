@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import devLog from '@/utils/dev/logger'
-import { resolveGatewayFeatureError } from '../utils/gatewayErrors'
 import { normalizeInitializationParameters } from '../utils/simulationParameters'
 import { resolveInputSchedule } from '../utils/inputSchedule'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
 import { MAX_INTERACTIVE_HISTORY_SAMPLES } from '../utils/interactiveSampleHistory'
-import { postSimulationStream } from '../utils/simulationStreamTransport'
 import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { normalizeSimulationStreamEvent, readNdjsonStream } from '@decentralabs/digital-twin-app-protocol/simulation-stream'
 
@@ -23,13 +21,10 @@ const STREAMING_SAMPLE_UPDATE_INTERVAL = 128
 const STREAMING_SAMPLE_UPDATE_MS = 250
 const MAX_STREAMING_PREVIEW_SAMPLES = 2_000
 const MAX_STREAMING_PREVIEW_VALUES = 250_000
-const MAX_PREVIEW_EXTREMA_SCAN_VALUES = 25_000_000
 
-function createStreamingPreview(time, outputs, { preserveExtrema = false } = {}) {
+function createStreamingPreview(time, outputs) {
   const sampleCount = time.length
   const seriesCount = Object.values(outputs).filter(Array.isArray).length
-  const keepExtrema = preserveExtrema
-    && sampleCount * seriesCount <= MAX_PREVIEW_EXTREMA_SCAN_VALUES
   const previewSampleLimit = Math.min(
     MAX_STREAMING_PREVIEW_SAMPLES,
     Math.max(2, Math.floor(MAX_STREAMING_PREVIEW_VALUES / Math.max(1, seriesCount))),
@@ -41,40 +36,9 @@ function createStreamingPreview(time, outputs, { preserveExtrema = false } = {})
     }
   }
 
-  const indices = new Set([0, sampleCount - 1])
-  if (keepExtrema) {
-    const pointsPerBucket = 2 + (seriesCount * 2)
-    const bucketCount = Math.max(1, Math.floor((previewSampleLimit - 2) / pointsPerBucket))
-    for (let bucket = 0; bucket < bucketCount; bucket += 1) {
-      const start = Math.floor((bucket * sampleCount) / bucketCount)
-      const end = Math.min(sampleCount, Math.floor(((bucket + 1) * sampleCount) / bucketCount))
-      if (end <= start) continue
-      indices.add(start)
-      indices.add(end - 1)
-      for (const values of Object.values(outputs)) {
-        if (!Array.isArray(values)) continue
-        let minimumIndex = -1
-        let maximumIndex = -1
-        let minimum = Infinity
-        let maximum = -Infinity
-        for (let index = start; index < end; index += 1) {
-          const rawValue = values[index]
-          const value = typeof rawValue === 'boolean' ? Number(rawValue) : rawValue
-          if (!Number.isFinite(value)) continue
-          if (value < minimum) { minimum = value; minimumIndex = index }
-          if (value > maximum) { maximum = value; maximumIndex = index }
-        }
-        if (minimumIndex >= 0) indices.add(minimumIndex)
-        if (maximumIndex >= 0) indices.add(maximumIndex)
-      }
-    }
-  } else {
-    for (let point = 1; point < previewSampleLimit - 1; point += 1) {
-      indices.add(Math.round((point * (sampleCount - 1)) / (previewSampleLimit - 1)))
-    }
-  }
-
-  const selectedIndices = [...indices].sort((left, right) => left - right)
+  const selectedIndices = Array.from({ length: previewSampleLimit }, (_, index) => (
+    Math.round((index * (sampleCount - 1)) / (previewSampleLimit - 1))
+  ))
 
   return {
     time: selectedIndices.map((index) => time[index]),
@@ -85,36 +49,15 @@ function createStreamingPreview(time, outputs, { preserveExtrema = false } = {})
   }
 }
 
-function resolveDigitalTwinSimulationOptions(baseOptions, requestedOptions, simulationType) {
-  if (!requestedOptions || typeof requestedOptions !== 'object' || Array.isArray(requestedOptions)) {
-    throw new Error('The digital twin requested invalid simulation options.')
-  }
-
-  const includeStepSize = simulationType !== 'ScheduledExecution'
-  const allowedOptionNames = new Set(['startTime', 'stopTime', ...(includeStepSize ? ['stepSize'] : [])])
-  if (Object.keys(requestedOptions).some((name) => !allowedOptionNames.has(name))) {
-    throw new Error('The digital twin requested an unsupported simulation option.')
-  }
-
-  const resolved = { ...baseOptions, ...requestedOptions }
-  return {
-    ...resolved,
-    ...normalizeSimulationTimeOptions(resolved, { includeStepSize }),
-  }
-}
-
 export default function useSimulationExecution({
   lab,
   reservationKey,
-  fetchGateway,
   getFmuConnection,
-  directGatewayStream = false,
   variableAccess,
   variableAccessState,
   parameters,
   setParameters,
   options,
-  setOptions,
   inputEvents,
   isScheduledExecution,
   supportsInputSchedule,
@@ -124,7 +67,6 @@ export default function useSimulationExecution({
   selectedFmiLsExperimentId,
   selectableFmiLsExperiments,
   setCandidateFmuStateCheckpoint,
-  twinSimulationType,
 }) {
   const [simState, setSimState] = useState(SIM_STATE.IDLE)
   const [results, setResults] = useState(null)
@@ -210,7 +152,7 @@ export default function useSimulationExecution({
     setSimState(state)
   }, [setParameters])
 
-  const runSimulation = useCallback(async (requestedParameters = null, requestedOptions = null, requestedInputEvents = null, stateOptions = {}) => {
+  const runSimulation = useCallback(async (activeInputEvents = inputEvents, stateOptions = {}) => {
     if (variableAccessState !== 'ready' || !variableAccess) {
       setErrorMsg('Variable access is not ready for this reservation.')
       setSimState(SIM_STATE.ERROR)
@@ -227,27 +169,11 @@ export default function useSimulationExecution({
     setProgress({ elapsedSeconds: 0, chunkIndex: null, totalChunks: null })
 
     try {
-      let activeParameters = parameters
-      if (requestedParameters !== null) {
-        if (!requestedParameters || typeof requestedParameters !== 'object' || Array.isArray(requestedParameters)) {
-          throw new Error('The digital twin requested invalid simulation inputs.')
-        }
-        const allowedInitializationNames = new Set(editableVariables.map((variable) => variable.name))
-        if (Object.keys(requestedParameters).some((name) => !allowedInitializationNames.has(name))) {
-          throw new Error('The digital twin requested an FMU input or tunable parameter that this model does not expose.')
-        }
-        activeParameters = { ...parameters, ...requestedParameters }
-        setParameters(activeParameters)
-      }
-
-      const activeOptions = requestedOptions === null || requestedOptions === undefined
-        ? options
-        : resolveDigitalTwinSimulationOptions(options, requestedOptions, twinSimulationType)
-      if (requestedOptions !== null && requestedOptions !== undefined) setOptions(activeOptions)
-      const normalizedTimeOptions = normalizeSimulationTimeOptions(activeOptions, {
+      const activeParameters = parameters
+      const normalizedTimeOptions = normalizeSimulationTimeOptions(options, {
         includeStepSize: !isScheduledExecution,
       })
-      const resolvedActiveOptions = { ...activeOptions, ...normalizedTimeOptions }
+      const resolvedActiveOptions = { ...options, ...normalizedTimeOptions }
       const scheduleValidationOptions = { ...resolvedActiveOptions }
       const checkpointBundle = stateOptions?.checkpoint || null
       const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
@@ -263,9 +189,6 @@ export default function useSimulationExecution({
         }
       }
 
-      const activeInputEvents = requestedInputEvents === null || requestedInputEvents === undefined
-        ? inputEvents
-        : requestedInputEvents
       const selectedExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
       const resolvedInputSchedule = resolveInputSchedule({
         experiment: selectedExperiment,
@@ -303,22 +226,11 @@ export default function useSimulationExecution({
         ...(stateOptions?.captureFmuState ? { captureFmuState: true } : {}),
       }
 
-      let response
-      if (directGatewayStream) {
-        if (typeof getFmuConnection !== 'function') {
-          throw new Error('The provider FMU connection is unavailable.')
-        }
-        const connection = await getFmuConnection({ signal: controller.signal })
-        response = await postFmuSimulationStream(connection, body, { signal: controller.signal })
-      } else {
-        response = await postSimulationStream({
-          url: '/api/simulations/stream',
-          fetchImpl: fetchGateway,
-          credentials: 'include',
-          signal: controller.signal,
-          body,
-        })
+      if (typeof getFmuConnection !== 'function') {
+        throw new Error('The provider FMU connection is unavailable.')
       }
+      const connection = await getFmuConnection({ signal: controller.signal })
+      const response = await postFmuSimulationStream(connection, body, { signal: controller.signal })
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || errorData.detail || `Simulation failed (${response.status})`)
@@ -335,7 +247,7 @@ export default function useSimulationExecution({
           && accumulatedTime.length - lastPublishedSampleCount < STREAMING_SAMPLE_UPDATE_INTERVAL
           && now - lastPublishedAt < STREAMING_SAMPLE_UPDATE_MS) return false
         const preview = createStreamingPreview(accumulatedTime, accumulatedOutputs)
-        setResults({ ...preview, chart: preview, streaming: true })
+        setResults({ ...preview, streaming: true })
         lastPublishedSampleCount = accumulatedTime.length
         lastPublishedAt = now
         return true
@@ -397,11 +309,9 @@ export default function useSimulationExecution({
       }, { signal: controller.signal })
 
       if (controller.signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError')
-      const chart = createStreamingPreview(accumulatedTime, accumulatedOutputs, { preserveExtrema: true })
       setResults({
         time: accumulatedTime,
         outputs: accumulatedOutputs,
-        chart,
         outputVariables: finalMeta.outputVariables || Object.keys(accumulatedOutputs),
         simulationTime: finalMeta.simulationTime ?? finalMeta.time,
         fmiType: finalMeta.fmiType,
@@ -423,51 +333,17 @@ export default function useSimulationExecution({
         simulationInFlightRef.current = false
       }
     }
-  }, [accessibleModelVariables, directGatewayStream, editableVariables, fetchGateway, getFmuConnection, inputEvents, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, setOptions, setParameters, supportsInputSchedule, twinSimulationType, variableAccess, variableAccessState])
-
-  const loadResult = useCallback(async (simId) => {
-    const gatewayUrl = lab.accessURI || ''
-    const labId = String(lab.id ?? lab.tokenId ?? '')
-    if (!gatewayUrl || !labId) return
-    try {
-      const resultQuery = new URLSearchParams({
-        simId: String(simId),
-        labId,
-        reservationKey: String(reservationKey || ''),
-      })
-      const response = await fetchGateway(`/api/simulations/result?${resultQuery.toString()}`, { credentials: 'include' })
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        const gatewayError = resolveGatewayFeatureError(response.status, payload, {
-          fallbackMessage: `Failed to load result (${response.status})`,
-          unavailableMessage: 'Historical simulation results are not available yet for this FMU backend.',
-        })
-        throw new Error(gatewayError.message)
-      }
-      const data = await response.json()
-      setResults(data.result || data)
-      setSimState(SIM_STATE.COMPLETED)
-    } catch (error) {
-      devLog.error('Failed to load historical result:', error)
-      setResults(null)
-      setErrorMsg(error?.message || 'Unable to load historical simulation result')
-      setSimState(SIM_STATE.ERROR)
-    }
-  }, [fetchGateway, lab, reservationKey])
+  }, [accessibleModelVariables, editableVariables, getFmuConnection, inputEvents, isScheduledExecution, lab, options, parameters, reservationKey, scheduledRuntimeVariables, selectedFmiLsExperimentId, selectableFmiLsExperiments, setCandidateFmuStateCheckpoint, supportsInputSchedule, variableAccess, variableAccessState])
 
   return {
     simState,
-    setSimState,
     results,
-    setResults,
     errorMsg,
     setErrorMsg,
     progress,
     runSimulation,
-    loadResult,
     appendInteractiveSamples,
     handleInteractiveRunStart,
     handleInteractiveRunFinish,
-    simulationInFlightRef,
   }
 }

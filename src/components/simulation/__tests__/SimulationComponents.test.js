@@ -3,10 +3,8 @@
  *
  * Tests for:
  * - SimulationRunner asset routing and external FMI handoff
- * - ParameterForm input rendering and changes
  * - SimulationOptions fields
  * - ResultsChart and ResultsTable data display
- * - DownloadButtons trigger
  */
 
 import React from "react";
@@ -42,6 +40,7 @@ jest.mock("next/dynamic", () => {
           "data-input-editing-enabled": String(props.inputEditingEnabled),
           "data-interactive-inputs": JSON.stringify((props.interactiveInputVariables || []).map(({ name }) => name)),
           "data-model-variables": JSON.stringify((props.modelVariables || []).map(({ name }) => name)),
+          "data-results": JSON.stringify(props.results),
         } : {}),
       });
     },
@@ -63,82 +62,8 @@ jest.mock("@/utils/auth/fmuAccess", () => ({
 }));
 jest.mock("@decentralabs/digital-twin-app-protocol/fmu-client", () => ({
   connectFmuSession: jest.fn(),
+  postFmuSimulationStream: jest.fn(),
 }));
-
-// â”€â”€â”€ ParameterForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-import ParameterForm from "../controls/ParameterForm";
-
-describe("ParameterForm", () => {
-  const variables = [
-    { name: "mass", causality: "input", start: 1.0, unit: "kg" },
-    { name: "damping", causality: "input", start: 0.5, unit: "N.s/m" },
-  ];
-
-  test("renders a row for each input variable", () => {
-    render(
-      <ParameterForm variables={variables} values={{ mass: 1.0, damping: 0.5 }} onChange={jest.fn()} />
-    );
-    expect(screen.getByLabelText("Parameter mass")).toBeInTheDocument();
-    expect(screen.getByLabelText("Parameter damping")).toBeInTheDocument();
-  });
-
-  test("calls onChange when value is edited", () => {
-    const onChange = jest.fn();
-    render(
-      <ParameterForm variables={variables} values={{ mass: 1.0, damping: 0.5 }} onChange={onChange} />
-    );
-    fireEvent.change(screen.getByLabelText("Parameter mass"), { target: { value: "2.5" } });
-    expect(onChange).toHaveBeenCalledWith("mass", "2.5");
-  });
-
-  test("disables inputs when disabled prop is true", () => {
-    render(
-      <ParameterForm variables={variables} values={{ mass: 1.0, damping: 0.5 }} onChange={jest.fn()} disabled />
-    );
-    expect(screen.getByLabelText("Parameter mass")).toBeDisabled();
-  });
-
-  test("returns null for empty variables", () => {
-    const { container } = render(
-      <ParameterForm variables={[]} values={{}} onChange={jest.fn()} />
-    );
-    expect(container.firstChild).toBeNull();
-  });
-
-  test("shows the type, shape and expected format for each variable", () => {
-    const vectorVariables = [{
-      name: "u",
-      causality: "input",
-      type: "Float64",
-      start: "1 2 3",
-      unit: "m/s",
-      description: "Input vector",
-      dimensions: [{ start: 3 }],
-    }];
-
-    render(<ParameterForm variables={vectorVariables} values={{ u: "1 2 3" }} onChange={jest.fn()} />);
-
-    expect(screen.getByText("Float64 · vector[3]")).toBeInTheDocument();
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Input vector");
-    expect(screen.getByText("Format: 3 numbers separated by spaces")).toBeInTheDocument();
-    expect(screen.queryByText("Initial: 1 2 3")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Parameter u")).toHaveAttribute("type", "text");
-  });
-
-  test("uses a text input when a variable expects a boolean", () => {
-    render(
-      <ParameterForm
-        variables={[{ name: "enabled", causality: "input", type: "Boolean", start: "false" }]}
-        values={{ enabled: "false" }}
-        onChange={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText("Format: true or false")).toBeInTheDocument();
-    expect(screen.getByLabelText("Parameter enabled")).toHaveAttribute("type", "text");
-  });
-});
 
 // â”€â”€â”€ SimulationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -336,40 +261,10 @@ describe("ResultsChart", () => {
   });
 });
 
-// â”€â”€â”€ DownloadButtons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-import DownloadButtons from "../results/DownloadButtons";
-
-describe("DownloadButtons", () => {
-  // Mock URL.createObjectURL
-  const mockCreateObjectURL = jest.fn(() => "blob:test");
-  const mockRevokeObjectURL = jest.fn();
-  beforeAll(() => {
-    global.URL.createObjectURL = mockCreateObjectURL;
-    global.URL.revokeObjectURL = mockRevokeObjectURL;
-  });
-
-  test("renders CSV and JSON download buttons", () => {
-    render(
-      <DownloadButtons
-        results={{ time: [0, 1], outputs: { position: [0, 1] } }}
-        labName="TestFMU"
-      />
-    );
-    expect(screen.getByText(/Download CSV/)).toBeInTheDocument();
-    expect(screen.getByText(/Download JSON/)).toBeInTheDocument();
-  });
-
-  test("returns null when results is null", () => {
-    const { container } = render(<DownloadButtons results={null} />);
-    expect(container.firstChild).toBeNull();
-  });
-});
-
 // â”€â”€â”€ SimulationRunner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import SimulationRunner from "../SimulationRunner";
-import { connectFmuSession } from "@decentralabs/digital-twin-app-protocol/fmu-client";
+import { connectFmuSession, postFmuSimulationStream } from "@decentralabs/digital-twin-app-protocol/fmu-client";
 import { authenticateLabAccessSSO } from "@/utils/auth/labAuth";
 import { establishFmuGatewaySession } from "@/utils/auth/fmuAccess";
 
@@ -391,6 +286,16 @@ const fmuLab = {
 };
 
 describe("SimulationRunner", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  beforeAll(() => {
+    URL.createObjectURL = jest.fn(() => "blob:test");
+    URL.revokeObjectURL = jest.fn();
+  });
+  afterAll(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
   let gatewayResponses;
   let proxyResponses;
   let nextAccessPolicy;
@@ -419,6 +324,7 @@ describe("SimulationRunner", () => {
       });
     });
     connectFmuSession.mockReset();
+    postFmuSimulationStream.mockReset();
     authenticateLabAccessSSO.mockClear();
     establishFmuGatewaySession.mockClear();
   });
@@ -503,6 +409,42 @@ describe("SimulationRunner", () => {
     expect(viewer).toHaveAttribute("data-url", expectedUrl);
     expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
     await waitFor(() => expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith('/api/simulations/proxy?'))).toHaveLength(contentType === 'text/html' ? 0 : 1));
+  });
+
+  test("runs a linked GLB batch directly on the provider Gateway", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn((url, init) => String(url).startsWith('/api/aas/shell?')
+      ? Promise.resolve({ ok: true, json: async () => ({ visualAssets: [{
+        contentType: 'model/gltf-binary',
+        url: `/digital-twin-scenes/42/${'a'.repeat(64)}.glb`,
+      }] }) })
+      : originalFetch(url, init));
+    const connection = { gatewayOrigin: 'https://gateway.example.com', token: 'one-use-grant' };
+    gatewayResponses.push({ ok: true, json: async () => connection });
+    const encoded = new TextEncoder().encode([
+      { type: 'started', simId: 'batch-1' },
+      { type: 'data', time: [0, 1], outputs: { position: [0, 0.5] } },
+      { type: 'completed', fmiType: 'CoSimulation' },
+    ].map((event) => JSON.stringify(event)).join('\n') + '\n');
+    const reader = { read: jest.fn()
+      .mockResolvedValueOnce({ done: false, value: encoded })
+      .mockResolvedValue({ done: true }), releaseLock: jest.fn() };
+    postFmuSimulationStream.mockResolvedValue({ ok: true, body: { getReader: () => reader } });
+
+    renderReservedSimulationRunner();
+    fireEvent.change(await screen.findByLabelText('Execution mode'), { target: { value: 'batch' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Run Controls/ }));
+    fireEvent.change(screen.getByLabelText('Stop Time (s)'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run model' }));
+
+    await waitFor(() => expect(postFmuSimulationStream).toHaveBeenCalledWith(
+      connection,
+      expect.objectContaining({ labId: '42', reservationKey: '0xabc', options: expect.objectContaining({ stopTime: 1 }) }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run model' })).toBeEnabled());
+    expect(JSON.parse(screen.getByTestId('digital-twin-glb').dataset.results)).toMatchObject({ time: [0, 1], outputs: { position: [0, 0.5] } });
+    expect(global.fetch.mock.calls.map(([url]) => url)).not.toContain('/api/simulations/stream');
   });
 
   test("does not expose scene dragging for inputs the Gateway does not permit writing", async () => {

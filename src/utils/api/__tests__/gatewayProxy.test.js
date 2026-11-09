@@ -425,8 +425,8 @@ describe('gatewayProxy', () => {
 
   describe('buildGatewayTargetUrl', () => {
     test('concatenates base URL and path', () => {
-      const url = mod.buildGatewayTargetUrl('https://gw.example.com', '/fmu/api/v1/simulations/run')
-      expect(url).toBe('https://gw.example.com/fmu/api/v1/simulations/run')
+      const url = mod.buildGatewayTargetUrl('https://gw.example.com', '/fmu/api/v1/simulations/access')
+      expect(url).toBe('https://gw.example.com/fmu/api/v1/simulations/access')
     })
 
     test('handles base URL with trailing slash', () => {

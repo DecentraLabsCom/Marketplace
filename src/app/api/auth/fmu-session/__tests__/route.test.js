@@ -88,7 +88,7 @@ describe('POST /api/auth/fmu-session', () => {
     expect(setCookie).not.toContain('opaque-code')
 
     const encoded = setCookie.match(/marketplace_fmu_contexts=([^;]+)/)?.[1]
-    const storedRequest = new Request('https://marketplace.example.com/api/simulations/history', {
+    const storedRequest = new Request('https://marketplace.example.com/api/simulations/proxy', {
       headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
     })
     expect(readFmuContexts(storedRequest)).toEqual([
@@ -143,7 +143,7 @@ describe('POST /api/auth/fmu-session', () => {
 
     expect(response.status).toBe(200)
     const encoded = response.headers.get('set-cookie').match(/marketplace_fmu_contexts=([^;]+)/)?.[1]
-    const storedRequest = new Request('https://marketplace.example.com/api/simulations/history', {
+    const storedRequest = new Request('https://marketplace.example.com/api/simulations/proxy', {
       headers: { Cookie: `${FMU_CONTEXT_COOKIE}=${encoded}` },
     })
     expect(readFmuContexts(storedRequest)).toEqual([
