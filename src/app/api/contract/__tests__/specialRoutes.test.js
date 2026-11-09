@@ -45,10 +45,6 @@ jest.mock('@/server/contract/getAllLabProviders', () => ({
   getAllLabProviders: jest.fn(),
 }))
 
-jest.mock('@/utils/auth/roleValidation', () => ({
-  hasAdminRole: jest.fn(),
-}))
-
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import {
   BadRequestError,
@@ -60,7 +56,6 @@ import {
   resolveInstitutionAddressFromSession,
 } from '@/app/api/contract/utils/institutionSession'
 import { getAllLabProviders } from '@/server/contract/getAllLabProviders'
-import { hasAdminRole } from '@/utils/auth/roleValidation'
 import { GET as getActiveReservationKey } from '../institution/getActiveReservationKey/route'
 import { GET as getReservationByUserIndex } from '../institution/getUserReservationByIndex/route'
 import { GET as getUserReservationCount } from '../institution/getUserReservationCount/route'
@@ -69,8 +64,6 @@ import { GET as hasUserActiveBooking } from '../institution/hasUserActiveBooking
 import { GET as resolveInstitution } from '../institution/resolve/route'
 import { GET as getAllLabs } from '../lab/getAllLabs/route'
 import { GET as getLabProviders } from '../provider/getLabProviders/route'
-import { POST as removeProvider } from '../provider/removeProvider/route'
-import { POST as updateProvider } from '../provider/updateProvider/route'
 
 const ADDRESS = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const PUC_HASH = `0x${'22'.repeat(32)}`
@@ -95,7 +88,6 @@ describe('special contract adapters', () => {
       getSchacHomeOrganizationBackend: jest.fn(),
       getLabsPaginated: jest.fn(),
       ownerOf: jest.fn(),
-      removeProvider: jest.fn(),
     }
 
     getContractInstance.mockResolvedValue(contract)
@@ -105,7 +97,6 @@ describe('special contract adapters', () => {
       institutionAddress: ADDRESS,
       normalizedDomain: 'uni.example',
     })
-    hasAdminRole.mockReturnValue(true)
   })
 
   test('returns active reservation key and distinguishes the zero sentinel', async () => {
@@ -378,82 +369,4 @@ describe('special contract adapters', () => {
     expect(getAllLabProviders).toHaveBeenCalledWith(contract, {})
   })
 
-  test('requires admin entitlement and waits for provider removal receipt', async () => {
-    const wait = jest.fn().mockResolvedValue({ status: 1 })
-    contract.removeProvider.mockResolvedValue({ wait })
-
-    const response = await removeProvider(request('/api/contract/provider/removeProvider', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ wallet: ADDRESS }),
-    }))
-
-    expect(response.status).toBe(200)
-    await expect(json(response)).resolves.toEqual({
-      message: 'Provider removed successfully',
-      walletAddress: ADDRESS,
-    })
-    expect(hasAdminRole).toHaveBeenCalledWith(session.entitlements)
-    expect(contract.removeProvider).toHaveBeenCalledWith(ADDRESS)
-    expect(wait).toHaveBeenCalledTimes(1)
-  })
-
-  test('rejects provider removal without admin privileges or wallet input', async () => {
-    hasAdminRole.mockReturnValueOnce(false)
-    const forbidden = await removeProvider(request('/api/contract/provider/removeProvider', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ wallet: ADDRESS }),
-    }))
-
-    expect(forbidden.status).toBe(403)
-    await expect(json(forbidden)).resolves.toEqual({
-      error: 'Admin privileges required to remove providers',
-      code: 'FORBIDDEN',
-    })
-
-    hasAdminRole.mockReturnValue(true)
-    const missing = await removeProvider(request('/api/contract/provider/removeProvider', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    }))
-
-    expect(missing.status).toBe(400)
-    await expect(json(missing)).resolves.toEqual({ error: 'Missing required fields' })
-    expect(getContractInstance).not.toHaveBeenCalled()
-  })
-
-  test('keeps provider update behind the wallet-signature or intent boundary', async () => {
-    const response = await updateProvider(request('/api/contract/provider/updateProvider', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Provider University',
-        email: 'provider@example.edu',
-        country: 'ES',
-        userAddress: ADDRESS,
-      }),
-    }))
-
-    expect(response.status).toBe(400)
-    await expect(json(response)).resolves.toEqual({
-      error: 'Update must be executed with wallet signature or SSO intent',
-      hint: 'Wallet: call updateProvider on-chain with signer. SSO: use institutional intent flow.',
-    })
-    expect(getContractInstance).not.toHaveBeenCalled()
-  })
-
-  test('validates provider update fields before returning the execution guidance', async () => {
-    const response = await updateProvider(request('/api/contract/provider/updateProvider', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Provider University' }),
-    }))
-
-    expect(response.status).toBe(400)
-    await expect(json(response)).resolves.toEqual({
-      error: 'Missing required fields: name, email, country, userAddress',
-    })
-  })
 })

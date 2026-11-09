@@ -37,10 +37,9 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * @param {Function} props.onSubmit - Callback to submit lab data
  * @param {Object} props.lab - Lab object for editing (null for creating new lab)
  * @param {string} props.providerAuthURI - Provider auth endpoint from the on-chain registry
- * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  * @returns {JSX.Element} Lab creation/editing modal component
  */
-export default function LabModal({ isOpen, onClose, onSubmit, lab = null, providerAuthURI = '', maxId = 0 }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab = null, providerAuthURI = '' }) {
   const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
   const { addWarningNotification, addErrorNotification } = useNotifications();
@@ -62,11 +61,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
   } = state;
 
   const nameRef = useRef(null);
-  const categoryRef = useRef(null);
   const keywordsRef = useRef(null);
   const descriptionRef = useRef(null);
   const priceRef = useRef(null);
-  const authRef = useRef(null);
   const accessURIRef = useRef(null);
   const accessKeyRef = useRef(null);
   const timezoneRef = useRef(null);
@@ -564,11 +561,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
     const fieldsToFocus = {
         full: [
             { name: 'name', ref: nameRef },
-            { name: 'category', ref: categoryRef },
             { name: 'keywords', ref: keywordsRef },
             { name: 'description', ref: descriptionRef },
             { name: 'price', ref: priceRef },
-            { name: 'auth', ref: authRef },
             { name: 'accessURI', ref: accessURIRef },
             { name: 'accessKey', ref: accessKeyRef },
             { name: 'timeSlots', ref: timeSlotsRef },
@@ -584,7 +579,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
         ],
         quick: [
             { name: 'price', ref: priceRef },
-            { name: 'auth', ref: authRef },
             { name: 'accessURI', ref: accessURIRef },
             { name: 'accessKey', ref: accessKeyRef },
             { name: 'uri', ref: uriRef },
@@ -793,8 +787,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
                 setDocInputType={value => dispatch({ type: 'SET_FIELD', field: 'docInputType', value })}
                 onCancel={handleClose} docUrls={docUrls} docLinkRef={docLinkRef} docUploadRef={docUploadRef} 
                 handleDocChange={handleDocChange} removeDoc={removeDoc} localDocs={localDocs} nameRef={nameRef}
-                categoryRef={categoryRef} keywordsRef={keywordsRef} descriptionRef={descriptionRef} 
-                priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} accessKeyRef={accessKeyRef}
+                keywordsRef={keywordsRef} descriptionRef={descriptionRef}
+                priceRef={priceRef} accessURIRef={accessURIRef} accessKeyRef={accessKeyRef}
                 timezoneRef={timezoneRef} timeSlotsRef={timeSlotsRef}
                 availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
                 maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
@@ -803,7 +797,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, provid
             )}
             {activeTab === 'quick' && (
               <LabFormQuickSetup setLocalLab={value => dispatch({ type: 'MERGE_LOCAL_LAB', value })} errors={errors}
-                isLocalURI={isLocalURI} priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} lab={lab}
+                isLocalURI={isLocalURI} priceRef={priceRef} accessURIRef={accessURIRef} lab={lab}
                 accessKeyRef={accessKeyRef} clickedToEditUri={clickedToEditUri} handleUriChange={handleUriChange}
                 setClickedToEditUri={value => dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value })}
                 onSubmit={handleSubmitQuick} onCancel={handleClose} uriRef={uriRef} localLab={localLab}
@@ -831,6 +825,5 @@ LabModal.propTypes = {
     images: PropTypes.array,
     docs: PropTypes.array
   }),
-  maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 

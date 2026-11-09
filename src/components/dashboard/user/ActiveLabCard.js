@@ -18,7 +18,6 @@ import ReservationCancellationDialog from '@/components/dashboard/user/Reservati
  * @param {Object} props - Component props
  * @param {Object|null} props.lab - Lab object to display
  * @param {Object|null} props.booking - Associated booking object
- * @param {string} props.userAddress - User's wallet address
  * @param {boolean} props.isActive - Whether this is an active booking or upcoming
  * @param {boolean} props.isStaticCard - Whether this card should remain static and match its document panel
  * @param {Object} props.bookingTimes - Booking start/end times
@@ -29,7 +28,6 @@ import ReservationCancellationDialog from '@/components/dashboard/user/Reservati
 export default function ActiveLabCard({ 
   lab,
   booking,
-  userAddress = null, 
   institutionName = null,
   isActive = false, 
   isStaticCard = false,
@@ -63,7 +61,7 @@ export default function ActiveLabCard({
       const startDate = new Date(parseInt(booking.start) * 1000);
       if (isNaN(startDate.getTime())) return '';
       return startDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
-    } catch (error) {
+    } catch {
       return '';
     }
   };
@@ -157,10 +155,8 @@ export default function ActiveLabCard({
           {isActive && (
             <LabAccess 
               id={lab.id}
-              userWallet={userAddress} 
               hasActiveBooking={!!booking} 
               reservationKey={booking?.reservationKey}
-              resourceType={lab.resourceType}
             />
           )}
         </div>
@@ -218,7 +214,6 @@ ActiveLabCard.propTypes = {
     start: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     end: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
-  userAddress: PropTypes.string,
   institutionName: PropTypes.string,
   isActive: PropTypes.bool,
   isStaticCard: PropTypes.bool,

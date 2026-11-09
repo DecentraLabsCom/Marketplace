@@ -1,11 +1,11 @@
 import { keccak256, toUtf8Bytes } from 'ethers'
 
-export const SAML_STABLE_USER_ID_MODES = Object.freeze({
+const SAML_STABLE_USER_ID_MODES = Object.freeze({
   PRINCIPAL: 'principal',
   PRINCIPAL_TARGETED_ID: 'principal_targeted_id',
 })
 
-export function getSamlStableUserIdMode() {
+function getSamlStableUserIdMode() {
   const configured = process.env.NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE?.trim().toLowerCase()
   return configured === SAML_STABLE_USER_ID_MODES.PRINCIPAL
     ? SAML_STABLE_USER_ID_MODES.PRINCIPAL

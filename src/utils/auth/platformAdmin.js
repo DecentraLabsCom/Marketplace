@@ -1,6 +1,6 @@
 import { ForbiddenError } from '@/utils/auth/guards';
 
-export function parsePlatformAdminEmails(value) {
+function parsePlatformAdminEmails(value) {
   if (!value || typeof value !== 'string') {
     return new Set();
   }

@@ -31,7 +31,7 @@ const mockLabTokenData = {
   refreshTokenData: jest.fn(),
   refetchBalance: jest.fn(),
   refetchAllowance: jest.fn(),
-  clearDecimalsCache: jest.fn(),
+
 };
 
 jest.mock('@/hooks/useLabCredit', () => ({
@@ -75,7 +75,7 @@ describe('LabCreditContext', () => {
       expect(typeof result.current.refreshTokenData).toBe('function');
       expect(typeof result.current.refetchBalance).toBe('function');
       expect(typeof result.current.refetchAllowance).toBe('function');
-      expect(typeof result.current.clearDecimalsCache).toBe('function');
+
     });
 
     test('throws error when used outside provider', () => {
@@ -361,17 +361,7 @@ describe('LabCreditContext', () => {
       expect(mockLabTokenData.refetchAllowance).toHaveBeenCalled();
     });
 
-    test('clearDecimalsCache clears cached decimals', () => {
-      const { result } = renderHook(() => useLabCredit(), {
-        wrapper: LabCreditProvider,
-      });
 
-      act(() => {
-        result.current.clearDecimalsCache();
-      });
-
-      expect(mockLabTokenData.clearDecimalsCache).toHaveBeenCalled();
-    });
   });
 
   describe('Loading State', () => {

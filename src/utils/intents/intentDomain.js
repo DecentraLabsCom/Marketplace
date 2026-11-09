@@ -17,7 +17,7 @@ export const INTENT_META_TYPES = {
 const DEFAULT_DOMAIN_NAME = 'DecentraLabsIntent';
 const DEFAULT_DOMAIN_VERSION = '1';
 
-export function getDiamondAddress() {
+function getDiamondAddress() {
   const chainKey = (defaultChain?.name || '').toLowerCase();
   const address = contractAddresses[chainKey];
   if (!address) {

@@ -124,7 +124,7 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     } else if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
         try {
             new Intl.DateTimeFormat('en-US', { timeZone: timezone });
-        } catch (error) {
+        } catch {
             errors.timezone = 'Timezone must be a valid IANA identifier';
         }
     }

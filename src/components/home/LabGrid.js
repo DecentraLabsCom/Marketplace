@@ -22,14 +22,12 @@ const STALE_NOTICE_STORAGE_PREFIX = 'decentralabs:catalogue-stale-notice:'
  * @param {boolean} props.hasMore - Whether another cursor page is available
  * @param {Function} props.onLoadMore - Loads the next cursor page
  * @param {boolean} props.loadingMore - Whether the next page is loading
- * @param {string} props.className - Additional CSS classes
  */
 export default function LabGrid({
   labs = [],
   loading = false,
   error = false,
   emptyMessage = "No labs found matching your criteria.",
-  className = "",
   hasMore = false,
   onLoadMore = null,
   loadingMore = false,
@@ -209,7 +207,6 @@ LabGrid.propTypes = {
   loading: PropTypes.bool,
   error: PropTypes.bool,
   emptyMessage: PropTypes.string,
-  className: PropTypes.string,
   hasMore: PropTypes.bool,
   onLoadMore: PropTypes.func,
   loadingMore: PropTypes.bool,

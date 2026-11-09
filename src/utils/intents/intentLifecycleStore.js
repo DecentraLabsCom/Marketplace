@@ -77,10 +77,3 @@ export async function listRegisteredIntentIds(limit = 50) {
     .filter(Boolean)
     .slice(0, Math.max(1, Number(limit) || 50))
 }
-
-export default {
-  recordRegisteredIntent,
-  getRegisteredIntent,
-  removeRegisteredIntent,
-  listRegisteredIntentIds,
-}

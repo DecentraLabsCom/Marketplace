@@ -1066,7 +1066,7 @@ export default function DigitalTwinCanvas({
             variable.causality === 'output'
             || isDraggableFmiSceneBinding(normalizedBinding)
           ))
-          .map(({ variable, normalizedBinding }) => {
+          .map(({ variable }) => {
             const kind = variable.causality === 'output' ? 'output' : 'input'
             return [`${kind}:${variable.name}`, { variable, kind }]
           })).values()]

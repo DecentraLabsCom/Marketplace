@@ -1,4 +1,4 @@
-import { canFetchUserBookings, resolveBookingsUserAddress } from '../bookingAccess'
+import { canFetchUserBookings } from '../bookingAccess'
 
 describe('bookingAccess', () => {
   describe('canFetchUserBookings', () => {
@@ -13,7 +13,6 @@ describe('bookingAccess', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: true,
-        address: null,
       })).toBe(true)
     })
 
@@ -21,7 +20,6 @@ describe('bookingAccess', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: false,
-        address: '0x123',
       })).toBe(false)
     })
 
@@ -29,31 +27,8 @@ describe('bookingAccess', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: false,
-        address: null,
       })).toBe(false)
     })
   })
 
-  describe('resolveBookingsUserAddress', () => {
-    test('returns null for SSO users', () => {
-      expect(resolveBookingsUserAddress({
-        isSSO: true,
-        address: '0x123',
-      })).toBeNull()
-    })
-
-    test('returns null for non-SSO users too because bookings are session-scoped', () => {
-      expect(resolveBookingsUserAddress({
-        isSSO: false,
-        address: '0x123',
-      })).toBeNull()
-    })
-
-    test('returns null when non-SSO user has no address', () => {
-      expect(resolveBookingsUserAddress({
-        isSSO: false,
-        address: null,
-      })).toBeNull()
-    })
-  })
 })

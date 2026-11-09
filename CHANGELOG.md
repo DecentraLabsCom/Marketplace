@@ -8,6 +8,13 @@ browser behavior.
 
 ## Unreleased
 
+### Maintenance
+
+- Removed unused UI, hooks, booking/date helpers, wallet/staking remnants,
+  test scaffolding, public SVG assets and obsolete provider mutation routes.
+- Pruned unused dependencies and exports, declared ESLint's direct dependencies
+  and enabled warnings for unused JavaScript variables and imports.
+
 ### Catalogue
 
 - Suppressed routine refresh notices and limited stale-data warnings to

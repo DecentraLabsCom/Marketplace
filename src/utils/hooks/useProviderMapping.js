@@ -130,13 +130,4 @@ export const useProviderMapping = ({
   };
 };
 
-/**
- * Utility function for summary calculation
- * Centralized booking summary logic to avoid duplication
- * @param {Array} bookings - Array of booking objects
- * @param {Object} options - Calculation options
- * @param {boolean} [options.includeUpcoming=true] - Include upcoming count
- * @param {boolean} [options.includeCancelled=true] - Include cancelled count
- * @returns {Object} Summary aggregates
- */
 export default useProviderMapping;

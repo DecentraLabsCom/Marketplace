@@ -19,7 +19,7 @@ import { canFetchUserBookings } from '@/utils/auth/bookingAccess'
 import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialMarketSnapshot = null }) {
-  const { isLoggedIn, address, isSSO } = useUser();
+  const { isLoggedIn, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   const now = useCurrentTime({ intervalMs: 20000 });
   const [isFilterTransitionPending, startFilterTransition] = useTransition();
@@ -99,8 +99,7 @@ export default function Market({ initialMarketSnapshot = null }) {
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
     isLoggedIn,
     isSSO,
-    address,
-  }), [isLoggedIn, isSSO, address]);
+  }), [isLoggedIn, isSSO]);
 
   const userBookingsOptions = useMemo(() => ({
     enabled: shouldFetchUserBookings,

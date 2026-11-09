@@ -3,7 +3,7 @@ export const CLASSIFICATION_SCHEMES = {
   ISCED_F: 'ISCED-F',
 }
 
-export const CLASSIFICATION_SCHEME_VERSIONS = {
+const CLASSIFICATION_SCHEME_VERSIONS = {
   [CLASSIFICATION_SCHEMES.FORD]: 'Frascati Manual 2015',
   [CLASSIFICATION_SCHEMES.ISCED_F]: 'ISCED-F 2013',
 }
@@ -65,7 +65,7 @@ export const FORD_FIELDS_GROUPED = {
   ],
 }
 
-export const FORD_FIELDS = Object.values(FORD_FIELDS_GROUPED).flat()
+const FORD_FIELDS = Object.values(FORD_FIELDS_GROUPED).flat()
 
 export const ISCED_F_FIELDS = [
   { code: '05', label: 'Natural sciences, mathematics and statistics' },
@@ -93,7 +93,7 @@ export const ISCED_F_FIELDS = [
   { code: '023', label: 'Languages' },
 ]
 
-export const FORD_TO_ISCED_F_SUGGESTIONS = {
+const FORD_TO_ISCED_F_SUGGESTIONS = {
   '1.1': ['054'],
   '1.2': ['061'],
   '1.3': ['053'],

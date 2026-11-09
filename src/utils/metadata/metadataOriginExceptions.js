@@ -26,7 +26,7 @@ const text = (value, field, { min = 1, max = 512 } = {}) => {
   return normalized
 }
 
-export function normalizeMetadataExceptionOrigin(value) {
+function normalizeMetadataExceptionOrigin(value) {
   const candidate = text(value, 'Origin', { max: 2048 })
   let parsed
   try {
@@ -177,12 +177,4 @@ export async function removeMetadataOriginException(origin) {
   const normalizedOrigin = normalizeMetadataExceptionOrigin(origin)
   await redisCommand(['DEL', keyForOrigin(normalizedOrigin)])
   await redisCommand(['ZREM', EXCEPTION_INDEX_KEY, normalizedOrigin])
-}
-
-export default {
-  getDynamicMetadataExceptionOrigins,
-  listMetadataOriginExceptions,
-  normalizeMetadataExceptionOrigin,
-  removeMetadataOriginException,
-  setMetadataOriginException,
 }

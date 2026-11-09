@@ -7,13 +7,13 @@ export const PRICE_UNIT_OPTIONS = [
   { value: 'month', label: '30-day month' },
 ]
 
-export const PERIOD_UNIT_OPTIONS = [
+const PERIOD_UNIT_OPTIONS = [
   { value: 'day', label: 'days' },
   { value: 'week', label: 'weeks' },
   { value: 'month', label: '30-day months' },
 ]
 
-export const normalizePeriodUnit = (unit, fallback = 'day') => {
+const normalizePeriodUnit = (unit, fallback = 'day') => {
   const normalized = String(unit || fallback).trim().toLowerCase().replace(/s$/, '')
   return PERIOD_UNIT_OPTIONS.some(option => option.value === normalized) ? normalized : fallback
 }

@@ -1,6 +1,5 @@
 const js = require("@eslint/js");
 const globals = require("globals");
-//const tailwindcss = require("eslint-plugin-tailwindcss");
 const jest = require("eslint-plugin-jest");
 const eslintComments = require("eslint-plugin-eslint-comments");
 const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
@@ -10,9 +9,6 @@ const { fixupConfigRules, fixupPluginRules } = require("@eslint/compat");
 const nextConfigs = Array.isArray(nextCoreWebVitals)
   ? nextCoreWebVitals
   : [nextCoreWebVitals];
-/*const tailwindConfigs = Array.isArray(tailwindcss.configs["flat/recommended"])
-  ? tailwindcss.configs["flat/recommended"]
-  : [tailwindcss.configs["flat/recommended"]];*/
 module.exports = [
   {
     ignores: [
@@ -21,12 +17,10 @@ module.exports = [
       "**/coverage/**",
       "**/out/**",
       "**/build/**",
-      //"tailwind.config.js",
       "postcss.config.js",
       "next.config.js",
       "jest.config.js",
       "cypress.config.js",
-      ".eslintrc.cjs",
     ],
   },
   {
@@ -51,7 +45,6 @@ module.exports = [
     },
   },
   js.configs.recommended,
-  //...tailwindConfigs,
   {
     files: ["**/*.{js,jsx,ts,tsx,cjs,mjs}"],
     languageOptions: {
@@ -88,6 +81,16 @@ module.exports = [
       "import/no-anonymous-default-export": "off",
       "eslint-comments/no-unused-disable": "error",
       "eslint-comments/no-unused-enable": "error",
+    },
+  },
+  {
+    files: ["**/*.{js,jsx,cjs,mjs}"],
+    rules: {
+      "no-unused-vars": ["warn", {
+        args: "none",
+        ignoreRestSiblings: true,
+        varsIgnorePattern: "^_",
+      }],
     },
   },
   {

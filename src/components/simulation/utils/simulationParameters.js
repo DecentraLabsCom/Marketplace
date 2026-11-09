@@ -1,7 +1,5 @@
 import { omitParametersMatchingFmiStart } from '@decentralabs/digital-twin-app-protocol/parameter-defaults'
 
-export { omitParametersMatchingFmiStart }
-
 const NUMERIC_TYPES = new Set([
   'Real',
   'Float32',
@@ -70,7 +68,7 @@ export function getVariableValueCount(variable, modelVariables = []) {
   return 1
 }
 
-export function formatParameterValue(value) {
+function formatParameterValue(value) {
   if (Array.isArray(value)) return value.join(' ')
   return value ?? ''
 }

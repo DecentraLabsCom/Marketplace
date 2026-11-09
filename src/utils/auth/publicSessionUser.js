@@ -46,7 +46,3 @@ export function sanitizeSessionUserForClient(sessionUser) {
 
   return sanitized;
 }
-
-export default {
-  sanitizeSessionUserForClient,
-};

@@ -3,7 +3,7 @@ import { processMetadataDocs } from '@/hooks/utils/metadataHelpers'
 
 const EMPTY_ARRAY = [];
 
-export const extractLabIdValue = (value) => {
+const extractLabIdValue = (value) => {
   if (value === null || value === undefined) return null;
   if (typeof value === 'object') {
     return value.labId ?? value.id ?? value.tokenId ?? null;
@@ -29,12 +29,12 @@ export const normalizeLabIds = (ids) => {
 /**
  * Helper function to format wallet address for display
  */
-export const formatWalletAddress = (address) => {
+const formatWalletAddress = (address) => {
   if (!address || address.length < 7) return address;
   return `${address.substring(0, 3)}...${address.substring(address.length - 3)}`;
 };
 
-export const extractProviderFromUri = (uri) => {
+const extractProviderFromUri = (uri) => {
   if (!uri || typeof uri !== 'string') return null;
   const match = uri.match(/Lab-([A-Za-z0-9-]+)-\d+/);
   if (!match) return null;
@@ -42,7 +42,7 @@ export const extractProviderFromUri = (uri) => {
   return provider || match[1];
 };
 
-export const buildAttributeMap = (metadata) => {
+const buildAttributeMap = (metadata) => {
   if (!metadata?.attributes) return {}
   return metadata.attributes.reduce((acc, attr) => {
     if (attr?.trait_type) {
@@ -52,7 +52,7 @@ export const buildAttributeMap = (metadata) => {
   }, {})
 }
 
-export const applyMetadataAttributes = (lab, metadata) => {
+const applyMetadataAttributes = (lab, metadata) => {
   if (!metadata) return {}
   const attributeMap = buildAttributeMap(metadata)
 
@@ -97,7 +97,7 @@ export const applyMetadataAttributes = (lab, metadata) => {
  * Accepts arrays, comma-separated strings, or single numeric values
  * Returns normalized array of positive integers or the provided fallback
  */
-export const getTimeSlotsFromMetadata = (metadata, fallback = [15, 30, 60]) => {
+const getTimeSlotsFromMetadata = (metadata, fallback = [15, 30, 60]) => {
   if (!metadata) return fallback;
   const attributeMap = buildAttributeMap(metadata);
   if (attributeMap.timeSlots === undefined || attributeMap.timeSlots === null) return fallback;

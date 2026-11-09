@@ -1,15 +1,13 @@
-import { formatUnits, parseUnits } from 'viem'
+import { formatUnits } from 'viem'
 
 // Canonical on-chain service-credit scale: 10,000,000 raw units per credit.
 export const CREDIT_DECIMALS = 7
 export const RAW_PER_CREDIT = 10n ** BigInt(CREDIT_DECIMALS)
-export const CREDITS_PER_EUR = 10
-export const RAW_PER_EUR = RAW_PER_CREDIT * BigInt(CREDITS_PER_EUR)
-export const SECONDS_PER_HOUR = 3600n
+const SECONDS_PER_HOUR = 3600n
 // On-chain prices are stored as integer raw credits per second. Three visible
 // decimals keep the hourly presentation aligned with the exact reservation
 // total without hiding the per-second quantization.
-export const DISPLAY_PRICE_DECIMALS = 3
+const DISPLAY_PRICE_DECIMALS = 3
 
 export function trimTrailingZeros(value) {
   if (value === null || value === undefined) return '0'
@@ -79,23 +77,4 @@ export function formatRawPricePerHour(rawPricePerSecond, decimals = CREDIT_DECIM
   } catch {
     return '0'
   }
-}
-
-export function convertHourlyCreditsToRawPerSecond(hourlyCredits, decimals = CREDIT_DECIMALS) {
-  const text = String(hourlyCredits ?? '').trim()
-  if (!text) {
-    throw new Error('Price is required')
-  }
-
-  const rawPerHour = parseUnits(text, decimals)
-  if (rawPerHour < 0n) {
-    throw new Error('Price must be positive')
-  }
-
-  // Contract stores integer raw units per second. Round hourly input to the nearest
-  // representable per-second value so users are not blocked by precision constraints.
-  const base = rawPerHour / SECONDS_PER_HOUR
-  const remainder = rawPerHour % SECONDS_PER_HOUR
-  const shouldRoundUp = remainder * 2n >= SECONDS_PER_HOUR
-  return shouldRoundUp ? base + 1n : base
 }

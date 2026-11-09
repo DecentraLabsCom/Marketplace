@@ -102,5 +102,3 @@ export async function verifyInstitutionReportedExecution(
 
   throw lastError || new Error('On-chain intent verification failed')
 }
-
-export { INTENT_STATE }

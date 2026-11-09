@@ -40,12 +40,6 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-// Mock wagmi hooks used by staking / contract read hooks
-jest.mock('wagmi', () => ({
-  useReadContract: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  useAccount: jest.fn(() => ({ address: '0xProviderAddress', isConnected: true })),
-}));
-
 // Mock logger
 jest.mock("@/utils/dev/logger", () => ({
   __esModule: true,

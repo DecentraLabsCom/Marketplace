@@ -33,5 +33,3 @@ export function cn(...classes) {
   
   return result.join(' ')
 }
-
-export default cn

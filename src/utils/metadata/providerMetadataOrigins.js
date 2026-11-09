@@ -73,5 +73,3 @@ export async function resolveProviderMetadataOrigins({
 
   return [...new Set(origins.filter(Boolean))]
 }
-
-export default resolveProviderMetadataOrigins

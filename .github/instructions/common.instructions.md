@@ -61,24 +61,13 @@ This project follows a set of coding standards and best practices to ensure code
      * Error Recovery → Clear optimistic state + targeted invalidation
    - **Performance Optimization**: Prefer OptimisticUIContext for UI state, `setQueryData` for known updates, and specific `invalidateQueries` (never global patterns) for lazy refetching. This minimizes unnecessary re-fetches and network requests.
 
-5. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities.
+5. **Institutional client flow**: The client uses the authenticated institutional session and React Query hooks backed by Marketplace API routes. Mutations use the institutional intent flow. Chain definitions and unit/address utilities come from `viem`; do not add a wallet connection layer to this flow.
 
-   **Wallet Address Access**: Use `useConnection()` + `getConnectionAddress(connection)` from `@/utils/blockchain/connection` to obtain the connected wallet address. Do not use Wagmi's `useAccount()` directly — the project's connection utility provides a consistent abstraction layer over Wagmi's connection state.
-   
-   **Contract Interaction Guidelines**:
-   - **Diamond Contract**: Use `useContractWriteFunction` for write operations and `useDefaultReadContract` for read operations. These wrappers handle contract addresses from environment variables and provide consistent error handling.
-   - **Service-credit ledger / ERC20-compatible flows**: Use Wagmi hooks directly (`useReadContract`, `useWriteContract`) when working with standard token-like operations, especially when:
-     * The contract address is resolved dynamically (e.g., from deployment-backed credit-ledger resolution)
-     * You need to interact with multiple token addresses
-     * The wrapper abstractions become limiting
-   - **Custom ABIs**: For contracts with custom ABIs or dynamic addresses, prefer direct Wagmi hooks with explicit ABI and address parameters.
-   - **Best Practice**: Choose the approach that provides the best balance between consistency and flexibility. The wrappers are great for the main diamond contract, but direct Wagmi usage is acceptable and often preferable for standard interfaces like ERC20.
+6. **Ethers.js Integration**: The server uses Ethers.js v6 to read contracts. Use `contractInstance` and the existing intent signing/execution services for authorized mutations.
 
-6. **Ethers.js Integration**: The project uses Ethers.js v.6 for interacting with the Ethereum blockchain from the server side. Ensure that all blockchain interactions are also implemented using Ethers.js utilities and hooks. This includes creating and signing transactions, as well as reading data from the blockchain. Always use `contractInstance` for interacting with smart contracts.
+7. **RPC Providers**: Server-side JSON-RPC fallback providers are configured by `getProvider`. Keep chain selection aligned with `src/utils/blockchain/networkConfig.js`.
 
-7. **RPC Providers**: The project uses JSON-RPC providers for interacting with the blockchain. There are fallback mechanisms in place to switch between different RPC providers in case of failures, rate limits, or timeouts. Fallbacks are configured and used for both client (wagmi.js-based: `wagmiConfig`) and server (ethers.js-based: `getProvider`) interactions.
-
-8. **Data storage**: The project uses no database for data storage. All data is fetched from smart contracts and stored in the client-side state using React Query (SSO users) and Wagmi (wallet users). However, the app uses blobs (when deployed to Vercel) to store lab images, docs, and other metadata in JSON files. Ensure that any data that needs to be persisted is handled appropriately.
+8. **Data storage**: On-chain state is fetched through the API and cached with React Query. Vercel Blob stores lab images, documents, and JSON metadata. Use the existing domain services for persistence and session/billing state.
 
 9. **Component Design**: Components should be modular and reusable. Avoid creating large monolithic components. Instead, break them down into smaller, manageable pieces that can be easily tested and maintained.
 

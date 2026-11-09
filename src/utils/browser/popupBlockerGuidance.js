@@ -1,5 +1,5 @@
 export const POPUP_BLOCKED_EVENT = 'marketplace:popup-blocked';
-export const INTENT_POPUP_BLOCKED_CODE = 'INTENT_AUTH_POPUP_BLOCKED';
+const INTENT_POPUP_BLOCKED_CODE = 'INTENT_AUTH_POPUP_BLOCKED';
 
 const isMobileUserAgent = (userAgent = '') => /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
 

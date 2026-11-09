@@ -378,7 +378,3 @@ function sample(values) {
   ))
   return indexes.map((index) => values[index])
 }
-
-export function getFmiLsStructMapSeries(value, modelVariables) {
-  return getFmiLsStructMapData(value, modelVariables).flatMap((map) => map.series)
-}

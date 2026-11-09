@@ -166,15 +166,6 @@ export const isAccessAuthorizedBooking = (booking) => {
 }
 
 /**
- * Check if a booking is collected
- * @param {Object} booking - Booking object
- * @returns {boolean} True if booking is collected
- */
-export const isCollectedBooking = (booking) => {
-  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.COLLECTED
-}
-
-/**
  * Get human-readable status text for UI display
  * @param {Object} booking - Booking object
  * @returns {string} Human-readable status
@@ -374,7 +365,7 @@ export const hasValidDate = (booking) => {
           return true
         }
       }
-    } catch (error) {
+    } catch {
       // Continue to warning below
     }
   }

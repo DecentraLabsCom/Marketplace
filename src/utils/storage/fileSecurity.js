@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import path from 'node:path'
 
-export const UPLOAD_FOLDERS = Object.freeze(['images', 'docs'])
+const UPLOAD_FOLDERS = Object.freeze(['images', 'docs'])
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 export const MAX_TEMP_FILES_PER_SESSION = 100
 export const MAX_TEMP_BYTES_PER_SESSION = 100 * 1024 * 1024

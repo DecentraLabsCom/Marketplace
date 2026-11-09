@@ -214,36 +214,12 @@ export function useBookingCacheUpdates() {
     })
   }, [queryClient])
 
-  // Granular invalidation helper used by booking status reconciliation
-  const smartBookingInvalidation = useCallback((userAddress = null, labId = null, bookingData = null, action = null) => {
-    try {
-      // If we have enough data, try targeted cache updates first
-      if (bookingData && action) {
-        const key = bookingData.reservationKey || bookingData.id
-        if (action === 'add') addBooking(bookingData)
-        else if (action === 'update' && key) updateBooking(key, bookingData)
-        else if (action === 'remove' && key) removeBooking(key)
-      }
-
-      // Invalidate lab specific caches if key is provided
-      if (labId) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
-      }
-    } catch (e) {
-      // Fallback to targeted invalidation on error
-      if (labId) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
-      }
-    }
-  }, [addBooking, updateBooking, removeBooking, invalidateAllBookings, queryClient])
-
   return {
     // Basic operations
     addBooking,
     updateBooking,
     removeBooking,
     invalidateAllBookings,
-    smartBookingInvalidation,
     
     // **NEW: Optimistic operations**
     addOptimisticBooking,

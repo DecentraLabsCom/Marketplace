@@ -1,5 +1,5 @@
-// Mock the wagmi/chains module
-jest.mock('wagmi/chains', () => ({
+// Mock the viem/chains module
+jest.mock('viem/chains', () => ({
   mainnet: { id: 1, name: 'mainnet' },
   polygon: { id: 137, name: 'polygon' },
   sepolia: { id: 11155111, name: 'sepolia' },
@@ -7,7 +7,7 @@ jest.mock('wagmi/chains', () => ({
 
 // Mock the networkConfig module
 jest.mock('../networkConfig.js', () => {
-  const { mainnet, polygon, sepolia } = require('wagmi/chains');
+  const { mainnet, polygon, sepolia } = require('viem/chains');
 
   const mockEnv = {
     NEXT_PUBLIC_DEFAULT_MAINNET_URL: 'https://default-mainnet.example.com',
@@ -57,7 +57,7 @@ jest.mock('../networkConfig.js', () => {
   };
 });
 
-import { mainnet, polygon, sepolia } from 'wagmi/chains';
+import { mainnet, polygon, sepolia } from 'viem/chains';
 import {
   defaultChain,
   defaultNetworks,

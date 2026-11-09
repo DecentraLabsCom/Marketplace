@@ -6,7 +6,7 @@ import { ACTION_CODES } from './actionCodes';
 
 export { ACTION_CODES, INTENT_META_TYPES };
 
-export const ACTION_PAYLOAD_TYPES = {
+const ACTION_PAYLOAD_TYPES = {
   ActionIntentPayload: [
     { name: 'executor', type: 'address' },
     { name: 'schacHomeOrganization', type: 'string' },
@@ -142,11 +142,3 @@ export async function buildActionIntent({
     },
   };
 }
-
-export default {
-  ACTION_CODES,
-  ACTION_PAYLOAD_TYPES,
-  INTENT_META_TYPES,
-  hashActionPayload,
-  buildActionIntent,
-};

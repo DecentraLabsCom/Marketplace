@@ -15,5 +15,3 @@ export const ACTION_CODES = {
   CANCEL_BOOKING: 10,
   DIRECT_BOOKING: 11,
 };
-
-export default ACTION_CODES;

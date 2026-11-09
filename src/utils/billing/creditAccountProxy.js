@@ -8,7 +8,7 @@ import { publicErrorResponse } from '@/utils/security/publicError'
 
 const MAX_MOVEMENTS = 100
 
-export const parseMovementLimit = (value) => {
+const parseMovementLimit = (value) => {
   const parsed = Number.parseInt(value, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1) return 20
   return Math.min(parsed, MAX_MOVEMENTS)

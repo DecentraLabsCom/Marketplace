@@ -225,7 +225,7 @@ export function normalizeFmiSceneBinding(binding, variable, modelVariables = [])
   }
 
   const transformMatch = TRANSFORM_COMPONENT_PATTERN.exec(target)
-  const [property, axis] = target.split('.')
+  const [property] = target.split('.')
   const normalizedProperty = property === 'position' || property === 'translation' ? 'position' : property
 
   return {

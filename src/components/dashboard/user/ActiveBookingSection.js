@@ -11,14 +11,12 @@ import ActiveLabCard from './ActiveLabCard';
  * @param {Object|null} props.activeBooking - Current active booking
  * @param {Object|null} props.nextBooking - Next upcoming booking when no active booking exists
  * @param {Object|null} props.lastBooking - Most recent past booking when neither active nor upcoming exists
- * @param {string|null} props.userAddress - User wallet address
  * @returns {JSX.Element} Active booking section
  */
 export default function ActiveBookingSection({
   activeBooking = null,
   nextBooking = null,
   lastBooking = null,
-  userAddress,
   institutionName = null,
   onBookingAction = null,
   cancellationStates = new Map()
@@ -83,7 +81,6 @@ export default function ActiveBookingSection({
             <ActiveLabCard
               lab={labData}
               booking={activeBooking}
-              userAddress={userAddress}
               institutionName={institutionName}
               isActive={true}
               isStaticCard={true}
@@ -95,7 +92,6 @@ export default function ActiveBookingSection({
             <ActiveLabCard
               lab={labData}
               booking={nextBooking}
-              userAddress={userAddress}
               institutionName={institutionName}
               isActive={false}
               isStaticCard={true}
@@ -108,7 +104,6 @@ export default function ActiveBookingSection({
             <ActiveLabCard
               lab={labData}
               booking={lastBooking}
-              userAddress={userAddress}
               institutionName={institutionName}
               isActive={false}
               isStaticCard={true}
@@ -131,7 +126,6 @@ ActiveBookingSection.propTypes = {
   activeBooking: PropTypes.object,
   nextBooking: PropTypes.object,
   lastBooking: PropTypes.object,
-  userAddress: PropTypes.string,
   institutionName: PropTypes.string,
   onBookingAction: PropTypes.func,
   cancellationStates: PropTypes.instanceOf(Map)

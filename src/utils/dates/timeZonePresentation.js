@@ -16,7 +16,7 @@ export function isSupportedTimeZone(timeZone) {
   }
 }
 
-export function getLocalTimeZone() {
+function getLocalTimeZone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'your local time zone'
   } catch {

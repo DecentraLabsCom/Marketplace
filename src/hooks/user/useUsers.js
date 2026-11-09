@@ -7,13 +7,12 @@
  * 
  * Architecture:
  * - Atomic Query Hooks: Institutional/API-backed query variants
- * - Composed Query Hooks: Complex orchestration using useQueries
  * - Cache Update Utilities: Granular cache management
  * - Cache Extraction Helpers: Performance-optimized data extraction
  * 
  * Usage:
  * ```javascript
- * import { useGetLabProviders, useAllUsersComposed } from '@/hooks/user/useUsers'
+ * import { useGetLabProviders, useInstitutionResolve } from '@/hooks/user/useUsers'
  * ```
  */
 
@@ -22,25 +21,6 @@ export * from './useUserAtomicQueries'
 
 // Institution resolution
 export { useInstitutionResolve, institutionQueryKeys } from './useInstitutionResolve'
-
-// Onboarding session
-export { useOnboardingSession, onboardingSessionQueryKeys } from './useOnboardingSession'
-
-// ===== COMPOSED QUERY HOOKS =====
-export {
-  useProvidersWithNames,
-  useBatchProviderCheck,
-  useProviderDetails,
-  useAllUsersComposed,
-  useProviderStatusComposed,
-  useAllUsersBasic,
-  useAllUsersFull,
-  
-  // Cache Extraction Helpers
-  extractProviderFromComposed,
-  isProviderFromComposed,
-  getProviderNameFromComposed,
-} from './useUserComposedQueries'
 
 // ===== CACHE UPDATE UTILITIES =====
 export {
@@ -56,4 +36,4 @@ export {
 
 // Log module loading (only logs once even in StrictMode)
 import devLog from '@/utils/dev/logger'
-devLog.moduleLoaded('✅ User hooks index loaded - All atomic, composed, and utility hooks available')
+devLog.moduleLoaded('✅ User hooks index loaded - Atomic and utility hooks available')

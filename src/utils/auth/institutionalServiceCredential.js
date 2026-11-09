@@ -1,6 +1,6 @@
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 
-export const INSTITUTIONAL_SERVICE_SUBJECT = 'marketplace'
+const INSTITUTIONAL_SERVICE_SUBJECT = 'marketplace'
 
 /**
  * The backend URL is resolved from the authenticated institution's registry

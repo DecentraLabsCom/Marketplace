@@ -328,7 +328,7 @@ export async function POST(req) {
     let payerInstitutionWallet
     try {
       payerInstitutionWallet = await resolveInstitutionWallet(affiliation)
-    } catch (error) {
+    } catch {
       throw new BadRequestError('Institution identity could not be resolved.')
     }
     if (!payerInstitutionWallet) {

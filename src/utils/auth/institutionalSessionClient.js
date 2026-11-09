@@ -80,8 +80,3 @@ export function isInstitutionalReauthenticationDue(
   return Number.isFinite(reauthenticationAt)
     && reauthenticationAt <= Number(now) + Number(marginSeconds) * 1000
 }
-
-export default {
-  createInstitutionalSessionCredential,
-  isInstitutionalReauthenticationDue,
-}

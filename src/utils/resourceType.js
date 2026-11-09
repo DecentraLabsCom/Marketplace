@@ -280,32 +280,3 @@ export function formatFmuSimulationType(value) {
   if (normalized === 'ModelExchange') return 'Model Exchange'
   return normalized
 }
-
-/**
- * Build a human-readable compatibility label from FMU metadata.
- * @param {Object} resourceOrMetadata
- * @returns {string}
- */
-export function getFmuCompatibilityLabel(resourceOrMetadata) {
-  const hasDirectMetadata = resourceOrMetadata && (
-    resourceOrMetadata.fmiVersion !== undefined ||
-    resourceOrMetadata.simulationType !== undefined
-  )
-  const metadata = hasDirectMetadata ? resourceOrMetadata : getFmuMetadata(resourceOrMetadata)
-  const version = String(metadata?.fmiVersion || '').trim()
-  const simulationType = formatFmuSimulationType(metadata?.simulationType)
-
-  if (simulationType === 'Model Exchange') {
-    return `${version ? `FMI ${version} ` : ''}Model Exchange (not executable on DecentraLabs)`
-  }
-  if (version && simulationType) {
-    return `Compatible with FMI ${version} ${simulationType}`
-  }
-  if (version) {
-    return `Compatible with FMI ${version}`
-  }
-  if (simulationType) {
-    return `Compatible with ${simulationType}`
-  }
-  return 'Compatible with FMU simulation'
-}

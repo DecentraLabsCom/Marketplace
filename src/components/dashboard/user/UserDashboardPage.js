@@ -17,7 +17,7 @@ import BookingSummarySection from '@/components/dashboard/user/BookingSummarySec
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import CreditAccountPanel from '@/components/dashboard/user/CreditAccountPanel'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
-import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
+import { canFetchUserBookings } from '@/utils/auth/bookingAccess'
 import { hasInstitutionRegistrationPrivilege } from '@/utils/auth/roleValidation'
 import { CreditCard } from 'lucide-react'
 import devLog from '@/utils/dev/logger'
@@ -55,9 +55,7 @@ export default function UserDashboard() {
   const canFetchBookings = canFetchUserBookings({
     isLoggedIn,
     isSSO,
-    address,
   });
-  const effectiveUserAddress = resolveBookingsUserAddress({ isSSO, address });
   const { 
     data: userBookingsData, 
     isLoading: bookingsLoading, 
@@ -502,7 +500,6 @@ export default function UserDashboard() {
                   activeBooking={activeBookingForDashboard}
                   nextBooking={nextBookingForDashboard}
                   lastBooking={lastBookingForDashboard}
-                  userAddress={effectiveUserAddress}
                   institutionName={institutionName}
                   onBookingAction={handleCancellation}
                   cancellationStates={cancellationStates}

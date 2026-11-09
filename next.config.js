@@ -13,7 +13,6 @@ const nextConfig = {
   turbopack: {
     resolveAlias: {
       "@": "./src",
-      "@react-native-async-storage/async-storage": "./src/utils/asyncStorageShim.js",
     },
   },
   // If you still need polling for OneDrive during dev, set `CHOKIDAR_USEPOLLING=1` in your environment.

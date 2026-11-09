@@ -5,7 +5,7 @@ export { MIN_RESERVATION_LEAD_TIME_SECONDS } from '@/utils/booking/reservationLe
 
 export const DIRECT_BOOKING_ACTION = 11
 
-export const ACTION_INTENT_CODES = new Set([
+const ACTION_INTENT_CODES = new Set([
   ACTION_CODES.LAB_ADD,
   ACTION_CODES.LAB_ADD_AND_LIST,
   ACTION_CODES.LAB_SET_URI,
@@ -16,7 +16,7 @@ export const ACTION_INTENT_CODES = new Set([
   ACTION_CODES.CANCEL_BOOKING,
 ])
 
-export const RESERVATION_INTENT_CODES = new Set([
+const RESERVATION_INTENT_CODES = new Set([
   ACTION_CODES.REQUEST_BOOKING,
   ACTION_CODES.CANCEL_REQUEST_BOOKING,
   DIRECT_BOOKING_ACTION,
@@ -83,11 +83,7 @@ export function isReservationIntentAction(action) {
   return RESERVATION_INTENT_CODES.has(Number(action))
 }
 
-export function isActionIntentAction(action) {
-  return ACTION_INTENT_CODES.has(Number(action))
-}
-
-export function requirePayloadObject(payload) {
+function requirePayloadObject(payload) {
   if (payload === undefined || payload === null) return {}
   if (!isPlainObject(payload)) fail('Invalid intent payload')
   return payload

@@ -37,7 +37,6 @@ export function LabCreditProvider({ children }) {
     refreshTokenData: labTokenData.refreshTokenData,
     refetchBalance: labTokenData.refetchBalance,
     refetchAllowance: labTokenData.refetchAllowance,
-    clearDecimalsCache: labTokenData.clearDecimalsCache
   }), [
     labTokenData.calculateReservationCost,
     labTokenData.checkBalanceAndAllowance,
@@ -47,7 +46,6 @@ export function LabCreditProvider({ children }) {
     labTokenData.refreshTokenData,
     labTokenData.refetchBalance,
     labTokenData.refetchAllowance,
-    labTokenData.clearDecimalsCache
   ]);
   
   // Memoize the context value to prevent unnecessary re-renders

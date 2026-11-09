@@ -328,7 +328,6 @@ LabFormQuickSetup.propTypes = {
   errors: PropTypes.object,
   isLocalURI: PropTypes.bool,
   priceRef: PropTypes.object,
-  authRef: PropTypes.object,
   accessURIRef: PropTypes.object,
   accessKeyRef: PropTypes.object,
   uriRef: PropTypes.object,

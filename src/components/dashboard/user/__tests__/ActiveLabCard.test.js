@@ -43,12 +43,10 @@ jest.mock("@/components/ui/DocsCarrousel", () => ({
 // Mock LabAccess component
 jest.mock("@/components/home/LabAccess", () => ({
   __esModule: true,
-  default: ({ id, userWallet, hasActiveBooking, auth, reservationKey }) => (
+  default: ({ id, hasActiveBooking, reservationKey }) => (
     <div data-testid="lab-access-mock">
       <span>Lab Access for {id}</span>
-      <span>User: {userWallet}</span>
       <span>Active: {hasActiveBooking ? "yes" : "no"}</span>
-      <span>Auth: {auth}</span>
       <span>Key: {reservationKey}</span>
     </div>
   ),
@@ -95,7 +93,6 @@ const renderCard = (props = {}) => {
   const defaultProps = {
     lab: mockLab,
     booking: mockBooking,
-    userAddress: "0x1234567890abcdef",
     isActive: false,
     bookingTimes: mockBookingTimes,
     ...props,
@@ -164,7 +161,6 @@ describe("ActiveLabCard", () => {
       const labAccess = screen.getByTestId("lab-access-mock");
       expect(labAccess).toBeInTheDocument();
       expect(labAccess).toHaveTextContent("Lab Access for 1");
-      expect(labAccess).toHaveTextContent("User: 0x1234567890abcdef");
       expect(labAccess).toHaveTextContent("Active: yes");
       expect(labAccess).toHaveTextContent("Key: abc123xyz");
     });

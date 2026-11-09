@@ -47,7 +47,7 @@ const hashKeyPart = (value) => createHash('sha256').update(value).digest('hex').
  * Vercel sets these platform headers before the request reaches the function.
  * The first forwarded address is the client address in the supported topology.
  */
-export function resolveClientIp(request) {
+function resolveClientIp(request) {
   const getHeader = (name) => {
     if (typeof request?.headers?.get === 'function') return request.headers.get(name)
     return request?.headers?.[name] || request?.headers?.[name.toLowerCase()]
