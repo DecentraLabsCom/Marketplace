@@ -170,6 +170,15 @@ During the reserved window:
 * you may reconnect while the reservation remains active, depending on provider policy;
 * you should save any work before the reservation end time.
 
+For an FMU without a linked GLB scene or custom Three.js app, Marketplace shows
+a download guide and automatically starts downloading the reservation's proxy
+FMU (`proxy.fmu`; the filename may include the laboratory ID). Import the
+downloaded `.fmu` into an FMI-compatible tool of your choice, configure your
+experiment and run it there. Keep an internet connection: the model runs
+remotely and access is limited to your reservation window. Use **Download
+again** if your browser did not save the file. If access has expired, re-enter
+the reserved laboratory to request a fresh file.
+
 For a simulation with a linked GLB scene, the generated viewer offers three
 execution modes when the FMU supports interactive sessions:
 

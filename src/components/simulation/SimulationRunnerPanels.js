@@ -1,14 +1,7 @@
 import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
 import FmiLsResourceSelect from './controls/FmiLsResourceSelect'
 import DigitalTwinSimulationForm from './controls/DigitalTwinSimulationForm'
-import InputScheduleEditor from './controls/InputScheduleEditor'
-import SimulationOptions from './controls/SimulationOptions'
 import SimulationProgress from './results/SimulationProgress'
-import ResultsChart from './results/ResultsChart'
-import ResultsTable from './results/ResultsTable'
-import DownloadButtons from './results/DownloadButtons'
-import SimulationHistory from './results/SimulationHistory'
-import ParameterForm from './controls/ParameterForm'
 import {
   DigitalTwinExecutionModeSelector,
   DigitalTwinExecutionSessionActions,
@@ -153,116 +146,6 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
         <div className="mt-3"><SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} /></div>
       )}
       {state === SIM_STATE.ERROR && errorMessage && <p role="alert" className="mt-3 rounded-lg border border-error-border bg-error-bg p-3 text-sm text-error-text">{errorMessage}</p>}
-    </>
-  )
-}
-
-export function GenericFmuSimulationPanel({ lab, fmuMeta, simulationTypeLabel, model, resources, simulation, configuration, history, proxy }) {
-  const { fmiLsStruct } = model
-  const { modelVariables, editableVariables, runtimeVariables } = resources
-  const { state, results, errorMessage, progress, parameters, onParameterChange, options, onOptionChange, inputEvents, onInputEventsChange, onRun, optionsError, scheduleError, supportsInputSchedule, fmuStateControls } = simulation
-  const { presets, experiments, selectedPresetId, selectedExperimentId, onPresetSelect, onExperimentSelect } = configuration
-
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-header-bg">Simulation: {lab?.name || 'Untitled FMU'}</h2>
-          <p className="mt-1 text-sm text-text-secondary">{fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {simulationTypeLabel || '?'}</p>
-        </div>
-        <button onClick={history.onToggle} className="text-xs text-brand hover:underline">
-          {history.visible ? 'Hide History' : 'Show History'}
-        </button>
-      </div>
-
-      <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={modelVariables} values={parameters} outputs={results?.outputs} />
-
-      {proxy.visible && proxy.state !== 'idle' && (
-        <p role={proxy.state === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-xs ${proxy.state === 'error' ? 'border-error-border bg-error-bg text-error-text' : 'border-[#2a2f33] bg-[#1f2426] text-text-secondary'}`}>
-          {proxy.state === 'running' ? 'Preparing the reservation FMU…' : proxy.message}
-        </p>
-      )}
-      {history.visible && (
-        <SimulationHistory
-          labId={String(lab.id ?? lab.tokenId ?? '')}
-          reservationKey={history.reservationKey}
-          gatewayUrl={history.gatewayUrl}
-          gatewaySessionOrigin={history.gatewaySessionOrigin}
-          onEnsureGatewaySession={history.onEnsureGatewaySession}
-          onFetchGateway={history.onFetchGateway}
-          onLoadResult={history.onLoadResult}
-        />
-      )}
-
-      {fmuStateControls}
-
-      {editableVariables.length > 0 && (
-        <FmiLsResourceSelect options={presets} selectedOptionId={selectedPresetId} onSelect={onPresetSelect} disabled={state === SIM_STATE.RUNNING} fitContent />
-      )}
-      {experiments.length > 0 && (
-        <FmiLsResourceSelect options={experiments} selectedOptionId={selectedExperimentId} onSelect={onExperimentSelect} choiceLabel="Experiment" disabled={state === SIM_STATE.RUNNING} fitContent />
-      )}
-      {editableVariables.length > 0 && (
-        <ParameterForm
-          variables={editableVariables}
-          modelVariables={modelVariables}
-          fmiLsStruct={fmiLsStruct}
-          values={parameters}
-          onChange={onParameterChange}
-          disabled={state === SIM_STATE.RUNNING}
-        />
-      )}
-      {supportsInputSchedule && runtimeVariables.length > 0 && (
-        <InputScheduleEditor
-          variables={runtimeVariables}
-          modelVariables={modelVariables}
-          initialValues={parameters}
-          events={inputEvents}
-          startTime={Number(options.startTime)}
-          stopTime={Number(options.stopTime)}
-          stepSize={Number(options.stepSize)}
-          validationError={scheduleError}
-          disabled={state === SIM_STATE.RUNNING}
-          onChange={onInputEventsChange}
-        />
-      )}
-
-      <SimulationOptions options={options} onChange={onOptionChange} simulationType={fmuMeta.simulationType} disabled={state === SIM_STATE.RUNNING} />
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onRun}
-          disabled={state === SIM_STATE.RUNNING || Boolean(scheduleError) || Boolean(optionsError)}
-          className={`rounded px-6 py-2 font-medium transition-colors ${state === SIM_STATE.RUNNING || scheduleError || optionsError ? 'cursor-not-allowed bg-gray-600 text-gray-400' : 'bg-brand text-white hover:bg-hover-dark'}`}
-        >
-          {state === SIM_STATE.RUNNING ? 'Running…' : state === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
-        </button>
-      </div>
-
-      {state === SIM_STATE.RUNNING && <SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} />}
-      {state === SIM_STATE.ERROR && errorMessage && (
-        <div className="rounded-lg border border-error-border bg-error-bg p-4">
-          <p className="text-sm font-medium text-error-text">Simulation Error</p>
-          <p className="mt-1 text-sm text-error-text">{errorMessage}</p>
-        </div>
-      )}
-
-      {(state === SIM_STATE.COMPLETED || (state === SIM_STATE.RUNNING && results)) && results && (
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-header-bg">
-            Results
-            {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
-          </h3>
-          {(results.chart?.outputs || results.outputs)
-            && Object.keys(results.chart?.outputs || results.outputs).length > 0
-            && <ResultsChart
-              outputs={results.chart?.outputs || results.outputs}
-              time={results.chart?.time || results.time}
-              variableMetadata={modelVariables}
-            />}
-          {state === SIM_STATE.COMPLETED && results.outputs && <ResultsTable outputs={results.outputs} time={results.time} variableMetadata={modelVariables} />}
-          {state === SIM_STATE.COMPLETED && <DownloadButtons results={results} labName={lab?.name} variableMetadata={modelVariables} />}
-        </div>
-      )}
     </>
   )
 }

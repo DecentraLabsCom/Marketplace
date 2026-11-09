@@ -56,13 +56,13 @@ the same; the files and the view presented to the user differ.
 | Type selected in Add New Lab | What the user gets after reserving | What the provider prepares |
 | --- | --- | --- |
 | **Real Lab** | Access to the provider's physical equipment and its configured remote-control session. | The physical setup, its control application and Gateway/Station connection. No FMU or digital-twin scene is required. |
-| **Simulation** â€” FMU without a scene | Marketplace's standard FMU interface, generated from the model's FMI metadata: input controls, simulation run controls and output charts/results. | The FMU provisioned on the Gateway or Lab Station. No scene asset or AAS visual link is required. |
+| **Simulation** â€” FMU without a scene | A download guide and an automatically downloaded reservation proxy FMU to import into an external FMI-compatible tool. | The FMU provisioned on the Gateway or Lab Station. No scene asset or AAS visual link is required. |
 | **Simulation** â€” FMU with a GLB scene | Marketplace's standard simulation controls and generic viewer render the provider's GLB scene and apply its FMU output bindings and writable input bindings. | The FMU, a provider-created GLB scene linked through the lab's AAS shell, and provider-authored `extras.fmiBindings` required to connect scene elements to FMU outputs or writable numeric inputs. |
 | **Simulation** â€” FMU with a complete Three.js app | The provider's app as the complete experience. Marketplace embeds the app and grants a temporary connection to the provider Gateway; the app executes and receives outputs directly over WS. | The FMU and a self-contained Three.js web app package linked through the AAS shell and using the Marketplace app contract. |
 
 For all three simulation styles, Marketplace does not store or execute the
 provider's `.fmu`. The provider provisions it in the active Gateway/Lab Station
-environment and registers its filename as the simulation resource. All modes use the same reservation authorization. Complete web apps use a direct provider WebSocket; generated views use the Marketplace simulation interface.
+environment and registers its filename as the simulation resource. All modes use the same reservation authorization. Complete web apps use a direct provider WebSocket; GLB scenes use generated Marketplace controls; simulations without a visual asset use the proxy FMU in an external FMI tool.
 
 ### Physical lab
 
@@ -77,10 +77,11 @@ path before publishing.
 ### Virtual lab: FMU without a scene
 
 Choose **Simulation** and register the provisioned FMU. This is the simplest
-virtual lab: the user sees Marketplace's standard FMU view, which uses the
-model's FMI metadata to present its inputs and outputs. No GLB, web app, AAS
-visual asset or output-to-scene binding is needed. Use this option when plots
-and model values are the intended way to inspect the simulation.
+virtual lab: Marketplace starts downloading the reservation's proxy FMU and
+shows a short guide. The user imports the downloaded `.fmu` into an
+FMI-compatible tool of their choice and runs the remote simulation there. An
+internet connection and an active reservation are required. No GLB, web app,
+AAS visual asset or output-to-scene binding is needed.
 
 ### Virtual lab: FMU with a GLB scene
 
@@ -109,7 +110,8 @@ which part the provider supplies:
 flowchart TD
     FMU["Provider provisions an FMU"]
     FMU --> Choice{"Visual asset type"}
-    Choice -->|No visual asset| Standard["Marketplace generates FMI controls and result views"]
+    Choice -->|No visual asset| Proxy["Marketplace downloads the proxy FMU and shows an import guide"]
+    Proxy --> ExternalTool["User runs the remote FMU from an external FMI tool"]
     Choice -->|GLB scene| ProviderScene["Provider creates and supplies the GLB scene and authors the required extras.fmiBindings"]
     ProviderScene --> GLBViewer["Marketplace generates FMI controls, renders the provider's scene, and applies its bindings"]
     Choice -->|Complete Three.js app| ProviderApp["Provider supplies the complete Three.js app with WS connection to the FMU"]

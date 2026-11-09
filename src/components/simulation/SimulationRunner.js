@@ -6,11 +6,7 @@ import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
 import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
-import { resolveInputSchedule } from './utils/inputSchedule'
-import {
-  getInitialSimulationOptions,
-  getSimulationOptionsError,
-} from './utils/simulationTime'
+import { getInitialSimulationOptions } from './utils/simulationTime'
 import useGlbSimulationConfiguration from './hooks/useGlbSimulationConfiguration'
 import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
 import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
@@ -22,7 +18,8 @@ import {
 import useSimulationModelResources from './hooks/useSimulationModelResources'
 import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecution'
 import useProxyFmuDownload from './hooks/useProxyFmuDownload'
-import { GlbSimulationPanel, GenericFmuSimulationPanel } from './SimulationRunnerPanels'
+import { GlbSimulationPanel } from './SimulationRunnerPanels'
+import ProxyFmuDownload from './ProxyFmuDownload'
 import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
 import { createFmuStateResults, filterFmuStateModelValues } from './utils/fmuStateCheckpoint'
 
@@ -31,7 +28,45 @@ const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinApp
 
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
-  const { gatewaySessionOrigin, ensureGatewaySession, fetchGateway } = useSimulationGatewaySession({ lab, reservationKey })
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+  const discovery = useDigitalTwinAssetDiscovery({ labId, accessUri: lab.accessURI })
+
+  if (!fmuMeta?.fmuFileName) {
+    return <div className="p-8 text-center text-neutral-300">No FMU metadata available for this resource.</div>
+  }
+  if (!reservationKey) {
+    return (
+      <div role="alert" className="grid min-h-80 place-items-center rounded-2xl border border-primary-200/20 bg-background-surface p-8 text-center text-sm text-neutral-200">
+        An active reservation is required to access this simulation.
+      </div>
+    )
+  }
+  if (discovery.state === 'loading') {
+    return (
+      <div role="status" className="grid min-h-80 place-items-center rounded-2xl border border-primary-200/20 bg-background-surface p-8 text-sm text-neutral-200">
+        Preparing the simulation view…
+      </div>
+    )
+  }
+
+  const scopeKey = JSON.stringify([labId, reservationKey])
+  if (!discovery.asset) {
+    return <ProxyFmuDownload key={scopeKey} lab={lab} reservationKey={reservationKey} />
+  }
+  return (
+    <LinkedTwinSimulationRunner
+      key={scopeKey}
+      lab={lab}
+      reservationKey={reservationKey}
+      twinAsset={discovery.asset}
+      aasSimulationVariables={discovery.simulationVariables}
+    />
+  )
+}
+
+function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulationVariables }) {
+  const fmuMeta = getFmuMetadata(lab)
+  const { fetchGateway } = useSimulationGatewaySession({ lab, reservationKey })
   const labId = String(lab.id ?? lab.tokenId ?? '')
   const stateScopeKey = JSON.stringify([labId, reservationKey || ''])
   const requestFmuConnection = useCallback(async ({ signal }) => {
@@ -53,7 +88,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const [inputEvents, setInputEvents] = useState([])
   const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
   const glbStopTimeDefaultedRef = useRef(false)
-  const [showHistory, setShowHistory] = useState(false)
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
   const [fmiLsParameterPresets, setFmiLsParameterPresets] = useState([])
@@ -83,10 +117,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setCandidateFmuStateCheckpoint(null)
     setResumeFromFmuState(false)
   }, [stateScopeKey])
-  const { asset: twinAsset, state: twinAssetState, simulationVariables: aasSimulationVariables } = useDigitalTwinAssetDiscovery({
-    labId,
-    accessUri: lab.accessURI,
-  })
   useEffect(() => {
     if (twinAsset?.type !== 'glb' || !twinAsset.url || typeof document === 'undefined') return undefined
     const preload = document.createElement('link')
@@ -118,7 +148,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     reservationKey,
     hasFmuMetadata: Boolean(fmuMeta?.fmuFileName),
     twinAsset,
-    twinAssetState,
+    twinAssetState: 'ready',
   })
   const { state: proxyDownloadState, message: proxyDownloadMessage } = proxyDownload
   const modelResources = useSimulationModelResources({
@@ -130,9 +160,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const {
     accessibleModelVariables,
     editableVariables,
-    editableFmiLsParameterPresets,
     scheduledRuntimeVariables,
-    fmiLsExperiments: genericFmiLsExperiments,
     twinVariableResolution,
     twinModelVariables,
     twinEditableVariables,
@@ -140,7 +168,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     twinFmiLsParameterPresets,
     twinFmiLsExperiments,
   } = modelResources
-  const selectableFmiLsExperiments = twinAsset ? twinFmiLsExperiments : genericFmiLsExperiments
+  const selectableFmiLsExperiments = twinFmiLsExperiments
   const selectedFmiLsExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
   const isGlbTwin = twinAsset?.type === 'glb'
   const restoreFmuStateModelValues = useCallback((modelValues) => {
@@ -167,24 +195,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     onLoadModelValues: restoreFmuStateModelValues,
   })
   const isResumingFromCheckpoint = Boolean(isGlbTwin && resumeFromFmuState && fmuStateCheckpoint)
-  let inputScheduleError = ''
-  const simulationOptionsError = getSimulationOptionsError(effectiveOptions, {
-    includeStepSize: !isScheduledExecution,
-    requireStopTime: effectiveExecutionMode === 'batch',
-  })
-  try {
-    resolveInputSchedule({
-      experiment: selectedFmiLsExperiment,
-      inputEvents,
-      scheduleVariables: scheduledRuntimeVariables,
-      modelVariables: accessibleModelVariables,
-      options: effectiveOptions,
-      ignoreEventsBeforeStartTime: isResumingFromCheckpoint,
-      enabled: supportsInputSchedule && !simulationOptionsError,
-    })
-  } catch (error) {
-    inputScheduleError = error.message
-  }
   const execution = useSimulationExecution({
     lab,
     reservationKey,
@@ -215,7 +225,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     setErrorMsg,
     progress,
     runSimulation,
-    loadResult: handleLoadResult,
     appendInteractiveSamples,
     handleInteractiveRunStart,
     handleInteractiveRunFinish,
@@ -483,14 +492,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     />
   )
 
-  if (!fmuMeta || !fmuMeta.fmuFileName) {
-    return (
-      <div className="text-center text-neutral-300 p-8">
-        No FMU metadata available for this resource.
-      </div>
-    )
-  }
-
   if (variableAccessState === 'unavailable') {
     return (
       <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-center text-sm text-[#bad0d2]" role="alert">
@@ -511,16 +512,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
     return (
       <div className="grid min-h-80 place-items-center rounded-2xl border border-error-border bg-error-bg p-8 text-center text-sm text-error-text" role="alert">
         {errorMsg || 'Variable access could not be resolved for this reservation.'}
-      </div>
-    )
-  }
-
-  const gatewayUrl = lab.accessURI || ''
-
-  if (twinAssetState === 'loading') {
-    return (
-      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-sm text-[#bad0d2]" role="status">
-        Preparing the simulation view…
       </div>
     )
   }
@@ -559,95 +550,49 @@ export default function SimulationRunner({ lab, reservationKey }) {
 
   return (
     <div>
-      {twinAsset?.type === 'glb' ? (
-        <GlbSimulationPanel
-          lab={lab}
-          model={{ fmiVersion: variableAccess?.fmiVersion, simulationTypeLabel, fmiLsStruct: variableAccess?.fmiLsStruct }}
-          resources={{ modelVariables: twinModelVariables, structModelVariables: accessibleModelVariables, editableVariables: twinEditableVariables, runtimeVariables: twinScheduledRuntimeVariables }}
-          simulation={{
-            simulationType: twinSimulationType,
-            enableInputSchedule: supportsTwinInputSchedule,
-            ignoreScheduleEventsBeforeStartTime: isResumingFromCheckpoint,
-            parameters,
-            onParameterChange: handleParamChange,
-            options: effectiveOptions,
-            onOptionChange: handleOptionChange,
-            inputEvents,
-            onInputEventsChange: setInputEvents,
-            onRun: handleRun,
-            results: displayedResults,
-            fmuStateControls,
-          }}
-          configuration={{
-            presets: twinFmiLsParameterPresets,
-            experiments: twinFmiLsExperiments,
-            selectedPresetId: selectedFmiLsParameterPresetId,
-            selectedExperimentId: selectedFmiLsExperimentId,
-            onPresetSelect: handleFmiLsParameterPresetSelect,
-            onExperimentSelect: handleExperimentSelect,
-          }}
-          interactive={{
-            executionMode: effectiveExecutionMode,
-            onExecutionModeChange: setExecutionMode,
-            continuousBatchPolicy,
-            onContinuousBatchPolicyChange: setContinuousBatchPolicy,
-            continuousExecutionPace,
-            onContinuousExecutionPaceChange: setContinuousExecutionPace,
-            fixedBatchSamples,
-            onFixedBatchSamplesChange: setFixedBatchSamples,
-            supportedModes: supportsInteractiveTwinModes,
-            execution: interactiveExecution,
-            state: displayedSimulationState,
-            progress,
-            errorMessage: displayedErrorMessage,
-          }}
-          proxy={{ visible: Boolean(reservationKey), state: proxyDownloadState, message: proxyDownloadMessage }}
-        />
-      ) : (
-        <GenericFmuSimulationPanel
-          lab={lab}
-          fmuMeta={fmuMeta}
-          simulationTypeLabel={simulationTypeLabel}
-          model={{ fmiLsStruct: variableAccess?.fmiLsStruct }}
-          resources={{ modelVariables: accessibleModelVariables, editableVariables, runtimeVariables: scheduledRuntimeVariables }}
-          simulation={{
-            state: simState,
-            results,
-            errorMessage: errorMsg,
-            progress,
-            parameters,
-            onParameterChange: handleParamChange,
-            options,
-            onOptionChange: handleOptionChange,
-            inputEvents,
-            onInputEventsChange: setInputEvents,
-            onRun: handleRun,
-            optionsError: simulationOptionsError,
-            scheduleError: inputScheduleError,
-            supportsInputSchedule,
-            fmuStateControls,
-          }}
-          configuration={{
-            presets: editableFmiLsParameterPresets,
-            experiments: selectableFmiLsExperiments,
-            selectedPresetId: selectedFmiLsParameterPresetId,
-            selectedExperimentId: selectedFmiLsExperimentId,
-            onPresetSelect: handleFmiLsParameterPresetSelect,
-            onExperimentSelect: handleExperimentSelect,
-          }}
-          history={{
-            visible: showHistory,
-            onToggle: () => setShowHistory((visible) => !visible),
-            reservationKey,
-            gatewayUrl,
-            gatewaySessionOrigin,
-            onEnsureGatewaySession: ensureGatewaySession,
-            onFetchGateway: fetchGateway,
-            onLoadResult: handleLoadResult,
-          }}
-          proxy={{ visible: Boolean(reservationKey), state: proxyDownloadState, message: proxyDownloadMessage }}
-        />
-      )}
+      <GlbSimulationPanel
+        lab={lab}
+        model={{ fmiVersion: variableAccess?.fmiVersion, simulationTypeLabel, fmiLsStruct: variableAccess?.fmiLsStruct }}
+        resources={{ modelVariables: twinModelVariables, structModelVariables: accessibleModelVariables, editableVariables: twinEditableVariables, runtimeVariables: twinScheduledRuntimeVariables }}
+        simulation={{
+          simulationType: twinSimulationType,
+          enableInputSchedule: supportsTwinInputSchedule,
+          ignoreScheduleEventsBeforeStartTime: isResumingFromCheckpoint,
+          parameters,
+          onParameterChange: handleParamChange,
+          options: effectiveOptions,
+          onOptionChange: handleOptionChange,
+          inputEvents,
+          onInputEventsChange: setInputEvents,
+          onRun: handleRun,
+          results: displayedResults,
+          fmuStateControls,
+        }}
+        configuration={{
+          presets: twinFmiLsParameterPresets,
+          experiments: twinFmiLsExperiments,
+          selectedPresetId: selectedFmiLsParameterPresetId,
+          selectedExperimentId: selectedFmiLsExperimentId,
+          onPresetSelect: handleFmiLsParameterPresetSelect,
+          onExperimentSelect: handleExperimentSelect,
+        }}
+        interactive={{
+          executionMode: effectiveExecutionMode,
+          onExecutionModeChange: setExecutionMode,
+          continuousBatchPolicy,
+          onContinuousBatchPolicyChange: setContinuousBatchPolicy,
+          continuousExecutionPace,
+          onContinuousExecutionPaceChange: setContinuousExecutionPace,
+          fixedBatchSamples,
+          onFixedBatchSamplesChange: setFixedBatchSamples,
+          supportedModes: supportsInteractiveTwinModes,
+          execution: interactiveExecution,
+          state: displayedSimulationState,
+          progress,
+          errorMessage: displayedErrorMessage,
+        }}
+        proxy={{ visible: Boolean(reservationKey), state: proxyDownloadState, message: proxyDownloadMessage }}
+      />
 
       {twinAsset?.type === 'glb' && (
         <DigitalTwinViewer

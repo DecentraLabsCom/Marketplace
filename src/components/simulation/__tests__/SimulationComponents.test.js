@@ -2,7 +2,7 @@
  * Unit Tests for Simulation components
  *
  * Tests for:
- * - SimulationRunner states (idle, running, completed, error)
+ * - SimulationRunner asset routing and external FMI handoff
  * - ParameterForm input rendering and changes
  * - SimulationOptions fields
  * - ResultsChart and ResultsTable data display
@@ -390,31 +390,6 @@ const fmuLab = {
   defaultStepSize: 0.01,
 };
 
-/**
- * Helper to create a mock NDJSON streaming Response.
- * Uses a manual getReader() mock since ReadableStream is not available in jsdom.
- */
-function mockNdjsonResponse(events) {
-  const ndjson = events.map(e => JSON.stringify(e)).join("\n") + "\n";
-  const encoder = new TextEncoder();
-  const encoded = encoder.encode(ndjson);
-  let read = false;
-  return {
-    ok: true,
-    body: {
-      getReader() {
-        return {
-          read() {
-            if (!read) { read = true; return Promise.resolve({ done: false, value: encoded }); }
-            return Promise.resolve({ done: true });
-          },
-        };
-      },
-    },
-    headers: new Headers({ "content-type": "application/x-ndjson" }),
-  };
-}
-
 describe("SimulationRunner", () => {
   let gatewayResponses;
   let proxyResponses;
@@ -447,10 +422,6 @@ describe("SimulationRunner", () => {
     authenticateLabAccessSSO.mockClear();
     establishFmuGatewaySession.mockClear();
   });
-
-  function queueGatewayResponses(...responses) {
-    gatewayResponses.push(...responses);
-  }
 
   function queueProxyResponses(...responses) {
     proxyResponses.push(...responses);
@@ -486,10 +457,6 @@ describe("SimulationRunner", () => {
   function renderReservedSimulationRunner(lab = fmuLab, reservationKey = '0xabc', accessPolicy = null) {
     nextAccessPolicy = accessPolicy || accessPolicyForLab(lab);
     return render(<SimulationRunner lab={lab} reservationKey={reservationKey} />);
-  }
-
-  async function waitForStandardSimulationView() {
-    await screen.findByText(/^Simulation:/);
   }
 
   test.each([
@@ -535,6 +502,7 @@ describe("SimulationRunner", () => {
     const viewer = await screen.findByTestId(testId);
     expect(viewer).toHaveAttribute("data-url", expectedUrl);
     expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
+    await waitFor(() => expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith('/api/simulations/proxy?'))).toHaveLength(contentType === 'text/html' ? 0 : 1));
   });
 
   test("does not expose scene dragging for inputs the Gateway does not permit writing", async () => {
@@ -649,363 +617,138 @@ describe("SimulationRunner", () => {
     expect(await screen.findByText("t = 0.010 s")).toBeInTheDocument();
   });
 
-  test("keeps the standard FMI view when AAS has no visual asset", async () => {
-    global.fetch = jest.fn((url) => {
-      if (String(url).startsWith("/api/aas/shell?")) {
-        return Promise.resolve({ ok: true, json: async () => ({ visualAssets: [] }) });
-      }
-      if (url === '/api/simulations/access') {
-        return Promise.resolve({ ok: true, json: async () => nextAccessPolicy || accessPolicyForLab(fmuLab) });
-      }
-      if (String(url).startsWith('/api/simulations/proxy?')) {
-        return Promise.resolve(successfulProxyResponse());
-      }
-      return Promise.resolve({ ok: false, status: 404 });
-    });
-
+  test("shows only the external FMI handoff when no visual asset is linked", async () => {
     renderReservedSimulationRunner();
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
-      "/api/aas/shell?labId=42",
-      expect.objectContaining({ cache: "no-store" }),
-    ));
+    expect(await screen.findByRole("heading", { name: "Use this FMU in your own tool" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spring-Damper" })).toBeInTheDocument();
+    expect(screen.getByText(/Import the downloaded .fmu file/i)).toBeInTheDocument();
+    expect(screen.getByText(/internet connection/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Run Simulation|Show History|Save state/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(screen.queryByTestId("digital-twin-glb")).not.toBeInTheDocument();
     expect(screen.queryByTestId("digital-twin-app")).not.toBeInTheDocument();
+    const requests = global.fetch.mock.calls.map(([url]) => url);
+    expect(requests).not.toContain("/api/simulations/access");
+    expect(requests).not.toContain("/api/simulations/parameter-sets");
+    expect(requests).not.toContain("/api/simulations/stream");
   });
 
-  test("does not render readable inputs or parameters as editable without initialization write permission", async () => {
-    const lab = {
-      ...fmuLab,
-      modelVariables: [
-        { name: 'readOnlyCommand', causality: 'input', start: 1 },
-        { name: 'readOnlyGain', causality: 'parameter', variability: 'tunable', start: 2 },
-        { name: 'writableCommand', causality: 'input', start: 3 },
-      ],
-    };
-    const accessPolicy = {
-      policySource: 'aas',
-      modelVariables: lab.modelVariables,
-      variables: {
-        readOnlyCommand: { read: true, writeAt: [] },
-        readOnlyGain: { read: true, writeAt: [] },
-        writableCommand: { read: false, writeAt: ['initialization'] },
-      },
-    };
-
-    renderReservedSimulationRunner(lab, '0xabc', accessPolicy);
-
-    expect(await screen.findByLabelText('Parameter writableCommand')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Parameter readOnlyCommand')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Parameter readOnlyGain')).not.toBeInTheDocument();
-  });
-
-  test("renders simulation header with lab name", async () => {
-    renderReservedSimulationRunner();
-    expect(await screen.findByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
-  });
-
-  test("does not show the redundant compatibility label", async () => {
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    expect(screen.queryByText("Compatible with FMI 2.0 Co-Simulation")).not.toBeInTheDocument();
-  });
-
-  test("automatically downloads the reservation FMU and removes the manual action", async () => {
-    queueProxyResponses({
-      ok: true,
-      blob: async () => new Blob(["proxy"]),
-      headers: new Headers({
-        "content-disposition": 'attachment; filename="fmu-proxy-lab-42.fmu"',
-      }),
+  test("automatically downloads the reservation proxy once and preserves its filename", async () => {
+    const click = jest.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function () {
+      expect(this.download).toBe("reservation-proxy.fmu");
     });
-    renderReservedSimulationRunner();
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/simulations/proxy?"),
-        expect.objectContaining({
-          credentials: "include",
-        })
-      );
-    });
-    expect(await screen.findByText(/Reservation FMU downloaded automatically/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
+    const view = renderReservedSimulationRunner();
+    expect(await screen.findByText(/download should have started/i)).toBeInTheDocument();
+    view.rerender(<SimulationRunner lab={{ ...fmuLab }} reservationKey="0xabc" />);
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith("/api/simulations/proxy?"))).toHaveLength(1);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/simulations/proxy?labId=42&reservationKey=0xabc",
+      expect.objectContaining({ credentials: "include" }),
+    );
+    click.mockRestore();
   });
 
-  test("shows an automatic-download error when the reservation proxy ticket is expired or used", async () => {
+  test("offers a download retry if the browser did not save the file", async () => {
+    renderReservedSimulationRunner();
+    fireEvent.click(await screen.findByRole("button", { name: "Download again" }));
+    await waitFor(() => expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith("/api/simulations/proxy?"))).toHaveLength(2));
+  });
+
+  test("starts a fresh download when the reservation changes", async () => {
+    const view = renderReservedSimulationRunner();
+    await screen.findByText(/download should have started/i);
+    view.rerender(<SimulationRunner lab={fmuLab} reservationKey="0xdef" />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      "/api/simulations/proxy?labId=42&reservationKey=0xdef",
+      expect.objectContaining({ credentials: "include" }),
+    ));
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith("/api/simulations/proxy?"))).toHaveLength(2);
+  });
+
+  test("downloads only once when React replays effects in Strict Mode", async () => {
+    render(<React.StrictMode><SimulationRunner lab={fmuLab} reservationKey="0xabc" /></React.StrictMode>);
+    await screen.findByText(/download should have started/i);
+    expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith("/api/simulations/proxy?"))).toHaveLength(1);
+  });
+
+  test.each([
+    [{ details: 'Provider is offline' }, 'Provider is offline'],
+    [{ details: { error: 'FMU could not be prepared' } }, 'FMU could not be prepared'],
+    [{}, 'Proxy download failed (503)'],
+  ])("explains a provider download error with payload %j", async (payload, expectedMessage) => {
+    queueProxyResponses({ ok: false, status: 503, json: async () => payload });
+    renderReservedSimulationRunner();
+    expect(await screen.findByRole("alert")).toHaveTextContent(expectedMessage);
+  });
+
+  test("handles a provider error that does not contain JSON", async () => {
+    queueProxyResponses({ ok: false, status: 502, json: async () => { throw new Error('Invalid JSON'); } });
+    renderReservedSimulationRunner();
+    expect(await screen.findByRole("alert")).toHaveTextContent('Proxy download failed (502)');
+  });
+
+  test("shows a download failure and allows retrying", async () => {
+    queueProxyResponses({ ok: false, status: 503, json: async () => ({ error: "Provider temporarily unavailable" }) });
+    renderReservedSimulationRunner();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Provider temporarily unavailable");
+    fireEvent.click(screen.getByRole("button", { name: "Try download again" }));
+    expect(await screen.findByText(/download should have started/i)).toBeInTheDocument();
+  });
+
+  test("reauthenticates once when the reservation proxy session has expired", async () => {
+    queueProxyResponses({ ok: false, status: 401 }, successfulProxyResponse());
+    renderReservedSimulationRunner();
+    expect(await screen.findByText(/download should have started/i)).toBeInTheDocument();
+    expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
+    expect(authenticateLabAccessSSO).toHaveBeenCalledWith({ labId: "42", reservationKey: "0xabc" });
+    expect(establishFmuGatewaySession).toHaveBeenCalledTimes(1);
+  });
+
+  test("explains how to recover from an expired or used proxy ticket", async () => {
     const expiredResponse = {
       ok: false,
       status: 401,
-      json: async () => ({
-        error: "Gateway error (401)",
-        details: JSON.stringify({ code: "SESSION_TICKET_ALREADY_USED", error: "ticket already used" }),
-      }),
+      json: async () => ({ details: JSON.stringify({ code: "SESSION_TICKET_ALREADY_USED" }) }),
     };
     queueProxyResponses(expiredResponse, expiredResponse);
-
-    render(<SimulationRunner lab={fmuLab} reservationKey="0xabc" />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(/Re-enter the reserved laboratory/i);
-    });
-    expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
-  });
-
-  test("renders input parameter form for input variables only", async () => {
     renderReservedSimulationRunner();
-    expect(await screen.findByLabelText("Parameter mass")).toBeInTheDocument();
-    // output variable should not have a parameter input
-    expect(screen.queryByLabelText("Parameter position")).toBeNull();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Re-enter the reserved laboratory/i);
   });
 
-  test("renders simulation options with default values", async () => {
+  test("waits for asset discovery before starting a proxy download", async () => {
+    let resolveDiscovery;
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn((url, init) => String(url).startsWith("/api/aas/shell?")
+      ? new Promise((resolve) => { resolveDiscovery = resolve; })
+      : originalFetch(url, init));
     renderReservedSimulationRunner();
-    expect(await screen.findByLabelText("Start Time (s)")).toHaveValue(0);
-    expect(screen.getByLabelText("Stop Time (s)")).toHaveValue(10);
-    expect(screen.getByLabelText("Step Size (s)")).toHaveValue(0.01);
+    expect(screen.getByRole("status")).toHaveTextContent(/Preparing the simulation view/i);
+    expect(global.fetch.mock.calls.some(([url]) => String(url).startsWith("/api/simulations/proxy?"))).toBe(false);
+    resolveDiscovery({ ok: true, json: async () => ({ visualAssets: [] }) });
+    expect(await screen.findByText(/download should have started/i)).toBeInTheDocument();
   });
 
-  test("shows 'Run Simulation' button in idle state", async () => {
+  test("uses the external FMI handoff when asset discovery fails", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn((url, init) => String(url).startsWith("/api/aas/shell?")
+      ? Promise.reject(new Error("AAS unavailable"))
+      : originalFetch(url, init));
     renderReservedSimulationRunner();
-    expect(await screen.findByText("Run Simulation")).toBeInTheDocument();
+    expect(await screen.findByText(/download should have started/i)).toBeInTheDocument();
   });
 
-  test("calls /api/simulations/stream on button click", async () => {
-    queueGatewayResponses(
-      mockNdjsonResponse([
-        { type: "started", simId: "abc123" },
-        { type: "data", chunkIndex: 0, totalChunks: 1, time: [0, 1], outputs: { position: [0, 0.5] } },
-        { type: "completed", simulationTime: 0.5, outputVariables: ["position"], fmiType: "CoSimulation" },
-      ])
-    );
-
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/simulations/stream",
-        expect.objectContaining({ method: "POST", credentials: "include" })
-      );
-    });
-    expect(authenticateLabAccessSSO).not.toHaveBeenCalled();
-    expect(establishFmuGatewaySession).not.toHaveBeenCalled();
+  test("requires a reservation before downloading a proxy", async () => {
+    render(<SimulationRunner lab={fmuLab} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/active reservation is required/i);
+    expect(global.fetch.mock.calls.some(([url]) => String(url).startsWith("/api/simulations/"))).toBe(false);
   });
 
-  test("serializes numeric lab ids for the Gateway stream contract", async () => {
-    queueGatewayResponses(
-      mockNdjsonResponse([
-        { type: "started", simId: "abc123" },
-        { type: "completed", simulationTime: 0.1, outputVariables: ["position"], fmiType: "CoSimulation" },
-      ])
-    );
-
-    renderReservedSimulationRunner({ ...fmuLab, id: 1 });
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/simulations/stream",
-        expect.objectContaining({ method: "POST" })
-      );
-    });
-
-    const [, requestInit] = global.fetch.mock.calls.find(([url]) => url === "/api/simulations/stream");
-    expect(JSON.parse(requestInit.body).labId).toBe("1");
-  });
-
-  test("rejects a scalar value for a dimensioned input variable", async () => {
-    queueGatewayResponses(
-      mockNdjsonResponse([
-        { type: "started", simId: "abc123" },
-        { type: "completed", simulationTime: 0.1, outputVariables: ["y"], fmiType: "CoSimulation" },
-      ])
-    );
-
-    const stateSpaceLab = {
-      ...fmuLab,
-      fmuFileName: "StateSpace.fmu",
-      fmiVersion: "3.0",
-      modelVariables: [
-        { name: "m", causality: "structuralParameter", type: "UInt64", start: "3", valueReference: 1 },
-        {
-          name: "u",
-          causality: "input",
-          type: "Float64",
-          dimensions: [{ valueReference: 1, variableName: "m" }],
-          start: "1 2 3",
-        },
-        { name: "y", causality: "output", type: "Float64", dimensions: [{ start: 3 }] },
-      ],
-    };
-
-    renderReservedSimulationRunner(stateSpaceLab);
-    fireEvent.change(await screen.findByLabelText("Parameter u"), { target: { value: "4" } });
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => expect(screen.getByText("Input u requires 3 values separated by spaces.")).toBeInTheDocument());
-    expect(global.fetch.mock.calls.filter(([url]) => url === "/api/simulations/stream")).toHaveLength(0);
-  });
-
-  test("reauthenticates once with the canonical lab auth context after a 401", async () => {
-    queueProxyResponses({
-      ok: true,
-      blob: async () => new Blob(["proxy"]),
-      headers: new Headers({
-        "content-disposition": 'attachment; filename="fmu-proxy-lab-42.fmu"',
-      }),
-    });
-
-    render(<SimulationRunner lab={{ ...fmuLab, accessURI: "https://gateway.example.com/fmu" }} reservationKey="0xabc" />);
-    await waitForStandardSimulationView();
-    expect(await screen.findByText(/Reservation FMU downloaded automatically/i)).toBeInTheDocument();
-
-    queueGatewayResponses(
-      { ok: false, status: 401 },
-      mockNdjsonResponse([
-        { type: "started", simId: "abc123" },
-        { type: "completed", simulationTime: 0.1, outputVariables: [], fmiType: "CoSimulation" },
-      ]),
-    );
-
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => expect(screen.getByText("Results")).toBeInTheDocument());
-    expect(authenticateLabAccessSSO).toHaveBeenCalledTimes(1);
-    expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
-      labId: "42",
-      reservationKey: "0xabc",
-    });
-    expect(global.fetch.mock.calls.filter(([url]) => url === "/api/simulations/stream")).toHaveLength(2);
-  });
-
-  test("shows results after successful streaming run", async () => {
-    queueGatewayResponses(
-      mockNdjsonResponse([
-        { type: "started", simId: "abc123" },
-        { type: "data", chunkIndex: 0, totalChunks: 1, time: [0, 0.1], outputs: { position: [0, 0.5] } },
-        { type: "completed", simulationTime: 0.1, outputVariables: ["position"], fmiType: "CoSimulation" },
-      ])
-    );
-
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Results")).toBeInTheDocument();
-    });
-  });
-
-  test("shows error message on failed run", async () => {
-    queueGatewayResponses({
-      ok: false,
-      status: 500,
-      json: async () => ({ error: "Simulation exploded" }),
-    });
-
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Run Simulation"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Simulation Error")).toBeInTheDocument();
-      expect(screen.getByText("Simulation exploded")).toBeInTheDocument();
-    });
-  });
-
-  test("shows 'No FMU metadata' message for non-FMU resource", () => {
-    const nonFmuLab = { ...fmuLab, resourceType: "lab" };
-    delete nonFmuLab.fmuFileName;
-    delete nonFmuLab.fmiVersion;
-    delete nonFmuLab.simulationType;
-    delete nonFmuLab.modelVariables;
-    render(<SimulationRunner lab={nonFmuLab} />);
+  test("shows the missing metadata message without downloading a proxy", () => {
+    const { fmuFileName, ...lab } = fmuLab;
+    render(<SimulationRunner lab={lab} reservationKey="0xabc" />);
     expect(screen.getByText(/No FMU metadata/)).toBeInTheDocument();
-  });
-
-  test("shows history toggle button", async () => {
-    renderReservedSimulationRunner();
-    expect(await screen.findByText("Show History")).toBeInTheDocument();
-  });
-
-  test("shows a specific message when history is not available for the active FMU backend", async () => {
-    queueGatewayResponses({
-      ok: false,
-      status: 501,
-      json: async () => ({
-        error: "Gateway error (501)",
-        details: JSON.stringify({ code: "NOT_IMPLEMENTED", error: "not implemented" }),
-      }),
-    });
-
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Show History"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Simulation history is not available yet for this FMU backend.")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("Retry")).toBeNull();
-  });
-
-  test("shows a specific message when historical result loading is not available", async () => {
-    const historyPayload = {
-      simulations: [
-        {
-          id: "sim-1",
-          status: "completed",
-          created_at: "2026-03-07T10:00:00",
-          fmi_type: "CoSimulation",
-          elapsed_seconds: 1.25,
-        },
-      ],
-    };
-
-    queueGatewayResponses(
-      {
-        ok: true,
-        json: async () => historyPayload,
-      },
-      {
-        ok: false,
-        status: 501,
-        json: async () => ({
-          error: "Gateway error (501)",
-          details: JSON.stringify({ code: "NOT_IMPLEMENTED", error: "not implemented" }),
-        }),
-      },
-    );
-
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    fireEvent.click(screen.getByText("Show History"));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Load" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Load" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Historical simulation results are not available yet for this FMU backend.")).toBeInTheDocument();
-    });
-  });
-
-  test("allows ModelExchange FMUs to run", async () => {
-    const meLab = { ...fmuLab, simulationType: "ModelExchange" };
-    renderReservedSimulationRunner(meLab);
-    await waitForStandardSimulationView();
-    expect(screen.getByText(/Model Exchange/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
-    expect(screen.getByRole("button", { name: "Run Simulation" })).toBeEnabled();
-  });
-
-  test("does not show solver selector for CoSimulation FMUs", async () => {
-    renderReservedSimulationRunner();
-    await waitForStandardSimulationView();
-    expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
+    expect(global.fetch.mock.calls.some(([url]) => String(url).startsWith("/api/simulations/"))).toBe(false);
   });
 });
-
