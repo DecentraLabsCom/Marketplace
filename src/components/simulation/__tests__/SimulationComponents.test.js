@@ -8,7 +8,9 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+let mockTwinAppProps;
 
 // Mocks
 jest.mock("@/hooks/lab/useLabs", () => ({
@@ -33,16 +35,19 @@ jest.mock("next/dynamic", () => {
     default: () => {
       const testId = viewerIndex++ === 0 ? "digital-twin-glb" : "digital-twin-app";
       const React = require("react");
-      return (props) => React.createElement("div", {
-        "data-testid": testId,
-        "data-url": props.sceneUrl || props.appUrl,
-        ...(testId === "digital-twin-glb" ? {
-          "data-input-editing-enabled": String(props.inputEditingEnabled),
-          "data-interactive-inputs": JSON.stringify((props.interactiveInputVariables || []).map(({ name }) => name)),
-          "data-model-variables": JSON.stringify((props.modelVariables || []).map(({ name }) => name)),
-          "data-results": JSON.stringify(props.results),
-        } : {}),
-      });
+      return (props) => {
+        if (testId === "digital-twin-app") mockTwinAppProps = props;
+        return React.createElement("div", {
+          "data-testid": testId,
+          "data-url": props.sceneUrl || props.appUrl,
+          ...(testId === "digital-twin-glb" ? {
+            "data-input-editing-enabled": String(props.inputEditingEnabled),
+            "data-interactive-inputs": JSON.stringify((props.interactiveInputVariables || []).map(({ name }) => name)),
+            "data-model-variables": JSON.stringify((props.modelVariables || []).map(({ name }) => name)),
+            "data-results": JSON.stringify(props.results),
+          } : {}),
+        });
+      };
     },
   };
 });
@@ -304,6 +309,7 @@ describe("SimulationRunner", () => {
     gatewayResponses = [];
     proxyResponses = [];
     nextAccessPolicy = null;
+    mockTwinAppProps = null;
     global.fetch = jest.fn((url) => {
       if (String(url).startsWith('/api/aas/shell?')) {
         return Promise.resolve({ ok: false, status: 404 });
@@ -409,6 +415,49 @@ describe("SimulationRunner", () => {
     expect(viewer).toHaveAttribute("data-url", expectedUrl);
     expect(screen.queryByTestId(otherTestId)).not.toBeInTheDocument();
     await waitFor(() => expect(global.fetch.mock.calls.filter(([url]) => String(url).startsWith('/api/simulations/proxy?'))).toHaveLength(contentType === 'text/html' ? 0 : 1));
+  });
+
+  test("wires custom SDK connection and batch requests directly to the provider", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn((url, init) => String(url).startsWith('/api/aas/shell?')
+      ? Promise.resolve({ ok: true, json: async () => ({ visualAssets: [{
+        contentType: 'text/html',
+        url: `/digital-twin-apps/42/${'b'.repeat(64)}/index.html`,
+      }] }) })
+      : originalFetch(url, init));
+    const websocketGrant = {
+      protocolVersion: '1.0',
+      gatewayWsUrl: 'wss://gateway.example.com/fmu/api/v1/fmu/sessions',
+      labId: '42',
+      reservationKey: '0xabc',
+      sessionTicket: 'ws-ticket',
+      ticketExpiresAt: 4102444800,
+    };
+    const batchGrant = { ...websocketGrant, sessionTicket: 'batch-ticket' };
+    gatewayResponses.push(
+      { ok: true, json: async () => websocketGrant },
+      { ok: true, json: async () => batchGrant },
+    );
+    const response = { ok: true, body: {} };
+    postFmuSimulationStream.mockResolvedValue(response);
+
+    renderReservedSimulationRunner();
+    await screen.findByTestId('digital-twin-app');
+    const signal = new AbortController().signal;
+    const body = { parameters: { mass: 2 }, options: { startTime: 0, stopTime: 1, stepSize: 0.01 } };
+    await act(async () => {
+      expect(await mockTwinAppProps.onConnect({ signal })).toEqual(websocketGrant);
+      expect(await mockTwinAppProps.onBatchSimulation({ body, signal })).toBe(response);
+    });
+
+    const authorizationRequests = global.fetch.mock.calls.filter(([url]) => url === '/api/simulations/connection');
+    expect(authorizationRequests).toHaveLength(2);
+    for (const [, init] of authorizationRequests) {
+      expect(init).toMatchObject({ method: 'POST', credentials: 'include', signal });
+      expect(JSON.parse(init.body)).toEqual({ labId: '42', reservationKey: '0xabc' });
+    }
+    expect(postFmuSimulationStream).toHaveBeenCalledWith(batchGrant, { labId: '42', ...body }, { signal });
+    expect(global.fetch.mock.calls.map(([url]) => url)).not.toContain('/api/simulations/stream');
   });
 
   test("runs a linked GLB batch directly on the provider Gateway", async () => {
