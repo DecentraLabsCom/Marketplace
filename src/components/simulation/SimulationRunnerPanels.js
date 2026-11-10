@@ -2,6 +2,7 @@ import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
 import FmiLsResourceSelect from './controls/FmiLsResourceSelect'
 import DigitalTwinSimulationForm from './controls/DigitalTwinSimulationForm'
 import SimulationProgress from './results/SimulationProgress'
+import FmiModelStructurePanel from './controls/FmiModelStructurePanel'
 import {
   DigitalTwinExecutionModeSelector,
   DigitalTwinExecutionSessionActions,
@@ -9,7 +10,7 @@ import {
 import { SIM_STATE } from './hooks/useSimulationExecution'
 
 export function GlbSimulationPanel({ lab, model, resources, simulation, configuration, interactive, proxy }) {
-  const { fmiVersion, simulationTypeLabel, fmiLsStruct } = model
+  const { fmiVersion, simulationTypeLabel, fmiLsStruct, fmiModelDescription } = model
   const { modelVariables, structModelVariables = modelVariables, editableVariables, runtimeVariables } = resources
   const {
     parameters,
@@ -55,6 +56,7 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
       </div>
 
       <FmiLsStructMapPanel fmiLsStruct={fmiLsStruct} modelVariables={structModelVariables} values={parameters} outputs={simulation.results?.outputs} />
+      <FmiModelStructurePanel metadata={fmiModelDescription} modelVariables={structModelVariables} />
 
       {editableVariables.length === 0 && (
         <p className="rounded-xl border border-[#26383f] bg-[#142128] p-3 text-xs text-[#9aafb4]">This model has no editable input variables or parameters. Run it with its declared defaults.</p>
@@ -70,6 +72,8 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
         simulationOptions={options}
         onSimulationOptionChange={onOptionChange}
         simulationType={simulation.simulationType}
+        timeUnit={fmiModelDescription?.timeUnit || 's'}
+        defaultTolerance={fmiModelDescription?.defaultTolerance}
         configurationSelector={(
           <>
             <FmiLsResourceSelect
@@ -111,7 +115,6 @@ export function GlbSimulationPanel({ lab, model, resources, simulation, configur
           <DigitalTwinExecutionSessionActions
             status={execution.status}
             mode={execution.mode}
-            simulationTime={execution.simulationTime}
             onAdvanceStep={() => void execution.advanceStep()}
             onToggleContinuous={() => execution.status === 'continuous'
               ? execution.pauseContinuous()

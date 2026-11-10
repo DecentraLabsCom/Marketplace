@@ -58,6 +58,13 @@ export function getSimulationOptionsError(options, { includeStepSize = true, req
     if (stepSize === null || stepSize <= 0) return 'Step size must be greater than zero.'
   }
 
+  const toleranceIsSet = options?.tolerance !== null && options?.tolerance !== undefined
+    && !(typeof options.tolerance === 'string' && options.tolerance.trim() === '')
+  if (toleranceIsSet) {
+    const tolerance = typeof options.tolerance === 'boolean' ? null : parseOptionalFiniteNumber(options.tolerance)
+    if (tolerance === null || tolerance <= 0) return 'Relative tolerance must be finite and greater than zero.'
+  }
+
   return ''
 }
 
@@ -71,5 +78,8 @@ export function normalizeSimulationTimeOptions(options, { includeStepSize = true
       ? { stopTime: parseOptionalFiniteNumber(options.stopTime) }
       : {}),
     ...(includeStepSize ? { stepSize: Number(options.stepSize) } : {}),
+    ...(options.tolerance === null || options.tolerance === undefined || options.tolerance === ''
+      ? {}
+      : { tolerance: Number(options.tolerance) }),
   }
 }

@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server'
 import { buildContentSecurityPolicy } from './utils/security/contentSecurityPolicy.js'
+import { getRegisteredLabGatewayConnectSources } from './utils/security/registeredLabGatewayConnectSources.js'
 
-export function proxy(request) {
+export async function proxy(request) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+  const isDevelopment = process.env.NODE_ENV === 'development'
+  const simulationLabId = request.nextUrl.pathname.match(/^\/simulation\/(\d{1,78})\/?$/)?.[1]
+  const isDocumentNavigation = request.method === 'GET'
+    && request.headers.get('accept')?.includes('text/html')
+  const gatewayConnectSources = simulationLabId && isDocumentNavigation
+    ? await getRegisteredLabGatewayConnectSources(simulationLabId, { isDevelopment })
+    : []
   const contentSecurityPolicy = buildContentSecurityPolicy({
     nonce,
-    isDevelopment: process.env.NODE_ENV === 'development',
+    isDevelopment,
+    additionalConnectSources: gatewayConnectSources,
   })
 
   const requestHeaders = new Headers(request.headers)

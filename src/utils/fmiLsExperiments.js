@@ -59,9 +59,9 @@ export function normalizeFmiLsExperiments(rawExperiments) {
 
     const options = {}
     for (const [name, value] of Object.entries(raw.options)) {
-      if (!['startTime', 'stopTime', 'stepSize'].includes(name)
+      if (!['startTime', 'stopTime', 'stepSize', 'tolerance'].includes(name)
         || typeof value !== 'number' || !Number.isFinite(value)
-        || (name === 'stepSize' && value <= 0)) {
+        || (['stepSize', 'tolerance'].includes(name) && value <= 0)) {
         valid = false
         break
       }

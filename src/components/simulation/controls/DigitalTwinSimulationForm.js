@@ -21,6 +21,8 @@ export default function DigitalTwinSimulationForm({
   simulationOptions,
   onSimulationOptionChange,
   simulationType,
+  timeUnit = 's',
+  defaultTolerance,
   executionMode = 'batch',
   executionModeControl = null,
   fmuStateControls = null,
@@ -216,6 +218,8 @@ export default function DigitalTwinSimulationForm({
           options={simulationOptions}
           onChange={onSimulationOptionChange}
           simulationType={simulationType}
+          timeUnit={timeUnit}
+          defaultTolerance={defaultTolerance}
           requireStopTime={requireStopTime}
           disabled={running}
           readOnlyStartTime
@@ -257,6 +261,8 @@ DigitalTwinSimulationForm.propTypes = {
   }).isRequired,
   onSimulationOptionChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
+  timeUnit: PropTypes.string,
+  defaultTolerance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   executionMode: PropTypes.oneOf(['batch', 'step', 'continuous']),
   executionModeControl: PropTypes.node,
   fmuStateControls: PropTypes.node,

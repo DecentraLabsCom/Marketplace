@@ -20,6 +20,27 @@ test('delivers only the scoped connection grant to the ready iframe', async () =
   expect(onConnect).toHaveBeenCalledWith(expect.objectContaining({ options: { stopTime: 20 }, signal: expect.any(AbortSignal) }))
 })
 
+test('sends authorized FMI dependencies to SDK apps through the shared host extension', () => {
+  const { post } = mount(jest.fn(), {
+    modelVariables: [
+      { name: 'u', causality: 'input', type: 'Float64', unit: 'm/s' },
+      { name: 'y', causality: 'output', type: 'Float64' },
+    ],
+    fmiModelStructure: { outputs: [{ name: 'y', dependencyNames: ['u'] }] },
+  })
+
+  expect(post).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'decentralabs:digital-twin-host-ready',
+    extensions: { fmiModelMetadata: {
+      modelVariables: [
+        { name: 'u', causality: 'input', type: 'Float64', unit: 'm/s' },
+        { name: 'y', causality: 'output', type: 'Float64' },
+      ],
+      modelStructure: { outputs: [{ name: 'y', dependencyNames: ['u'] }] },
+    } },
+  }), '*')
+})
+
 test('authorizes a batch stream without issuing a WebSocket ticket and relays its samples', async () => {
   const onConnect = jest.fn()
   const encoder = new TextEncoder()
@@ -50,7 +71,7 @@ test('authorizes a batch stream without issuing a WebSocket ticket and relays it
 
   send({
     type: 'decentralabs:batch-execution-request', requestId: 'batch:1', runId: 'run:1',
-    body: { parameters: { gain: 2, offset: 3 }, options: { startTime: 0, stopTime: 1, stepSize: 1 }, inputSchedule: [] },
+    body: { parameters: { gain: 2, offset: 3 }, options: { startTime: 0, stopTime: 1, stepSize: 1, tolerance: 1e-7 }, inputSchedule: [] },
     batchOptions: { maxSamples: 4, outputVariables: ['x'], outputSampleEverySteps: 3 },
   })
   await waitFor(() => expect(post).toHaveBeenCalledWith(expect.objectContaining({
@@ -61,7 +82,7 @@ test('authorizes a batch stream without issuing a WebSocket ticket and relays it
   expect(onBatchSimulation).toHaveBeenCalledWith(expect.objectContaining({
     body: {
       parameters: { offset: 3 },
-      options: { startTime: 0, stopTime: 1, stepSize: 1, outputVariables: ['x'], outputSampleEverySteps: 3 },
+      options: { startTime: 0, stopTime: 1, stepSize: 1, tolerance: 1e-7, outputVariables: ['x'], outputSampleEverySteps: 3 },
       inputSchedule: [],
     },
     signal: expect.any(AbortSignal),

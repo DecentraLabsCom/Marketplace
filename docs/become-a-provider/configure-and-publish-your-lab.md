@@ -174,6 +174,21 @@ GLB bindings that do not match FMU input/output variables or supported targets
 before the provider synchronizes the shell. Neither Marketplace file
 permissions nor per-scene interaction code changes are needed.
 
+For uploaded GLBs and GLB companions imported from that Gateway, Lab Manager
+also provides a binding editor. It pre-fills existing `extras.fmiBindings` and
+can suggest FMI variables from node names, variable names, descriptions,
+quantities and enumeration labels. Variable choices show their units, types and
+enumerated states; for array variables, the editor uses FMI dimensions to
+validate selected element coordinates. The editor never chooses a GLB node or
+scene target on the provider's behalf: review the variable, node, target, scale
+and offset before applying the bindings. It can suggest a scale for safe
+meter-to-scene-unit or radian mappings when the FMI base-unit definition has no
+offset; it does not infer a non-zero offset or a display-unit conversion.
+Applying edits creates a new selected GLB for upload and Gateway validation;
+the original immutable asset stays unchanged. Public GLB URLs that Gateway
+cannot import are not editable in this workflow. See the [Gateway GLB visual
+asset guide](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/aas-fmu-visual-assets.md#author-bindings-in-lab-manager).
+
 See the [DecentraLabs FMI GLB bindings contract](../provider/fmi-glb-bindings-contract.md)
 for the versioned field definitions, supported targets, mapping rules, examples
 and JSON Schema.

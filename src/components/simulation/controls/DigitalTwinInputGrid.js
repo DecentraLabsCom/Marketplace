@@ -6,6 +6,7 @@ import DigitalTwinInput from './DigitalTwinInput'
 import { normalizeFmiLsStruct } from '@/utils/fmiLsStruct'
 import { fromVariableDisplayValue, toVariableDisplayValue } from '../utils/simulationParameters'
 import { getVariableEditorModel, getVariableVectorEditorValues } from '../utils/variableEditorModel'
+import { compareVariablesAlphabetically, sortVariablesAlphabetically } from '../utils/sortVariablesAlphabetically'
 
 function FmiLsStructMemberInput({ member, variable, modelVariables, value, onChange, disabled }) {
   const editor = getVariableEditorModel(variable, modelVariables, value)
@@ -156,7 +157,8 @@ export default function DigitalTwinInputGrid({
     fmiLsStruct,
     new Set(modelVariables.map((variable) => variable?.name).filter(Boolean)),
   )
-  const inputVariables = new Map(variables.map((variable) => [variable.name, variable]))
+  const orderedVariables = sortVariablesAlphabetically(variables)
+  const inputVariables = new Map(orderedVariables.map((variable) => [variable.name, variable]))
   const mappedNames = new Set()
   const mapGroups = (metadata?.maps || []).map((map) => {
     const members = map.members.flatMap((member) => {
@@ -165,7 +167,7 @@ export default function DigitalTwinInputGrid({
       mappedNames.add(variable.name)
       return [{ variable, member }]
     })
-    return { ...map, members }
+    return { ...map, members: members.sort((left, right) => compareVariablesAlphabetically(left.variable, right.variable)) }
   }).filter((map) => map.members.length > 0)
   const renderInput = (variable) => (
     <DigitalTwinInput
@@ -202,7 +204,7 @@ export default function DigitalTwinInputGrid({
           </div>
         </section>
       ))}
-      {variables.filter((variable) => !mappedNames.has(variable.name)).map(renderInput)}
+      {orderedVariables.filter((variable) => !mappedNames.has(variable.name)).map(renderInput)}
     </div>
   )
 

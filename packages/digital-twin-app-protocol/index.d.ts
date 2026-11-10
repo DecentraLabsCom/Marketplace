@@ -1,7 +1,13 @@
 export type DigitalTwinProtocolId = string
 export type DigitalTwinScalar = number | boolean | string
 export type SimulationState = 'idle' | 'running' | 'completed' | 'cancelled' | 'error'
-export interface RunOptions { startTime?: number; stopTime?: number; stepSize?: number }
+export interface RunOptions { startTime?: number; stopTime?: number; stepSize?: number; tolerance?: number }
+export interface FmiOutputDependency { name: string; dependencyNames?: string[]; dependencies?: number[]; dependenciesKind?: string[] }
+export interface FmiModelMetadata {
+  modelVariables: Array<Record<string, unknown> & { name: string; causality?: string }>
+  modelStructure: { outputs: FmiOutputDependency[]; [section: string]: unknown }
+}
+export interface DigitalTwinHostExtensions extends Record<string, unknown> { fmiModelMetadata?: FmiModelMetadata }
 export interface DigitalTwinSample {
   time: number; outputs: Record<string, number | boolean>; sequence?: number
   eventOccurred?: boolean; eventHandlingNeeded?: boolean; earlyReturn?: boolean; terminateSimulation?: boolean; finished?: boolean; finishReason?: string
@@ -73,6 +79,18 @@ export declare function isValidProtocolId(value: unknown): value is string
 export declare function isValidFmiLsExperiment(value: unknown): value is FmiLsExperiment
 export declare function isFiniteScalar(value: unknown): value is DigitalTwinScalar
 export declare function isValidOptions(value: unknown): value is RunOptions
+export declare function getDependentOutputRecommendations(
+  modelStructure: { outputs?: FmiOutputDependency[] } | null | undefined,
+  selectedInputNames: Iterable<string> | null | undefined,
+): Array<{ outputName: string; dependencyNames: string[] }>
+export declare function createFmiDependencyMetadata(
+  modelVariables: Array<Record<string, unknown>> | null | undefined,
+  modelStructure: { outputs?: FmiOutputDependency[] } | null | undefined,
+): FmiModelMetadata
+export declare function resolveEffectiveTolerance(
+  options: { tolerance?: number } | null | undefined,
+  defaultTolerance: number | string | null | undefined,
+): { value: number; source: 'run-option' | 'default-experiment' } | null
 export declare function isValidParameters(value: unknown): value is Record<string, DigitalTwinScalar>
 export declare function isValidInputSchedule(value: unknown): value is InputEvent[]
 export declare function isValidFmuStateCheckpoint(value: unknown): value is FmuStateCheckpoint

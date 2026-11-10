@@ -424,6 +424,7 @@ function normalizeFmiModelDescriptionExtension(submodel) {
     const normalized = {}
     for (const [field, limit] of Object.entries({
       fmiVersion: 32,
+      timeUnit: 128,
       modelName: 256,
       description: 4096,
       author: 256,

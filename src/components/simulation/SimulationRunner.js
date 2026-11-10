@@ -87,6 +87,7 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
   const [parameters, setParameters] = useState({})
   const [inputEvents, setInputEvents] = useState([])
   const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
+  const simulationOptionsEditedRef = useRef(false)
   const glbStopTimeDefaultedRef = useRef(false)
   const [variableAccess, setVariableAccess] = useState(null)
   const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
@@ -101,6 +102,8 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
   const [candidateFmuStateCheckpoint, setCandidateFmuStateCheckpoint] = useState(null)
   const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
   const modelVariables = Array.isArray(variableAccess?.modelVariables) ? variableAccess.modelVariables : []
+  const fmiModelDescription = variableAccess?.modelDescription || {}
+  const effectiveFmiDefaults = { ...fmuMeta, ...fmiModelDescription }
   const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
     && variableAccess?.fmuState?.serialize === true
 
@@ -228,13 +231,20 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
   }, [labId])
 
   useEffect(() => {
+    if (variableAccessState !== 'ready' || simulationOptionsEditedRef.current) return
+    setOptions(getInitialSimulationOptions(effectiveFmiDefaults))
+  }, [effectiveFmiDefaults.defaultStartTime, effectiveFmiDefaults.defaultStopTime,
+    effectiveFmiDefaults.defaultStepSize, variableAccessState])
+
+  useEffect(() => {
     if (twinAsset?.type !== 'glb' || glbStopTimeDefaultedRef.current) return
     glbStopTimeDefaultedRef.current = true
-    const metadataStopTime = getInitialSimulationOptions(fmuMeta).stopTime
+    const metadataStopTime = getInitialSimulationOptions(effectiveFmiDefaults).stopTime
     setOptions((current) => current.stopTime === metadataStopTime
       ? { ...current, stopTime: '' }
       : current)
-  }, [fmuMeta, twinAsset?.type])
+  }, [effectiveFmiDefaults.defaultStartTime, effectiveFmiDefaults.defaultStopTime,
+    effectiveFmiDefaults.defaultStepSize, twinAsset?.type])
   useEffect(() => {
     if (variableAccessState !== 'ready') return
     setParameters((current) => {
@@ -294,12 +304,24 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
     const experiment = selectableFmiLsExperiments.find((candidate) => candidate.id === experimentId)
     setSelectedFmiLsExperimentId(experiment ? experiment.id : '')
     setSelectedFmiLsParameterPresetId('')
-    if (!experiment) return
+    if (!experiment) {
+      setOptions((current) => {
+        const next = { ...current }
+        delete next.tolerance
+        return next
+      })
+      return
+    }
     setParameters((current) => ({ ...current, ...experiment.parameters }))
-    setOptions((current) => ({ ...current, ...experiment.options }))
+    setOptions((current) => {
+      const next = { ...current }
+      delete next.tolerance
+      return { ...next, ...experiment.options }
+    })
   }, [selectableFmiLsExperiments])
 
   const handleOptionChange = useCallback((name, value) => {
+    simulationOptionsEditedRef.current = true
     setSelectedFmiLsExperimentId('')
     setOptions(prev => ({ ...prev, [name]: value }))
   }, [])
@@ -522,6 +544,8 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
           modelVariables={accessibleModelVariables}
           fmiLsParameterPresets={twinFmiLsParameterPresets}
           fmiLsExperiments={twinFmiLsExperiments}
+          fmiModelStructure={fmiModelDescription?.modelStructure}
+          defaultTolerance={fmiModelDescription?.defaultTolerance}
           fmiLsStruct={variableAccess?.fmiLsStruct}
           fmuStateAvailable={variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true}
           fmuStateScopeKey={stateScopeKey}
@@ -544,7 +568,12 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
     <div>
       <GlbSimulationPanel
         lab={lab}
-        model={{ fmiVersion: variableAccess?.fmiVersion, simulationTypeLabel, fmiLsStruct: variableAccess?.fmiLsStruct }}
+        model={{
+          fmiVersion: variableAccess?.fmiVersion,
+          simulationTypeLabel,
+          fmiLsStruct: variableAccess?.fmiLsStruct,
+          fmiModelDescription,
+        }}
         resources={{ modelVariables: twinModelVariables, structModelVariables: accessibleModelVariables, editableVariables: twinEditableVariables, runtimeVariables: twinScheduledRuntimeVariables }}
         simulation={{
           simulationType: twinSimulationType,
@@ -592,6 +621,7 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
           title={lab?.name || 'Digital Twin'}
           results={displayedResults}
           modelVariables={twinModelVariables}
+          modelStructure={fmiModelDescription?.modelStructure}
           inputValues={sceneInputValues}
           interactiveInputVariables={sceneInputVariables}
           inputEditingEnabled={sceneInputVariables.length > 0}
@@ -602,6 +632,7 @@ function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulat
           startTime={Number(effectiveOptions.startTime)}
           stopTime={effectiveOptions.stopTime === '' ? undefined : Number(effectiveOptions.stopTime)}
           followLatest={interactiveExecution.mode !== null}
+          timeUnit={fmiModelDescription.timeUnit || 's'}
           onDisplayedSampleChange={interactiveExecution.reportDisplayedSample}
         />
       )}

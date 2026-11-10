@@ -203,10 +203,50 @@ All three modes use the same starting inputs and simulation-time settings. The
 Gateway enforces the provider's variable-write permissions. Interactive modes
 are available for FMI 2/3 Co-Simulation models; other simulation types keep the
 batch controls. Interactive modes connect from the browser to the provider
-Gateway, so the Marketplace operator must allow that Gateway's WebSocket origin
-in `CSP_CONNECT_SRC`, and the provider must allow the Marketplace page origin in
-the Gateway CORS configuration. Include the Gateway HTTPS origin for direct
-batch POST/NDJSON as well as the WSS origin for interactive sessions.
+Gateway. On each full navigation to `/simulation/{labId}`, Marketplace reads
+that lab's registered on-chain `accessURI` and adds only its HTTPS and WSS
+origins to the page CSP. No per-Gateway CSP environment entry is needed. The
+provider must still allow the Marketplace page origin in its Gateway CORS
+configuration.
+
+#### FMI defaults, units and tolerance
+
+The generated controls use valid FMI `DefaultExperiment` start time, stop time
+and step size as their initial values where those controls apply. If a field is
+absent or invalid, Marketplace fills it with a simulation-tool default.
+Scheduled Execution is clock-driven and has no generic step-size control. In
+the GLB viewer, stop time can be left blank for open-ended Continuous
+execution; Batch requires a finite stop time. The FMU's declared time unit
+labels the controls, timeline and simulation-time graph axis; when it is
+absent, the UI uses `s`. The labels do not rescale the FMU's time values.
+
+When declared, `DefaultExperiment.tolerance` appears as read-only FMI metadata.
+If the selected FMI-LS experiment declares its own tolerance, that value takes
+precedence for the run. The Gateway Executor passes the effective value to FMI
+initialization and uses it in its internal Model Exchange and FMI-LS-DAE
+integration. Marketplace does not add a separate editable tolerance control.
+
+#### FMI structure and capabilities
+
+Open **FMI relationships and events** to inspect declared output dependencies,
+state derivatives, clocked states, initial unknowns, event indicators, and FMI
+Co-Simulation/Model Exchange interfaces and capabilities. The panel filters
+variables and dependency links using the reservation's read or write
+permissions. These declarations describe the FMU; Gateway runtime support and
+reservation policy determine which features are available in the session.
+In the GLB graph selector, choosing an input highlights outputs whose FMI
+ModelStructure declaration lists that input as a dependency. The binding
+assistant shows the related inputs for a chosen output. These are suggestions;
+they do not remove other choices or assign GLB nodes and axes.
+
+#### Graphs and event markers
+
+The GLB viewer can plot selected scalar FMI inputs and outputs against
+simulation time or another scalar model variable. Axis labels and variable
+values use FMI display units when available, and simulation time uses the
+declared FMI time unit without rescaling the samples.
+After a run, event, early-return, discontinuity and termination samples can be
+marked on the timeline. Select a marker to seek the viewer to that sample.
 
 At the end of the reservation window, access is closed automatically by the provider-side access controls.
 

@@ -1,4 +1,4 @@
-import type { AppReadyMessage, DigitalTwinSample, DigitalTwinScalar, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+import type { AppReadyMessage, DigitalTwinHostExtensions, DigitalTwinSample, DigitalTwinScalar, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
 export interface SampleProcessingContext { runId: string; signal: AbortSignal }
 export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number; checkpoint?: FmuStateCheckpointBundle }
 export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
@@ -15,7 +15,7 @@ export interface FmuAdvanceOptions {
 export interface DigitalTwinAppClientOptions {
   /** Supply this to use the app independently of a Marketplace parent window. */
   getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[]; executionPace?: 'fastest' | 'realtime' }>
-  onHostReady?: (extensions: Record<string, unknown>) => void
+  onHostReady?: (extensions: DigitalTwinHostExtensions) => void
   /** Called per sample when onSamples is not supplied. */
   onSample?: (sample: DigitalTwinSample, context: SampleProcessingContext) => void | Promise<void>
   /** Receives every batch, including the initial sample; takes precedence over onSample. */

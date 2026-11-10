@@ -15,6 +15,7 @@ import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
 import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
 import useDigitalTwinAppHost from './useDigitalTwinAppHost'
 import { omitParametersMatchingFmiStart } from '@decentralabs/digital-twin-app-protocol/parameter-defaults'
+import { createFmiDependencyMetadata, resolveEffectiveTolerance } from '@decentralabs/digital-twin-app-protocol'
 import {
   DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidFmiLsExperiment,
 } from './digitalTwinAppProtocol'
@@ -29,7 +30,7 @@ export default function DigitalTwinAppViewer({
   appUrl, title = 'Digital Twin', onConnect, modelVariables = [], fmiLsParameterPresets = [], fmiLsExperiments = [], enableInputSchedule = false,
   scheduleVariables,
   inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stepSize,
-  fmiLsStruct,
+  fmiLsStruct, fmiModelStructure, defaultTolerance,
   fmuStateAvailable = false,
   fmuStateScopeKey = '',
   onFmuStateValuesLoad,
@@ -81,6 +82,10 @@ export default function DigitalTwinAppViewer({
   )
   const selectedFmiLsParameterPreset = availableFmiLsParameterPresets.find((preset) => preset.id === selectedFmiLsParameterPresetId)
   const selectedFmiLsExperiment = availableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const fmiModelMetadata = useMemo(
+    () => createFmiDependencyMetadata(modelVariables, fmiModelStructure),
+    [modelVariables, fmiModelStructure],
+  )
   const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
   const updateScheduledInputEvents = onInputEventsChange || (() => {})
   async function handleBatchSimulation(request) {
@@ -155,6 +160,7 @@ export default function DigitalTwinAppViewer({
     hostExtensions: {
       ...hostExtensions,
       ...(typeof onBatchSimulation === 'function' ? { batchPostStream: true } : {}),
+      ...(fmiModelMetadata.modelVariables.length ? { fmiModelMetadata } : {}),
     },
     onAppReady: (message) => {
       setPlaybackRate(message.defaultPlaybackRate || 1)
@@ -445,6 +451,18 @@ export default function DigitalTwinAppViewer({
                     disabled={isRunning}
                   />
                 ) : null}
+                {(() => {
+                  const effectiveTolerance = resolveEffectiveTolerance(
+                    execution.options || selectedFmiLsExperiment?.options,
+                    defaultTolerance,
+                  )
+                  return effectiveTolerance ? (
+                    <p className="mt-2 max-w-64 text-[11px] leading-relaxed text-[#829ba1]">
+                      The {effectiveTolerance.source === 'run-option' ? 'effective run' : 'default'} relative tolerance used for integrating differential-algebraic equations (DAEs) is{' '}
+                      <span className="font-mono text-[#b8d2d5]">{effectiveTolerance.value.toExponential(3)}</span>.
+                    </p>
+                  ) : null
+                })()}
 
                 {hasExecutionPaceControl ? (
                   <ExecutionPaceSelector
@@ -578,6 +596,8 @@ DigitalTwinAppViewer.propTypes = {
   modelVariables: PropTypes.array, fmiLsParameterPresets: PropTypes.array, fmiLsExperiments: PropTypes.array,
   enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
   fmiLsStruct: PropTypes.object,
+  fmiModelStructure: PropTypes.object,
+  defaultTolerance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   fmuStateAvailable: PropTypes.bool, fmuStateScopeKey: PropTypes.string,
   onFmuStateValuesLoad: PropTypes.func,
   inputValues: PropTypes.object,

@@ -313,6 +313,32 @@ test('uses the parent only to obtain a connection capability', async () => {
   } finally { Object.defineProperty(window, 'parent', parent) }
 })
 
+test('delivers host-provided FMI model metadata to custom apps', () => {
+  const parent = Object.getOwnPropertyDescriptor(window, 'parent')
+  const host = { postMessage: jest.fn() }
+  const onHostReady = jest.fn()
+  Object.defineProperty(window, 'parent', { configurable: true, value: host })
+  try {
+    const client = create({ onHostReady })
+    client.reportReady()
+    const extensions = {
+      fmiModelMetadata: {
+        modelVariables: [
+          { name: 'speed', causality: 'input', type: 'Float64' },
+          { name: 'position', causality: 'output', type: 'Float64' },
+        ],
+        modelStructure: { outputs: [{ name: 'position', dependencyNames: ['speed'] }] },
+      },
+    }
+    window.dispatchEvent(new MessageEvent('message', {
+      source: host,
+      data: { type: 'decentralabs:digital-twin-host-ready', version: 2, extensions },
+    }))
+
+    expect(onHostReady).toHaveBeenCalledWith(extensions)
+  } finally { Object.defineProperty(window, 'parent', parent) }
+})
+
 test('uses the host POST stream for a finite fastest run when the host advertises it', async () => {
   const parent = Object.getOwnPropertyDescriptor(window, 'parent')
   const host = { postMessage: jest.fn() }
@@ -330,7 +356,7 @@ test('uses the host POST stream for a finite fastest run when the host advertise
     client.reportReady()
     send({ type: 'decentralabs:digital-twin-host-ready', extensions: { batchPostStream: true } })
 
-    const started = client.run({ parameters: { gain: 2 }, options: { stopTime: 2, stepSize: 1 } })
+    const started = client.run({ parameters: { gain: 2 }, options: { stopTime: 2, stepSize: 1, tolerance: 1e-7 } })
     const connectionRequest = () => host.postMessage.mock.calls.map(([message]) => message)
       .find((message) => message.type === 'decentralabs:fmu-connection-request')
     await waitForMessage(host, connectionRequest)
@@ -346,7 +372,7 @@ test('uses the host POST stream for a finite fastest run when the host advertise
     const batchRequest = () => host.postMessage.mock.calls.map(([message]) => message)
       .find((message) => message.type === 'decentralabs:batch-execution-request')
     await waitForMessage(host, batchRequest)
-    expect(batchRequest().body).toMatchObject({ parameters: { gain: 2 }, options: { startTime: 0, stopTime: 2, stepSize: 1 } })
+    expect(batchRequest().body).toMatchObject({ parameters: { gain: 2 }, options: { startTime: 0, stopTime: 2, stepSize: 1, tolerance: 1e-7 } })
     send({
       type: 'decentralabs:batch-execution-event', requestId: batchRequest().requestId,
       eventId: 1,

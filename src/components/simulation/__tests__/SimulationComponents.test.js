@@ -102,6 +102,20 @@ describe("SimulationOptions", () => {
     );
     expect(screen.getByLabelText("Start Time (s)")).toBeDisabled();
   });
+
+  test("shows the declared FMI tolerance as read-only information", () => {
+    const { container } = render(
+      <SimulationOptions
+        options={{ startTime: 0, stopTime: 10, stepSize: 0.01}}
+        defaultTolerance={1e-6}
+        onChange={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText(/default relative tolerance used for integrating differential-algebraic equations \(DAEs\) is/i)).toHaveTextContent("1.000e-6");
+    expect(container.querySelectorAll('input[type="number"]')).toHaveLength(3);
+    expect(screen.queryByLabelText(/tolerance/i)).not.toBeInTheDocument();
+  });
 });
 
 // â”€â”€â”€ ResultsTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -605,7 +619,12 @@ describe("SimulationRunner", () => {
       "sim.outputs",
       { currentCommunicationPoint: 0, deltaT: 0.01 },
     ));
-    expect(await screen.findByText("t = 0.010 s")).toBeInTheDocument();
+    await waitFor(() => {
+      const results = JSON.parse(viewer.getAttribute("data-results"));
+      expect(results.time).toEqual([0, 0.01]);
+      expect(results.simulationTime).toBe(0.01);
+      expect(results.outputs.position).toEqual([0, 0.5]);
+    });
   });
 
   test("shows only the external FMI handoff when no visual asset is linked", async () => {

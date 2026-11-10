@@ -35,8 +35,11 @@ const frameSources = () => unique([
   ...readConfiguredSources('CSP_FRAME_SRC', 'NEXT_PUBLIC_CSP_FRAME_SRC'),
 ])
 
-export function buildContentSecurityPolicy({ nonce, isDevelopment = false } = {}) {
+export function buildContentSecurityPolicy({ nonce, isDevelopment = false, additionalConnectSources = [] } = {}) {
   if (!nonce) throw new Error('CSP nonce is required')
+  const trustedAdditionalConnectSources = Array.isArray(additionalConnectSources)
+    ? additionalConnectSources.filter((source) => typeof source === 'string' && SOURCE_TOKEN_PATTERN.test(source))
+    : []
 
   const directives = [
     "default-src 'self'",
@@ -47,7 +50,8 @@ export function buildContentSecurityPolicy({ nonce, isDevelopment = false } = {}
     `img-src ${defaultImageSources().join(' ')}`,
     `connect-src ${unique([
       ...defaultConnectSources(),
-      ...(isDevelopment ? ['ws://127.0.0.1:8081'] : []),
+      ...trustedAdditionalConnectSources,
+      ...(isDevelopment ? ['http://127.0.0.1:8081', 'ws://127.0.0.1:8081'] : []),
     ]).join(' ')}`,
     `frame-src ${frameSources().join(' ')}`,
     "frame-ancestors 'none'",

@@ -92,6 +92,24 @@ if (typeof window !== 'undefined' && !window.PublicKeyCredential) {
 jest.mock('next/router', () => require('./mocks/nextRouter'));
 jest.mock('viem', () => require('./mocks/viem'));
 jest.mock('@/utils/dev/logger', () => require('./mocks/logger'));
+// ECharts ships ESM modules and initializes Canvas; chart rendering is outside
+// Jest's JSDOM boundary, so keep the real viewer while replacing the renderer.
+jest.mock('echarts/core', () => ({
+  use: jest.fn(),
+  init: jest.fn(() => ({
+    setOption: jest.fn(),
+    resize: jest.fn(),
+    dispose: jest.fn(),
+  })),
+}));
+jest.mock('echarts/charts', () => ({ LineChart: {} }));
+jest.mock('echarts/components', () => ({
+  DataZoomComponent: {},
+  GridComponent: {},
+  LegendComponent: {},
+  TooltipComponent: {},
+}));
+jest.mock('echarts/renderers', () => ({ CanvasRenderer: {} }));
 jest.mock('i18n-iso-countries', () => {
   const normalizeValue = (value) => (value || '').toString().trim();
 

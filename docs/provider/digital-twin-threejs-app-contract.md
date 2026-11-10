@@ -145,14 +145,14 @@ SDK run uses that route only when it is finite, uses Fastest Pace and fixed
 batching, and has no input-controller, model-validation or parameter-derivation
 callbacks. Other SDK runs use a short-lived connection grant and the Gateway
 WebSocket directly. The iframe cannot attach Marketplace cookies or reservation
-credentials. The provider Gateway must allow the exact Marketplace page origin
-for its HTTPS batch route and FMU WebSocket. The Marketplace deployment must
-include each provider Gateway's exact HTTPS and WSS origins in `CSP_CONNECT_SRC`;
-its restrictive `connect-src` policy otherwise blocks the browser connection.
-Production Gateway configuration supplies the Marketplace origin by default;
-Preview deployments should set their Preview origin explicitly in the Gateway
-CORS allowlist and the corresponding Gateway HTTPS/WSS origins in the Marketplace
-CSP configuration.
+credentials. For full navigations to `/simulation/{labId}`, Marketplace reads
+the lab's registered on-chain `accessURI` and adds only that Gateway's exact
+HTTPS and WSS origins to the page CSP. Providers do not need a per-Gateway
+Marketplace CSP setting. The provider Gateway must still allow the exact
+Marketplace page origin for its HTTPS batch route and FMU WebSocket. Production
+Gateway configuration supplies the Marketplace origin by default; Preview
+deployments should set their Preview origin explicitly in the Gateway CORS
+allowlist.
 
 ## Authorization and connection
 
@@ -248,12 +248,17 @@ The package `@decentralabs/digital-twin-app-protocol` provides:
   with optional host startup, authorization and visualization controls.
 * `/simulation-stream`: shared NDJSON parsing and event normalization for
   SDK-hosted batch runs and GLB execution.
+* `/fmi-scene-bindings`: the shared `extras.fmiBindings` validator and FMI
+  value mapping used by the generated GLB viewer and available to provider
+  Three.js apps.
 
 With a bundler, import the desired entry. For a static app without a bundler,
 copy `index.js`, `fmu-client.js`, `parameter-defaults.js`,
-`batch-controller.js`, `simulation-stream.js`, `input-update-quota.js`, `client.js` and
+`batch-controller.js`, `simulation-stream.js`, `input-update-quota.js`,
+`model-structure.js`, `simulation-options.js`, `client.js` and
 `LICENSE.txt` together into `sdk/` in the ZIP. If the app also exports GLB scenes, copy
-`scene-presentation.js` into that directory too.
+`scene-presentation.js` into that directory too. If it reads or creates FMI node
+bindings, include `fmi-scene-bindings.js` in `sdk/` as well.
 When bundling the SDK into an app, include its `LICENSE.txt` in the delivered app or third-party notices.
 After a version is released, download the `.tgz` from the [Marketplace GitHub Releases page](https://github.com/DecentraLabsCom/Marketplace/releases)
 and install it in the provider app project with `npm install ./decentralabs-digital-twin-app-protocol-X.Y.Z.tgz`.
@@ -403,6 +408,9 @@ receive or report something.
   app-owned controls in sync; it receives `null` when the selection is
   cleared. The host filters unsupported cases and parameters the reservation
   cannot write.
+  Experiment `tolerance` is a supported run option and is carried by the SDK
+  into FMI initialization. If omitted, the Executor uses the FMU's
+  `DefaultExperiment.tolerance` when declared.
 * When enabled by the host and supported by the model, the schedule editor
   adds validated `inputSchedule` events to the connection response. The SDK
   applies them through the FMU client; no app capability declaration is
@@ -410,6 +418,14 @@ receive or report something.
   Events may change runtime-writable FMI inputs or FMI 2.0/FMI 3.0
   Co-Simulation tunable parameters; the Gateway remains authoritative for the
   effective access policy.
+
+The host also supplies `extensions.fmiModelMetadata`, containing the FMI
+variables and output dependency declarations visible to the current
+reservation. Custom apps can pass its `modelStructure` to the SDK's
+`getDependentOutputRecommendations` helper to share the generic GLB viewer's
+FMI-based output suggestions. These recommendations must preserve every
+variable choice. The host omits variables or dependency links the reservation
+cannot read or write.
 * An explicitly configured host may support `decentralabs:digital-twin-model-change`.
   Normal published labs remain bound to their configured FMU. The qFMU local
   preview uses this extension to select among its four reference models.

@@ -12,7 +12,6 @@ function makeProps(overrides = {}) {
     running: false,
     status: 'paused',
     mode: 'step',
-    simulationTime: 1.25,
     values: { speed: 2 },
     modelVariables: [{ name: 'speed', causality: 'input', type: 'Real', start: 1, min: 0, max: 5, description: 'Motor speed' }],
     runtimeVariables: [{ name: 'speed', causality: 'input', type: 'Real', start: 1, min: 0, max: 5, description: 'Motor speed' }],
@@ -34,7 +33,7 @@ describe('DigitalTwinExecutionControls', () => {
     expect(screen.getByLabelText('Execution mode')).toHaveValue('step')
     expect(screen.getByRole('button', { name: 'Advance one step' })).toBeEnabled()
     expect(screen.queryByLabelText('Motor speed')).not.toBeInTheDocument()
-    expect(screen.getByText('t = 1.250 s')).toBeInTheDocument()
+    expect(screen.queryByText('t = 1.250 s')).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Execution mode'), { target: { value: 'continuous' } })
     expect(props.onExecutionModeChange).toHaveBeenCalledWith('continuous')

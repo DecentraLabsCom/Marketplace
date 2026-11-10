@@ -1,6 +1,6 @@
 # DecentraLabs FMI Bindings for glTF Nodes
 
-**Contract version: 1.2.0**
+**Contract version: 1.3.0**
 **Status: Current**
 
 This document is the canonical DecentraLabs contract for connecting FMI model
@@ -19,6 +19,12 @@ The companion [JSON Schema](./fmi-glb-bindings.schema.json) validates the
 structure of `nodes[*].extras.fmiBindings`. FMU-dependent rules such as variable
 existence and causality require the selected FMU metadata and are checked
 separately by Lab Gateway.
+
+The SDK entry point
+`@decentralabs/digital-twin-app-protocol/fmi-scene-bindings` provides the
+client-side binding validation and value-conversion helpers. Marketplace's
+automatic GLB viewer uses that same implementation; provider Three.js apps can
+reuse it while applying values to their own scene objects.
 
 ## 1. Placement and shape
 
@@ -99,6 +105,15 @@ limited to local coordinates within `[-100000, 100000]`.
 For a rotation in degrees, convert to radians with `scale: 0.017453292519943295`
 when the FMI output is degrees. The target itself is always assigned in
 radians.
+
+FMI unit definitions describe conversions with factors and offsets, including
+display-unit conversions and the `relativeQuantity`/inverse rules. Use those
+definitions to derive the binding's `scale` and `offset` for the chosen scene
+units; see the [FMI unit conversion rules](https://fmi-standard.org/docs/main/).
+Lab Manager's automatic scale suggestion is narrower: it handles compatible
+meter-based translation or radian rotation mappings when the FMI base-unit
+offset is zero. It does not infer a non-zero offset or a display-unit
+conversion, so review and apply each binding explicitly.
 
 The glTF `rotation` target is different from the legacy Euler component
 targets: it requires the complete quaternion vector in glTF `[x, y, z, w]`
@@ -245,14 +260,38 @@ currently run a JSON Schema validator during upload. Its FMU-aware validation
 is an additional check, not a replacement for validating the GLB extras against
 the published schema.
 
-## 6. Versioning
+## 6. Mapping discrete FMI states
 
-Version 1.2.0 is the version identified by this document and by the schema's
-`$id` (`urn:decentralabs:glb-fmi-bindings:1.2.0`). It adds draggable input
-bindings for scalar Euler rotation axes; the same target names were already
-available for outputs in version 1.1.0. The binding array does not carry an
-in-band version field; existing and new arrays described here use version
-1.2.0. Patch releases clarify wording without changing interpretation.
+For an enumerated or otherwise discrete FMI output, `valueMap` can map the
+exact string form of each returned FMI value to a visibility flag or color.
+Use `visible` with Boolean values, or `material.color` with a Three.js color
+string or 24-bit hexadecimal color integer. Keys are matched against
+`String(value)`; for example, numeric state `1` uses key `"1"`. A value with
+no matching key leaves the scene target unchanged for that sample. A map has
+between 1 and 128 entries, and keys are at most 128 characters. `valueMap` is
+available only for `visible` and `material.color`; a visibility map cannot be
+combined with `visibleWhenGreaterThanOrEqual`.
+
+```json
+{ "variable": "doorState", "target": "visible", "valueMap": { "0": false, "1": true } }
+```
+
+```json
+{ "variable": "temperatureBand", "target": "material.color", "valueMap": { "cold": "#42d392", "hot": "#ff2738" } }
+```
+
+## 7. Versioning
+
+Version 1.3.0 is the version identified by this document and by the schema's
+`$id` (`urn:decentralabs:glb-fmi-bindings:1.3.0`). It adds optional discrete
+state maps for visibility and material color. Version 1.2.0 added draggable
+input bindings for scalar Euler rotation axes; the same target names were
+already available for outputs in version 1.1.0. The binding array does not
+carry an in-band version field; existing and new arrays described here use
+version 1.3.0. Existing bindings remain valid without `valueMap`; demo GLBs do
+not need to be regenerated unless a discrete state map is wanted. Patch
+releases clarify wording without changing
+interpretation.
 Additive optional fields or targets that older readers can safely ignore
 require a new minor version. Changes to existing field meaning, required
 fields, or mapping behavior require a new major version and a distinct schema
@@ -260,9 +299,9 @@ identifier. The current runtime does not inspect a version marker in the GLB;
 a future incompatible major version must use a new extras key or introduce an
 in-band version marker before its semantics can be selected at runtime.
 
-## 7. JSON Schema and examples
+## 8. JSON Schema and examples
 
-- [Version 1.2.0 JSON Schema](./fmi-glb-bindings.schema.json)
+- [Version 1.3.0 JSON Schema](./fmi-glb-bindings.schema.json)
 - [Simple output transform](#simple-output-transform)
 - [Writable gate input](#writable-gate-input)
 

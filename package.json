@@ -58,6 +58,7 @@
     "@vercel/blob": "^2.8.0",
     "@xmldom/xmldom": "^0.9.12",
     "date-fns": "^4.4.0",
+    "echarts": "^6.1.0",
     "ethers": "^6.16.0",
     "i18n-iso-countries": "^7.14.0",
     "jose": "^6.2.12",

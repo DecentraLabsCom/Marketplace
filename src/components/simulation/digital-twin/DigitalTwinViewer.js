@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
-import { Activity, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { Activity, ChartNoAxesCombined, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 import PlaybackRateControl from '../controls/PlaybackRateControl'
 import VariableDescriptionTooltip from '../controls/VariableDescriptionTooltip'
+import SimulationGraphConfigurationDialog from './SimulationGraphConfigurationDialog'
+import SimulationGraphPanel from './SimulationGraphPanel'
+import { createGraphConfiguration, getGraphableVariables } from '../utils/simulationGraphData'
 import {
   getVariableDescription,
   getVariableDisplayName,
@@ -13,6 +16,7 @@ import {
   getVariableEnumerationLabel,
   toVariableDisplayValue,
 } from '../utils/simulationParameters'
+import { sortVariablesAlphabetically } from '../utils/sortVariablesAlphabetically'
 
 const DigitalTwinCanvas = dynamic(() => import('./DigitalTwinCanvas'), {
   ssr: false,
@@ -42,8 +46,27 @@ function formatOutputValue(value, variable) {
   return String(displayValue).slice(0, 64)
 }
 
-function formatTime(value) {
-  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} s` : '—'
+function formatTime(value, unit = 's') {
+  if (!Number.isFinite(Number(value))) return '—'
+  const suffix = typeof unit === 'string' && unit.trim() ? ` ${unit.trim()}` : ''
+  return `${Number(value).toFixed(2)}${suffix}`
+}
+
+function getFmiEventMarkers(results) {
+  const times = Array.isArray(results?.time) ? results.time : []
+  const markers = []
+  for (let index = 0; index < times.length; index += 1) {
+    const metadata = results?.sampleMetadata?.[index]
+    const reasons = []
+    if (results?.discontinuities?.[index] === true || metadata?.discontinuity) reasons.push('discontinuity')
+    if (metadata?.eventOccurred || metadata?.eventHandlingNeeded) reasons.push('FMI event')
+    if (metadata?.earlyReturn) reasons.push('early return')
+    if (metadata?.terminateSimulation) reasons.push('termination')
+    if (reasons.length) markers.push({ index, time: Number(times[index]), label: [...new Set(reasons)].join(', ') })
+  }
+  if (markers.length <= 256) return markers
+  const stride = Math.ceil(markers.length / 256)
+  return markers.filter((_, index) => index % stride === 0).slice(0, 256)
 }
 
 function sampleIndexAtOrBefore(times, time) {
@@ -114,6 +137,7 @@ export default function DigitalTwinViewer({
   results,
   streamingResultsRef,
   modelVariables,
+  modelStructure,
   inputValues = {},
   interactiveInputVariables = [],
   inputEditingEnabled = false,
@@ -125,6 +149,7 @@ export default function DigitalTwinViewer({
   stopTime,
   followLatest,
   onDisplayedSampleChange,
+  timeUnit = 's',
 }) {
   const [sampleIndex, setSampleIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -132,9 +157,19 @@ export default function DigitalTwinViewer({
   const [loadState, setLoadState] = useState('loading')
   const [pinnedOutputNames, setPinnedOutputNames] = useState(() => new Set())
   const [controlsCollapsed, setControlsCollapsed] = useState(false)
+  const [graphPanelOpen, setGraphPanelOpen] = useState(false)
+  const [simulationGraphs, setSimulationGraphs] = useState([])
+  const [simulationGraphPage, setSimulationGraphPage] = useState(0)
+  const [graphConfigurationOpen, setGraphConfigurationOpen] = useState(false)
+  const [selectedGraphConfigurationId, setSelectedGraphConfigurationId] = useState('')
   const [outputMarkersVisible, setOutputMarkersVisible] = useState(false)
   const [inputMarkersVisible, setInputMarkersVisible] = useState(false)
   const [sceneInputBindingNames, setSceneInputBindingNames] = useState([])
+  const graphVariableSignature = useMemo(() => getGraphableVariables(modelVariables)
+    .map((variable) => `${variable.name}:${variable.causality}:${variable.type}`)
+    .join('|'), [modelVariables])
+  const graphPageCount = Math.max(1, Math.ceil(simulationGraphs.length / 2))
+  const currentGraphPage = Math.min(simulationGraphPage, graphPageCount - 1)
   const streamingResults = isRunning ? streamingResultsRef?.current : null
   const activeResults = streamingResults || results
   const times = Array.isArray(activeResults?.time) ? activeResults.time : []
@@ -143,6 +178,7 @@ export default function DigitalTwinViewer({
   const displayedSampleIndex = isRunning && followLatest ? lastIndex : Math.min(sampleIndex, lastIndex)
   const displayedSampleSequence = activeResults?.sampleMetadata?.[displayedSampleIndex]?.sequence
   const displayedSampleOrdinal = sampleIndexOffset + displayedSampleIndex
+  const eventMarkers = useMemo(() => getFmiEventMarkers(activeResults), [activeResults])
   const interpolatableVariables = useMemo(() => new Set(modelVariables
     .filter((variable) => variable?.causality === 'output'
       && ['Real', 'Float32', 'Float64'].includes(variable?.type)
@@ -174,9 +210,22 @@ export default function DigitalTwinViewer({
     setPlaying(false)
     setPinnedOutputNames(new Set())
     setControlsCollapsed(false)
+    setGraphPanelOpen(false)
     setSceneInputBindingNames([])
     autoPlaybackRef.current = false
   }, [sceneUrl])
+
+  useEffect(() => {
+    setSimulationGraphs([])
+    setSimulationGraphPage(0)
+    setSelectedGraphConfigurationId('')
+    setGraphPanelOpen(false)
+    setGraphConfigurationOpen(false)
+  }, [graphVariableSignature, sceneUrl])
+
+  useEffect(() => {
+    setSimulationGraphPage((page) => Math.min(page, graphPageCount - 1))
+  }, [graphPageCount])
 
   useEffect(() => {
     if (isRunning && !wasRunningRef.current) {
@@ -281,8 +330,8 @@ export default function DigitalTwinViewer({
     setSampleIndex(nextIndex)
   }, [isRunning, lastIndex])
 
-  const stats = modelVariables
-    .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string')
+  const stats = sortVariablesAlphabetically(modelVariables
+    .filter((variable) => variable?.causality === 'output' && typeof variable.name === 'string'))
     .map((variable) => ({
       variable,
       value: values[variable.name],
@@ -291,14 +340,36 @@ export default function DigitalTwinViewer({
       displayUnit: getVariableDisplayUnit(variable),
     }))
   const pinnedStats = []
-  const otherStats = []
   stats.forEach((stat) => {
-    (pinnedOutputNames.has(stat.variable.name) ? pinnedStats : otherStats).push(stat)
+    if (pinnedOutputNames.has(stat.variable.name)) pinnedStats.push(stat)
   })
-  const orderedStats = [...pinnedStats, ...otherStats]
+  const orderedStats = stats
   const editableInputNames = new Set(interactiveInputVariables.map(({ name }) => name))
   const hasAuthorizedSceneInputs = sceneInputBindingNames.some((name) => editableInputNames.has(name))
   const hasEditableSceneInputs = inputEditingEnabled && hasAuthorizedSceneInputs
+  const graphPanelVisible = graphPanelOpen && simulationGraphs.length > 0
+  const graphToggleBesidePinnedOutputs = controlsCollapsed
+    && loadState === 'ready'
+    && pinnedStats.length > 0
+    && simulationGraphs.length > 0
+  const graphPanelToggleButton = simulationGraphs.length > 0 ? (
+    <VariableDescriptionTooltip
+      name={graphPanelVisible ? 'Hide graph panel' : 'Show graph panel'}
+      description={graphPanelVisible ? 'Hide the configured graphs.' : 'Show the configured graphs.'}
+      align="right"
+      portal
+    >
+      <button
+        type="button"
+        aria-label={graphPanelVisible ? 'Hide graph panel' : 'Show graph panel'}
+        aria-pressed={graphPanelVisible}
+        onClick={() => setGraphPanelOpen((visible) => !visible)}
+        className={`grid size-8 shrink-0 place-items-center rounded-lg border bg-[#071014]/75 shadow-lg backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] ${graphPanelVisible ? 'border-[#54d5c9] text-[#b8fff1]' : 'border-[#355158] text-[#9ab8bd] hover:border-[#54d5c9]'}`}
+      >
+        <ChartNoAxesCombined size={16} aria-hidden="true" />
+      </button>
+    </VariableDescriptionTooltip>
+  ) : null
 
   const togglePinnedOutput = (name) => {
     setPinnedOutputNames((current) => {
@@ -309,22 +380,89 @@ export default function DigitalTwinViewer({
     })
   }
 
+  const openGraphConfiguration = () => {
+    setGraphConfigurationOpen(true)
+  }
+
+  const addSimulationGraph = () => {
+    let graphNumber = simulationGraphs.length + 1
+    while (simulationGraphs.some((graph) => graph.name === `Graph ${graphNumber}`)) graphNumber += 1
+    const graph = createGraphConfiguration(graphNumber, modelVariables)
+    setSimulationGraphs((current) => [...current, graph])
+    setSelectedGraphConfigurationId(graph.id)
+    setGraphPanelOpen(true)
+    return graph
+  }
+
+  const saveSimulationGraph = (graph) => {
+    setSimulationGraphs((current) => current.map((item) => item.id === graph.id ? graph : item))
+    setGraphPanelOpen(true)
+  }
+
+  const deleteSimulationGraph = (graphId) => {
+    const nextGraphs = simulationGraphs.filter((graph) => graph.id !== graphId)
+    setSimulationGraphs(nextGraphs)
+    if (nextGraphs.length === 0) setGraphPanelOpen(false)
+    if (selectedGraphConfigurationId === graphId) {
+      setSelectedGraphConfigurationId(nextGraphs[0]?.id || '')
+    }
+  }
+
+  const editSimulationGraph = (graphId) => {
+    setSelectedGraphConfigurationId(graphId)
+    setGraphConfigurationOpen(true)
+  }
+
   return (
     <section className="overflow-hidden rounded-2xl border border-[#283a42] bg-[#101a20] shadow-xl shadow-black/20">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#26363d] px-5 py-4">
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-[#29434a] bg-[#14262b] px-3 py-1.5 text-xs text-[#bad0d2]">
-          <span className={`h-2 w-2 rounded-full ${loadState === 'ready' ? 'bg-[#59e1a2]' : loadState === 'error' ? 'bg-[#fa6673]' : 'bg-[#f5b942] animate-pulse'}`} />
-          {loadState === 'ready' ? (isRunning ? 'Live simulation' : 'Scene ready') : loadState === 'error' ? 'Scene unavailable' : 'Loading GLB scene'}
+        <div className="flex items-center gap-2">
+          {graphPanelVisible && simulationGraphs.length > 2 ? (
+            <div className="flex max-w-44 shrink-0 items-center gap-0.5 overflow-x-auto [scrollbar-none]" role="tablist" aria-label="Graph pages">
+              {Array.from({ length: graphPageCount }, (_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  role="tab"
+                  aria-label={`Show graph page ${index + 1}`}
+                  aria-selected={currentGraphPage === index}
+                  onClick={() => setSimulationGraphPage(index)}
+                  className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium ${currentGraphPage === index ? 'bg-[#173e40] text-[#b8fff1]' : 'text-[#829ba1] hover:bg-[#1b2b31] hover:text-white'}`}
+                >
+                  {index + 1} / {graphPageCount}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <VariableDescriptionTooltip
+            name="Configure graphs"
+            description="Choose the X variable and one or more input or output variables for each graph."
+            align="left"
+            portal
+          >
+            <button
+              type="button"
+              aria-label="Configure simulation graphs"
+              onClick={openGraphConfiguration}
+              className="grid size-8 place-items-center rounded-lg border border-[#355158] bg-[#14262b] text-[#9bded8] transition hover:border-[#54d5c9] hover:bg-[#173e40] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9]"
+            >
+              <ChartNoAxesCombined size={16} aria-hidden="true" />
+            </button>
+          </VariableDescriptionTooltip>
+          <div className="flex items-center gap-2 rounded-full border border-[#29434a] bg-[#14262b] px-3 py-1.5 text-xs text-[#bad0d2]">
+            <span className={`h-2 w-2 rounded-full ${loadState === 'ready' ? 'bg-[#59e1a2]' : loadState === 'error' ? 'bg-[#fa6673]' : 'bg-[#f5b942] animate-pulse'}`} />
+            {loadState === 'ready' ? (isRunning ? 'Live simulation' : 'Scene ready') : loadState === 'error' ? 'Scene unavailable' : 'Loading GLB scene'}
+          </div>
         </div>
       </header>
 
-      <div className={`grid items-stretch gap-4 p-4 lg:h-[78vh] lg:min-h-[36rem] lg:max-h-[52rem] ${controlsCollapsed
-        ? 'grid-cols-[minmax(0,1fr)_3.5rem]'
-        : 'lg:grid-cols-[minmax(0,1fr)_220px]'}`}>
-        <div className="relative min-h-128 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a] lg:min-h-0">
+      <div className={`grid items-stretch gap-x-[13px] gap-y-4 p-4 lg:h-[78vh] lg:min-h-[36rem] lg:max-h-[52rem] ${graphPanelVisible
+        ? (controlsCollapsed ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_3.5rem]' : 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_220px]')
+        : (controlsCollapsed ? 'lg:grid-cols-[minmax(0,1fr)_3.5rem]' : 'lg:grid-cols-[minmax(0,1fr)_220px]')}`}>
+        <div className="relative min-h-128 min-w-0 overflow-hidden rounded-xl border border-[#253840] bg-[#0b141a] lg:min-h-0">
           <DigitalTwinCanvas
             sceneUrl={sceneUrl}
             values={sceneValues}
@@ -347,6 +485,11 @@ export default function DigitalTwinViewer({
               ? (index, frameTime) => onDisplayedSampleChange(index + sampleIndexOffset, frameTime)
               : undefined}
           />
+          {simulationGraphs.length > 0 && !graphToggleBesidePinnedOutputs ? (
+            <div className="absolute right-3 top-3 z-30">
+              {graphPanelToggleButton}
+            </div>
+          ) : null}
           {loadState === 'ready' ? (
             <div className="absolute left-3 top-3 z-30 flex gap-2">
               <VariableDescriptionTooltip
@@ -399,9 +542,16 @@ export default function DigitalTwinViewer({
               aria-label="Pinned live output indicators"
               className="pointer-events-none absolute inset-y-3 right-3 z-20 flex w-56 max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto"
             >
-              <div className="pointer-events-auto flex w-[85%] shrink-0 self-end items-center justify-between rounded-lg border border-[#355158] bg-[#071014]/70 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9ab8bd] shadow-lg backdrop-blur">
-                <span>Outputs</span>
-                <span className="font-mono text-[#67d7cf]">{pinnedStats.length} pinned</span>
+              <div className="pointer-events-none flex w-full shrink-0 items-center gap-2">
+                {graphToggleBesidePinnedOutputs ? (
+                  <div className="pointer-events-auto shrink-0">
+                    {graphPanelToggleButton}
+                  </div>
+                ) : null}
+                <div className={`pointer-events-auto flex h-8 min-w-0 shrink-0 items-center justify-between rounded-lg border border-[#355158] bg-[#071014]/70 px-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#9ab8bd] shadow-lg backdrop-blur ${graphToggleBesidePinnedOutputs ? 'flex-1' : 'ml-auto w-[85%]'}`}>
+                  <span>Outputs</span>
+                  <span className="font-mono text-[#67d7cf]">{pinnedStats.length} pinned</span>
+                </div>
               </div>
               {pinnedStats.map(({ variable, value, description, displayName, displayUnit }) => (
                 <VariableDescriptionTooltip
@@ -458,6 +608,19 @@ export default function DigitalTwinViewer({
           )}
         </div>
 
+        {graphPanelVisible ? (
+          <SimulationGraphPanel
+            graphs={simulationGraphs}
+            page={currentGraphPage}
+            results={activeResults}
+            modelVariables={modelVariables}
+            inputValues={inputValues}
+            timeUnit={timeUnit}
+            onEditGraph={editSimulationGraph}
+            onDeleteGraph={deleteSimulationGraph}
+          />
+        ) : null}
+
         <aside className={controlsCollapsed
           ? 'flex min-h-0 min-w-0 flex-col items-center gap-2 rounded-xl border border-[#26383f] bg-[#142128] p-2 lg:h-full'
           : 'flex flex-col gap-3 lg:h-full lg:min-h-0'}>
@@ -473,12 +636,12 @@ export default function DigitalTwinViewer({
                 <ChevronLeft size={16} aria-hidden="true" />
               </button>
               <span className="shrink-0 whitespace-nowrap text-center font-mono text-[8px] leading-tight tracking-tight text-[#829ba1]">
-                {formatTime(times[0])}
+                {formatTime(times[0], timeUnit)}
               </span>
               <input
                 aria-label="Digital twin simulation timeline"
                 aria-orientation="vertical"
-                aria-valuetext={formatTime(times[displayedSampleIndex])}
+                aria-valuetext={formatTime(times[displayedSampleIndex], timeUnit)}
                 type="range"
                 min="0"
                 max={lastIndex}
@@ -494,7 +657,7 @@ export default function DigitalTwinViewer({
                 className="min-h-0 w-6 flex-1 accent-[#54d5c9] disabled:opacity-40"
               />
               <span className="shrink-0 whitespace-nowrap text-center font-mono text-[8px] leading-tight tracking-tight text-[#829ba1]">
-                {formatTime(times[lastIndex])}
+                {formatTime(times[lastIndex], timeUnit)}
               </span>
               {!(isRunning && followLatest) ? (
                 <>
@@ -582,21 +745,14 @@ export default function DigitalTwinViewer({
                   </p>
                 )}
               </div>
-              {isRunning && followLatest ? (
-                <p className="text-[10px] text-[#829ba1]">Showing the latest interactive sample.</p>
-              ) : (
-                <div>
-                  <PlaybackRateControl rate={playbackRate} onChange={setPlaybackRate} modelDuration={modelDuration} />
-                </div>
-              )}
               <div className="rounded-xl border border-[#26383f] bg-[#142128] p-3">
                 <div className="flex items-center justify-between text-xs text-[#a9bec2]">
                   <span>Execution timeline</span>
-                  <span className="font-mono text-white">{formatTime(times[displayedSampleIndex])}</span>
+                  <span className="font-mono text-white">{formatTime(times[displayedSampleIndex], timeUnit)}</span>
                 </div>
                 <input
                   aria-label="Digital twin simulation timeline"
-                  aria-valuetext={formatTime(times[displayedSampleIndex])}
+                  aria-valuetext={formatTime(times[displayedSampleIndex], timeUnit)}
                   type="range"
                   min="0"
                   max={lastIndex}
@@ -610,8 +766,29 @@ export default function DigitalTwinViewer({
                   disabled={times.length < 2 || isRunning}
                   className="mt-2 w-full accent-[#54d5c9] disabled:opacity-40"
                 />
+                {eventMarkers.length > 0 && lastIndex > 0 ? (
+                  <div className="relative mt-1 h-3" role="group" aria-label="FMI event samples on timeline">
+                    <span className="absolute left-0 top-1.5 h-px w-full bg-[#26383f]" aria-hidden="true" />
+                    {eventMarkers.map((marker) => (
+                      <button
+                        key={`${marker.index}:${marker.label}`}
+                        type="button"
+                        aria-label={`${marker.label} at ${formatTime(marker.time, timeUnit)}`}
+                        title={`${marker.label} at ${formatTime(marker.time, timeUnit)}`}
+                        disabled={isRunning}
+                        onClick={() => {
+                          setPlaying(false)
+                          setSampleIndex(marker.index)
+                          autoPlaybackRef.current = false
+                        }}
+                        style={{ left: `${(marker.index / lastIndex) * 100}%` }}
+                        className="absolute top-0.5 z-10 size-2 -translate-x-1/2 rounded-full border border-[#071014] bg-[#ffc96b] shadow-[0_0_7px_rgba(255,201,107,0.65)] disabled:cursor-not-allowed"
+                      />
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#829ba1]">
-                  <span>{formatTime(times[0])}</span>
+                  <span>{formatTime(times[0], timeUnit)}</span>
                   {!(isRunning && followLatest) ? (
                     <button
                       type="button"
@@ -623,13 +800,26 @@ export default function DigitalTwinViewer({
                       {playing ? 'Pause' : 'Replay'}
                     </button>
                   ) : null}
-                  <span>{formatTime(times[lastIndex])}</span>
+                  <span>{formatTime(times[lastIndex], timeUnit)}</span>
                 </div>
               </div>
             </>
           )}
         </aside>
       </div>
+      <SimulationGraphConfigurationDialog
+        isOpen={graphConfigurationOpen}
+        onClose={() => setGraphConfigurationOpen(false)}
+        graphs={simulationGraphs}
+        selectedGraphId={selectedGraphConfigurationId}
+        modelVariables={modelVariables}
+        modelStructure={modelStructure}
+        timeUnit={timeUnit}
+        onSelectGraph={setSelectedGraphConfigurationId}
+        onAddGraph={addSimulationGraph}
+        onSaveGraph={saveSimulationGraph}
+        onDeleteGraph={deleteSimulationGraph}
+      />
     </section>
   )
 }
@@ -640,11 +830,13 @@ DigitalTwinViewer.propTypes = {
   results: PropTypes.shape({
     time: PropTypes.array,
     outputs: PropTypes.object,
+    inputs: PropTypes.object,
     sampleMetadata: PropTypes.arrayOf(PropTypes.object),
     discontinuities: PropTypes.arrayOf(PropTypes.bool),
   }),
   streamingResultsRef: PropTypes.shape({ current: PropTypes.object }),
   modelVariables: PropTypes.arrayOf(PropTypes.object),
+  modelStructure: PropTypes.object,
   inputValues: PropTypes.object,
   interactiveInputVariables: PropTypes.arrayOf(PropTypes.object),
   inputEditingEnabled: PropTypes.bool,
@@ -656,6 +848,7 @@ DigitalTwinViewer.propTypes = {
   stopTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   followLatest: PropTypes.bool,
   onDisplayedSampleChange: PropTypes.func,
+  timeUnit: PropTypes.string,
 }
 
 DigitalTwinViewer.defaultProps = {

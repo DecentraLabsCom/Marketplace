@@ -94,6 +94,8 @@ export default function LocalPreviewAppViewer({ demo, model, ...viewerProps }) {
       })}
       fmiLsParameterPresets={fmiLsParameterPresets}
       fmiLsExperiments={fmiLsExperiments}
+      fmiModelStructure={viewerProps.fmiModelStructure ?? access?.modelStructure ?? access?.modelDescription?.modelStructure}
+      defaultTolerance={viewerProps.defaultTolerance ?? access?.defaultTolerance ?? access?.modelDescription?.defaultTolerance}
       modelVariables={viewerProps.modelVariables ?? accessibleModelVariables}
       fmiLsStruct={viewerProps.fmiLsStruct ?? access?.fmiLsStruct}
       fmuStateAvailable={viewerProps.fmuStateAvailable ?? (access?.fmuState?.getAndSet === true && access?.fmuState?.serialize === true)}

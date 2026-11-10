@@ -6,22 +6,23 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import styles from './DigitalTwinCanvas.module.css'
-import { getFmiInitialValue, isFmiBindingVisible } from './fmiBindingVisibility'
 import {
+  getFmiInitialValue,
   getFmiSceneBindingValue,
   getFmiSceneBoundValue,
   getFmiSceneInputValueFromCoordinate,
+  isFmiSceneBindingVisible as isFmiBindingVisible,
   isDraggableFmiSceneBinding,
   normalizeFmiSceneBinding,
   setFmiSceneArrayElementValue,
-} from './fmiSceneBindings'
+} from '@decentralabs/digital-twin-app-protocol/fmi-scene-bindings'
 import {
   createAxisDragContext,
   createScreenAxisDragContext,
   getAxisCoordinateFromRay,
   getScreenAxisCoordinateFromPointer,
 } from './fmiSceneInteraction'
-import { getVariableDescription } from '../utils/simulationParameters'
+import { getVariableDescription, getVariableDisplayUnit } from '../utils/simulationParameters'
 import {
   applySceneMaterialRendering,
   applySceneObjectRendering,
@@ -267,6 +268,19 @@ function setTooltipContent(tooltip, bindings) {
       details.className = 'mt-0.5 text-[11px] leading-snug text-[#c1d2d5]'
       details.textContent = description
       entry.appendChild(details)
+    }
+
+    const metadata = [
+      variable.quantity,
+      variable.type,
+      variable.variability,
+      getVariableDisplayUnit(variable),
+    ].filter((value) => typeof value === 'string' && value.trim())
+    if (metadata.length) {
+      const semantics = document.createElement('p')
+      semantics.className = 'mt-0.5 text-[10px] leading-snug text-[#91a7ac]'
+      semantics.textContent = metadata.join(' / ')
+      entry.appendChild(semantics)
     }
 
     tooltip.appendChild(entry)
@@ -1171,10 +1185,12 @@ export default function DigitalTwinCanvas({
         if (binding.target === 'material.color') {
           const trueColor = getBindingColor(binding.trueColor, '#ff2738')
           const falseColor = getBindingColor(binding.falseColor, '#4f2028')
+          const hasValueMap = binding.valueMap && typeof binding.valueMap === 'object'
+          const mappedColor = hasValueMap ? getBindingColor(bindingValue, trueColor) : null
           const materials = Array.isArray(node.material) ? node.material : [node.material]
           for (const material of materials.filter(Boolean)) {
-            if (material.color) material.color.set(bindingValue ? trueColor : falseColor)
-            if (material.emissive) material.emissive.set(bindingValue ? trueColor : '#160b0d')
+            if (material.color) material.color.set(mappedColor || (bindingValue ? trueColor : falseColor))
+            if (material.emissive) material.emissive.set(mappedColor || (bindingValue ? trueColor : '#160b0d'))
           }
           continue
         }

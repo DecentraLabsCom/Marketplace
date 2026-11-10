@@ -8,6 +8,97 @@ import { normalizeFmiLsExperiments } from '@/utils/fmiLsExperiments'
 
 const checkRate = createRateLimiter({ operation: 'simulation-access', windowMs: 60_000, maxRequests: 30 })
 
+const MODEL_STRUCTURE_SECTIONS = ['outputs', 'derivatives', 'clockedStates', 'initialUnknowns', 'eventIndicators']
+const FMI_ACCESS_CAPABILITIES = new Set([
+  'needsExecutionTool', 'canBeInstantiatedOnlyOncePerProcess', 'canNotUseMemoryManagementFunctions',
+  'canGetAndSetFMUstate', 'canSerializeFMUstate', 'canHandleVariableCommunicationStepSize',
+  'canInterpolateInputs', 'canRunAsynchronuously', 'hasEventMode', 'providesIntermediateUpdate',
+  'canReturnEarlyAfterIntermediateUpdate', 'providesEvaluateDiscreteStates',
+  'providesDirectionalDerivative', 'providesAdjointDerivatives', 'providesPerElementDependencies',
+  'needsCompletedIntegratorStep',
+])
+const FMI_MODEL_EXCHANGE_CAPABILITIES = new Set([
+  'needsExecutionTool', 'canBeInstantiatedOnlyOncePerProcess', 'canNotUseMemoryManagementFunctions',
+  'canGetAndSetFMUstate', 'canSerializeFMUstate', 'providesDirectionalDerivative',
+  'providesAdjointDerivatives', 'completedIntegratorStepNotNeeded', 'needsCompletedIntegratorStep',
+])
+
+function normalizeModelDescription(value, accessibleNames) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const normalized = {}
+  for (const field of ['supportsCoSimulation', 'supportsModelExchange']) {
+    if (typeof value[field] === 'boolean') normalized[field] = value[field]
+  }
+  for (const field of ['defaultStartTime', 'defaultStopTime', 'defaultStepSize', 'defaultTolerance']) {
+    const number = Number(value[field])
+    if (value[field] != null && Number.isFinite(number)) normalized[field] = number
+  }
+  if (typeof value.timeUnit === 'string' && value.timeUnit.trim()) {
+    normalized.timeUnit = value.timeUnit.trim().slice(0, 128)
+  }
+  for (const field of ['numberOfContinuousStates', 'numberOfEventIndicators']) {
+    if (Number.isInteger(value[field]) && value[field] >= 0 && value[field] <= 10_000_000) {
+      normalized[field] = value[field]
+    }
+  }
+  if (value.capabilities && typeof value.capabilities === 'object' && !Array.isArray(value.capabilities)) {
+    const capabilities = {}
+    for (const [field, candidate] of Object.entries(value.capabilities)) {
+      if (FMI_ACCESS_CAPABILITIES.has(field) && typeof candidate === 'boolean') capabilities[field] = candidate
+    }
+    for (const field of ['maxOutputDerivativeOrder', 'recommendedIntermediateInputSmoothness']) {
+      if (Number.isInteger(value.capabilities[field]) && value.capabilities[field] >= 0 && value.capabilities[field] <= 64) {
+        capabilities[field] = value.capabilities[field]
+      }
+    }
+    const fixedStep = Number(value.capabilities.fixedInternalStepSize)
+    if (value.capabilities.fixedInternalStepSize != null && Number.isFinite(fixedStep) && fixedStep > 0) {
+      capabilities.fixedInternalStepSize = fixedStep
+    }
+    if (Object.keys(capabilities).length) normalized.capabilities = capabilities
+  }
+  if (value.modelExchangeCapabilities && typeof value.modelExchangeCapabilities === 'object'
+    && !Array.isArray(value.modelExchangeCapabilities)) {
+    const capabilities = {}
+    for (const [field, candidate] of Object.entries(value.modelExchangeCapabilities)) {
+      if (FMI_MODEL_EXCHANGE_CAPABILITIES.has(field) && typeof candidate === 'boolean') capabilities[field] = candidate
+    }
+    if (Object.keys(capabilities).length) normalized.modelExchangeCapabilities = capabilities
+  }
+  if (value.modelStructure && typeof value.modelStructure === 'object' && !Array.isArray(value.modelStructure)) {
+    const modelStructure = {}
+    for (const section of MODEL_STRUCTURE_SECTIONS) {
+      const entries = Array.isArray(value.modelStructure[section]) ? value.modelStructure[section] : []
+      const safeEntries = entries.slice(0, 100_000).flatMap((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+        const name = typeof entry.name === 'string' && accessibleNames.has(entry.name) ? entry.name.slice(0, 512) : ''
+        const stateName = typeof entry.stateName === 'string' && accessibleNames.has(entry.stateName)
+          ? entry.stateName.slice(0, 512)
+          : ''
+        if (!name && !stateName) return []
+        const result = { ...(name ? { name } : {}), ...(stateName ? { stateName } : {}) }
+        if (Array.isArray(entry.dependencyNames)) {
+          const hasAlignedKinds = Array.isArray(entry.dependenciesKind)
+            && entry.dependenciesKind.length === entry.dependencyNames.length
+          const dependencies = entry.dependencyNames.flatMap((dependency, index) => (
+            typeof dependency === 'string' && accessibleNames.has(dependency)
+              ? [{ name: dependency.slice(0, 512), kind: hasAlignedKinds ? entry.dependenciesKind[index] : undefined }]
+              : []
+          )).slice(0, 4096)
+          if (dependencies.length) result.dependencyNames = dependencies.map((dependency) => dependency.name)
+          if (dependencies.length && hasAlignedKinds && dependencies.every((dependency) => typeof dependency.kind === 'string')) {
+            result.dependenciesKind = dependencies.map((dependency) => dependency.kind.slice(0, 64))
+          }
+        }
+        return [result]
+      })
+      if (safeEntries.length) modelStructure[section] = safeEntries
+    }
+    if (Object.keys(modelStructure).length) normalized.modelStructure = modelStructure
+  }
+  return Object.keys(normalized).length ? normalized : undefined
+}
+
 /** Resolve the reservation's effective FMI variable capabilities from its Gateway. */
 export async function POST(request) {
   try {
@@ -97,11 +188,16 @@ export async function POST(request) {
       && typeof access.fmuState.getAndSet === 'boolean' && typeof access.fmuState.serialize === 'boolean'
       ? { getAndSet: access.fmuState.getAndSet, serialize: access.fmuState.serialize }
       : undefined
+    const modelDescription = normalizeModelDescription(
+      access.modelDescription,
+      new Set(modelVariables.map((variable) => variable.name)),
+    )
     return NextResponse.json({
       policySource: typeof access.policySource === 'string' ? access.policySource : 'unavailable',
       policyVersion: typeof access.policyVersion === 'string' ? access.policyVersion : '',
       variables,
       modelVariables,
+      ...(modelDescription ? { modelDescription } : {}),
       fmiLsExperiments,
       ...(fmiVersion ? { fmiVersion } : {}),
       ...(simulationType ? { simulationType } : {}),

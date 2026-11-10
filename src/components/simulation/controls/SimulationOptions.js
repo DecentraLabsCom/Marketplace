@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import { getSimulationOptionsError } from '../utils/simulationTime'
 import { getLeastSignificantDigitStep } from '../utils/simulationParameters'
 import VariableDescriptionTooltip from './VariableDescriptionTooltip'
+import { resolveEffectiveTolerance } from '@decentralabs/digital-twin-app-protocol'
 
 /**
  * SimulationOptions — start time, stop time, and step size.
@@ -18,36 +19,40 @@ export default function SimulationOptions({
   options,
   onChange,
   simulationType,
+  timeUnit = 's',
+  defaultTolerance,
   requireStopTime = true,
   disabled = false,
   readOnlyStartTime = false,
 }) {
   const includeStepSize = simulationType !== 'ScheduledExecution'
+  const timeLabel = typeof timeUnit === 'string' && timeUnit.trim() ? timeUnit.trim() : 'model time'
   const fields = [
     {
       key: 'startTime',
-      label: 'Start Time (s)',
+      label: `Start Time (${timeLabel})`,
       description: readOnlyStartTime
-        ? 'Set by lab metadata, the selected experiment, or the loaded state.'
-        : 'Beginning of the simulation interval.',
+        ? 'Uses the FMI DefaultExperiment, selected experiment, or loaded state. The unit comes from the FMI independent variable.'
+        : 'Beginning of the simulation interval, in the FMI independent-variable unit.',
       readOnly: readOnlyStartTime,
     },
     {
       key: 'stopTime',
-      label: 'Stop Time (s)',
+      label: `Stop Time (${timeLabel})`,
       description: requireStopTime
-        ? 'Required end time for a batch run.'
-        : 'Optional end time. Leave blank to keep running until you stop it.',
+        ? 'Required end time for a batch run, in the FMI independent-variable unit.'
+        : 'Optional end time in the FMI independent-variable unit. Leave blank to keep running until you stop it.',
     },
     ...(includeStepSize ? [{
       key: 'stepSize',
-      label: 'Step Size (s)',
+      label: `Step Size (${timeLabel})`,
       description: simulationType === 'CoSimulation'
         ? 'Preferred communication interval.'
         : 'Preferred simulation step, when supported by the FMU type.',
     }] : []),
   ]
   const validationError = getSimulationOptionsError(options, { includeStepSize, requireStopTime })
+  const effectiveTolerance = resolveEffectiveTolerance(options, defaultTolerance)
 
   function handleWheel(event, key) {
     if (disabled || event.currentTarget !== document.activeElement || (readOnlyStartTime && key === 'startTime')
@@ -97,6 +102,12 @@ export default function SimulationOptions({
       {simulationType === 'ScheduledExecution' ? (
         <p className="text-xs text-[#829ba1]">Scheduled Execution is driven by model clocks, so FMI does not define a generic step-size setting for it.</p>
       ) : null}
+      {effectiveTolerance ? (
+        <p className="text-xs text-[#829ba1]">
+          The {effectiveTolerance.source === 'run-option' ? 'effective run' : 'default'} relative tolerance used for integrating differential-algebraic equations (DAEs) is{' '}
+          <span className="font-mono text-[#b8d2d5]">{effectiveTolerance.value.toExponential(3)}</span>.
+        </p>
+      ) : null}
     </fieldset>
   )
 }
@@ -106,9 +117,12 @@ SimulationOptions.propTypes = {
     startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     stopTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     stepSize: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    tolerance: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   }).isRequired,
   onChange: PropTypes.func.isRequired,
   simulationType: PropTypes.string,
+  timeUnit: PropTypes.string,
+  defaultTolerance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   requireStopTime: PropTypes.bool,
   disabled: PropTypes.bool,
   readOnlyStartTime: PropTypes.bool,

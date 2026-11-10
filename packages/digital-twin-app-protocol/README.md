@@ -39,13 +39,18 @@ see `LICENSE.txt`. The Marketplace repository's root license remains unchanged.
 * `/simulation-stream`: shared NDJSON decoding and event normalization used by
   the SDK host bridge and the generated GLB runner. Sample batches use an
   acknowledgement before the host reads the next part of the HTTP stream.
+* `/fmi-scene-bindings`: shared validation and FMI value mapping for the
+  `extras.fmiBindings` metadata on glTF nodes. The generated GLB viewer imports
+  this entry point, so provider-authored Three.js apps can use the same rules.
 * `/schema-v2`: the JSON Schema for the host messages.
 
 There are no runtime dependencies. Bundle the desired entry, or copy
 `index.js`, `fmu-client.js`, `parameter-defaults.js`, `batch-controller.js`,
-`simulation-stream.js`, `input-update-quota.js` and `client.js` into a static ZIP's `sdk/` directory,
+`simulation-stream.js`, `input-update-quota.js`, `model-structure.js`,
+`simulation-options.js` and `client.js` into a static ZIP's `sdk/` directory,
 along with `LICENSE.txt`. If the app also exports scenes, copy
-`scene-presentation.js` into that directory too. The package does not register
+`scene-presentation.js` into that directory too. If it reads or creates FMI
+node bindings, copy `fmi-scene-bindings.js` there as well. The package does not register
 modules or impose an SDK requirement on providers.
 For bundled apps, include `LICENSE.txt` in the delivered app or its third-party
 notices.
@@ -106,6 +111,41 @@ matching `run()` options. FMU defaults apply to variables not listed in the
 experiment. An optional `onFmiLsExperiment(experiment)` callback lets an app
 also reflect the selection in its own controls; it receives `null` when
 cleared.
+
+Marketplace includes the reservation-authorized FMI variables and output
+dependency declarations in `onHostReady(extensions).fmiModelMetadata`. The SDK
+exports `getDependentOutputRecommendations(modelStructure, selectedInputNames)`
+so custom graphs can offer the same FMI-based output recommendations as the
+generic GLB viewer. Recommendations must not remove other variables from the
+app's choices. This metadata is filtered to variables the reservation can read
+or write.
+
+```js
+import { createDigitalTwinAppClient, getDependentOutputRecommendations } from '@decentralabs/digital-twin-app-protocol'
+
+let fmiModelMetadata = null
+const twin = createDigitalTwinAppClient({
+  onHostReady(extensions) {
+    fmiModelMetadata = extensions.fmiModelMetadata || null
+    renderGraph()
+  },
+})
+
+function renderGraph() {
+  const selectedInputs = ['speed'] // Replace with the app's current input selections.
+  const recommendations = getDependentOutputRecommendations(
+    fmiModelMetadata?.modelStructure,
+    selectedInputs,
+  )
+  // Mark these outputs as suggestions. Keep every other output selectable.
+}
+```
+
+Run options also accept FMI-LS `tolerance`. When a host-selected experiment
+declares it, the SDK carries that value into the run request. The Gateway
+Executor passes it to FMI initialization and uses it for its internal Model
+Exchange and FMI-LS-DAE integration. Apps do not need a separate manual
+tolerance control; the effective value can be displayed read-only.
 
 Apps may opt in to the Marketplace **Pace** selector with
 `executionPaceControl: true`. The app can choose `defaultExecutionPace` and
@@ -312,6 +352,42 @@ Version tags named `digital-twin-app-protocol-vX.Y.Z` create a GitHub Release
 with the standalone package tarball and its SHA-256 checksum. The tag version
 must match this package's `package.json` version. The release workflow does not
 publish to the npm registry; the GitHub release asset is the provider download.
+
+## FMI bindings in GLB scenes
+
+The optional `/fmi-scene-bindings` entry point reads the DecentraLabs
+`extras.fmiBindings` contract. It validates a binding against an FMI variable
+descriptor, resolves array elements and `valueMap` entries, applies `scale` and
+`offset`, and converts draggable scene coordinates back to bounded FMI inputs.
+It has no Three.js dependency; an app owns traversal and assignment to its own
+scene objects. The [binding contract](../../docs/provider/fmi-glb-bindings-contract.md)
+defines supported targets and metadata semantics.
+
+```js
+import {
+  getFmiSceneBindingValue,
+  getFmiSceneBoundValue,
+  normalizeFmiSceneBinding,
+} from '@decentralabs/digital-twin-app-protocol/fmi-scene-bindings'
+
+const variablesByName = new Map(modelVariables.map((variable) => [variable.name, variable]))
+gltf.scene.traverse((node) => {
+  for (const binding of node.userData?.fmiBindings ?? []) {
+    const variable = variablesByName.get(binding.variable)
+    if (!variable || variable.causality !== 'output') continue
+    const normalized = normalizeFmiSceneBinding(binding, variable, modelVariables)
+    if (!normalized || normalized.property !== 'position' || !normalized.axis) continue
+
+    const value = getFmiSceneBindingValue(outputs[variable.name], normalized, modelVariables, outputs)
+    const coordinate = getFmiSceneBoundValue(value, normalized)
+    if (coordinate !== null) node.position[normalized.axis] = coordinate
+  }
+})
+```
+
+The same helpers are used by Marketplace's automatic GLB viewer. A provider app
+can reuse them while retaining its own Three.js rendering, controls and
+simulation UI.
 
 ## Three.js / GLB presentation parity
 

@@ -5,6 +5,7 @@ import { resolveInputSchedule } from '../utils/inputSchedule'
 import { normalizeSimulationTimeOptions } from '../utils/simulationTime'
 import { createFmuStateCheckpointCandidate } from '../utils/fmuStateCheckpoint'
 import { appendSimulationSamples } from '../utils/simulationSamples'
+import { createSimulationInputHistory } from '../utils/simulationInputHistory'
 import { MAX_INTERACTIVE_HISTORY_SAMPLES } from '../utils/interactiveSampleHistory'
 import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
 import { normalizeSimulationStreamEvent, readNdjsonStream } from '@decentralabs/digital-twin-app-protocol/simulation-stream'
@@ -22,7 +23,7 @@ const STREAMING_SAMPLE_UPDATE_MS = 250
 const MAX_STREAMING_PREVIEW_SAMPLES = 2_000
 const MAX_STREAMING_PREVIEW_VALUES = 250_000
 
-function createStreamingPreview(time, outputs) {
+function createStreamingPreview(time, outputs, inputs) {
   const sampleCount = time.length
   const seriesCount = Object.values(outputs).filter(Array.isArray).length
   const previewSampleLimit = Math.min(
@@ -33,6 +34,7 @@ function createStreamingPreview(time, outputs) {
     return {
       time: [...time],
       outputs: Object.fromEntries(Object.entries(outputs).map(([name, values]) => [name, [...values]])),
+      inputs: Object.fromEntries(Object.entries(inputs).map(([name, values]) => [name, [...values]])),
     }
   }
 
@@ -43,6 +45,10 @@ function createStreamingPreview(time, outputs) {
   return {
     time: selectedIndices.map((index) => time[index]),
     outputs: Object.fromEntries(Object.entries(outputs).map(([name, values]) => [
+      name,
+      selectedIndices.map((index) => values[index] ?? null),
+    ])),
+    inputs: Object.fromEntries(Object.entries(inputs).map(([name, values]) => [
       name,
       selectedIndices.map((index) => values[index] ?? null),
     ])),
@@ -84,6 +90,7 @@ export default function useSimulationExecution({
     setResults((current) => {
       const previousTimes = Array.isArray(current?.time) ? current.time : []
       const previousOutputs = current?.outputs || {}
+      const previousInputs = current?.inputs || {}
       const previousSampleMetadata = Array.isArray(current?.sampleMetadata)
         ? current.sampleMetadata
         : Array(previousTimes.length).fill({})
@@ -101,6 +108,17 @@ export default function useSimulationExecution({
         const sampleValues = samples.map((sample) => (
           Object.prototype.hasOwnProperty.call(sample.outputs || {}, name) ? sample.outputs[name] : null
         ))
+        return [name, [...previousValues, ...sampleValues].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES)]
+      }))
+      const inputNames = new Set([
+        ...Object.keys(previousInputs),
+        ...samples.flatMap((sample) => Object.keys(sample.inputs || {})),
+      ])
+      const nextInputs = Object.fromEntries([...inputNames].map((name) => {
+        const previousValues = Array.isArray(previousInputs[name])
+          ? previousInputs[name]
+          : Array(previousTimes.length).fill(null)
+        const sampleValues = samples.map((sample) => sample.inputs?.[name] ?? null)
         return [name, [...previousValues, ...sampleValues].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES)]
       }))
       const droppedSamples = Math.max(0, previousTimes.length + samples.length - MAX_INTERACTIVE_HISTORY_SAMPLES)
@@ -128,6 +146,7 @@ export default function useSimulationExecution({
           )),
         ].slice(-MAX_INTERACTIVE_HISTORY_SAMPLES),
         outputs: nextOutputs,
+        inputs: nextInputs,
         outputVariables: [...outputNames],
         simulationTime: time,
         fmiType: variableAccess?.simulationType || 'CoSimulation',
@@ -238,6 +257,11 @@ export default function useSimulationExecution({
 
       const accumulatedTime = []
       const accumulatedOutputs = {}
+      const inputHistory = createSimulationInputHistory({
+        modelVariables: accessibleModelVariables,
+        initialValues: { ...activeParameters, ...(checkpointBundle?.modelValues || {}) },
+        inputSchedule,
+      })
       let finalMeta = {}
       let lastPublishedSampleCount = 0
       let lastPublishedAt = performance.now()
@@ -246,7 +270,7 @@ export default function useSimulationExecution({
         if (!force
           && accumulatedTime.length - lastPublishedSampleCount < STREAMING_SAMPLE_UPDATE_INTERVAL
           && now - lastPublishedAt < STREAMING_SAMPLE_UPDATE_MS) return false
-        const preview = createStreamingPreview(accumulatedTime, accumulatedOutputs)
+        const preview = createStreamingPreview(accumulatedTime, accumulatedOutputs, inputHistory.inputs)
         setResults({ ...preview, streaming: true })
         lastPublishedSampleCount = accumulatedTime.length
         lastPublishedAt = now
@@ -275,6 +299,7 @@ export default function useSimulationExecution({
               samples.map((sample) => sample.time),
               outputSeries,
             )) {
+              inputHistory.append(samples.map((sample) => sample.time))
               if (publishStreamingPreview() && normalized.event?.type === 'data') {
                 setProgress((previous) => ({
                   ...previous,
@@ -312,6 +337,7 @@ export default function useSimulationExecution({
       setResults({
         time: accumulatedTime,
         outputs: accumulatedOutputs,
+        inputs: inputHistory.inputs,
         outputVariables: finalMeta.outputVariables || Object.keys(accumulatedOutputs),
         simulationTime: finalMeta.simulationTime ?? finalMeta.time,
         fmiType: finalMeta.fmiType,

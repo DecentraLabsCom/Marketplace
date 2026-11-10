@@ -199,11 +199,15 @@ export default function useInteractiveTwinExecution({
     const latestSample = samples[samples.length - 1]
     latestSampleRef.current = createFmuStateSample(latestSample?.time, latestSample?.outputs)
     latestSampleIndexRef.current += samples.length
+    const samplesWithInputs = samples.map((sample) => ({
+      ...sample,
+      inputs: { ...liveParametersRef.current, ...appliedRuntimeParametersRef.current },
+    }))
     if (typeof onSamples === 'function') {
-      onSamples(samples)
+      onSamples(samplesWithInputs)
       return
     }
-    for (const sample of samples) onSample?.(sample.time, sample.outputs)
+    for (const sample of samplesWithInputs) onSample?.(sample.time, sample.outputs)
   }, [onSample, onSamples])
 
   const reportDisplayedSample = useCallback((sampleIndex, frameTime) => {

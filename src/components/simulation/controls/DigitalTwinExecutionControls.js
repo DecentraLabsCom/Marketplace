@@ -188,7 +188,6 @@ export function DigitalTwinExecutionModeSelector({
 export function DigitalTwinExecutionSessionActions({
   status,
   mode,
-  simulationTime,
   onAdvanceStep,
   onToggleContinuous,
   onEnd,
@@ -206,6 +205,13 @@ export function DigitalTwinExecutionSessionActions({
     (mode === 'step' && ['paused', 'stepping'].includes(status))
     || (mode === 'continuous' && ['paused', 'continuous', 'pausing'].includes(status))
   ) && runtimeVariables.length > 0
+  const statusMessage = status === 'stepping'
+    ? 'Advancing…'
+    : status === 'pausing'
+      ? 'Pausing…'
+      : status === 'stopping'
+        ? `Ending after the current ${mode === 'continuous' ? 'batch' : 'step'}…`
+        : ''
 
   if (!hasInteractiveSession) return null
 
@@ -218,9 +224,7 @@ export function DigitalTwinExecutionSessionActions({
         </>
       ) : (
         <>
-          <span role="status" className="text-xs text-[#b8d2d5]">
-            {status === 'stepping' ? 'Advancing…' : status === 'pausing' ? 'Pausing…' : status === 'stopping' ? `Ending after the current ${mode === 'continuous' ? 'batch' : 'step'}…` : `t = ${simulationTime.toFixed(3)} s`}
-          </span>
+          {statusMessage ? <span role="status" className="text-xs text-[#b8d2d5]">{statusMessage}</span> : null}
           {canEditRuntimeVariables ? (
             <button
               type="button"
@@ -312,7 +316,6 @@ export default function DigitalTwinExecutionControls({
   running,
   status,
   mode,
-  simulationTime,
   values,
   modelVariables,
   runtimeVariables,
@@ -348,7 +351,6 @@ export default function DigitalTwinExecutionControls({
             <DigitalTwinExecutionSessionActions
               status={status}
               mode={mode}
-              simulationTime={simulationTime}
               onAdvanceStep={onAdvanceStep}
               onToggleContinuous={onToggleContinuous}
               onEnd={onEnd}
@@ -385,7 +387,6 @@ DigitalTwinExecutionModeSelector.propTypes = {
 DigitalTwinExecutionSessionActions.propTypes = {
   status: PropTypes.string.isRequired,
   mode: PropTypes.oneOf(['step', 'continuous']),
-  simulationTime: PropTypes.number.isRequired,
   onAdvanceStep: PropTypes.func.isRequired,
   onToggleContinuous: PropTypes.func.isRequired,
   onEnd: PropTypes.func.isRequired,
@@ -411,7 +412,6 @@ DigitalTwinExecutionControls.propTypes = {
   running: PropTypes.bool.isRequired,
   status: PropTypes.string.isRequired,
   mode: PropTypes.oneOf(['step', 'continuous']),
-  simulationTime: PropTypes.number.isRequired,
   values: PropTypes.object.isRequired,
   modelVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
   runtimeVariables: PropTypes.arrayOf(PropTypes.object).isRequired,
