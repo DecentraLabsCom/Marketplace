@@ -144,7 +144,7 @@ export async function POST(request) {
 
     const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
     const marketplaceBaseUrl = normalizeHttpsUrl(
-      process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || requestOrigin,
+      process.env.MARKETPLACE_BASE_URL || requestOrigin,
       'Marketplace base URL'
     );
     let payload;

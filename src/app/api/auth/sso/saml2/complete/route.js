@@ -8,7 +8,7 @@ export async function GET(request) {
   try {
     const session = await requireAuth()
     const cookieStore = await cookies()
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin
+    const baseUrl = new URL(request.url).origin
     const returnTo = normalizeSamlReturnTo(new URL(request.url).searchParams.get('returnTo'))
     const targetUrl = new URL(returnTo || '/userdashboard', baseUrl)
     targetUrl.searchParams.set('sso_login', '1')

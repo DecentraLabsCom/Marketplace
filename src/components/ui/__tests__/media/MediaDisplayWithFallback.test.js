@@ -147,8 +147,7 @@ describe('MediaDisplayWithFallback', () => {
    * Validates that fallback mechanisms work correctly for each media type.
    */
   describe('Fallback logic', () => {
-    test('renders the local lab placeholder immediately on Vercel deployments', () => {
-      process.env.NEXT_PUBLIC_VERCEL = 'true';
+    test('renders the local lab placeholder when Blob storage is configured', () => {
       process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
 
       render(
@@ -166,7 +165,6 @@ describe('MediaDisplayWithFallback', () => {
     });
 
     test('skips the Blob phase outside Vercel and uses local storage', async () => {
-      delete process.env.NEXT_PUBLIC_VERCEL;
       delete process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
       global.fetch.mockResolvedValue({
         ok: true,
@@ -189,8 +187,7 @@ describe('MediaDisplayWithFallback', () => {
     });
 
     test('images fallback when primary source fails', async () => {
-      // Set up Vercel environment to test blob -> local fallback path
-      process.env.NEXT_PUBLIC_VERCEL = 'true';
+      // Configure Blob storage to test blob -> local fallback path
       process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
 
       const { rerender } = render(
@@ -327,7 +324,6 @@ describe('MediaDisplayWithFallback', () => {
     });
 
     test('renders gateway lab-content images natively in Vercel without blob rewrite', () => {
-      process.env.NEXT_PUBLIC_VERCEL = 'true';
       process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
       const gatewayImage = 'https://lab.example.edu/lab-content/content/lab-demo/images/cover.png';
 

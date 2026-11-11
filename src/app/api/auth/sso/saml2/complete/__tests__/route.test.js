@@ -23,7 +23,7 @@ describe('GET /api/auth/sso/saml2/complete', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.NEXT_PUBLIC_BASE_URL = 'https://market.example'
+    process.env.MARKETPLACE_BASE_URL = 'https://market.example'
     requireAuth.mockResolvedValue({ id: 'user-2', email: 'user-2@example.com' })
     cookies.mockResolvedValue(cookieStore)
     reconcileFmuContextsForSession.mockResolvedValue(undefined)

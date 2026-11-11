@@ -3,8 +3,8 @@
 import { extractSamlResponseIdentifiers } from '../samlResponseSecurity'
 
 const encode = (xml) => Buffer.from(xml, 'utf8').toString('base64')
-const callbackUrl = 'https://sp.example.com/callback'
-const audience = 'https://sp.example.com/metadata'
+const callbackUrl = 'https://sp.example.com/api/auth/sso/saml2/callback'
+const audience = 'https://sp.example.com/api/auth/sso/saml2/metadata'
 
 const validResponseXml = ({
   conditionsNotOnOrAfter = new Date(Date.now() + 5 * 60 * 1000).toISOString(),
@@ -45,8 +45,7 @@ const validResponseXml = ({
 
 describe('SAML response correlation identifiers', () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL = audience
-    process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL = callbackUrl
+    process.env.MARKETPLACE_BASE_URL = 'https://sp.example.com'
   })
 
   test('extracts the response, AuthnRequest and assertion identifiers', () => {

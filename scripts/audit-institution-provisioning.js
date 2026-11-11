@@ -10,15 +10,15 @@ const REGISTRY_ABI = [
   'event SchacHomeOrganizationRegistered(address indexed institution, string organization, bytes32 indexed organizationHash)',
 ];
 
-const moralisRpcUrl = process.env.NEXT_PUBLIC_MORALIS_SEPOLIA_URL
-  && process.env.NEXT_PUBLIC_MORALIS_ID
-  ? `${process.env.NEXT_PUBLIC_MORALIS_SEPOLIA_URL.replace(/\/+$/, '')}/${process.env.NEXT_PUBLIC_MORALIS_ID}`
-  : process.env.NEXT_PUBLIC_MORALIS_SEPOLIA_URL;
+const moralisRpcUrl = process.env.MORALIS_SEPOLIA_URL
+  && process.env.MORALIS_ID
+  ? `${process.env.MORALIS_SEPOLIA_URL.replace(/\/+$/, '')}/${process.env.MORALIS_ID}`
+  : process.env.MORALIS_SEPOLIA_URL;
 const configuredRpcUrl = process.env.RPC_URL
   || process.env.NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL
   || moralisRpcUrl
   || process.env.NEXT_PUBLIC_QUICKNODE_SEPOLIA_URL
-  || process.env.NEXT_PUBLIC_INFURA_SEPOLIA_URL
+  || process.env.INFURA_SEPOLIA_RPC_URL
   || process.env.NEXT_PUBLIC_CHAINSTACK_SEPOLIA_URL
   || process.env.NEXT_PUBLIC_ANKR_SEPOLIA_URL
   || process.env.NEXT_PUBLIC_DEFAULT_SEPOLIA_URL;

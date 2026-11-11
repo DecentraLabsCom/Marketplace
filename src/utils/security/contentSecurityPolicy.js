@@ -16,11 +16,11 @@ const defaultImageSources = () => unique([
   'https://cloudflare-ipfs.com',
   'https://gateway.pinata.cloud',
   'https://nftstorage.link',
-  ...readConfiguredSources('CSP_IMG_SRC', 'NEXT_PUBLIC_CSP_IMG_SRC'),
+  ...readConfiguredSources('CSP_IMG_SRC'),
 ])
 
 const defaultConnectSources = () => {
-  const configured = readConfiguredSources('CSP_CONNECT_SRC', 'NEXT_PUBLIC_CSP_CONNECT_SRC')
+  const configured = readConfiguredSources('CSP_CONNECT_SRC')
   // Three.js fetches embedded GLB images through blob URLs; institutional APIs
   // still flow through Marketplace same-origin routes.
   return unique([
@@ -32,7 +32,7 @@ const defaultConnectSources = () => {
 
 const frameSources = () => unique([
   "'self'",
-  ...readConfiguredSources('CSP_FRAME_SRC', 'NEXT_PUBLIC_CSP_FRAME_SRC'),
+  ...readConfiguredSources('CSP_FRAME_SRC'),
 ])
 
 export function buildContentSecurityPolicy({ nonce, isDevelopment = false, additionalConnectSources = [] } = {}) {

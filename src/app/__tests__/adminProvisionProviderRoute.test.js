@@ -95,13 +95,13 @@ jest.mock('@/utils/dev/logger', () => ({
 describe('/api/admin/institutions/provisionProvider route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_BASE_URL = 'https://marketplace.example.com';
+    process.env.MARKETPLACE_BASE_URL = 'https://marketplace.example.com';
     process.env.PROVISIONING_TOKEN_TTL_SECONDS = '300';
     process.env.MARKETPLACE_PLATFORM_ADMIN_EMAILS = 'ldelatorre@dia.uned.es';
   });
 
   afterEach(() => {
-    delete process.env.NEXT_PUBLIC_BASE_URL;
+    delete process.env.MARKETPLACE_BASE_URL;
     delete process.env.PROVISIONING_TOKEN_TTL_SECONDS;
     delete process.env.MARKETPLACE_PLATFORM_ADMIN_EMAILS;
   });

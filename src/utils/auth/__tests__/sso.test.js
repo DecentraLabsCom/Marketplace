@@ -74,9 +74,7 @@ describe("SSO Utilities", () => {
       NODE_ENV: "test",
       SAML_SP_PRIVATE_KEY: "test-private-key\\nwith-newlines",
       SAML_SP_CERTIFICATE: "test-certificate\\nwith-newlines",
-      NEXT_PUBLIC_SAML_SP_METADATA_URL: "https://sp.example.com/metadata",
-      NEXT_PUBLIC_SAML_SP_CALLBACK_URL: "https://sp.example.com/callback",
-      NEXT_PUBLIC_SAML_SP_LOGOUT_URL: "https://sp.example.com/logout",
+      MARKETPLACE_BASE_URL: "https://sp.example.com",
       NEXT_PUBLIC_SAML_IDP_METADATA_URL: "https://idp.example.com/metadata",
     };
   });
@@ -128,8 +126,8 @@ describe("SSO Utilities", () => {
 
       const userData = { id: "user123", email: "user@example.com" };
 
-      process.env.SESSION_STORE_REST_URL = "https://session-store.example.com"
-      process.env.SESSION_STORE_REST_TOKEN = "test-token"
+      process.env.KV_REST_API_URL = "https://session-store.example.com"
+      process.env.KV_REST_API_TOKEN = "test-token"
       await createSession(mockResponse, userData);
 
       expect(mockResponse.cookies.set).toHaveBeenCalledWith(
@@ -200,8 +198,8 @@ describe("SSO Utilities", () => {
       const result = createServiceProvider();
 
       expect(ServiceProvider).toHaveBeenCalledWith({
-        entity_id: "https://sp.example.com/metadata",
-        assert_endpoint: "https://sp.example.com/callback",
+        entity_id: "https://sp.example.com/api/auth/sso/saml2/metadata",
+        assert_endpoint: "https://sp.example.com/api/auth/sso/saml2/callback",
         private_key: "test-private-key\nwith-newlines",
         certificate: "test-certificate\nwith-newlines",
         allow_unencrypted_assertion: true,
@@ -216,7 +214,7 @@ describe("SSO Utilities", () => {
             RelayState: "STATE",
           },
         })
-      ).toBe("https://sp.example.com/logout?SAMLRequest=REQ&RelayState=STATE");
+      ).toBe("https://sp.example.com/api/auth/sso/saml2/logout?SAMLRequest=REQ&RelayState=STATE");
     });
 
     test("replaces escaped newlines in private key and certificate", () => {
@@ -267,14 +265,18 @@ describe("SSO Utilities", () => {
       );
     });
 
-    test("does not add SingleLogoutService when logout URL is missing", () => {
-      delete process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
+    test("derives SingleLogoutService when only the base URL is configured", () => {
+      delete process.env.MARKETPLACE_BASE_URL;
+      delete process.env.VERCEL_URL;
+      process.env.NODE_ENV = "development";
       const mockSP = {};
       ServiceProvider.mockImplementation(() => mockSP);
 
       createServiceProvider();
 
-      expect(mockSP.createSingleLogoutServiceUrl).toBeUndefined();
+      expect(typeof mockSP.createSingleLogoutServiceUrl).toBe("function");
+      expect(mockSP.createSingleLogoutServiceUrl({ request_body: {} }))
+        .toBe("http://localhost:3000/api/auth/sso/saml2/logout");
     });
   });
 

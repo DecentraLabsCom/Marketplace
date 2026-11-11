@@ -28,7 +28,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Pairing is not awaiting approval' }, { status: 409 });
     }
     const marketplaceBaseUrl = normalizeHttpsUrl(
-      process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || new URL(request.url).origin,
+      process.env.MARKETPLACE_BASE_URL || new URL(request.url).origin,
       'Marketplace base URL',
     );
     const { chainId, registryContract } = getProvisioningRegistryConfig();

@@ -28,10 +28,10 @@ describe("baseUrl utility - Server Environment", () => {
   });
 
   describe("getBaseUrl - Server-side logic", () => {
-    describe("Priority 1: Explicit NEXT_PUBLIC_BASE_URL", () => {
+    describe("Priority 1: Explicit MARKETPLACE_BASE_URL", () => {
       test("uses explicit URL in production", () => {
         process.env.NODE_ENV = "production";
-        process.env.NEXT_PUBLIC_BASE_URL = "https://custom-domain.com";
+        process.env.MARKETPLACE_BASE_URL = "https://custom-domain.com";
 
         const result = getBaseUrl();
 
@@ -40,7 +40,7 @@ describe("baseUrl utility - Server Environment", () => {
 
       test("uses explicit localhost URL in development", () => {
         process.env.NODE_ENV = "development";
-        process.env.NEXT_PUBLIC_BASE_URL = "http://localhost:4000";
+        process.env.MARKETPLACE_BASE_URL = "http://localhost:4000";
 
         const result = getBaseUrl();
 
@@ -49,7 +49,7 @@ describe("baseUrl utility - Server Environment", () => {
 
       test("ignores non-localhost explicit URL in development", () => {
         process.env.NODE_ENV = "development";
-        process.env.NEXT_PUBLIC_BASE_URL = "https://production.com";
+        process.env.MARKETPLACE_BASE_URL = "https://production.com";
         process.env.HOSTNAME = "localhost";
 
         const result = getBaseUrl();
@@ -59,7 +59,7 @@ describe("baseUrl utility - Server Environment", () => {
 
       test("uses explicit URL in test environment", () => {
         process.env.NODE_ENV = "test";
-        process.env.NEXT_PUBLIC_BASE_URL = "https://test-env.com";
+        process.env.MARKETPLACE_BASE_URL = "https://test-env.com";
 
         const result = getBaseUrl();
 
@@ -100,7 +100,7 @@ describe("baseUrl utility - Server Environment", () => {
         process.env.HOSTNAME = "localhost";
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
     });
@@ -121,7 +121,7 @@ describe("baseUrl utility - Server Environment", () => {
         delete process.env.VERCEL_URL;
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
 
@@ -141,7 +141,7 @@ describe("baseUrl utility - Server Environment", () => {
         process.env.NODE_ENV = "production";
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
     });
@@ -151,10 +151,10 @@ describe("baseUrl utility - Server Environment", () => {
         process.env.NODE_ENV = "production";
         delete process.env.VERCEL_URL;
         delete process.env.VERCEL;
-        delete process.env.NEXT_PUBLIC_BASE_URL;
+        delete process.env.MARKETPLACE_BASE_URL;
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
 
@@ -162,16 +162,16 @@ describe("baseUrl utility - Server Environment", () => {
         delete process.env.NODE_ENV;
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
 
       test("fails closed in test environment without config", () => {
         process.env.NODE_ENV = "test";
-        delete process.env.NEXT_PUBLIC_BASE_URL;
+        delete process.env.MARKETPLACE_BASE_URL;
 
         expect(() => getBaseUrl()).toThrow(
-          "Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.",
+          "Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.",
         );
       });
     });

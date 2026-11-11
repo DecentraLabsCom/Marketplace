@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Validate reconciliation configuration
         env:
-          MARKETPLACE_BASE_URL: ${{ secrets.MARKETPLACE_BASE_URL }}
+          MARKETPLACE_BASE_URL: ${{ vars.MARKETPLACE_BASE_URL }}
           FMU_REVOCATION_RECONCILIATION_TOKEN: ${{ secrets.FMU_REVOCATION_RECONCILIATION_TOKEN }}
         run: |
           test -n "$MARKETPLACE_BASE_URL"
@@ -21,7 +21,7 @@ jobs:
 
       - name: Drain pending FMU and SAML revocations
         env:
-          MARKETPLACE_BASE_URL: ${{ secrets.MARKETPLACE_BASE_URL }}
+          MARKETPLACE_BASE_URL: ${{ vars.MARKETPLACE_BASE_URL }}
           FMU_REVOCATION_RECONCILIATION_TOKEN: ${{ secrets.FMU_REVOCATION_RECONCILIATION_TOKEN }}
         run: |
           curl --fail-with-body --retry 2 --retry-all-errors \

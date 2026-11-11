@@ -87,7 +87,7 @@ export default function MediaDisplayWithFallback({
   const [hasMetadataProxyFailed, setHasMetadataProxyFailed] = useState(false);
   const [hasExternalImageFailed, setHasExternalImageFailed] = useState(false);
   
-  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
+  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL;
 
   // --- States for Document (iframe) handling ---
   const [currentDocSrc, setCurrentDocSrc] = useState(''); // The final URL for the iframe src

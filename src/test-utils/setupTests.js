@@ -142,11 +142,9 @@ jest.mock('@/utils/blockchain/networkConfig', () => {
     defaultChain: { id: 11155111, name: 'sepolia' },
     defaultNetworks: {},
     alchemyNetworks: {},
-    moralisNetworks: {},
     ankrNetworks: {},
     quicknodeNetworks: {},
     chainstackNetworks: {},
-    infuraNetworks: {},
   };
 });
 

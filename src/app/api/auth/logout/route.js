@@ -11,8 +11,7 @@ import { removeSamlSessionBindingMember } from '@/utils/auth/samlSessionStateSto
 import { isValidLogoutNonce } from '@/utils/auth/logoutProtection'
 
 function expectedOrigin(request) {
-  const configured = process.env.NEXT_PUBLIC_BASE_URL || request.url
-  return new URL(configured).origin
+  return new URL(request.url).origin
 }
 
 function isSameOrigin(request) {
