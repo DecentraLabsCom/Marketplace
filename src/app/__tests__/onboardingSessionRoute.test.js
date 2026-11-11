@@ -39,7 +39,7 @@ describe('/api/onboarding/session route', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_SAML_STABLE_USER_ID_MODE: 'principal_targeted_id',
-      NEXT_PUBLIC_BASE_URL: 'https://market.example',
+      MARKETPLACE_BASE_URL: 'https://market.example',
     }
     cookies.mockResolvedValue({})
     extractStableUserId.mockReturnValue('alice@uned.es')

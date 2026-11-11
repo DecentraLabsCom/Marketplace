@@ -1,4 +1,5 @@
 import { DOMParser } from '@xmldom/xmldom'
+import { getSamlServiceProviderUrls } from './samlServiceProviderUrls'
 
 const MAX_SAML_RESPONSE_BYTES = 192 * 1024
 const MAX_IDENTIFIER_LENGTH = 512
@@ -90,8 +91,9 @@ function validateSamlTimeWindow(element, fieldName, now) {
 }
 
 function validateSamlWebSsoProfile(xml, { responseId, inResponseTo, assertionId }) {
-  const expectedAudience = normalizeIdentifier(process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL)
-  const expectedRecipient = normalizeIdentifier(process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL)
+  const serviceProviderUrls = getSamlServiceProviderUrls()
+  const expectedAudience = normalizeIdentifier(serviceProviderUrls.metadata)
+  const expectedRecipient = normalizeIdentifier(serviceProviderUrls.callback)
   if (!expectedAudience || !expectedRecipient) {
     throw new Error('SAML SP audience and callback URL must be configured')
   }

@@ -44,20 +44,6 @@ flowchart LR
 
 The active chain configuration defaults to Sepolia. Configuring another network in a client library is not a production release; the contract address, ABI and deployment validation must be changed together.
 
-## For contributors
-
-Use Node.js 22 and npm 10 or later to run the application locally:
-
-```bash
-npm ci
-npm run dev
-```
-
-`npm run dev` starts Next.js with Turbopack. Configure a development SAML
-identity provider, RPC endpoint, contract address and server-side session store
-before testing an institutional flow. Do not copy secrets into source files or
-`NEXT_PUBLIC_*` variables.
-
 ## Public documentation
 
 The complete user-facing map is in [SUMMARY.md](SUMMARY.md). The live

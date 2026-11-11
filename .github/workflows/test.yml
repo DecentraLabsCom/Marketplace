@@ -71,9 +71,7 @@ jobs:
       - name: Build Next.js app
         run: npm run build
         env:
-          # GitHub Actions is not a Vercel deployment, so VERCEL_URL is absent.
-          # Use the canonical public origin for metadata generated at build time.
-          NEXT_PUBLIC_BASE_URL: https://www.decentralabs-marketplace.app
+          MARKETPLACE_BASE_URL: ${{ vars.MARKETPLACE_BASE_URL }}
 
   cypress-e2e:
     name: Cypress E2E

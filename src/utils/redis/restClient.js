@@ -1,12 +1,8 @@
-const resolveRedisConfig = () => {
-  const url = process.env.KV_REST_API_URL
-    || process.env.UPSTASH_REDIS_REST_URL
-    || process.env.SESSION_STORE_REST_URL
-  const token = process.env.KV_REST_API_TOKEN
-    || process.env.UPSTASH_REDIS_REST_TOKEN
-    || process.env.SESSION_STORE_REST_TOKEN
+export const getRedisRestConfig = () => {
+  const url = String(process.env.KV_REST_API_URL || '').trim()
+  const token = String(process.env.KV_REST_API_TOKEN || '').trim()
 
-  return { url: url?.replace(/\/+$/, ''), token }
+  return { url: url ? url.replace(/\/+$/, '') : undefined, token: token || undefined }
 }
 
 const redisRequestTimeoutMs = () => {
@@ -17,12 +13,12 @@ const redisRequestTimeoutMs = () => {
 }
 
 export function hasRedisConfig() {
-  const { url, token } = resolveRedisConfig()
+  const { url, token } = getRedisRestConfig()
   return Boolean(url && token)
 }
 
 export async function redisCommand(command) {
-  const config = resolveRedisConfig()
+  const config = getRedisRestConfig()
   if (!config.url || !config.token) {
     throw new Error('Redis REST configuration is missing')
   }

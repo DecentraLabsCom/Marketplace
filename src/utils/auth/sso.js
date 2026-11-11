@@ -12,6 +12,7 @@ import { registerSamlSessionBinding } from './samlSessionStateStore'
 import { resolveInstitutionDomain } from './institutionDomain'
 import { shouldIncludeEduPersonTargetedId } from './puc'
 export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
+import { getSamlServiceProviderUrls } from './samlServiceProviderUrls'
 
 let countriesInitialized = false
 
@@ -203,10 +204,10 @@ export function createServiceProvider() {
     }
   }
   
-  const spLogoutUrl = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
+  const { metadata, callback, logout: spLogoutUrl } = getSamlServiceProviderUrls();
   const sp = new ServiceProvider({
-    entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
-    assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
+    entity_id: metadata,
+    assert_endpoint: callback,
     private_key: privateKey,
     certificate: certificate,
     allow_unencrypted_assertion: true,

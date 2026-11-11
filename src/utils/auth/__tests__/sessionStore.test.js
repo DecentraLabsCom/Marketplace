@@ -11,8 +11,8 @@ describe('server-side session store', () => {
     process.env = {
       ...originalEnv,
       NODE_ENV: 'test',
-      SESSION_STORE_REST_URL: 'https://session-store.example.com',
-      SESSION_STORE_REST_TOKEN: 'test-token',
+      KV_REST_API_URL: 'https://session-store.example.com',
+      KV_REST_API_TOKEN: 'test-token',
       SESSION_ENCRYPTION_KEY: 'a'.repeat(64),
     }
     global.fetch = jest.fn().mockResolvedValue({

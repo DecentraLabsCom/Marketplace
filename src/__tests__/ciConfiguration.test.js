@@ -19,14 +19,14 @@ describe('CI and dependency reproducibility configuration', () => {
     expect(workflow).toMatch(/pull_request:/);
     expect(workflow).toMatch(/name: Build/);
     expect(workflow).toMatch(/run: npm run build/);
-    expect(workflow).toMatch(/NEXT_PUBLIC_BASE_URL: https:\/\/www\.decentralabs-marketplace\.app/);
+    expect(workflow).toMatch(/MARKETPLACE_BASE_URL: \$\{\{ vars\.MARKETPLACE_BASE_URL \}\}/);
   });
 
-  test('provides the public base URL when Lighthouse builds the app', () => {
+  test('provides the server-side base URL when Lighthouse builds the app', () => {
     const workflow = readRepositoryFile('.github/workflows/lighthouse.yml');
 
     expect(workflow).toMatch(
-      /name: Build Next\.js app[\s\S]*?run: npm run build[\s\S]*?NEXT_PUBLIC_BASE_URL: https:\/\/www\.decentralabs-marketplace\.app/,
+      /name: Build Next\.js app[\s\S]*?run: npm run build[\s\S]*?MARKETPLACE_BASE_URL: \$\{\{ vars\.MARKETPLACE_BASE_URL \}\}/,
     );
   });
 
@@ -80,8 +80,7 @@ describe('CI and dependency reproducibility configuration', () => {
   test('keeps production JWT rotation scoped to the production Vercel target', () => {
     const workflow = readRepositoryFile('.github/workflows/jwt-key-rotation.yml');
 
-    expect(workflow).toMatch(/MARKETPLACE_URL: https:\/\/www\.decentralabs-marketplace\.app/);
-    expect(workflow).not.toMatch(/MARKETPLACE_URL: https:\/\/decentralabs-marketplace\.app(?:\/|\s)/);
+    expect(workflow).toMatch(/MARKETPLACE_URL: \$\{\{ vars\.MARKETPLACE_BASE_URL \}\}/);
     expect(workflow).toMatch(/node scripts\/update-vercel-env\.js --targets=production/);
     expect(workflow).toMatch(/npx --yes vercel@latest/);
     expect(workflow).toMatch(/vercel_args=\(redeploy/);

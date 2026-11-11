@@ -88,10 +88,6 @@ describe('distributed rate limiter', () => {
   test('fails closed in production when Redis is not configured', async () => {
     delete process.env.KV_REST_API_URL
     delete process.env.KV_REST_API_TOKEN
-    delete process.env.UPSTASH_REDIS_REST_URL
-    delete process.env.UPSTASH_REDIS_REST_TOKEN
-    delete process.env.SESSION_STORE_REST_URL
-    delete process.env.SESSION_STORE_REST_TOKEN
     process.env.NODE_ENV = 'production'
 
     const result = await createRateLimiter({ operation: 'protected-operation' })(

@@ -19,7 +19,7 @@ const hasLabId = (labId) => {
 }
 
 const isBlobDeployment = () => (
-  process.env.NODE_ENV === 'production' || !!process.env.NEXT_PUBLIC_VERCEL
+  process.env.NODE_ENV === 'production'
 )
 
 /**

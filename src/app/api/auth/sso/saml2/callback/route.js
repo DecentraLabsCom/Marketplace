@@ -99,7 +99,7 @@ export async function POST(request) {
     }
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
+      const baseUrl = request.nextUrl.origin
       const completeUrl = new URL('/api/auth/sso/saml2/complete', baseUrl)
       const returnTo = normalizeSamlReturnTo(transaction.returnTo)
       if (returnTo) completeUrl.searchParams.set('returnTo', returnTo)

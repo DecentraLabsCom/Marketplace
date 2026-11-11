@@ -10,7 +10,7 @@ import { GET } from '../route'
 describe('GET /api/auth/sso/saml2/metadata', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL = 'https://market.example/api/auth/sso/saml2/logout'
+    process.env.MARKETPLACE_BASE_URL = 'https://market.example'
     createServiceProvider.mockReturnValue({
       create_metadata: () => '<md:EntityDescriptor><md:SPSSODescriptor><md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://market.example/api/auth/sso/saml2/callback"/></md:SPSSODescriptor></md:EntityDescriptor>',
     })

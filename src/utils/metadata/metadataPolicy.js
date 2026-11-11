@@ -415,7 +415,7 @@ export async function loadOnChainLabMetadata(
 const resolveDeclaredAssetUrl = (value) => {
   if (typeof value !== 'string') return null
   if (!value.startsWith('/')) return value
-  const isBlobDeployment = process.env.NODE_ENV === 'production' || Boolean(process.env.NEXT_PUBLIC_VERCEL)
+  const isBlobDeployment = process.env.NODE_ENV === 'production'
   const blobBase = String(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL || '').replace(/\/+$/, '')
   if (!isBlobDeployment || !blobBase) return value
   if (value.startsWith('/data/')) return `${blobBase}${value}`

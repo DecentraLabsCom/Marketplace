@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { createServiceProvider } from '@/utils/auth/sso'
+import { getSamlServiceProviderUrls } from '@/utils/auth/samlServiceProviderUrls'
 
 const SAML_HTTP_POST_BINDING = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
 
@@ -16,11 +17,7 @@ function escapeXmlAttribute(value) {
 }
 
 function getLogoutServiceUrl() {
-    const configured = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL?.trim()
-    if (configured) return configured
-
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
-    return `${baseUrl}/api/auth/sso/saml2/logout`
+    return getSamlServiceProviderUrls().logout
 }
 
 function replaceOrAddLogoutService(metadata, serviceXml) {

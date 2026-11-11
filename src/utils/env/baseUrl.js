@@ -7,14 +7,7 @@
  * Get the base URL for the current environment
  * @returns {string} The appropriate base URL
  */
-export const getBaseUrl = () => {
-  // Check if we're in browser environment
-  if (typeof window !== 'undefined') {
-    // Browser environment - use current origin
-    const { protocol, host } = window.location;
-    return `${protocol}//${host}`;
-  }
-  
+export const getServerBaseUrl = () => {
   // Server environment - check NODE_ENV and deployment indicators
   const isDevelopment = process.env.NODE_ENV === 'development';
   const vercelUrl = String(process.env.VERCEL_URL || '').trim();
@@ -23,11 +16,12 @@ export const getBaseUrl = () => {
                      !vercelUrl;
   
   // Priority order:
-  // 1. Explicit environment variable
-  if (process.env.NEXT_PUBLIC_BASE_URL) {
-    // Only use explicit URL in production or if it's localhost
-    if (!isDevelopment || process.env.NEXT_PUBLIC_BASE_URL.includes('localhost')) {
-      return process.env.NEXT_PUBLIC_BASE_URL;
+  // 1. Explicit server-side application URL
+  const configuredBaseUrl = String(process.env.MARKETPLACE_BASE_URL || '').trim();
+  if (configuredBaseUrl) {
+    // Only use an explicit URL in development when it points to localhost.
+    if (!isDevelopment || configuredBaseUrl.includes('localhost')) {
+      return configuredBaseUrl.replace(/\/+$/, '');
     }
   }
   
@@ -42,8 +36,18 @@ export const getBaseUrl = () => {
   }
 
   throw new Error(
-    'Marketplace base URL is not configured. Set NEXT_PUBLIC_BASE_URL or VERCEL_URL.',
+    'Marketplace base URL is not configured. Set MARKETPLACE_BASE_URL or VERCEL_URL.',
   );
+};
+
+export const getBaseUrl = () => {
+  // Browser environment - use current origin
+  if (typeof window !== 'undefined') {
+    const { protocol, host } = window.location;
+    return `${protocol}//${host}`;
+  }
+
+  return getServerBaseUrl();
 };
 
 /**

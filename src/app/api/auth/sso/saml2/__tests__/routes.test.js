@@ -52,19 +52,19 @@ const validResponseXml = `
     xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
     ID="_response-1"
     InResponseTo="_request-1"
-    Destination="https://sp.example.com/callback">
+    Destination="https://market.example/api/auth/sso/saml2/callback">
     <saml:Assertion ID="_assertion-1">
       <saml:Subject>
         <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
           <saml:SubjectConfirmationData
             NotOnOrAfter="2099-01-01T00:00:00.000Z"
-            Recipient="https://sp.example.com/callback"
+            Recipient="https://market.example/api/auth/sso/saml2/callback"
             InResponseTo="_request-1" />
         </saml:SubjectConfirmation>
       </saml:Subject>
       <saml:Conditions NotBefore="2020-01-01T00:00:00.000Z" NotOnOrAfter="2099-01-01T00:00:00.000Z">
         <saml:AudienceRestriction>
-          <saml:Audience>https://sp.example.com/metadata</saml:Audience>
+          <saml:Audience>https://market.example/api/auth/sso/saml2/metadata</saml:Audience>
         </saml:AudienceRestriction>
       </saml:Conditions>
     </saml:Assertion>
@@ -76,9 +76,7 @@ describe('SAML routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.NEXT_PUBLIC_BASE_URL = 'https://market.example'
-    process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL = 'https://sp.example.com/metadata'
-    process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL = 'https://sp.example.com/callback'
+    process.env.MARKETPLACE_BASE_URL = 'https://market.example'
     cookies.mockResolvedValue(cookieStore)
     reconcileFmuContextsForSession.mockResolvedValue(undefined)
     consumeSamlResponseId.mockResolvedValue(true)

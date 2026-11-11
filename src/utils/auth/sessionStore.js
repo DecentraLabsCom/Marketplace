@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import devLog from '@/utils/dev/logger'
+import { getRedisRestConfig } from '@/utils/redis/restClient'
 import {
   MARKETPLACE_SESSION_RENEWAL_THRESHOLD_SECONDS,
   MARKETPLACE_SESSION_TTL_SECONDS,
@@ -56,13 +57,7 @@ const circuitCooldownMs = () => parseBoundedInteger(
 )
 
 function getRemoteConfig() {
-  const url = process.env.SESSION_STORE_REST_URL
-    || process.env.KV_REST_API_URL
-    || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.SESSION_STORE_REST_TOKEN
-    || process.env.KV_REST_API_TOKEN
-    || process.env.UPSTASH_REDIS_REST_TOKEN
-  return { url: url?.replace(/\/+$/, ''), token }
+  return getRedisRestConfig()
 }
 
 function requireValidSessionData(sessionData) {
@@ -241,7 +236,7 @@ export async function createServerSession(sessionData, maxAgeSec = MARKETPLACE_S
   } else {
     sweepMemorySessions(now)
     memorySessions.set(sessionId, { record, expiresAt })
-    devLog.warn('Using an in-memory session store outside production; configure SESSION_STORE_REST_URL for shared sessions')
+    devLog.warn('Using an in-memory session store outside production; configure KV_REST_API_URL and KV_REST_API_TOKEN for shared sessions')
   }
 
   return { sessionId, record, expiresAt, ttlSeconds: ttl }
