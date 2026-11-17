@@ -50,6 +50,10 @@ browser behavior.
 
 ### Authentication
 
+- Kept SSO users from unregistered institutions in the Marketplace. The User
+  Dashboard now shows a dismissible registration notice each time it is opened
+  and provides a catalogue link instead of attempting to load unavailable
+  institutional bookings.
 - Extended the default Marketplace SSO session lifetime from 30 to 60 minutes.
 - Made the Marketplace SSO session sliding: authenticated requests renew it only during the final 15 minutes of its TTL, while status-only polling does not keep an idle session alive.
 - Renewed the SAML NameID/SessionIndex binding together with a sliding session so IdP-initiated logout can still find the active Marketplace session.

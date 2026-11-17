@@ -52,6 +52,13 @@ The session may expire after a period of inactivity or when the institution's
 SSO session ends. If Marketplace asks you to sign in again, complete
 Institutional Login before retrying the reservation or access request.
 
+If SSO succeeds but your institution has not registered an institutional
+wallet with DecentraLabs as a consumer or provider, you can still browse the
+Marketplace catalogue. The User Dashboard explains the registration status each
+time you open it. Reservations and provider management become available after
+your institution completes registration; contact an authorized representative
+at your university about this process, or email contact@nebsyst.com for help.
+
 ---
 
 ### 2. Browse and Select a Laboratory
