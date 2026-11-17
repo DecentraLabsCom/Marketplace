@@ -260,6 +260,7 @@ describe('UserDashboard - Unit Tests', () => {
             mockUserData = {
                 ...mockUser,
                 isSSO: true,
+                institutionRegistrationStatus: 'registered',
                 address: null,
                 isConnected: false,
                 user: {
