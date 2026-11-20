@@ -25,6 +25,16 @@ jest.mock("@/hooks/booking/useBookings", () => ({
   useBookingsForCalendar: jest.fn(),
 }))
 
+jest.mock("@/utils/hooks/useProviderMapping", () => ({
+  useProviderMapping: jest.fn(() => ({
+    mapOwnerToProvider: jest.fn(),
+    providersResult: {
+      data: { providers: [] },
+      refetch: jest.fn().mockResolvedValue({ data: { providers: [] } }),
+    },
+  })),
+}))
+
 jest.mock("@/hooks/reservation/useLabReservationState", () => ({
   useLabReservationState: jest.fn(),
 }))
