@@ -169,6 +169,7 @@ export default function BookingCalendarSection({
         <div className="w-fit">
           <CalendarWithBookings
             key={calendarKey}
+            calendarClassName="custom-datepicker reservation-datepicker"
             selectedDate={date}
             onDateChange={onDateChange}
             bookingInfo={mapBookingsForCalendar(calendarBookings, { labName: lab?.name })}
