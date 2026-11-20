@@ -377,7 +377,6 @@ describe("BookingCalendarSection", () => {
       expect(startingTime).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(duration).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
-      expect(priceSummary).toHaveClass("h-full");
       expect(timeZoneSummary).toHaveClass("text-left");
       expect(timeZoneSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
       expect(timeZoneSummary).toHaveTextContent("Your time:");
@@ -505,9 +504,11 @@ describe("BookingCalendarSection", () => {
       const priceSummary = screen.getByLabelText("Booking price summary");
       const timeZoneSummary = screen.getByLabelText("Time zone conversion");
 
+      expect(controlsRow).toHaveClass("grid-cols-1", "sm:grid-cols-2");
       expect(controlsRow.children[0]).toContainElement(period);
       expect(controlsRow.children[1]).toContainElement(endDate);
-      expect(controlsRow.children[2]).toContainElement(priceSummary);
+      expect(controlsRow.children).toHaveLength(2);
+      expect(priceSummary.parentElement).toHaveClass("mt-3");
       expect(priceSummary).toHaveTextContent("Total cost:1.50 credits");
       expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
       expect(timeZoneSummary).toHaveClass("text-left");
