@@ -50,6 +50,7 @@ export async function proxyCreditAccount(resource, request) {
         message: 'The institutional billing service is temporarily unavailable.',
         error: new Error(`Institutional billing backend returned HTTP ${upstream.status}`),
         context: 'billing-proxy',
+        fields: { upstreamStatus: upstream.status },
       })
     }
     return NextResponse.json(await upstream.json(), { status: 200 })
