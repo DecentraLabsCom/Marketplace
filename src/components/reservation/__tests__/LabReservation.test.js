@@ -191,7 +191,7 @@ describe("LabReservation Component", () => {
     fireEvent.click(await screen.findByRole("button", { name: /book now/i }))
 
     expect(mockReservationRequestMutation.mutateAsync).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm reservation' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm reservation' }))
 
     await waitFor(() => {
       expect(mockReservationRequestMutation.mutateAsync).toHaveBeenCalled()
