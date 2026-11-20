@@ -10,6 +10,7 @@ import { useUser } from '@/context/UserContext'
 import { useLabAccessEligibility } from '@/hooks/accessPolicy/useLabAccessEligibility'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabOwner, useLabsForReservation } from '@/hooks/lab/useLabs'
+import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
 import AccessControl from '@/components/auth/AccessControl'
@@ -60,6 +61,9 @@ export default function LabReservation({ id }) {
     enabled: Boolean(selectedLab?.id && isSSO),
   })
   const selectedLabOwner = selectedLabOwnerData?.owner || selectedLabOwnerData || null
+  const providerMapping = useProviderMapping({
+    enabled: Boolean(selectedLab?.id && isSSO),
+  })
   const isOwnInstitutionLab = Boolean(
     isSSO
     && userAddress
@@ -325,7 +329,7 @@ export default function LabReservation({ id }) {
   }
   
   // Main booking handler
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (reservationButtonState?.isBusy || isBooking || policyDenied) return
     if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
     if (!institutionBackendUrl) {
@@ -334,9 +338,20 @@ export default function LabReservation({ id }) {
     }
     const bookingData = validateAndCalculateBooking()
     if (!bookingData) return
+
+    let providerName = providerMapping.mapOwnerToProvider(selectedLabOwner)?.name
+    if (!providerName && selectedLabOwner && !providerMapping.providersResult.data) {
+      const providerResult = await providerMapping.providersResult.refetch()
+      const normalizedOwner = String(selectedLabOwner).toLowerCase()
+      providerName = providerResult.data?.providers?.find(
+        (provider) => provider.account?.toLowerCase() === normalizedOwner
+      )?.name
+    }
+
     setReservationReview(buildReservationReview({
       bookingData,
       selectedLab,
+      providerName,
       totalCost,
       formatPrice,
       formatTokenAmount,
@@ -488,6 +503,7 @@ const formatReviewDateTime = (unixTimestamp) => {
 function buildReservationReview({
   bookingData,
   selectedLab,
+  providerName,
   totalCost,
   formatPrice,
   formatTokenAmount,
@@ -500,7 +516,10 @@ function buildReservationReview({
   return {
     bookingData,
     labName: selectedLab?.name || `Lab ${bookingData.labId}`,
-    provider: selectedLab?.provider || 'Provider information unavailable',
+    provider: providerName
+      || selectedLab?.providerInfo?.name
+      || selectedLab?.provider
+      || 'Provider information unavailable',
     startingTime: `${formatReviewDateTime(bookingData.start)} (local time)`,
     endTime: `${formatReviewDateTime(bookingData.end)} (local time)`,
     unitPrice: typeof formatPrice === 'function'
