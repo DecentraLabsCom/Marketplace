@@ -58,9 +58,17 @@ export default function LabReservation({ id }) {
   const [reservationReview, setReservationReview] = useState(null)
   const bookingSelectionRevision = useRef(0)
 
-  const { data: selectedLabOwnerData } = useLabOwner(selectedLab?.id, {
+  const selectedLabOwnerResult = useLabOwner(selectedLab?.id, {
     enabled: Boolean(selectedLab?.id && isSSO),
   })
+  const isSelectedLabOwnerPending = Boolean(
+    isSSO
+    && selectedLab?.id
+    && (selectedLabOwnerResult.isLoading || selectedLabOwnerResult.isPlaceholderData)
+  )
+  const selectedLabOwnerData = selectedLabOwnerResult.isPlaceholderData
+    ? null
+    : selectedLabOwnerResult.data
   const selectedLabOwner = selectedLabOwnerData?.owner || selectedLabOwnerData || null
   const providerMapping = useProviderMapping({
     enabled: Boolean(selectedLab?.id && isSSO),
@@ -340,7 +348,7 @@ export default function LabReservation({ id }) {
   
   // Main booking handler
   const handleBooking = async () => {
-    if (reservationButtonState?.isBusy || isBooking || policyDenied) return
+    if (reservationButtonState?.isBusy || isBooking || policyDenied || isSelectedLabOwnerPending) return
     if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
     if (!institutionBackendUrl) {
       notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
@@ -395,6 +403,9 @@ export default function LabReservation({ id }) {
       ariaBusy: isBusy,
     }
   })()
+  const isBookingDisabled = Boolean(
+    buttonState.isDisabled || policyDenied || isSelectedLabOwnerPending
+  )
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -456,17 +467,17 @@ export default function LabReservation({ id }) {
             <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
-                disabled={buttonState.isDisabled || policyDenied}
+                disabled={isBookingDisabled}
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                  buttonState.isDisabled
+                  isBookingDisabled
                     ? 'bg-gray-500 cursor-not-allowed' 
                     : 'bg-brand hover:bg-hover-dark'
                 }`}
-                aria-busy={buttonState.ariaBusy}
+                aria-busy={buttonState.ariaBusy || isSelectedLabOwnerPending}
               >
                 <span className="inline-flex items-center justify-center gap-2">
-                  {buttonState.showSpinner && <div className="spinner spinner-sm border-white" />}
-                  {buttonState.label}
+                  {(buttonState.showSpinner || isSelectedLabOwnerPending) && <div className="spinner spinner-sm border-white" />}
+                  {isSelectedLabOwnerPending ? 'Loading provider...' : buttonState.label}
                 </span>
               </button>
               {policyDenied && <p className="mt-2 text-sm text-text-secondary">Restricted by your institution&apos;s access policy.</p>}
