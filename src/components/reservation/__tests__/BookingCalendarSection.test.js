@@ -350,7 +350,7 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByTestId("token-duration")).toHaveTextContent("45");
     });
 
-    test("renders time, duration, and total cost in one control row", () => {
+    test("renders time and duration in a two-column row with price summary below", () => {
       render(
         <BookingCalendarSection
           {...defaultProps}
@@ -367,12 +367,13 @@ describe("BookingCalendarSection", () => {
       const reservationControls = controlsRow.parentElement;
       const calendarAndControls = reservationControls.parentElement;
 
-      expect(controlsRow).toHaveClass("lg:grid-cols-[1.1fr_1.1fr_0.8fr]");
+      expect(controlsRow).toHaveClass("grid-cols-1", "sm:grid-cols-2");
       expect(controlsRow).toHaveClass("items-stretch");
       expect(calendarAndControls).toHaveClass("gap-6");
       expect(controlsRow.children[0]).toContainElement(startingTime);
       expect(controlsRow.children[1]).toContainElement(duration);
-      expect(controlsRow.children[2]).toContainElement(priceSummary);
+      expect(controlsRow.children).toHaveLength(2);
+      expect(priceSummary.parentElement).toHaveClass("mt-3");
       expect(startingTime).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(duration).toHaveClass("w-full", "p-3", "border-2", "bg-gray-800", "rounded");
       expect(priceSummary).not.toHaveClass("rounded-lg", "border", "bg-gray-800");
