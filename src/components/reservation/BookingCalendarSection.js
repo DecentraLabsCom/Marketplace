@@ -153,11 +153,11 @@ export default function BookingCalendarSection({
   })
   const priceSummary = (
     <div
-      className={`flex items-center gap-2 text-left ${isCalendarPeriod ? 'justify-center text-center' : ''}`}
+      className={`flex items-baseline gap-2 text-left ${isCalendarPeriod ? 'justify-center text-center' : ''}`}
       aria-label="Booking price summary"
     >
       <span className="text-base font-semibold">Total cost:</span>
-      <span className="text-xs text-white font-semibold">{totalCostLabel}</span>
+      <span className="text-sm text-white font-semibold">{totalCostLabel}</span>
     </div>
   )
 
