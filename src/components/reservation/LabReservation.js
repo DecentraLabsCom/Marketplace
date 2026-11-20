@@ -3,7 +3,7 @@
  * Orchestrates the booking creation flow using extracted components and hooks
  */
 "use client"
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
@@ -56,6 +56,7 @@ export default function LabReservation({ id }) {
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
   const [reservationReview, setReservationReview] = useState(null)
+  const bookingSelectionRevision = useRef(0)
 
   const { data: selectedLabOwnerData } = useLabOwner(selectedLab?.id, {
     enabled: Boolean(selectedLab?.id && isSSO),
@@ -161,7 +162,16 @@ export default function LabReservation({ id }) {
   const handleLabChange = (e) => {
     const selectedId = e.target.value
     const lab = labs.find((lab) => lab.id == selectedId)
+    bookingSelectionRevision.current += 1
     setSelectedLab(lab)
+  }
+
+  const withBookingSelectionRevision = (handler) => {
+    if (typeof handler !== 'function') return handler
+    return (...args) => {
+      bookingSelectionRevision.current += 1
+      return handler(...args)
+    }
   }
   
   // Validation and calculation
@@ -338,10 +348,12 @@ export default function LabReservation({ id }) {
     }
     const bookingData = validateAndCalculateBooking()
     if (!bookingData) return
+    const bookingSelectionRevisionAtStart = bookingSelectionRevision.current
 
     let providerName = providerMapping.mapOwnerToProvider(selectedLabOwner)?.name
     if (!providerName && selectedLabOwner && !providerMapping.providersResult.data) {
       const providerResult = await providerMapping.providersResult.refetch()
+      if (bookingSelectionRevision.current !== bookingSelectionRevisionAtStart) return
       const normalizedOwner = String(selectedLabOwner).toLowerCase()
       providerName = providerResult.data?.providers?.find(
         (provider) => provider.account?.toLowerCase() === normalizedOwner
@@ -417,13 +429,13 @@ export default function LabReservation({ id }) {
             <LabDetailsPanel
               lab={selectedLab}
               date={date}
-              onDateChange={handleDateChange}
+              onDateChange={withBookingSelectionRevision(handleDateChange)}
               bookings={labBookings}
               userBookings={calendarUserBookingsForLab || userBookingsForLab}
               duration={duration}
-              onDurationChange={handleDurationChange}
+              onDurationChange={withBookingSelectionRevision(handleDurationChange)}
               selectedTime={selectedTime}
-              onTimeChange={handleTimeChange}
+              onTimeChange={withBookingSelectionRevision(handleTimeChange)}
               availableTimes={availableTimes}
               isCalendarPeriod={isCalendarPeriod}
               allowedDurations={allowedDurations}
@@ -431,7 +443,7 @@ export default function LabReservation({ id }) {
               periodEndDate={periodEndDate}
               periodEndMinDate={periodEndMinDate}
               periodEndMaxDate={periodEndMaxDate}
-              onPeriodEndDateChange={handlePeriodEndDateChange}
+              onPeriodEndDateChange={withBookingSelectionRevision(handlePeriodEndDateChange)}
               minDate={minDate}
               maxDate={maxDate}
               forceRefresh={forceRefresh}
