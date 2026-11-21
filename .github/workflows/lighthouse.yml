@@ -33,6 +33,8 @@ jobs:
 
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12
+        env:
+          MARKETPLACE_BASE_URL: http://localhost:3000
         with:
           urls: |
             http://localhost:3000
