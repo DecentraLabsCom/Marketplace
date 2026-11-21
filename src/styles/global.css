@@ -439,6 +439,11 @@ body {
   color: white !important;
 }
 
+/* Extend the reservation calendar down to the carousel's lower edge. */
+.reservation-datepicker {
+  padding-bottom: 5px;
+}
+
 /* The status dot is intentionally a layered LED rather than a flat badge. The
    1.12 peak scale is kept stable so the stronger treatment does not change
    the indicator's maximum footprint in cards or detail pages. */

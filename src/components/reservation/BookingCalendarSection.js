@@ -153,22 +153,23 @@ export default function BookingCalendarSection({
   })
   const priceSummary = (
     <div
-      className={`flex h-full flex-col text-left text-sm ${isCalendarPeriod ? 'items-center text-center' : ''}`}
+      className={`flex items-baseline gap-2 text-left ${isCalendarPeriod ? 'justify-center text-center' : ''}`}
       aria-label="Booking price summary"
     >
-      <span className="block text-lg font-semibold mb-2">Total cost:</span>
-      <span className="flex min-h-13 items-center py-3 text-white font-semibold">{totalCostLabel}</span>
+      <span className="text-base font-semibold">Total cost:</span>
+      <span className="text-sm text-white font-semibold">{totalCostLabel}</span>
     </div>
   )
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 items-start lg:gap-4">
       {/* Calendar */}
       <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
         <label className="block text-lg font-semibold mb-2">Select the date:</label>
         <div className="w-fit">
           <CalendarWithBookings
             key={calendarKey}
+            calendarClassName="custom-datepicker reservation-datepicker"
             selectedDate={date}
             onDateChange={onDateChange}
             bookingInfo={mapBookingsForCalendar(calendarBookings, { labName: lab?.name })}
@@ -185,11 +186,11 @@ export default function BookingCalendarSection({
       <div className="w-full min-w-0 flex-1">
         <div
           data-testid="booking-controls-row"
-          className="grid grid-cols-1 gap-6 items-stretch sm:grid-cols-2 lg:grid-cols-[1.1fr_1.1fr_0.8fr]"
+          className="grid grid-cols-1 gap-6 items-stretch sm:grid-cols-2"
         >
           {/* Starting Time */}
           {!isCalendarPeriod && <div>
-            <label htmlFor="time-select" className="block text-lg font-semibold mb-2">
+            <label htmlFor="time-select" className="block whitespace-nowrap text-lg font-semibold mb-2">
               Starting time:
             </label>
             <select
@@ -261,6 +262,9 @@ export default function BookingCalendarSection({
             </div>
           )}
 
+        </div>
+
+        <div className="mt-3">
           {priceSummary}
         </div>
 

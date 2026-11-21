@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { Container, Stack } from '@/components/ui'
 import Modal from '@/components/ui/Modal'
 import { useUser } from '@/context/UserContext'
@@ -43,20 +44,24 @@ export default function UserDashboard() {
     isSSO,
     isProvider,
     isProviderLoading,
+    institutionRegistrationStatus,
     address,
   } = useUser();
   const institutionName = user?.institutionName || user?.organizationName || user?.affiliation || null;
+  const isInstitutionUnregistered =
+    isSSO && institutionRegistrationStatus === 'unregistered';
   const canViewProviderCreditDetails =
     isProvider &&
     !isProviderLoading &&
     hasInstitutionRegistrationPrivilege(user);
   
   // Institutional bookings are resolved through backend/API queries only.
-  const canFetchBookings = canFetchUserBookings({
-    isLoggedIn,
-    isSSO,
-    address,
-  });
+  const hasResolvedInstitutionStatus =
+    Boolean(institutionRegistrationStatus) && institutionRegistrationStatus !== 'checking';
+  const canFetchBookings =
+    canFetchUserBookings({ isLoggedIn, isSSO, address }) &&
+    hasResolvedInstitutionStatus &&
+    !isInstitutionUnregistered;
   const effectiveUserAddress = resolveBookingsUserAddress({ isSSO, address });
   const { 
     data: userBookingsData, 
@@ -391,6 +396,29 @@ export default function UserDashboard() {
     user?.schacPersonalUniqueCode,
     user?.affiliation,
   ]);
+
+  if (isInstitutionUnregistered) {
+    return (
+      <AccessControl message="Please log in to view your dashboard.">
+        <Container padding="sm">
+          <DashboardHeader title="User Dashboard" />
+          <section className="mx-auto max-w-2xl rounded-xl border border-white/15 bg-white/5 p-6 text-center text-white">
+            <h2 className="text-xl font-semibold">Your institution is not registered yet</h2>
+            <p className="mt-3 text-white/80">
+              Institutional bookings will appear here after your university
+              registers with DecentraLabs. You can still explore our catalogue.
+            </p>
+            <Link
+              href="/"
+              className="mt-5 inline-flex rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-hover-dark"
+            >
+              Browse available labs
+            </Link>
+          </section>
+        </Container>
+      </AccessControl>
+    );
+  }
 
   if (!now || (!userData && bookingsLoading)) {
     return (

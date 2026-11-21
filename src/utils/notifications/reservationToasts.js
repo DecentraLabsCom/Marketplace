@@ -37,6 +37,10 @@ const resolveReservationDeniedMessage = (reason) => {
   const numericReason = Number(reason)
   const textReason = typeof reason === 'string' ? reason.toLowerCase() : ''
 
+  if (textReason.includes('reservation_cancelled_on_chain')) {
+    return 'Reservation was not created because it was denied during on-chain processing.'
+  }
+
   if (
     textReason.includes('treasury_spend_failed') ||
     textReason.includes('treasury spend') ||

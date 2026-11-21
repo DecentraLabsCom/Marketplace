@@ -553,8 +553,8 @@ export async function POST(req) {
       }
     };
 
-    // Validate the exact document that will be persisted. This keeps the local
-    // file fallback bounded and limited to the metadata shape generated here.
+    // Persist only reconstructed, schema-checked metadata, never raw request
+    // bytes. The filename is separately constrained to the local data root.
     const parsedMetadata = persistedMetadataSchema.safeParse(newData)
     if (!parsedMetadata.success) {
       return NextResponse.json(

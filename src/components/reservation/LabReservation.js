@@ -3,13 +3,14 @@
  * Orchestrates the booking creation flow using extracted components and hooks
  */
 "use client"
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabAccessEligibility } from '@/hooks/accessPolicy/useLabAccessEligibility'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabOwner, useLabsForReservation } from '@/hooks/lab/useLabs'
+import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
 import AccessControl from '@/components/auth/AccessControl'
@@ -55,11 +56,23 @@ export default function LabReservation({ id }) {
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
   const [reservationReview, setReservationReview] = useState(null)
+  const bookingSelectionRevision = useRef(0)
 
-  const { data: selectedLabOwnerData } = useLabOwner(selectedLab?.id, {
+  const selectedLabOwnerResult = useLabOwner(selectedLab?.id, {
     enabled: Boolean(selectedLab?.id && isSSO),
   })
+  const isSelectedLabOwnerPending = Boolean(
+    isSSO
+    && selectedLab?.id
+    && (selectedLabOwnerResult.isLoading || selectedLabOwnerResult.isPlaceholderData)
+  )
+  const selectedLabOwnerData = selectedLabOwnerResult.isPlaceholderData
+    ? null
+    : selectedLabOwnerResult.data
   const selectedLabOwner = selectedLabOwnerData?.owner || selectedLabOwnerData || null
+  const providerMapping = useProviderMapping({
+    enabled: Boolean(selectedLab?.id && isSSO),
+  })
   const isOwnInstitutionLab = Boolean(
     isSSO
     && userAddress
@@ -157,7 +170,16 @@ export default function LabReservation({ id }) {
   const handleLabChange = (e) => {
     const selectedId = e.target.value
     const lab = labs.find((lab) => lab.id == selectedId)
+    bookingSelectionRevision.current += 1
     setSelectedLab(lab)
+  }
+
+  const withBookingSelectionRevision = (handler) => {
+    if (typeof handler !== 'function') return handler
+    return (...args) => {
+      bookingSelectionRevision.current += 1
+      return handler(...args)
+    }
   }
   
   // Validation and calculation
@@ -325,8 +347,8 @@ export default function LabReservation({ id }) {
   }
   
   // Main booking handler
-  const handleBooking = () => {
-    if (reservationButtonState?.isBusy || isBooking || policyDenied) return
+  const handleBooking = async () => {
+    if (reservationButtonState?.isBusy || isBooking || policyDenied || isSelectedLabOwnerPending) return
     if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
     if (!institutionBackendUrl) {
       notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
@@ -334,9 +356,22 @@ export default function LabReservation({ id }) {
     }
     const bookingData = validateAndCalculateBooking()
     if (!bookingData) return
+    const bookingSelectionRevisionAtStart = bookingSelectionRevision.current
+
+    let providerName = providerMapping.mapOwnerToProvider(selectedLabOwner)?.name
+    if (!providerName && selectedLabOwner && !providerMapping.providersResult.data) {
+      const providerResult = await providerMapping.providersResult.refetch()
+      if (bookingSelectionRevision.current !== bookingSelectionRevisionAtStart) return
+      const normalizedOwner = String(selectedLabOwner).toLowerCase()
+      providerName = providerResult.data?.providers?.find(
+        (provider) => provider.account?.toLowerCase() === normalizedOwner
+      )?.name
+    }
+
     setReservationReview(buildReservationReview({
       bookingData,
       selectedLab,
+      providerName,
       totalCost,
       formatPrice,
       formatTokenAmount,
@@ -368,6 +403,9 @@ export default function LabReservation({ id }) {
       ariaBusy: isBusy,
     }
   })()
+  const isBookingDisabled = Boolean(
+    buttonState.isDisabled || policyDenied || isSelectedLabOwnerPending
+  )
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -402,13 +440,13 @@ export default function LabReservation({ id }) {
             <LabDetailsPanel
               lab={selectedLab}
               date={date}
-              onDateChange={handleDateChange}
+              onDateChange={withBookingSelectionRevision(handleDateChange)}
               bookings={labBookings}
               userBookings={calendarUserBookingsForLab || userBookingsForLab}
               duration={duration}
-              onDurationChange={handleDurationChange}
+              onDurationChange={withBookingSelectionRevision(handleDurationChange)}
               selectedTime={selectedTime}
-              onTimeChange={handleTimeChange}
+              onTimeChange={withBookingSelectionRevision(handleTimeChange)}
               availableTimes={availableTimes}
               isCalendarPeriod={isCalendarPeriod}
               allowedDurations={allowedDurations}
@@ -416,7 +454,7 @@ export default function LabReservation({ id }) {
               periodEndDate={periodEndDate}
               periodEndMinDate={periodEndMinDate}
               periodEndMaxDate={periodEndMaxDate}
-              onPeriodEndDateChange={handlePeriodEndDateChange}
+              onPeriodEndDateChange={withBookingSelectionRevision(handlePeriodEndDateChange)}
               minDate={minDate}
               maxDate={maxDate}
               forceRefresh={forceRefresh}
@@ -429,17 +467,17 @@ export default function LabReservation({ id }) {
             <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
-                disabled={buttonState.isDisabled || policyDenied}
+                disabled={isBookingDisabled}
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                  buttonState.isDisabled
+                  isBookingDisabled
                     ? 'bg-gray-500 cursor-not-allowed' 
                     : 'bg-brand hover:bg-hover-dark'
                 }`}
-                aria-busy={buttonState.ariaBusy}
+                aria-busy={buttonState.ariaBusy || isSelectedLabOwnerPending}
               >
                 <span className="inline-flex items-center justify-center gap-2">
-                  {buttonState.showSpinner && <div className="spinner spinner-sm border-white" />}
-                  {buttonState.label}
+                  {(buttonState.showSpinner || isSelectedLabOwnerPending) && <div className="spinner spinner-sm border-white" />}
+                  {isSelectedLabOwnerPending ? 'Loading provider...' : buttonState.label}
                 </span>
               </button>
               {policyDenied && <p className="mt-2 text-sm text-text-secondary">Restricted by your institution&apos;s access policy.</p>}
@@ -488,6 +526,7 @@ const formatReviewDateTime = (unixTimestamp) => {
 function buildReservationReview({
   bookingData,
   selectedLab,
+  providerName,
   totalCost,
   formatPrice,
   formatTokenAmount,
@@ -500,7 +539,10 @@ function buildReservationReview({
   return {
     bookingData,
     labName: selectedLab?.name || `Lab ${bookingData.labId}`,
-    provider: selectedLab?.provider || 'Provider information unavailable',
+    provider: providerName
+      || selectedLab?.providerInfo?.name
+      || selectedLab?.provider
+      || 'Provider information unavailable',
     startingTime: `${formatReviewDateTime(bookingData.start)} (local time)`,
     endTime: `${formatReviewDateTime(bookingData.end)} (local time)`,
     unitPrice: typeof formatPrice === 'function'

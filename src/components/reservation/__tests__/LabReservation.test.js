@@ -25,6 +25,16 @@ jest.mock("@/hooks/booking/useBookings", () => ({
   useBookingsForCalendar: jest.fn(),
 }))
 
+jest.mock("@/utils/hooks/useProviderMapping", () => ({
+  useProviderMapping: jest.fn(() => ({
+    mapOwnerToProvider: jest.fn(),
+    providersResult: {
+      data: { providers: [] },
+      refetch: jest.fn().mockResolvedValue({ data: { providers: [] } }),
+    },
+  })),
+}))
+
 jest.mock("@/hooks/reservation/useLabReservationState", () => ({
   useLabReservationState: jest.fn(),
 }))
@@ -181,7 +191,7 @@ describe("LabReservation Component", () => {
     fireEvent.click(await screen.findByRole("button", { name: /book now/i }))
 
     expect(mockReservationRequestMutation.mutateAsync).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm reservation' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm reservation' }))
 
     await waitFor(() => {
       expect(mockReservationRequestMutation.mutateAsync).toHaveBeenCalled()
