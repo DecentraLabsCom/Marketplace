@@ -44,14 +44,14 @@ describe('institutional WebAuthn proxy routes', () => {
   })
 
   test('records the upstream status when key-status is unavailable', async () => {
-    institutionalBackendFetch.mockResolvedValue(new Response('{}', { status: 401 }))
+    institutionalBackendFetch.mockResolvedValue(new Response('{}', { status: 404 }))
 
     const response = await getKeyStatus()
 
     expect(response.status).toBe(502)
     expect(publicErrorResponse).toHaveBeenCalledWith(expect.objectContaining({
       code: 'ONBOARDING_STATUS_UNAVAILABLE',
-      error: new Error('Institutional onboarding backend responded with status 401'),
+      error: new Error('Institutional onboarding backend responded with status 404'),
     }))
   })
 
@@ -67,16 +67,17 @@ describe('institutional WebAuthn proxy routes', () => {
     }))
   })
 
-  test('keeps the first-time key-status response as not onboarded', async () => {
-    institutionalBackendFetch.mockResolvedValue(new Response('{}', { status: 404 }))
+  test('keeps an explicit no-credential key-status response as not onboarded', async () => {
+    institutionalBackendFetch.mockResolvedValue(new Response('{"hasCredential":false}', { status: 200 }))
 
     const response = await getKeyStatus()
 
-    expect(response.status).toBe(404)
+    expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       stableUserId: 'user-1',
       institutionId: 'example.edu',
       hasCredential: false,
+      hasPlatformCredential: null,
     })
     expect(publicErrorResponse).not.toHaveBeenCalled()
   })
