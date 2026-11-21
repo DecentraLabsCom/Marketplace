@@ -331,6 +331,96 @@ describe('institutional reservation request mutations', () => {
     });
   });
 
+  test('treats an executed but cancelled reservation as denied without on-chain pending state', async () => {
+    const bookingMocks = makeBookingMocks();
+    const requestId = 'req-executed-cancelled';
+    const initialKey = 'rk-executed-cancelled-initial';
+    const finalKey = 'rk-executed-cancelled-final';
+    const deniedEvent = jest.fn();
+    const onChainEvent = jest.fn();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId });
+    pollIntentStatus.mockResolvedValueOnce({
+      status: 'executed',
+      txHash: '0xEXECUTED-CANCELLED',
+      reservationKey: finalKey,
+      reservationStatus: 'cancelled',
+    });
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          authorizationUrl: 'https://institution.example/intents/authorize/session-executed-cancelled',
+          authorizationSessionId: 'session-executed-cancelled',
+          backendUrl: 'https://institution.example',
+          intent: {
+            meta: { requestId },
+            payload: { reservationKey: initialKey },
+          },
+        }),
+    });
+
+    window.addEventListener('reservation-request-denied', deniedEvent);
+    window.addEventListener('reservation-request-onchain', onChainEvent);
+
+    try {
+      const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.mutateAsync({
+          tokenId: 'tk-executed-cancelled',
+          start: 111,
+          end: 222,
+          userAddress: '0xexecuted-cancelled',
+        });
+      });
+
+      await waitFor(() => {
+        expect(verifyInstitutionReportedExecution).toHaveBeenCalledWith(requestId, expect.any(Object));
+        expect(bookingMocks.updateBooking).toHaveBeenCalledWith(
+          finalKey,
+          expect.objectContaining({
+            reservationKey: finalKey,
+            intentStatus: 'executed',
+            reservationStatus: 'cancelled',
+            status: 'cancelled',
+            intentError: 'reservation_cancelled_on_chain',
+          })
+        );
+        expect(bookingMocks.removeOptimisticBooking).toHaveBeenCalledWith([finalKey, initialKey]);
+        expect(mockClearOptimisticBookingState).toHaveBeenCalledWith(finalKey);
+        expect(mockClearOptimisticBookingState).toHaveBeenCalledWith(initialKey);
+        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          'error',
+          'Reservation was not created because it was denied during on-chain processing.',
+          null,
+          expect.objectContaining({ dedupeKey: `reservation-denied:${finalKey}` })
+        );
+        expect(deniedEvent).toHaveBeenCalledTimes(1);
+      });
+
+      expect(deniedEvent.mock.calls[0][0].detail).toEqual({
+        requestId,
+        reservationKey: finalKey,
+        labId: 'tk-executed-cancelled',
+        start: 111,
+        reason: 'reservation_cancelled_on_chain',
+      });
+      expect(onChainEvent).not.toHaveBeenCalled();
+      expect(
+        mockAddTemporaryNotification.mock.calls.filter(([, , , options]) =>
+          ['reservation-onchain-pending', 'reservation-onchain-requested'].some((keyPrefix) =>
+            options?.dedupeKey === `${keyPrefix}:${finalKey}`
+          )
+        )
+      ).toEqual([]);
+    } finally {
+      window.removeEventListener('reservation-request-denied', deniedEvent);
+      window.removeEventListener('reservation-request-onchain', onChainEvent);
+    }
+  });
+
   test('cleans optimistic booking and reports a technical error when intent polling fails', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
