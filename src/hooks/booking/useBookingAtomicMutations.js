@@ -317,10 +317,16 @@ export const useReservationRequestSSO = (options = {}) => {
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
               const finalKey = result?.reservationKey || reservationKey;
+              const reservationStatus = status === 'executed'
+                ? normalizeReservationStatus(result?.reservationStatus)
+                : null;
+              const reservationDeniedOnChain = status === 'executed' && reservationStatus === 'cancelled';
 
               if (status === 'executed') {
                 await assertInstitutionIntentExecuted(intentId, result, { signal: variables?.abortSignal });
-                const reservationStatus = normalizeReservationStatus(result?.reservationStatus);
+              }
+
+              if (status === 'executed' && !reservationDeniedOnChain) {
                 const reservationConfirmed = isReservationConfirmedStatus(reservationStatus);
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
@@ -369,10 +375,10 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
-                // A successful transaction is not confirmation evidence. The
-                // backend must return a confirmed (or later) reservation state;
-                // otherwise keep the user in the pending/reconciliation path,
-                // including for DIRECT_BOOKING.
+                // A successful transaction alone is not confirmation evidence.
+                // Keep the request pending unless the backend reports a
+                // confirmed (or later) reservation state; an explicit cancelled
+                // state is handled as a terminal denial above.
                 if (!reservationConfirmed) {
                   notifyReservationOnChainRequested(addTemporaryNotification, finalKey);
                 }
@@ -388,6 +394,59 @@ export const useReservationRequestSSO = (options = {}) => {
                 }
 
                 // Reservation confirmation now relies on intent status polling and targeted cache invalidation.
+              } else if (reservationDeniedOnChain) {
+                // The intent transaction can execute successfully while the
+                // reservation itself is cancelled by on-chain validation or
+                // treasury charging. Treat that as a terminal booking result
+                // so the SSO flow unlocks and the user can retry.
+                const denialReason = reason || 'reservation_cancelled_on_chain';
+                updateBooking(finalKey, {
+                  reservationKey: finalKey,
+                  labId: variables.tokenId,
+                  start: variables.start,
+                  end: variables.end,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  reservationStatus,
+                  status: 'cancelled',
+                  transactionHash: txHash,
+                  intentError: denialReason,
+                  note: 'Reservation denied during on-chain processing',
+                  timestamp: new Date().toISOString(),
+                });
+
+                try {
+                  removeOptimisticBooking([finalKey, reservationKey].filter(Boolean));
+                } catch (err) {
+                  devLog.warn('Failed to remove optimistic booking after on-chain reservation denial:', err);
+                }
+
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId: variables.tokenId,
+                  reservationKey: finalKey,
+                });
+
+                try {
+                  clearOptimisticBookingState(finalKey);
+                  if (reservationKey && finalKey && reservationKey !== finalKey) {
+                    clearOptimisticBookingState(reservationKey);
+                  }
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic booking state after on-chain reservation denial:', err);
+                }
+
+                notifyReservationDenied(addTemporaryNotification, finalKey, { reason: denialReason });
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('reservation-request-denied', {
+                    detail: {
+                      requestId: intentId,
+                      reservationKey: finalKey,
+                      labId: variables.tokenId,
+                      start: variables.start,
+                      reason: denialReason,
+                    },
+                  }));
+                }
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
