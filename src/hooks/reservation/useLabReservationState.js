@@ -680,6 +680,7 @@ export function useLabReservationState({
           activeSsoRequest?.reservationKey,
         ].filter(Boolean)
 
+        dismissPendingOnChainToasts(references)
         if (references.length > 0) {
           bookingCacheUpdates.removeOptimisticBooking(references)
         }
