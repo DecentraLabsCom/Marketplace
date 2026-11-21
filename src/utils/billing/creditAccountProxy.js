@@ -44,7 +44,14 @@ export async function proxyCreditAccount(resource, request) {
     })
     if (upstream.status === 404) return NextResponse.json(null, { status: 404 })
     if (!upstream.ok) {
-      return publicErrorResponse({ status: 502, code: 'BILLING_UNAVAILABLE', message: 'The institutional billing service is temporarily unavailable.', context: 'billing-proxy' })
+      return publicErrorResponse({
+        status: 502,
+        code: 'BILLING_UNAVAILABLE',
+        message: 'The institutional billing service is temporarily unavailable.',
+        error: new Error(`Institutional billing backend returned HTTP ${upstream.status}`),
+        context: 'billing-proxy',
+        fields: { upstreamStatus: upstream.status },
+      })
     }
     return NextResponse.json(await upstream.json(), { status: 200 })
   } catch (error) {
