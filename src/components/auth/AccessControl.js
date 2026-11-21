@@ -31,7 +31,9 @@ export default function AccessControl({
   } = useUser();
   const router = useRouter();
   const isInstitutionRegistrationPending =
-    isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
+    requireProvider &&
+    isSSO &&
+    (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
 
   const isFaculty = () => {
     if (!isSSO || !user) return false;

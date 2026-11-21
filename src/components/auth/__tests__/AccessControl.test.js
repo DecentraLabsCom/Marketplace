@@ -44,6 +44,48 @@ describe("AccessControl", () => {
     expect(screen.queryByText("Protected Content")).not.toBeInTheDocument();
   });
 
+  test("allows authenticated SSO pages while institution registration resolves", () => {
+    useUser.mockReturnValue({
+      ...baseUser,
+      isLoggedIn: true,
+      isSSO: true,
+      user: { email: "user@university.edu" },
+      isInstitutionRegistrationLoading: true,
+      institutionRegistrationStatus: "checking",
+    });
+
+    render(
+      <AccessControl>
+        <div>Protected Content</div>
+      </AccessControl>
+    );
+
+    expect(screen.getByText("Protected Content")).toBeInTheDocument();
+    expect(screen.queryByText(/connecting/i)).not.toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  test("keeps provider pages waiting for institution registration", () => {
+    useUser.mockReturnValue({
+      ...baseUser,
+      isLoggedIn: true,
+      isSSO: true,
+      user: { email: "faculty@university.edu", role: "Faculty" },
+      isInstitutionRegistrationLoading: true,
+      institutionRegistrationStatus: "checking",
+    });
+
+    render(
+      <AccessControl requireProvider>
+        <div>Provider Dashboard</div>
+      </AccessControl>
+    );
+
+    expect(screen.getByText(/connecting/i)).toBeInTheDocument();
+    expect(screen.queryByText("Provider Dashboard")).not.toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   test("renders children for logged-in users", () => {
     useUser.mockReturnValue({ ...baseUser, isLoggedIn: true });
 
