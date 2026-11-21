@@ -82,7 +82,7 @@ function UserDataCore({ children }) {
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     // Institutional onboarding state (WebAuthn credential at IB)
-    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
+    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'unavailable'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
     const onboardingStableUserIdRef = useRef(null);
     const samlReauthenticationStartedRef = useRef(false);
@@ -159,9 +159,9 @@ function UserDataCore({ children }) {
 
                 if (cancelled) return;
 
-                if (!statusResponse.ok && statusResponse.status !== 404) {
+                if (!statusResponse.ok) {
                     devLog.warn('[InstitutionalOnboarding] Status fetch failed:', statusResponse.status);
-                    setInstitutionalOnboardingStatus('advisory');
+                    setInstitutionalOnboardingStatus('unavailable');
                     setShowOnboardingModal(true);
                     return;
                 }
@@ -172,7 +172,14 @@ function UserDataCore({ children }) {
 
                 if (!stableUserId) {
                     devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
-                    setInstitutionalOnboardingStatus('advisory');
+                    setInstitutionalOnboardingStatus('unavailable');
+                    setShowOnboardingModal(true);
+                    return;
+                }
+
+                if (typeof statusData.hasCredential !== 'boolean') {
+                    devLog.warn('[InstitutionalOnboarding] Status response did not confirm credential presence');
+                    setInstitutionalOnboardingStatus('unavailable');
                     setShowOnboardingModal(true);
                     return;
                 }
@@ -183,23 +190,6 @@ function UserDataCore({ children }) {
                 };
 
                 if (cancelled) return;
-
-                // 404 means not onboarded yet
-                if (statusResponse.status === 404) {
-                    devLog.log('[InstitutionalOnboarding] User needs onboarding');
-                    setInstitutionalOnboardingStatus('required');
-                    setShowOnboardingModal(true);
-                    return;
-                }
-
-                if (!statusResponse.ok) {
-                    // Backend returned an unexpected status. Show a non-blocking modal so
-                    // users on new browsers/devices still receive onboarding guidance.
-                    devLog.warn('[InstitutionalOnboarding] Status check failed, showing advisory modal:', statusResponse.status);
-                    setInstitutionalOnboardingStatus('advisory');
-                    setShowOnboardingModal(true);
-                    return;
-                }
 
                 // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
@@ -222,15 +212,15 @@ function UserDataCore({ children }) {
                     return;
                 }
 
-                // User needs onboarding - show modal
-                devLog.log('[InstitutionalOnboarding] User needs onboarding');
+                // Registration is needed only after the backend confirms no credential.
+                devLog.log('[InstitutionalOnboarding] Backend confirmed no credential');
                 setInstitutionalOnboardingStatus('required');
                 setShowOnboardingModal(true);
 
             } catch (error) {
                 devLog.warn('[InstitutionalOnboarding] Check failed:', error);
-                // Fallback to advisory so user can still register a passkey on this browser/device.
-                setInstitutionalOnboardingStatus('advisory');
+                // A failed check cannot establish that the user has no passkey.
+                setInstitutionalOnboardingStatus('unavailable');
                 setShowOnboardingModal(true);
             }
         };
@@ -713,7 +703,7 @@ export function UserData({ children }) {
  * @returns {boolean} returns.isSSO - Whether user is authenticated via SSO
  * @returns {Object|null} returns.user - User data object
  * @returns {boolean} returns.isLoading - General loading state for user data
- * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'error'
+ * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'unavailable', 'error'
  * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
  * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding
  * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding

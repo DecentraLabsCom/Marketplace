@@ -25,6 +25,7 @@ jest.mock('@/hooks/user/useInstitutionalOnboarding', () => ({
     COMPLETED: 'completed',
     FAILED: 'failed',
     NO_BACKEND: 'no_backend',
+    STATUS_UNAVAILABLE: 'status_unavailable',
   },
 }))
 
@@ -109,7 +110,7 @@ describe('InstitutionalOnboardingModal', () => {
       render(<InstitutionalOnboardingModal {...defaultProps} />)
 
       expect(screen.getByTestId('modal')).toBeInTheDocument()
-      expect(screen.getByText('Account Setup')).toBeInTheDocument()
+      expect(screen.getByText('Checking your access')).toBeInTheDocument()
     })
 
     it('renders advisory content when keyStatus indicates passkey lives on another device', () => {

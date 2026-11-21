@@ -15,7 +15,6 @@ export async function GET() {
       `${context.backendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(context.stableUserId)}?institutionId=${encodeURIComponent(context.institutionId)}`,
       { headers: await createOnboardingBackendHeaders(context), cache: 'no-store' },
     )
-    if (upstream.status === 404) return NextResponse.json({ ...publicOnboardingMeta(context), hasCredential: false }, { status: 404 })
     if (!upstream.ok) {
       return publicErrorResponse({
         status: 502,
@@ -26,9 +25,18 @@ export async function GET() {
       })
     }
     const data = await upstream.json()
+    if (typeof data?.hasCredential !== 'boolean') {
+      return publicErrorResponse({
+        status: 502,
+        code: 'ONBOARDING_STATUS_UNAVAILABLE',
+        message: 'The onboarding status could not be checked.',
+        error: new Error('Institutional onboarding backend returned an invalid credential status.'),
+        context: 'onboarding-key-status',
+      })
+    }
     return NextResponse.json({
       ...publicOnboardingMeta(context),
-      hasCredential: Boolean(data?.hasCredential),
+      hasCredential: data.hasCredential,
       hasPlatformCredential: typeof data?.hasPlatformCredential === 'boolean' ? data.hasPlatformCredential : null,
     })
   } catch (error) {

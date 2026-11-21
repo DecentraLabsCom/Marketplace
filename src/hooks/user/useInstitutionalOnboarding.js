@@ -33,6 +33,7 @@ export const OnboardingState = {
   COMPLETED: 'completed',
   FAILED: 'failed',
   NO_BACKEND: 'no_backend',
+  STATUS_UNAVAILABLE: 'status_unavailable',
 }
 
 const isSessionWarmupError = (status, message) => {
@@ -43,8 +44,6 @@ const isSessionWarmupError = (status, message) => {
     normalized.includes('institutional onboarding')
   )
 }
-
-const isStatusCheckUnavailable = (status) => status >= 500 && status <= 599
 
 const ONBOARDING_POPUP_MESSAGE_TYPE = 'institutional-onboarding'
 
@@ -128,48 +127,37 @@ export function useInstitutionalOnboarding({
     setState(OnboardingState.CHECKING)
     setError(null)
 
+    const markStatusUnavailable = () => {
+      setState(OnboardingState.STATUS_UNAVAILABLE)
+      setError(null)
+      setKeyStatus(null)
+      setIsOnboarded(null)
+      return {
+        needed: false,
+        unavailable: true,
+        reason: 'Status temporarily unavailable',
+        transient: true,
+      }
+    }
+
     try {
       const statusResponse = await fetch('/api/onboarding/webauthn/key-status', {
         method: 'GET',
         credentials: 'include',
       })
 
-      if (!statusResponse.ok && statusResponse.status !== 404) {
+      if (!statusResponse.ok) {
         const err = await statusResponse.json().catch(() => ({}))
         const message = err.error || `Status fetch failed: ${statusResponse.status}`
 
-        // Right after SSO callback, cookie/session propagation can be briefly delayed.
-        // Keep onboarding in REQUIRED mode instead of failing the whole modal.
         if (isSessionWarmupError(statusResponse.status, message)) {
-          devLog.warn('[useInstitutionalOnboarding] Session still warming up, keeping onboarding required')
-          setState(OnboardingState.REQUIRED)
-          setIsOnboarded(false)
-          setError(null)
-          return {
-            needed: true,
-            backendUrl: institutionBackendUrl,
-            reason: 'Session still initializing',
-            transient: true,
-          }
+          devLog.warn('[useInstitutionalOnboarding] SSO session is not ready for a status check')
+        } else {
+          devLog.warn('[useInstitutionalOnboarding] Status check unavailable:', statusResponse.status)
         }
 
-        // key-status is an optimization. If the institutional status check is
-        // temporarily unavailable, keep the registration path open and let
-        // the preparation request retry the backend operation.
-        if (isStatusCheckUnavailable(statusResponse.status)) {
-          devLog.warn('[useInstitutionalOnboarding] Status check unavailable, keeping onboarding required')
-          setState(OnboardingState.REQUIRED)
-          setIsOnboarded(false)
-          setError(null)
-          return {
-            needed: true,
-            backendUrl: institutionBackendUrl,
-            reason: 'Status temporarily unavailable',
-            transient: true,
-          }
-        }
-
-        throw new Error(message)
+        // A failed lookup cannot confirm that the credential is missing.
+        return markStatusUnavailable()
       }
 
       const statusData = await statusResponse.json()
@@ -180,64 +168,53 @@ export function useInstitutionalOnboarding({
       }
 
       if (!stableUserId) {
-        throw new Error('Cannot determine stable user ID')
+        devLog.warn('[useInstitutionalOnboarding] Status response did not include a stable user ID')
+        return markStatusUnavailable()
       }
 
-      // If endpoint doesn't exist or returns 404, assume not onboarded yet
-      if (statusResponse.status === 404) {
-        setState(OnboardingState.REQUIRED)
-        setIsOnboarded(false)
-        return { needed: true, backendUrl: institutionBackendUrl }
-      }
-
-      if (!statusResponse.ok) {
-        // Non-404 error - treat as needing onboarding (can't confirm status)
-        devLog.warn('[useInstitutionalOnboarding] Status check failed:', statusResponse.status)
-        setState(OnboardingState.REQUIRED)
-        setIsOnboarded(false)
-        return { needed: true, backendUrl: institutionBackendUrl }
+      if (typeof statusData.hasCredential !== 'boolean') {
+        devLog.warn('[useInstitutionalOnboarding] Status response did not confirm credential presence')
+        return markStatusUnavailable()
       }
 
       // Build initial keyStatus from IB response
       const resolvedKeyStatus = {
-        hasCredential: Boolean(statusData.hasCredential),
+        hasCredential: statusData.hasCredential,
         // IB may optionally report platform credential presence
         hasPlatformCredential: typeof statusData.hasPlatformCredential === 'boolean' ? statusData.hasPlatformCredential : null,
       }
 
+      if (!resolvedKeyStatus.hasCredential) {
+        setKeyStatus(resolvedKeyStatus)
+        setState(OnboardingState.REQUIRED)
+        setIsOnboarded(false)
+        return { needed: true, backendUrl: institutionBackendUrl }
+      }
+
       // If IB reports the user has a credential, rely on browser marker
       // to decide whether this browser has already acknowledged/used it.
-      if (statusData.hasCredential) {
-        const hasMarker = hasBrowserCredentialMarkerVerified(markerPayload)
-        const shouldShowAdvisory = !hasMarker
+      const hasMarker = hasBrowserCredentialMarkerVerified(markerPayload)
+      const shouldShowAdvisory = !hasMarker
 
-        // New browser for this user/institution: force advisory until acknowledged here.
-        if (shouldShowAdvisory) {
-          resolvedKeyStatus.hasPlatformCredential = false
-          setKeyStatus(resolvedKeyStatus)
-          setState(OnboardingState.NOT_NEEDED)
-          setIsOnboarded(true)
-          return { needed: false, isOnboarded: true }
-        }
-
-        resolvedKeyStatus.hasPlatformCredential = true
+      // New browser for this user/institution: force advisory until acknowledged here.
+      if (shouldShowAdvisory) {
+        resolvedKeyStatus.hasPlatformCredential = false
         setKeyStatus(resolvedKeyStatus)
-        markBrowserCredentialSeen(markerPayload)
         setState(OnboardingState.NOT_NEEDED)
         setIsOnboarded(true)
         return { needed: false, isOnboarded: true }
       }
 
+      resolvedKeyStatus.hasPlatformCredential = true
       setKeyStatus(resolvedKeyStatus)
-      setState(OnboardingState.REQUIRED)
-      setIsOnboarded(false)
-      return { needed: true, backendUrl: institutionBackendUrl }
+      markBrowserCredentialSeen(markerPayload)
+      setState(OnboardingState.NOT_NEEDED)
+      setIsOnboarded(true)
+      return { needed: false, isOnboarded: true }
 
     } catch (err) {
       devLog.error('[useInstitutionalOnboarding] Check failed:', err)
-      setError(err.message)
-      setState(OnboardingState.FAILED)
-      return { needed: false, error: err.message }
+      return markStatusUnavailable()
     }
   }, [isSSO, user, institutionBackendUrl, institutionDomain, markBrowserCredentialSeen])
 

@@ -79,6 +79,7 @@ export function InstitutionalOnboardingModal({
     startOnboarding,
     initiateOnboarding,
     redirectToCeremony,
+    checkOnboardingStatus,
     reset,
   } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: isOpen })
 
@@ -133,6 +134,7 @@ export function InstitutionalOnboardingModal({
         OnboardingState.REDIRECTING,
         OnboardingState.AWAITING_COMPLETION,
         OnboardingState.POLLING,
+        OnboardingState.STATUS_UNAVAILABLE,
       ].includes(state)
 
     if (advisoryNeeded) {
@@ -182,6 +184,14 @@ export function InstitutionalOnboardingModal({
 
     switch (state) {
       case OnboardingState.IDLE:
+      case OnboardingState.CHECKING:
+        return (
+          <div className="flex flex-col items-center py-8">
+            <Spinner size="lg" />
+            <p className="mt-4 text-gray-600">Checking your account status...</p>
+          </div>
+        )
+
       case OnboardingState.REQUIRED:
         return (
           <div className="space-y-4">
@@ -233,14 +243,6 @@ export function InstitutionalOnboardingModal({
                 Set Up Now
               </Button>
             </div>
-          </div>
-        )
-
-      case OnboardingState.CHECKING:
-        return (
-          <div className="flex flex-col items-center py-8">
-            <Spinner size="lg" />
-            <p className="mt-4 text-gray-600">Checking your account status...</p>
           </div>
         )
 
@@ -317,6 +319,31 @@ export function InstitutionalOnboardingModal({
           </div>
         )
 
+      case OnboardingState.STATUS_UNAVAILABLE:
+        return (
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                </svg>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Your institution&apos;s service is temporarily unavailable. You can still browse the Marketplace and view labs, but you can&apos;t book, manage reservations, or start a lab session right now.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="secondary" onClick={handleClose}>
+                Continue browsing
+              </Button>
+              <Button variant="primary" onClick={checkOnboardingStatus}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        )
+
       case OnboardingState.FAILED:
         return (
           <div className="flex flex-col items-center py-8">
@@ -345,6 +372,15 @@ export function InstitutionalOnboardingModal({
     }
   }
 
+  const modalTitle =
+    state === OnboardingState.IDLE || state === OnboardingState.CHECKING
+      ? 'Checking your access'
+      : state === OnboardingState.STATUS_UNAVAILABLE
+        ? 'Temporary service issue'
+        : state === OnboardingState.COMPLETED
+          ? undefined
+          : 'Account Setup'
+
   // Don't render if no backend and not explicitly required
   if (!hasBackend && state === OnboardingState.IDLE) {
     return null
@@ -354,7 +390,7 @@ export function InstitutionalOnboardingModal({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={state === OnboardingState.COMPLETED ? undefined : 'Account Setup'}
+      title={modalTitle}
       size="md"
       // The status check and ceremony preparation are recoverable. Keep the
       // modal dismissible so a slow backend cannot block site navigation.

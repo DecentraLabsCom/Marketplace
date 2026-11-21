@@ -104,9 +104,13 @@ describe('useInstitutionalOnboarding', () => {
 
     it('should handle successful check - onboarding needed', async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          stableUserId: 'user123',
+          institutionId: 'university.edu',
+          hasCredential: false,
+        }),
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -126,7 +130,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
-    it('should keep onboarding available when the status proxy returns 502', async () => {
+    it('does not offer registration when the status proxy returns 502', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 502,
@@ -143,12 +147,12 @@ describe('useInstitutionalOnboarding', () => {
         statusResult = await result.current.checkOnboardingStatus()
       })
 
-      expect(result.current.state).toBe(OnboardingState.REQUIRED)
-      expect(result.current.isOnboarded).toBe(false)
+      expect(result.current.state).toBe(OnboardingState.STATUS_UNAVAILABLE)
+      expect(result.current.isOnboarded).toBeNull()
       expect(result.current.error).toBeNull()
       expect(statusResult).toEqual({
-        needed: true,
-        backendUrl: 'https://backend.example.com',
+        needed: false,
+        unavailable: true,
         reason: 'Status temporarily unavailable',
         transient: true,
       })
@@ -156,9 +160,13 @@ describe('useInstitutionalOnboarding', () => {
 
     it('uses the same-origin key-status proxy without a browser bearer token', async () => {
       mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          stableUserId: 'user123',
+          institutionId: 'university.edu',
+          hasCredential: false,
+        }),
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -339,7 +347,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.noBackend).toBe(true)
     })
 
-    it('should handle fetch errors', async () => {
+    it('should mark status unavailable when fetch errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -349,10 +357,11 @@ describe('useInstitutionalOnboarding', () => {
         statusResult = await result.current.checkOnboardingStatus()
       })
 
-      expect(result.current.state).toBe(OnboardingState.FAILED)
-      expect(result.current.error).toBe('Network error')
+      expect(result.current.state).toBe(OnboardingState.STATUS_UNAVAILABLE)
+      expect(result.current.error).toBeNull()
       expect(statusResult.needed).toBe(false)
-      expect(statusResult.error).toBe('Network error')
+      expect(statusResult.unavailable).toBe(true)
+      expect(statusResult.reason).toBe('Status temporarily unavailable')
     })
   })
 
@@ -743,9 +752,13 @@ describe('useInstitutionalOnboarding', () => {
       window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }))
 
       mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({ stableUserId: 'user123', institutionId: 'university.edu' }),
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          stableUserId: 'user123',
+          institutionId: 'university.edu',
+          hasCredential: false,
+        }),
       })
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -770,7 +783,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(storedSession).not.toHaveProperty('backendAuthToken')
     })
 
-    it('should continue to ceremony preparation after a transient status failure', async () => {
+    it('does not start registration when the credential status is unavailable', async () => {
       window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }))
 
       mockFetch.mockResolvedValueOnce({
@@ -795,12 +808,10 @@ describe('useInstitutionalOnboarding', () => {
         flowResult = await result.current.startOnboarding()
       })
 
-      expect(flowResult.redirecting).toBe(true)
-      expect(flowResult.ceremonyUrl).toBe('https://ceremony.example.com')
-      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/onboarding/webauthn/options', {
-        method: 'POST',
-        credentials: 'include',
-      })
+      expect(flowResult.reason).toBe('Status temporarily unavailable')
+      expect(result.current.state).toBe(OnboardingState.STATUS_UNAVAILABLE)
+      expect(window.open).not.toHaveBeenCalled()
+      expect(mockFetch).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -808,15 +819,15 @@ describe('useInstitutionalOnboarding', () => {
     it('should reset all state', async () => {
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
 
-      // Mock session endpoint to fail to put hook in FAILED state
+      // Mock the status endpoint to fail and put the hook in STATUS_UNAVAILABLE state
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
         await result.current.checkOnboardingStatus()
       })
 
-      // Verify we're in FAILED state
-      expect(result.current.state).toBe(OnboardingState.FAILED)
+      // Verify the status check is unavailable before resetting
+      expect(result.current.state).toBe(OnboardingState.STATUS_UNAVAILABLE)
 
       act(() => {
         result.current.reset()
