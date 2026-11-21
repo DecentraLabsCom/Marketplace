@@ -113,6 +113,27 @@ export async function GET(request) {
       renterAddress === sentinelAddress;
     const effectiveExists = exists && !invalidReservation;
 
+    // Check for existing session evidence only after an access-authorized
+    // reservation's window has ended. This is a read-only contract call.
+    let sessionStartRecorded = null;
+    const reservationEnd = Number(reservationData.end);
+    const accessWindowHasEnded =
+      status === 2 &&
+      Number.isFinite(reservationEnd) &&
+      reservationEnd > 0 &&
+      reservationEnd <= Math.floor(Date.now() / 1000);
+
+    if (effectiveExists && accessWindowHasEnded && typeof contract.hasReservationSessionStarted === 'function') {
+      try {
+        sessionStartRecorded = Boolean(await contract.hasReservationSessionStarted(reservationKey));
+      } catch (sessionReadError) {
+        devLog.warn('Session-start evidence unavailable for reservation:', {
+          reservationKeyPreview: `${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`,
+          error: sessionReadError?.shortMessage || sessionReadError?.message,
+        });
+      }
+    }
+
     // Determine reservation state
     let reservationState;
     let isConfirmed = false;
@@ -178,6 +199,7 @@ export async function GET(request) {
         payerInstitution: payerInstitutionAddress,
         collectorInstitution: collectorInstitutionAddress,
         providerShare: reservationData.providerShare?.toString() || null,
+        sessionStartRecorded,
         cancellationPreview,
         reservationState: reservationState,
         isPending: status === 0,

@@ -176,7 +176,7 @@ export const getBookingStatusText = (booking) => {
   }
 
   if (isTemporallyCompletedBooking(booking)) {
-    return 'Completed'
+    return booking.sessionStartRecorded === false ? 'No session recorded' : 'Completed'
   }
 
   const semanticState = normalizeBookingStatusState(booking)
@@ -237,6 +237,14 @@ export const getBookingStatusDisplay = (booking) => {
   }
 
   if (isTemporallyCompletedBooking(booking)) {
+    if (booking.sessionStartRecorded === false) {
+      return {
+        text: "No session recorded",
+        className: "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border",
+        icon: faClock
+      }
+    }
+
     return {
       text: "Completed",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",

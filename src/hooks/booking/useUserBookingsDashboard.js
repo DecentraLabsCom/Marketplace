@@ -226,6 +226,7 @@ export const useUserBookingsDashboard = ({
       price,
       payerInstitution,
       collectorInstitution,
+      sessionStartRecorded: typeof r.sessionStartRecorded === 'boolean' ? r.sessionStartRecorded : null,
       cancellationPreview: r.cancellationPreview || null,
       statusCategory,
       start: startTime,
@@ -479,7 +480,9 @@ export const useUserBookingsDashboard = ({
         else if ((status === 1 || status === 2) && start <= now && now <= end) action = 'Active';
         else if ((status === 1 || status === 2) && start > now) action = 'Upcoming';
         else if (status === 1 && end < now) action = 'Expired';
-        else if (status === 2 && end < now) action = 'Completed';
+        else if (status === 2 && end < now) {
+          action = booking.sessionStartRecorded === false ? 'No session recorded' : 'Completed';
+        }
         else if (status === 0) action = 'Pending';
 
         // Safely format date
