@@ -54,7 +54,7 @@
     "@tanstack/react-query-devtools": "^5.104.5",
     "@tanstack/react-query-persist-client": "^5.107.1",
     "@vercel/analytics": "^2.0.1",
-    "@vercel/blob": "^2.8.0",
+    "@vercel/blob": "^2.9.0",
     "@xmldom/xmldom": "^0.9.12",
     "cookie": "^2.0.1",
     "date-fns": "^4.4.0",
