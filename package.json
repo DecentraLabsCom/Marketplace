@@ -59,7 +59,7 @@
     "i18n-iso-countries": "^7.14.0",
     "jose": "^6.2.12",
     "jsonwebtoken": "^9.0.3",
-    "lucide-react": "^1.50.0",
+    "lucide-react": "^1.80.0",
     "next": "^16.4.6",
     "prop-types": "^15.8.1",
     "react": "^19.3.1",
