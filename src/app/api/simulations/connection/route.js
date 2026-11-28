@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createRateLimiter, createRateLimitResponse } from '@/utils/api/rateLimit'
 import { GatewayValidationError, buildGatewayTargetUrl, gatewayFetch, resolveLabAccessGateway } from '@/utils/api/gatewayProxy'
 import { requireFmuResourceContext, resolveFmuGatewayHeaders } from '@/utils/auth/fmuGatewayContext'
-import { isValidConnectionConfig } from '@decentralabs/digital-twin-app-protocol'
 import { publicErrorResponse } from '@/utils/security/publicError'
+import { validateGatewayConnectionGrant } from '@/utils/fmu/validateGatewayConnectionGrant'
 
 const checkRate = createRateLimiter({ operation: 'fmu-connection', windowMs: 60_000, maxRequests: 10 })
 
@@ -33,15 +33,11 @@ export async function POST(request) {
       cache: 'no-store', signal: request.signal,
     })
     if (!upstream.ok) throw new GatewayValidationError('The provider could not authorize the FMU session.', upstream.status)
-    const connection = await upstream.json()
-    if (!isValidConnectionConfig(connection)) throw new GatewayValidationError('Invalid provider connection grant.', 502)
-    const endpoint = new URL(connection.gatewayWsUrl)
-    const gateway = new URL(gatewayBaseUrl)
-    if (endpoint.host !== gateway.host || endpoint.protocol !== (gateway.protocol === 'https:' ? 'wss:' : 'ws:')
-      || endpoint.pathname !== '/fmu/api/v1/fmu/sessions' || connection.labId !== String(labId)
-      || connection.reservationKey.toLowerCase() !== reservationKey.toLowerCase() || connection.ticketExpiresAt <= Date.now() / 1000) {
-      throw new GatewayValidationError('The provider connection grant does not match this reservation.', 502)
-    }
+    const connection = validateGatewayConnectionGrant(await upstream.json(), {
+      gatewayBaseUrl,
+      labId,
+      reservationKey,
+    })
     return NextResponse.json(connection, { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } })
   } catch (error) {
     return publicErrorResponse({ status: error instanceof GatewayValidationError ? error.status : 500,

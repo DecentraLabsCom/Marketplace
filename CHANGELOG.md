@@ -50,6 +50,14 @@ browser behavior.
 
 ### Authentication
 
+- Added a device authorization flow for reserved IC2IS2 experiments at
+  `/api/ic2is2/device` using short-lived verification codes and PKCE.
+  `gateway_fmu_session` is the first supported capability. Approval requires
+  an authenticated Marketplace session, an FMU resource, and the matching
+  reservation context. The Gateway ticket is redeemed once by the IC2IS2
+  client. A signed-in user can deny a request by code without opening the
+  reservation. Validation with a deployed provider and a real reservation
+  remains pending.
 - Kept SSO users from unregistered institutions in the Marketplace. The User
   Dashboard now shows a dismissible registration notice each time it is opened
   and provides a catalogue link instead of attempting to load unavailable
