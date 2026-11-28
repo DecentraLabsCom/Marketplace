@@ -67,5 +67,3 @@ export const envUtils = {
            !process.env.VERCEL_URL;
   }
 };
-
-export default getBaseUrl;

@@ -1,0 +1,108 @@
+{
+  "name": "@decentralabs/digital-twin-app-protocol",
+  "version": "2.1.0",
+  "description": "Host authorization, batch HTTP stream and direct FMU WebSocket clients for provider apps.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DecentraLabsCom/Marketplace.git",
+    "directory": "packages/digital-twin-app-protocol"
+  },
+  "homepage": "https://github.com/DecentraLabsCom/Marketplace/tree/main/packages/digital-twin-app-protocol#readme",
+  "bugs": {
+    "url": "https://github.com/DecentraLabsCom/Marketplace/issues"
+  },
+  "browserBundleFile": "index.js",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./client": {
+      "types": "./client.d.ts",
+      "import": "./client.js",
+      "default": "./client.js"
+    },
+    "./parameter-defaults": {
+      "types": "./parameter-defaults.d.ts",
+      "import": "./parameter-defaults.js",
+      "default": "./parameter-defaults.js"
+    },
+    "./batch-controller": {
+      "types": "./batch-controller.d.ts",
+      "import": "./batch-controller.js",
+      "default": "./batch-controller.js"
+    },
+    "./simulation-stream": {
+      "types": "./simulation-stream.d.ts",
+      "import": "./simulation-stream.js",
+      "default": "./simulation-stream.js"
+    },
+    "./input-update-quota": {
+      "types": "./input-update-quota.d.ts",
+      "import": "./input-update-quota.js",
+      "default": "./input-update-quota.js"
+    },
+    "./model-structure": {
+      "types": "./model-structure.d.ts",
+      "import": "./model-structure.js",
+      "default": "./model-structure.js"
+    },
+    "./simulation-options": {
+      "types": "./simulation-options.d.ts",
+      "import": "./simulation-options.js",
+      "default": "./simulation-options.js"
+    },
+    "./scene-presentation": {
+      "types": "./scene-presentation.d.ts",
+      "import": "./scene-presentation.js",
+      "default": "./scene-presentation.js"
+    },
+    "./fmi-scene-bindings": {
+      "types": "./fmi-scene-bindings.d.ts",
+      "import": "./fmi-scene-bindings.js",
+      "default": "./fmi-scene-bindings.js"
+    },
+    "./scene-presentation-schema": "./scene-presentation.schema.json",
+    "./schema-v2": "./schema-v2.json",
+    "./fmu-client": {
+      "types": "./fmu-client.d.ts",
+      "import": "./fmu-client.js",
+      "default": "./fmu-client.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "client.js",
+    "client.d.ts",
+    "parameter-defaults.js",
+    "parameter-defaults.d.ts",
+    "batch-controller.js",
+    "batch-controller.d.ts",
+    "simulation-stream.js",
+    "simulation-stream.d.ts",
+    "input-update-quota.js",
+    "input-update-quota.d.ts",
+    "model-structure.js",
+    "model-structure.d.ts",
+    "simulation-options.js",
+    "simulation-options.d.ts",
+    "README.md",
+    "LICENSE.txt",
+    "schema-v2.json",
+    "fmu-client.js",
+    "fmu-client.d.ts",
+    "scene-presentation.js",
+    "scene-presentation.d.ts",
+    "fmi-scene-bindings.js",
+    "fmi-scene-bindings.d.ts",
+    "scene-presentation.schema.json"
+  ],
+  "sideEffects": false,
+  "browserClientFile": "client.js"
+}

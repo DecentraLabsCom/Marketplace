@@ -20,13 +20,27 @@ describe('browser security policy', () => {
     expect(policy).not.toContain('unsafe-eval')
   })
 
-  test('accepts deployment-supplied exact origins for dynamic browser connections and frames', () => {
+  test('keeps configured connections in the baseline and scopes simulation sources to that page', () => {
     process.env.CSP_CONNECT_SRC = 'https://institution.example,https://rpc.example'
     process.env.CSP_FRAME_SRC = 'https://docs.example'
 
     const policy = buildContentSecurityPolicy({ nonce: 'nonce-value' })
+    const simulationPolicy = buildContentSecurityPolicy({
+      nonce: 'nonce-value',
+      additionalConnectSources: [
+        'https://gateway.example',
+        'wss://gateway.example',
+        'https://gateway.example;script-src',
+      ],
+    })
 
     expect(policy).toContain('connect-src \'self\' https://institution.example https://rpc.example')
+    expect(policy).not.toContain('connect-src \'self\' blob:')
+    expect(simulationPolicy).toContain(
+      'connect-src \'self\' https://institution.example https://rpc.example https://gateway.example wss://gateway.example',
+    )
+    expect(simulationPolicy).not.toMatch(/connect-src[^;]*blob:/)
+    expect(simulationPolicy).not.toContain('https://gateway.example;script-src')
     expect(policy).toContain("frame-src 'self' https://docs.example")
     expect(policy).not.toContain('connect-src \'self\' https: wss:')
   })

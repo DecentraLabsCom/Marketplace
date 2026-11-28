@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
  * Lightweight client-side clock for UIs that need to react to time windows
  * (for example, bookings moving from upcoming to active).
  */
-export function useCurrentTime({ intervalMs = 60000 } = {}) {
+function useCurrentTime({ intervalMs = 60000 } = {}) {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {

@@ -51,6 +51,13 @@ const LabBookingItem = React.memo(function LabBookingItem({
     // exposing it here would create a button that the Diamond must reject.
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
     const isAccessAuthorized = booking.status === "2" || booking.status === 2;
+    const isEndedAccessWindow =
+      isAccessAuthorized && endTimeUnix !== null && endTimeUnix <= now;
+    const sessionStatusText = booking.sessionStartRecorded === true
+      ? "Session start recorded"
+      : booking.sessionStartRecorded === false
+        ? "No session start recorded"
+        : "Session-start record unavailable";
     const isTemporallyActive =
       startTimeUnix !== null &&
       endTimeUnix !== null &&
@@ -100,6 +107,11 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 <div className="text-gray-500 text-xs">
                     Provider: {lab.provider}
                 </div>
+                {isEndedAccessWindow && (
+                    <div className="text-gray-500 text-xs" aria-live="polite">
+                        {sessionStatusText}
+                    </div>
+                )}
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0 items-center">
                 {/* Reservation Status */}
@@ -169,6 +181,7 @@ LabBookingItem.propTypes = {
     booking: PropTypes.shape({
         id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         status: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        sessionStartRecorded: PropTypes.bool,
         hasEnded: PropTypes.bool,
         requestDate: PropTypes.string,
         endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number])

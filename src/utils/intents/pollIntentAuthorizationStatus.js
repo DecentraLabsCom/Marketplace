@@ -4,7 +4,7 @@
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function pollIntentAuthorizationStatus(sessionId, {
+async function pollIntentAuthorizationStatus(sessionId, {
   backendUrl = null,
   authToken,
   signal,

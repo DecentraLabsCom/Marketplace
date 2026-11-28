@@ -41,7 +41,7 @@ export function resolveSupportedTimezones() {
       if (Array.isArray(values) && values.length > 0) {
         return values
       }
-    } catch (error) {
+    } catch {
       // Ignore and fall back to defaults.
     }
   }
@@ -55,7 +55,7 @@ export function resolveBrowserTimezone() {
       if (timezone && typeof timezone === 'string') {
         return timezone
       }
-    } catch (error) {
+    } catch {
       // Ignore and fall back to UTC.
     }
   }

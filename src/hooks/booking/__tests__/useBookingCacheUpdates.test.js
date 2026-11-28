@@ -270,73 +270,6 @@ describe("useBookingCacheUpdates", () => {
     });
   });
 
-  describe("Smart Invalidation", () => {
-    test("calls addBooking when action is add", () => {
-      const { result } = renderHook(() => useBookingCacheUpdates(), {
-        wrapper,
-      });
-
-      result.current.smartBookingInvalidation(
-        "0xUser123",
-        "lab-1",
-        mockBooking,
-        "add"
-      );
-
-      const allBookings = queryClient.getQueryData(["bookings", "all"]);
-      expect(allBookings).toContain(mockBooking);
-    });
-
-    test("calls updateBooking when action is update", () => {
-      queryClient.setQueryData(["bookings", "all"], [mockBooking]);
-      const { result } = renderHook(() => useBookingCacheUpdates(), {
-        wrapper,
-      });
-
-      const updatedBooking = { ...mockBooking, status: 2 };
-      result.current.smartBookingInvalidation(
-        "0xUser123",
-        "lab-1",
-        updatedBooking,
-        "update"
-      );
-
-      const allBookings = queryClient.getQueryData(["bookings", "all"]);
-      expect(allBookings[0].status).toBe(2);
-    });
-
-    test("calls removeBooking when action is remove", () => {
-      queryClient.setQueryData(["bookings", "all"], [mockBooking]);
-      const { result } = renderHook(() => useBookingCacheUpdates(), {
-        wrapper,
-      });
-
-      result.current.smartBookingInvalidation(
-        "0xUser123",
-        "lab-1",
-        mockBooking,
-        "remove"
-      );
-
-      const allBookings = queryClient.getQueryData(["bookings", "all"]);
-      expect(allBookings).toEqual([]);
-    });
-
-    test("handles smart invalidation without action parameter", () => {
-      const { result } = renderHook(() => useBookingCacheUpdates(), {
-        wrapper,
-      });
-
-      expect(() => {
-        result.current.smartBookingInvalidation(
-          "0xUser123",
-          "lab-1",
-          mockBooking
-        );
-      }).not.toThrow();
-    });
-  });
-
   describe("Edge Cases", () => {
     test("handles booking without userAddress", () => {
       const bookingNoUser = { ...mockBooking, userAddress: undefined };
@@ -362,19 +295,6 @@ describe("useBookingCacheUpdates", () => {
       expect(allBookings).toHaveLength(1);
     });
 
-    test("handles null booking data in smart invalidation", () => {
-      const { result } = renderHook(() => useBookingCacheUpdates(), {
-        wrapper,
-      });
 
-      expect(() => {
-        result.current.smartBookingInvalidation(
-          "0xUser123",
-          "lab-1",
-          null,
-          "add"
-        );
-      }).not.toThrow();
-    });
   });
 });

@@ -104,9 +104,10 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         fmiVersion: data.fmiVersion || '',
         simulationType: data.simulationType || '',
         modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
-        ...(data.defaultStartTime != null && { defaultStartTime: data.defaultStartTime }),
-        ...(data.defaultStopTime != null && { defaultStopTime: data.defaultStopTime }),
-        ...(data.defaultStepSize != null && { defaultStepSize: data.defaultStepSize }),
+        fmiLsStruct: data.fmiLsStruct || null,
+        defaultStartTime: data.defaultStartTime ?? null,
+        defaultStopTime: data.defaultStopTime ?? null,
+        defaultStepSize: data.defaultStepSize ?? null,
       })
       setDescribeFetch({ loading: false, error: null, fetched: true })
     } catch (err) {
@@ -327,7 +328,6 @@ LabFormQuickSetup.propTypes = {
   errors: PropTypes.object,
   isLocalURI: PropTypes.bool,
   priceRef: PropTypes.object,
-  authRef: PropTypes.object,
   accessURIRef: PropTypes.object,
   accessKeyRef: PropTypes.object,
   uriRef: PropTypes.object,

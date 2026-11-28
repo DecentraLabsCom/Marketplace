@@ -1,0 +1,85 @@
+// Keep these simulation-tool fallbacks aligned with FMU-Executor/app/simulation_defaults.py.
+const FALLBACK_SIMULATION_OPTIONS = Object.freeze({
+  startTime: 0,
+  stopDuration: 1,
+  stepSize: 0.001,
+})
+
+function parseOptionalFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * FMI DefaultExperiment values are optional. Use them when present and valid,
+ * then fill any missing values with simulation-tool defaults.
+ */
+export function getInitialSimulationOptions(fmuMetadata = {}) {
+  const startTime = parseOptionalFiniteNumber(fmuMetadata.defaultStartTime)
+    ?? FALLBACK_SIMULATION_OPTIONS.startTime
+  const declaredStopTime = parseOptionalFiniteNumber(fmuMetadata.defaultStopTime)
+  const stopTime = declaredStopTime !== null && declaredStopTime > startTime
+    ? declaredStopTime
+    : startTime + FALLBACK_SIMULATION_OPTIONS.stopDuration
+  const declaredStepSize = parseOptionalFiniteNumber(fmuMetadata.defaultStepSize)
+  const stepSize = declaredStepSize !== null && declaredStepSize > 0
+    ? declaredStepSize
+    : FALLBACK_SIMULATION_OPTIONS.stepSize
+
+  return { startTime, stopTime, stepSize }
+}
+
+/** Resolve the effective GLB start time from resume state, experiment, and lab metadata. */
+export function resolveEffectiveSimulationStartTime({
+  defaultStartTime,
+  experimentStartTime,
+  checkpointTime,
+} = {}) {
+  return parseOptionalFiniteNumber(checkpointTime)
+    ?? parseOptionalFiniteNumber(experimentStartTime)
+    ?? parseOptionalFiniteNumber(defaultStartTime)
+    ?? FALLBACK_SIMULATION_OPTIONS.startTime
+}
+
+export function getSimulationOptionsError(options, { includeStepSize = true, requireStopTime = true } = {}) {
+  const startTime = parseOptionalFiniteNumber(options?.startTime)
+  if (startTime === null) return 'Enter a finite start time.'
+
+  const stopIsBlank = options?.stopTime === null || options?.stopTime === undefined
+    || (typeof options.stopTime === 'string' && options.stopTime.trim() === '')
+  const stopTime = parseOptionalFiniteNumber(options?.stopTime)
+  if (!stopIsBlank && stopTime === null) return 'Enter a finite stop time or leave it blank.'
+  if (requireStopTime && stopTime === null) return 'Enter a finite stop time for batch execution.'
+  if (stopTime !== null && stopTime <= startTime) return 'Stop time must be greater than start time.'
+
+  if (includeStepSize) {
+    const stepSize = parseOptionalFiniteNumber(options?.stepSize)
+    if (stepSize === null || stepSize <= 0) return 'Step size must be greater than zero.'
+  }
+
+  const toleranceIsSet = options?.tolerance !== null && options?.tolerance !== undefined
+    && !(typeof options.tolerance === 'string' && options.tolerance.trim() === '')
+  if (toleranceIsSet) {
+    const tolerance = typeof options.tolerance === 'boolean' ? null : parseOptionalFiniteNumber(options.tolerance)
+    if (tolerance === null || tolerance <= 0) return 'Relative tolerance must be finite and greater than zero.'
+  }
+
+  return ''
+}
+
+export function normalizeSimulationTimeOptions(options, { includeStepSize = true, requireStopTime = true } = {}) {
+  const error = getSimulationOptionsError(options, { includeStepSize, requireStopTime })
+  if (error) throw new Error(error)
+
+  return {
+    startTime: Number(options.startTime),
+    ...(parseOptionalFiniteNumber(options.stopTime) !== null
+      ? { stopTime: parseOptionalFiniteNumber(options.stopTime) }
+      : {}),
+    ...(includeStepSize ? { stepSize: Number(options.stepSize) } : {}),
+    ...(options.tolerance === null || options.tolerance === undefined || options.tolerance === ''
+      ? {}
+      : { tolerance: Number(options.tolerance) }),
+  }
+}

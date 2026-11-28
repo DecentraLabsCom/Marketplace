@@ -154,5 +154,3 @@ export async function getMarketCatalogueSnapshot({
     metrics: mergeMetrics(sourceSnapshots),
   }
 }
-
-export { MARKET_CATALOGUE_STATUS }

@@ -71,5 +71,3 @@ export async function reconcileTrackedIntents(options = {}) {
 
   return activeReconciliation
 }
-
-export default { reconcileTrackedIntents }

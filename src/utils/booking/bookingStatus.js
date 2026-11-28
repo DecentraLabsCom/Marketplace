@@ -166,15 +166,6 @@ export const isAccessAuthorizedBooking = (booking) => {
 }
 
 /**
- * Check if a booking is collected
- * @param {Object} booking - Booking object
- * @returns {boolean} True if booking is collected
- */
-export const isCollectedBooking = (booking) => {
-  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.COLLECTED
-}
-
-/**
  * Get human-readable status text for UI display
  * @param {Object} booking - Booking object
  * @returns {string} Human-readable status
@@ -185,7 +176,7 @@ export const getBookingStatusText = (booking) => {
   }
 
   if (isTemporallyCompletedBooking(booking)) {
-    return 'Completed'
+    return booking.sessionStartRecorded === false ? 'No session recorded' : 'Completed'
   }
 
   const semanticState = normalizeBookingStatusState(booking)
@@ -246,6 +237,14 @@ export const getBookingStatusDisplay = (booking) => {
   }
 
   if (isTemporallyCompletedBooking(booking)) {
+    if (booking.sessionStartRecorded === false) {
+      return {
+        text: "No session recorded",
+        className: "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border",
+        icon: faClock
+      }
+    }
+
     return {
       text: "Completed",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
@@ -374,7 +373,7 @@ export const hasValidDate = (booking) => {
           return true
         }
       }
-    } catch (error) {
+    } catch {
       // Continue to warning below
     }
   }

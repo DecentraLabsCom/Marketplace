@@ -5,7 +5,7 @@ import {
   normalizeWalletAddress,
 } from './provisioningTypedData';
 
-export const PROVISIONING_PAIRING_EIP712_TYPES = Object.freeze({
+const PROVISIONING_PAIRING_EIP712_TYPES = Object.freeze({
   InstitutionProvisioningPairing: [
     { name: 'institutionId', type: 'string' },
     { name: 'walletAddress', type: 'address' },

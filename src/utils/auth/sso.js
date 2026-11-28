@@ -11,7 +11,6 @@ import { deleteServerSession } from './sessionStore'
 import { registerSamlSessionBinding } from './samlSessionStateStore'
 import { resolveInstitutionDomain } from './institutionDomain'
 import { shouldIncludeEduPersonTargetedId } from './puc'
-export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 import { getSamlServiceProviderUrls } from './samlServiceProviderUrls'
 
 let countriesInitialized = false

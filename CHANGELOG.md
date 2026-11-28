@@ -8,6 +8,13 @@ browser behavior.
 
 ## Unreleased
 
+### Maintenance
+
+- Removed unused UI, hooks, booking/date helpers, wallet/staking remnants,
+  test scaffolding, public SVG assets and obsolete provider mutation routes.
+- Pruned unused dependencies and exports, declared ESLint's direct dependencies
+  and enabled warnings for unused JavaScript variables and imports.
+
 ### Catalogue
 
 - Suppressed routine refresh notices and limited stale-data warnings to
@@ -19,6 +26,17 @@ browser behavior.
 
 ### Simulation
 
+- Replaced the generic browser simulation panel for FMUs without a linked GLB
+  scene or Three.js app with a styled proxy-FMU download guide for external FMI
+  tools, preserving automatic download and adding a retry action.
+- Removed unused generic FMU controls, history/export components and Marketplace
+  execution/history/upload proxy routes. Linked GLB and custom apps continue to
+  execute directly on the provider Gateway; shared qFMU charts remain available.
+- Added batch, step-by-step and continuous live execution modes to generated GLB digital-twin views. Runtime edits are sent at the next step for variables the Gateway permits.
+- Added a real-time (1x) pace for Continuous mode, which follows the wall clock without skipping model steps.
+- Added an opt-in Pace selector for Three.js SDK apps. The SDK applies the user's real-time or fastest choice while app developers retain control of batch strategy.
+- Added generic GLB dragging for nodes bound to writable numeric position inputs, available only during live Step by step and Continuous execution while input markers are shown. Existing `fmiBindings` transforms, FMI limits, Gateway permissions and the interactive-session input path are reused.
+- Added independently toggleable turquoise output markers and yellow writable-input markers to GLB scenes.
 - Added configurable simulation result visualizations: time series, arbitrary
   2D plots, projected 3D trajectories and state-space projections, with
   selectable vector components, axes, colour variable and point tooltips.

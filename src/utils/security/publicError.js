@@ -16,7 +16,7 @@ export const sanitizeErrorForLog = (error) => {
   return redactSensitiveText(message || 'Unknown error').slice(0, MAX_LOG_MESSAGE_LENGTH)
 }
 
-export const sanitizeErrorCauseForLog = (error) => {
+const sanitizeErrorCauseForLog = (error) => {
   const cause = error && typeof error === 'object' ? error.cause : null
   if (!cause || typeof cause !== 'object') return undefined
 
@@ -43,7 +43,7 @@ export const sanitizeErrorCauseForLog = (error) => {
   return Object.keys(safeCause).length > 0 ? safeCause : undefined
 }
 
-export const createCorrelationId = () => randomUUID()
+const createCorrelationId = () => randomUUID()
 
 /**
  * Build a browser-safe API error. Detailed causes are logged in a bounded,
@@ -95,5 +95,3 @@ export function publicErrorResponse({
   })
   return response
 }
-
-export default publicErrorResponse

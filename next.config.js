@@ -13,7 +13,6 @@ const nextConfig = {
   turbopack: {
     resolveAlias: {
       "@": "./src",
-      "@react-native-async-storage/async-storage": "./src/utils/asyncStorageShim.js",
     },
   },
   // If you still need polling for OneDrive during dev, set `CHOKIDAR_USEPOLLING=1` in your environment.
@@ -54,15 +53,20 @@ const nextConfig = {
     const sameOriginDocumentHeaders = [
       { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
     ];
+    const sameOriginDocumentSources = [
+      '/api/metadata/document',
+      '/api/aas/digital-twin-app/:path*',
+      '/api/dev/digital-twin-app/:path*',
+    ];
     return [
       {
         source: '/:path*',
         headers: securityHeaders,
       },
-      {
-        source: '/api/metadata/document',
+      ...sameOriginDocumentSources.map((source) => ({
+        source,
         headers: sameOriginDocumentHeaders,
-      },
+      })),
       ...noStoreSources.map((source) => ({
         source,
         headers: noStoreHeaders,

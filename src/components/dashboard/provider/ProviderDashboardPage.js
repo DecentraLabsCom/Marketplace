@@ -341,13 +341,6 @@ export default function ProviderDashboard() {
 
   const [newLab, setNewLab] = useState(() => createEmptyLabDraft());
   
-  const maxId = useMemo(() => 
-    Array.isArray(ownedLabs) && ownedLabs.length > 0 
-      ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
-      : 0,
-    [ownedLabs]
-  );
-
   const selectedLab = useMemo(() => 
     ownedLabs.find(lab => String(lab.id) === String(selectedLabId)),
     [ownedLabs, selectedLabId]
@@ -1060,7 +1053,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
-          lab={labForModal} providerAuthURI={providerAuthURI} maxId={maxId} key={labForModal?.id || 'new'} />
+          lab={labForModal} providerAuthURI={providerAuthURI} key={labForModal?.id || 'new'} />
       </Container>
     </AccessControl>
   );

@@ -23,7 +23,7 @@ function resolveFallbackAddress() {
   return null;
 }
 
-export function resolveIntentExecutorAddress() {
+function resolveIntentExecutorAddress() {
   const configured = resolveFallbackAddress();
 
   if (!configured) {
@@ -69,8 +69,3 @@ export async function resolveIntentExecutorForInstitution(schacHomeOrganization)
   const executor = await resolveInstitutionBackendExecutor(schacHomeOrganization);
   return executor || resolveIntentExecutorAddress();
 }
-
-export default {
-  resolveIntentExecutorAddress,
-  resolveIntentExecutorForInstitution,
-};

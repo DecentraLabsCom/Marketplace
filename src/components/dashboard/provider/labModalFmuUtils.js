@@ -1,7 +1,7 @@
 import devLog from '@/utils/dev/logger'
 import { buildDirectFmuDescribeUrl } from '@/utils/fmu/describeUrl'
 
-export async function resolveFmuDescribeHeaders(fmuFileName, gatewayUrl) {
+async function resolveFmuDescribeHeaders(fmuFileName, gatewayUrl) {
   if (!fmuFileName || !gatewayUrl) return {}
 
   try {

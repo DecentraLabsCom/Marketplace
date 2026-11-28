@@ -4,9 +4,7 @@ import { getNextIntentNonce } from './intentNonceStore';
 import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
 import { ACTION_CODES } from './actionCodes';
 
-export { ACTION_CODES, INTENT_META_TYPES };
-
-export const RESERVATION_TYPES = {
+const RESERVATION_TYPES = {
   ReservationIntentPayload: [
     { name: 'executor', type: 'address' },
     { name: 'schacHomeOrganization', type: 'string' },
@@ -115,11 +113,3 @@ export async function buildReservationIntent({
     },
   };
 }
-
-export default {
-  ACTION_CODES,
-  INTENT_META_TYPES,
-  RESERVATION_TYPES,
-  hashReservationPayload,
-  buildReservationIntent,
-};

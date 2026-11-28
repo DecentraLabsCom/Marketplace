@@ -198,6 +198,139 @@ describe('GET /api/aas/shell', () => {
     )
   })
 
+  test('returns standard AAS FMI ports enriched with the versioned FMI metadata extension', async () => {
+    const fmiMetadata = {
+      type: 'Float32',
+      causality: 'input',
+      valueReference: 7,
+      variability: 'continuous',
+      start: 0.25,
+      min: 0,
+      max: 1,
+      unit: 'm/s',
+      displayUnit: { name: 'km/h', factor: 3.6, offset: 0 },
+    }
+    const variable = {
+      modelType: 'SubmodelElementCollection',
+      idShort: 'speed',
+      extensions: [{
+        name: 'decentralabs.fmi.variableMetadata.v1',
+        valueType: 'xs:string',
+        value: JSON.stringify(fmiMetadata),
+      }],
+      value: [
+        { modelType: 'Property', idShort: 'VariableName', value: 'speed' },
+        { modelType: 'Property', idShort: 'VariableType', value: 'Real' },
+        { modelType: 'Property', idShort: 'VariableCausality', value: 'Input' },
+        { modelType: 'Property', idShort: 'Range', value: '[0, 1]' },
+        { modelType: 'Property', idShort: 'UnitList', value: 'others' },
+        { modelType: 'MultiLanguageProperty', idShort: 'UnitDescription', value: [{ language: 'en', text: 'm/s' }] },
+        { modelType: 'MultiLanguageProperty', idShort: 'VariableDescription', value: [{ language: 'en', text: 'Vehicle speed' }] },
+      ],
+    }
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: shellId,
+        submodels: [{ keys: [{ type: 'Submodel', value: simulationModelsId }] }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: simulationModelsId,
+        idShort: 'SimulationModels',
+        submodelElements: [{
+          modelType: 'SubmodelElementCollection',
+          idShort: 'SimulationModel',
+          value: [{
+            modelType: 'SubmodelElementCollection',
+            idShort: 'Ports',
+            value: [{
+              modelType: 'SubmodelElementCollection',
+              idShort: 'Input',
+              value: [variable],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.simulationVariables).toEqual([{
+      name: 'speed',
+      type: 'Float32',
+      causality: 'input',
+      description: 'Vehicle speed',
+      unit: 'm/s',
+      min: 0,
+      max: 1,
+      valueReference: 7,
+      variability: 'continuous',
+      start: 0.25,
+      displayUnit: { name: 'km/h', factor: 3.6, offset: 0 },
+    }])
+  })
+
+  test.each([
+    [
+      'managed GLB scene',
+      'model/gltf-binary',
+      `/digital-twin-scenes/${LAB_ID}/${'a'.repeat(64)}.glb`,
+      'glb',
+    ],
+    [
+      'managed Three.js application',
+      'text/html',
+      `/digital-twin-apps/${LAB_ID}/${'b'.repeat(64)}/index.html`,
+      'threejs-app',
+    ],
+  ])('discovers a $name from the Handover Documentation File MIME', async (_name, contentType, value, renderer) => {
+    gatewayFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: shellId,
+        submodels: [{ keys: [{ type: 'Submodel', value: handoverDocumentationId }] }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: handoverDocumentationId,
+        idShort: 'HandoverDocumentation',
+        submodelElements: [{
+          idShort: 'Documents',
+          modelType: 'SubmodelElementList',
+          value: [{
+            idShort: 'Document_0',
+            modelType: 'SubmodelElementCollection',
+            value: [{
+              idShort: 'DocumentVersions',
+              modelType: 'SubmodelElementList',
+              value: [{
+                idShort: 'DocumentVersion_0',
+                modelType: 'SubmodelElementCollection',
+                value: [{
+                  idShort: 'DigitalFiles',
+                  modelType: 'SubmodelElementList',
+                  value: [{
+                    idShort: 'DigitalTwinAsset',
+                    modelType: 'File',
+                    contentType,
+                    value,
+                  }],
+                }],
+              }],
+            }],
+          }],
+        }],
+      }), { status: 200 }))
+
+    const response = await getShell(request(`/api/aas/shell?labId=${LAB_ID}`))
+    const body = await responseJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.visualAssets).toEqual([expect.objectContaining({
+      url: value,
+      contentType: contentType,
+      renderer,
+    })])
+  })
+
   test('proxies the raw shell JSON with no-store headers', async () => {
     const shell = {
       modelType: 'AssetAdministrationShell',

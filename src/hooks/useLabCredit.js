@@ -31,8 +31,6 @@ const tryParseBigInt = (value) => {
   return null
 }
 
-export const clearDecimalsCache = () => {}
-
 async function fetchInstitutionCreditBalance(institutionAddress) {
   const response = await fetch(
     `/api/contract/institution/getInstitutionCreditBalance?institutionAddress=${encodeURIComponent(institutionAddress)}`,
@@ -209,7 +207,6 @@ export function useLabCreditHook() {
     refreshTokenData,
     refetchBalance,
     refetchAllowance: refetchBalance,
-    clearDecimalsCache,
   }
 }
 

@@ -57,9 +57,3 @@ export function extractStableUserId(userData) {
 
   return getNormalizedPucFromSession(userData)
 }
-
-export default {
-  OnboardingStatus,
-  OnboardingErrorCode,
-  extractStableUserId,
-}

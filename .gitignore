@@ -25,7 +25,7 @@
 /cypress/results
 /cypress/reports
 
-#But allow the rotate-jwt-keys script
+# Allow maintained operator scripts and shared local-demo tooling.
 !scripts/rotate-jwt-keys.js
 !scripts/generate-jwt-keys.js
 !scripts/update-vercel-env.js
@@ -35,6 +35,11 @@
 !scripts/audit-institution-provisioning.js
 !scripts/reconcile-institution-provisioning.js
 !scripts/check-public-docs.mjs
+!scripts/lib/
+!scripts/lib/webapp_archive.py
+!scripts/tests/
+!scripts/tests/webapp-archive.test.mjs
+/scripts/lib/__pycache__/
 
 # next.js
 /.next/
@@ -84,6 +89,8 @@ next-env.d.ts
 # Private agent and developer documentation
 dev/
 TODO.md
+/docs/provider/local-glb-demo-previews.md
+/src/components/simulation/digital-twin/LocalGlbDemoPreview.js
 
 # labs data
 data/

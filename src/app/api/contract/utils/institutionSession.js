@@ -5,7 +5,7 @@
 
 import { BadRequestError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
-import { getNormalizedPucFromSession, getPucHashFromSession } from '@/utils/auth/puc'
+import { getPucHashFromSession } from '@/utils/auth/puc'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -16,7 +16,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  * @returns {string} Normalized domain
  * @throws {BadRequestError} If domain is invalid
  */
-export function normalizeOrganizationDomain(domain) {
+function normalizeOrganizationDomain(domain) {
   if (!domain || typeof domain !== 'string') {
     throw new BadRequestError('SSO session missing affiliation domain')
   }
@@ -50,25 +50,6 @@ export function normalizeOrganizationDomain(domain) {
   }
 
   return normalized
-}
-
-/**
- * Extracts and validates the canonical on-chain user identifier from session
- * (formerly the PUC). Canonical format:
- *   <eduPersonPrincipalName> or <eduPersonPrincipalName>|<eduPersonTargetedID>
- * @param {Object} session - The authenticated session object
- * @returns {string} Trimmed identifier string
- * @throws {BadRequestError} If no usable identifier is found
- */
-export function getSessionPuc(session) {
-  // The helper now returns the canonical institution-scoped identifier.
-  const id = getNormalizedPucFromSession(session)
-
-  if (!id || typeof id !== 'string') {
-    throw new BadRequestError('SSO session missing user identifier')
-  }
-
-  return id
 }
 
 export function getSessionPucHash(session) {

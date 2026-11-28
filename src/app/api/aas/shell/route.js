@@ -14,6 +14,10 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' }
 const MAX_SUBMODEL_REFERENCES = 64
 const MAX_IDENTIFIER_LENGTH = 2048
 const MAX_PROPERTY_VALUE_LENGTH = 4096
+const MAX_FMI_VARIABLE_METADATA_LENGTH = 262_144
+const MAX_FMI_MODEL_DESCRIPTION_METADATA_LENGTH = 1_048_576
+const MAX_AAS_SIMULATION_VARIABLES = 20_000
+const MAX_FMI_LS_RELATED_RESOURCES = 128
 const FALLBACK_SUBMODEL_SUFFIXES = [
   'nameplate',
   'simulationModels',
@@ -22,6 +26,7 @@ const FALLBACK_SUBMODEL_SUFFIXES = [
   'assetInterfaces',
   'contactInformation',
   'handoverDocumentation',
+  'fmiLsRelatedResources',
 ]
 
 function encodeAasId(id) {
@@ -154,6 +159,7 @@ function classifySubmodel(submodel, requestedId) {
   if (identity.includes('assetinterfacesdescription')) return 'interfaces'
   if (identity.includes('contactinformations')) return 'contact'
   if (identity.includes('handoverdocumentation')) return 'handover'
+  if (identity.includes('fmlsrelatedresources')) return 'fmiLsResources'
   if (identity.includes('technicaldata') || identity.includes('operationalstatus') || identity.includes('operationaldata')) {
     return 'operational'
   }
@@ -180,6 +186,25 @@ function parseNumber(value) {
   return Number.isFinite(number) && Number.isInteger(number) && number >= 0 ? number : null
 }
 
+function parseExactNonNegativeInteger(value) {
+  if (Number.isSafeInteger(value) && value >= 0) return value
+  if (typeof value !== 'string' || !/^\+?\d+$/.test(value.trim())) return null
+  const digits = value.trim().replace(/^\+/, '').replace(/^0+(?=\d)/, '')
+  const number = Number(digits)
+  return Number.isSafeInteger(number) ? number : digits
+}
+
+function parseExactInteger(value) {
+  if (Number.isSafeInteger(value)) return value
+  if (typeof value !== 'string' || !/^[+-]?\d+$/.test(value.trim())) return null
+  const text = value.trim()
+  const sign = text.startsWith('-') ? '-' : ''
+  const digits = text.replace(/^[+-]/, '').replace(/^0+(?=\d)/, '')
+  const canonical = `${sign}${digits}`
+  const number = Number(canonical)
+  return Number.isSafeInteger(number) ? number : canonical
+}
+
 function buildSimulationInfo(submodel) {
   const props = extractCollectionProperties(submodel?.submodelElements, 'SimulationModel')
   const documentationUrls = Object.entries(props)
@@ -196,23 +221,479 @@ function buildSimulationInfo(submodel) {
   }
 }
 
+function readSubmodelElementValue(element) {
+  if (element?.modelType === 'Property' || element?.modelType === 'Range') {
+    return safePropertyValue(element.value)
+  }
+  if (element?.modelType === 'MultiLanguageProperty') {
+    const languageValues = Array.isArray(element.value) ? element.value : []
+    const text = languageValues.find((item) => String(item?.language || '').toLowerCase() === 'en')?.text
+      ?? languageValues.find((item) => typeof item?.text === 'string')?.text
+    return safePropertyValue(text)
+  }
+  return null
+}
+
+function variableElementProperties(variableElement) {
+  const properties = {}
+  if (!Array.isArray(variableElement?.value)) return properties
+  for (const element of variableElement.value) {
+    if (typeof element?.idShort !== 'string') continue
+    const value = readSubmodelElementValue(element)
+    if (value !== null) properties[element.idShort] = value
+  }
+  return properties
+}
+
+function parseAasRange(value, integerBounds = false) {
+  if (typeof value !== 'string') return {}
+  const text = value.trim()
+  if (text.length < 5 || !['[', '('].includes(text[0]) || ![']', ')'].includes(text.at(-1))) return {}
+  const comma = text.indexOf(',')
+  if (comma < 0) return {}
+  const parseBound = (raw) => {
+    const text = raw.trim().replace(/[−﹣]/g, '-')
+    if (/^[+-]?(?:∞|inf(?:inity)?)$/i.test(text)) return null
+    if (integerBounds && /^[+-]?\d+$/.test(text)) {
+      const integer = Number(text)
+      return Number.isSafeInteger(integer) ? integer : text
+    }
+    const number = Number(text)
+    return Number.isFinite(number) ? number : null
+  }
+  const minimum = parseBound(text.slice(1, comma))
+  const maximum = parseBound(text.slice(comma + 1, -1))
+  return {
+    ...(minimum !== null ? { min: minimum } : {}),
+    ...(maximum !== null ? { max: maximum } : {}),
+  }
+}
+
+function normalizeFmiMetadataExtension(element) {
+  const extension = Array.isArray(element?.extensions)
+    ? element.extensions.find((candidate) => candidate?.name === 'decentralabs.fmi.variableMetadata.v1')
+    : null
+  if (typeof extension?.value !== 'string' || extension.value.length > MAX_FMI_VARIABLE_METADATA_LENGTH) return {}
+  try {
+    const metadata = JSON.parse(extension.value)
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {}
+    const normalized = {}
+    for (const field of ['type', 'causality', 'alias', 'aliasOf', 'variability', 'initial', 'quantity', 'displayName', 'mimeType']) {
+      const value = metadata[field]
+      if (typeof value === 'string' && value.trim()) normalized[field] = value.trim().slice(0, 4096)
+    }
+    const maxSize = parseExactNonNegativeInteger(metadata.maxSize)
+    if (maxSize !== null) normalized.maxSize = maxSize
+    for (const field of ['relativeQuantity', 'unbounded']) {
+      if (typeof metadata[field] === 'boolean') normalized[field] = metadata[field]
+    }
+    for (const field of ['canBeDeactivated', 'supportsFraction']) {
+      if (typeof metadata[field] === 'boolean') normalized[field] = metadata[field]
+    }
+    for (const field of ['priority', 'resolution', 'intervalCounter', 'shiftCounter']) {
+      const value = parseExactNonNegativeInteger(metadata[field])
+      if (value !== null) normalized[field] = value
+    }
+    for (const field of ['intervalDecimal', 'shiftDecimal']) {
+      const value = Number(metadata[field])
+      if (metadata[field] != null && Number.isFinite(value)) normalized[field] = value
+    }
+    if (Array.isArray(metadata.aliases) && metadata.aliases.length <= 256) {
+      normalized.aliases = metadata.aliases.flatMap((alias) => {
+        if (!alias || typeof alias.name !== 'string' || !alias.name.trim()) return []
+        const item = { name: alias.name.trim().slice(0, 512) }
+        for (const field of ['description', 'displayUnit']) {
+          if (typeof alias[field] === 'string' && alias[field].trim()) item[field] = alias[field].trim().slice(0, 4096)
+        }
+        return [item]
+      })
+    }
+    if (Number.isInteger(metadata.valueReference) && metadata.valueReference >= 0) {
+      normalized.valueReference = metadata.valueReference
+    }
+    for (const field of ['nominal']) {
+      const value = Number(metadata[field])
+      if (metadata[field] != null && Number.isFinite(value) && value > 0) normalized[field] = value
+    }
+    if (typeof metadata.start === 'string' || typeof metadata.start === 'number' || typeof metadata.start === 'boolean') {
+      normalized.start = metadata.start
+    } else if (Array.isArray(metadata.start) && metadata.start.length <= 4096) {
+      const isScalarArray = (value, depth = 0) => depth <= 4 && Array.isArray(value)
+        ? value.every((item) => Array.isArray(item)
+          ? isScalarArray(item, depth + 1)
+          : (item === null || ['string', 'number', 'boolean'].includes(typeof item)))
+        : value === null || ['string', 'number', 'boolean'].includes(typeof value)
+      if (isScalarArray(metadata.start)) normalized.start = metadata.start
+    }
+    if (metadata.displayUnit && typeof metadata.displayUnit === 'object' && !Array.isArray(metadata.displayUnit)) {
+      const name = typeof metadata.displayUnit.name === 'string' ? metadata.displayUnit.name.trim().slice(0, 64) : ''
+      const factor = Number(metadata.displayUnit.factor ?? 1)
+      const offset = Number(metadata.displayUnit.offset ?? 0)
+      const inverse = metadata.displayUnit.inverse === true
+      if (name && Number.isFinite(factor) && factor !== 0 && Number.isFinite(offset) && (!inverse || offset === 0)) {
+        normalized.displayUnit = { name, factor, offset, ...(inverse ? { inverse: true } : {}) }
+      }
+    }
+    if (Array.isArray(metadata.dimensions) && metadata.dimensions.length <= 64) {
+      normalized.dimensions = metadata.dimensions.flatMap((dimension) => {
+        if (!dimension || typeof dimension !== 'object' || Array.isArray(dimension)) return []
+        const item = {}
+        for (const field of ['start', 'valueReference']) {
+          const value = parseExactNonNegativeInteger(dimension[field])
+          if (value !== null) item[field] = value
+        }
+        if (typeof dimension.variableName === 'string' && dimension.variableName.trim()) {
+          item.variableName = dimension.variableName.trim().slice(0, 256)
+        }
+        return Object.keys(item).length ? [item] : []
+      })
+    }
+    if (Array.isArray(metadata.enumItems) && metadata.enumItems.length <= 256) {
+      normalized.enumItems = metadata.enumItems.flatMap((item) => {
+        const value = parseExactInteger(item?.value)
+        if (!item || typeof item.name !== 'string' || value === null) return []
+        const option = { name: item.name.trim().slice(0, 256), value }
+        if (typeof item.description === 'string' && item.description.trim()) {
+          option.description = item.description.trim().slice(0, 1024)
+        }
+        return option.name ? [option] : []
+      })
+    }
+    if (metadata.declaredType && typeof metadata.declaredType === 'object' && !Array.isArray(metadata.declaredType)) {
+      const declaredType = {}
+        for (const field of ['name', 'type', 'description', 'unit', 'quantity', 'displayUnit', 'intervalVariability', 'mimeType']) {
+        const value = metadata.declaredType[field]
+        if (typeof value === 'string' && value.trim()) declaredType[field] = value.trim().slice(0, 4096)
+      }
+      for (const field of ['min', 'max']) {
+        const exactInteger = parseExactInteger(metadata.declaredType[field])
+        if (exactInteger !== null) {
+          declaredType[field] = exactInteger
+          continue
+        }
+        const value = Number(metadata.declaredType[field])
+        if (metadata.declaredType[field] != null && Number.isFinite(value)) declaredType[field] = value
+      }
+      const nominal = Number(metadata.declaredType.nominal)
+      if (metadata.declaredType.nominal != null && Number.isFinite(nominal) && nominal > 0) {
+        declaredType.nominal = nominal
+      }
+      const declaredMaxSize = parseExactNonNegativeInteger(metadata.declaredType.maxSize)
+      if (declaredMaxSize !== null) declaredType.maxSize = declaredMaxSize
+      for (const field of ['relativeQuantity', 'unbounded']) {
+        if (typeof metadata.declaredType[field] === 'boolean') declaredType[field] = metadata.declaredType[field]
+      }
+      for (const field of ['supportsFraction', 'canBeDeactivated']) {
+        if (typeof metadata.declaredType[field] === 'boolean') declaredType[field] = metadata.declaredType[field]
+      }
+      for (const field of ['priority', 'resolution', 'intervalCounter', 'shiftCounter']) {
+        const value = parseExactNonNegativeInteger(metadata.declaredType[field])
+        if (value !== null) declaredType[field] = value
+      }
+      for (const field of ['intervalDecimal', 'shiftDecimal']) {
+        const value = Number(metadata.declaredType[field])
+        if (metadata.declaredType[field] != null && Number.isFinite(value)) declaredType[field] = value
+      }
+      if (Array.isArray(metadata.declaredType.items) && metadata.declaredType.items.length <= 256) {
+        declaredType.items = metadata.declaredType.items.flatMap((item) => {
+          const value = parseExactInteger(item?.value)
+          if (!item || typeof item.name !== 'string' || value === null) return []
+          const option = { name: item.name.trim().slice(0, 256), value }
+          if (typeof item.description === 'string' && item.description.trim()) {
+            option.description = item.description.trim().slice(0, 1024)
+          }
+          return option.name ? [option] : []
+        })
+      }
+      if (Object.keys(declaredType).length) normalized.declaredType = declaredType
+    }
+    return normalized
+  } catch {
+    return {}
+  }
+}
+
+function normalizeFmiModelDescriptionExtension(submodel) {
+  const extension = Array.isArray(submodel?.extensions)
+    ? submodel.extensions.find((candidate) => candidate?.name === 'decentralabs.fmi.modelDescription.v1')
+    : null
+  if (typeof extension?.value !== 'string' || extension.value.length > MAX_FMI_MODEL_DESCRIPTION_METADATA_LENGTH) return null
+  try {
+    const metadata = JSON.parse(extension.value)
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+    const normalized = {}
+    for (const [field, limit] of Object.entries({
+      fmiVersion: 32,
+      timeUnit: 128,
+      modelName: 256,
+      description: 4096,
+      author: 256,
+      version: 128,
+      copyright: 1024,
+      license: 256,
+      generationTool: 256,
+      generationDateAndTime: 64,
+    })) {
+      if (typeof metadata[field] === 'string' && metadata[field].trim()) {
+        normalized[field] = metadata[field].trim().slice(0, limit)
+      }
+    }
+    if (['flat', 'structured'].includes(metadata.variableNamingConvention)) {
+      normalized.variableNamingConvention = metadata.variableNamingConvention
+    }
+    for (const field of ['defaultStartTime', 'defaultStopTime', 'defaultStepSize', 'defaultTolerance']) {
+      const value = Number(metadata[field])
+      if (metadata[field] != null && Number.isFinite(value)) normalized[field] = value
+    }
+    for (const field of ['numberOfContinuousStates', 'numberOfEventIndicators']) {
+      if (Number.isInteger(metadata[field]) && metadata[field] >= 0) normalized[field] = metadata[field]
+    }
+    if (metadata.capabilities && typeof metadata.capabilities === 'object' && !Array.isArray(metadata.capabilities)) {
+      const capabilities = {}
+      for (const field of [
+        'needsExecutionTool', 'canBeInstantiatedOnlyOncePerProcess', 'canNotUseMemoryManagementFunctions',
+        'canGetAndSetFMUstate', 'canSerializeFMUstate', 'canHandleVariableCommunicationStepSize',
+        'canInterpolateInputs', 'canRunAsynchronuously', 'hasEventMode', 'providesIntermediateUpdate',
+        'canReturnEarlyAfterIntermediateUpdate', 'providesEvaluateDiscreteStates',
+        'providesDirectionalDerivative', 'providesAdjointDerivatives', 'providesPerElementDependencies',
+        'needsCompletedIntegratorStep',
+      ]) {
+        if (typeof metadata.capabilities[field] === 'boolean') capabilities[field] = metadata.capabilities[field]
+      }
+      for (const field of ['maxOutputDerivativeOrder', 'recommendedIntermediateInputSmoothness']) {
+        if (Number.isInteger(metadata.capabilities[field]) && metadata.capabilities[field] >= 0) {
+          capabilities[field] = metadata.capabilities[field]
+        }
+      }
+      const fixedStep = Number(metadata.capabilities.fixedInternalStepSize)
+      if (metadata.capabilities.fixedInternalStepSize != null && Number.isFinite(fixedStep) && fixedStep > 0) {
+        capabilities.fixedInternalStepSize = fixedStep
+      }
+      if (Object.keys(capabilities).length) normalized.capabilities = capabilities
+    }
+    if (Array.isArray(metadata.unitDefinitions) && metadata.unitDefinitions.length <= 1024) {
+      normalized.unitDefinitions = metadata.unitDefinitions.flatMap((rawUnit) => {
+        if (!rawUnit || typeof rawUnit !== 'object' || typeof rawUnit.name !== 'string' || !rawUnit.name.trim()) return []
+        const unit = { name: rawUnit.name.trim().slice(0, 256) }
+        if (rawUnit.baseUnit && typeof rawUnit.baseUnit === 'object' && !Array.isArray(rawUnit.baseUnit)) {
+          const baseUnit = {}
+          for (const field of ['kg', 'm', 's', 'A', 'K', 'mol', 'cd', 'rad']) {
+            if (Number.isInteger(rawUnit.baseUnit[field])) baseUnit[field] = rawUnit.baseUnit[field]
+          }
+          for (const field of ['factor', 'offset']) {
+            const value = Number(rawUnit.baseUnit[field])
+            if (rawUnit.baseUnit[field] != null && Number.isFinite(value)) baseUnit[field] = value
+          }
+          // An empty BaseUnit is valid and carries dimensionless-unit semantics.
+          unit.baseUnit = baseUnit
+        }
+        if (Array.isArray(rawUnit.displayUnits) && rawUnit.displayUnits.length <= 256) {
+          unit.displayUnits = rawUnit.displayUnits.flatMap((rawDisplayUnit) => {
+            if (!rawDisplayUnit || typeof rawDisplayUnit.name !== 'string' || !rawDisplayUnit.name.trim()) return []
+            const displayUnit = { name: rawDisplayUnit.name.trim().slice(0, 256) }
+            for (const field of ['factor', 'offset']) {
+              const value = Number(rawDisplayUnit[field])
+              if (rawDisplayUnit[field] != null && Number.isFinite(value)) displayUnit[field] = value
+            }
+            if (rawDisplayUnit.inverse === true && Number(displayUnit.offset ?? 0) === 0) displayUnit.inverse = true
+            return [displayUnit]
+          })
+          if (!unit.displayUnits.length) delete unit.displayUnits
+        }
+        return [unit]
+      })
+    }
+    if (Array.isArray(metadata.typeDefinitions) && metadata.typeDefinitions.length <= 1024) {
+      normalized.typeDefinitions = metadata.typeDefinitions.flatMap((rawType) => {
+        if (!rawType || typeof rawType !== 'object'
+          || typeof rawType.name !== 'string' || !rawType.name.trim()
+          || typeof rawType.type !== 'string' || !rawType.type.trim()) return []
+        const type = {
+          name: rawType.name.trim().slice(0, 256),
+          type: rawType.type.trim().slice(0, 64),
+        }
+        for (const [field, limit] of Object.entries({
+          description: 4096, unit: 128, quantity: 256, displayUnit: 256,
+          mimeType: 256, intervalVariability: 32,
+        })) {
+          if (typeof rawType[field] === 'string' && rawType[field].trim()) {
+            type[field] = rawType[field].trim().slice(0, limit)
+          }
+        }
+        for (const field of ['min', 'max', 'nominal', 'intervalDecimal', 'shiftDecimal']) {
+          if ((field === 'min' || field === 'max')
+            && typeof rawType[field] === 'string'
+            && /^[+-]?\d+$/.test(rawType[field].trim())) {
+            const exactInteger = rawType[field].trim()
+            const numericInteger = Number(exactInteger)
+            type[field] = Number.isSafeInteger(numericInteger) ? numericInteger : exactInteger
+            continue
+          }
+          const value = Number(rawType[field])
+          if (rawType[field] != null && Number.isFinite(value)) type[field] = value
+        }
+        for (const field of ['relativeQuantity', 'unbounded', 'supportsFraction', 'canBeDeactivated']) {
+          if (typeof rawType[field] === 'boolean') type[field] = rawType[field]
+        }
+        for (const field of ['maxSize', 'priority', 'resolution', 'intervalCounter', 'shiftCounter']) {
+          const value = parseExactNonNegativeInteger(rawType[field])
+          if (value !== null) type[field] = value
+        }
+        if (Array.isArray(rawType.items) && rawType.items.length <= 256) {
+          type.items = rawType.items.flatMap((item) => {
+            if (!item || typeof item.name !== 'string' || !item.name.trim()) return []
+            let value
+            if (typeof item.value === 'string' && /^[+-]?\d+$/.test(item.value.trim())) {
+              value = item.value.trim()
+            } else if (Number.isSafeInteger(item.value)) {
+              value = item.value
+            } else {
+              return []
+            }
+            const normalizedItem = { name: item.name.trim().slice(0, 256), value }
+            if (typeof item.description === 'string' && item.description.trim()) {
+              normalizedItem.description = item.description.trim().slice(0, 1024)
+            }
+            return [normalizedItem]
+          })
+          if (!type.items.length) delete type.items
+        }
+        return [type]
+      })
+    }
+    return Object.keys(normalized).length ? normalized : null
+  } catch {
+    return null
+  }
+}
+
+function buildSimulationVariables(submodel) {
+  const submodelElements = Array.isArray(submodel?.submodelElements) ? submodel.submodelElements : []
+  const simulationModel = submodelElements.find((element) => (
+    element?.modelType === 'SubmodelElementCollection' && element.idShort === 'SimulationModel'
+  ))
+  const simulationModelElements = Array.isArray(simulationModel?.value) ? simulationModel.value : []
+  const ports = simulationModelElements.find((element) => (
+    element?.modelType === 'SubmodelElementCollection' && element.idShort === 'Ports'
+  ))
+  const variables = []
+  const connectors = Array.isArray(ports?.value) ? ports.value : []
+  for (const connector of connectors) {
+    if (connector?.modelType !== 'SubmodelElementCollection' || !Array.isArray(connector.value)) continue
+    for (const element of connector.value) {
+      if (element?.modelType !== 'SubmodelElementCollection') continue
+      const properties = variableElementProperties(element)
+      const name = properties.VariableName
+      const standardCausality = String(properties.VariableCausality || '').toLowerCase()
+      const metadata = normalizeFmiMetadataExtension(element)
+      const causality = metadata.causality || ({ input: 'input', output: 'output', acausal: 'acausal' })[standardCausality]
+      if (typeof name !== 'string' || !name || typeof causality !== 'string') continue
+      if (variables.length >= MAX_AAS_SIMULATION_VARIABLES) return { variables: [], complete: false }
+      const rawType = String(properties.VariableType || 'Real')
+      const fmiType = String(metadata.type || rawType).toLowerCase()
+      const integerBounds = [
+        'integer', 'enumeration', 'int8', 'uint8', 'int16', 'uint16',
+        'int32', 'uint32', 'int64', 'uint64',
+      ].includes(fmiType)
+      const variable = {
+        name,
+        type: rawType.toUpperCase() === 'ENUM' ? 'Enumeration' : rawType,
+        causality,
+        ...(typeof properties.VariableDescription === 'string' ? { description: properties.VariableDescription } : {}),
+        ...(typeof properties.UnitList === 'string' && properties.UnitList.toLowerCase() !== 'others'
+          ? { unit: properties.UnitList }
+          : (typeof properties.UnitDescription === 'string' ? { unit: properties.UnitDescription } : {})),
+        ...parseAasRange(properties.Range, integerBounds),
+        ...metadata,
+      }
+      variables.push(variable)
+    }
+  }
+  return { variables, complete: true }
+}
+
 function buildContactInfo(submodel) {
   const props = extractProperties(submodel?.submodelElements)
   return { contactEmail: firstProperty(props, ['EmailAddress', 'ContactEmail']) }
 }
 
-function buildHandoverInfo(submodel) {
+function buildHandoverInfo(submodel, submodelId) {
   const files = []
+  const visualAssets = []
   const visit = (elements, depth = 0) => {
     if (!Array.isArray(elements) || depth > 12) return
     for (const element of elements) {
       if (!element || typeof element !== 'object') continue
-      if (element.modelType === 'File' && typeof element.value === 'string' && element.value) files.push(element.value)
+      if (element.modelType === 'File' && typeof element.value === 'string' && element.value) {
+        const contentType = String(element.contentType || '').split(';', 1)[0].trim().toLowerCase()
+        const isGlb = contentType === 'model/gltf-binary'
+          || (/\.glb(?:$|[?#])/i.test(element.value) && !contentType)
+        const isThreeJsApp = contentType === 'text/html'
+          && /^\/(?:digital-twin-apps)\/\d+\/[a-f0-9]{64}\/index\.html$/i.test(element.value)
+
+        if ((isGlb || isThreeJsApp) && typeof element.idShort === 'string' && element.idShort.length <= 128) {
+          visualAssets.push({
+            submodelId,
+            elementIdShort: element.idShort,
+            url: element.value,
+            contentType: contentType || 'model/gltf-binary',
+            renderer: isThreeJsApp ? 'threejs-app' : 'glb',
+          })
+        } else {
+          files.push(element.value)
+        }
+      }
       if (Array.isArray(element.value)) visit(element.value, depth + 1)
     }
   }
   visit(submodel?.submodelElements)
-  return { documentationUrls: [...new Set(files)] }
+  return {
+    documentationUrls: [...new Set(files)],
+    visualAssets: visualAssets.slice(0, 32),
+  }
+}
+
+function buildFmiLsRelatedResourcesInfo(submodel) {
+  const properties = extractProperties(submodel?.submodelElements, { maxElements: 8192 })
+  const resourcesContainer = (submodel?.submodelElements || []).find((element) => (
+    element?.idShort === 'Resources' && element?.modelType === 'SubmodelElementList'
+  ))
+  const resources = []
+  for (const element of Array.isArray(resourcesContainer?.value) ? resourcesContainer.value : []) {
+    if (resources.length >= MAX_FMI_LS_RELATED_RESOURCES || element?.modelType !== 'SubmodelElementCollection') continue
+    const fields = extractProperties(element.value, { maxElements: 64 })
+    const labelsContainer = (element.value || []).find((field) => (
+      field?.idShort === 'Labels' && field?.modelType === 'SubmodelElementList'
+    ))
+    const labels = []
+    for (const labelElement of Array.isArray(labelsContainer?.value) ? labelsContainer.value : []) {
+      if (labelElement?.modelType !== 'SubmodelElementCollection' || labels.length >= 32) continue
+      const labelFields = extractProperties(labelElement.value, { maxElements: 8 })
+      const name = labelFields.LabelName
+      if (typeof name !== 'string' || !name) continue
+      labels.push({
+        name: name.slice(0, 256),
+        description: typeof labelFields.LabelDescription === 'string'
+          ? labelFields.LabelDescription.slice(0, 1024)
+          : '',
+      })
+    }
+    if (typeof fields.Source !== 'string' || !fields.Source) continue
+    resources.push({
+      id: typeof element.idShort === 'string' ? element.idShort.slice(0, 128) : fields.Source,
+      role: typeof fields.Role === 'string' ? fields.Role.slice(0, 128) : '',
+      type: typeof fields.MediaType === 'string' ? fields.MediaType.slice(0, 256) : '',
+      source: fields.Source.slice(0, 2048),
+      description: typeof fields.Description === 'string' ? fields.Description.slice(0, 2048) : '',
+      availableInFmu: parseBoolean(fields.AvailableInFmu),
+      labels,
+    })
+  }
+  return {
+    manifestName: typeof properties.ManifestName === 'string' ? properties.ManifestName : null,
+    manifestVersion: typeof properties.ManifestVersion === 'string' ? properties.ManifestVersion : null,
+    resources,
+  }
 }
 
 function buildInterfaceInfo(submodel) {
@@ -371,17 +852,25 @@ export async function GET(request) {
 
     let nameplate = null
     let simulationInfo = null
+    let simulationVariables = null
+    let fmiModelDescription = null
     let operationalInfo = null
     let executionInfo = null
     let interfaceInfo = null
     let contactInfo = null
     let handoverInfo = null
+    let fmiLsResources = null
     for (const { submodel, submodelId } of referencedSubmodels) {
       const kind = classifySubmodel(submodel, submodelId)
       if (kind === 'nameplate' && nameplate === null) {
         nameplate = extractProperties(submodel?.submodelElements)
       } else if (kind === 'simulation' && simulationInfo === null) {
         simulationInfo = buildSimulationInfo(submodel)
+        fmiModelDescription = normalizeFmiModelDescriptionExtension(submodel)
+        const parsedVariables = buildSimulationVariables(submodel)
+        if (parsedVariables.complete && parsedVariables.variables.length) {
+          simulationVariables = parsedVariables.variables
+        }
       } else if (kind === 'operational' && operationalInfo === null) {
         operationalInfo = buildOperationalInfo(submodel, submodelId)
       } else if (kind === 'execution' && executionInfo === null) {
@@ -391,7 +880,9 @@ export async function GET(request) {
       } else if (kind === 'contact' && contactInfo === null) {
         contactInfo = buildContactInfo(submodel)
       } else if (kind === 'handover' && handoverInfo === null) {
-        handoverInfo = buildHandoverInfo(submodel)
+        handoverInfo = buildHandoverInfo(submodel, submodelId)
+      } else if (kind === 'fmiLsResources' && fmiLsResources === null) {
+        fmiLsResources = buildFmiLsRelatedResourcesInfo(submodel)
       }
     }
 
@@ -418,7 +909,19 @@ export async function GET(request) {
     }
 
     return NextResponse.json(
-      { shell, nameplate, simulationInfo, operationalInfo, executionInfo },
+      {
+        shell,
+        nameplate,
+        simulationInfo,
+        ...(simulationVariables ? { simulationVariables } : {}),
+        ...(fmiModelDescription ? { fmiModelDescription } : {}),
+        operationalInfo,
+        executionInfo,
+        ...(handoverInfo?.visualAssets?.length
+          ? { visualAssets: handoverInfo.visualAssets }
+          : {}),
+        ...(fmiLsResources ? { fmiLsResources } : {}),
+      },
       { status: 200, headers: NO_STORE_HEADERS },
     )
   } catch (error) {

@@ -11,4 +11,15 @@ describe('Next.js security headers', () => {
       ])
     )
   })
+
+  test('allows the sandboxed digital twin app document to render in its iframe', async () => {
+    const rules = await nextConfig.headers()
+    const appRule = rules.find(({ source }) => source === '/api/aas/digital-twin-app/:path*')
+
+    expect(appRule?.headers).toEqual(
+      expect.arrayContaining([
+        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      ])
+    )
+  })
 })

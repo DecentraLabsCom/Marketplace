@@ -1,12 +1,10 @@
 import { formatUnits, parseUnits } from 'viem'
 import {
   CREDIT_DECIMALS,
-  RAW_PER_CREDIT,
   roundDecimalString,
-  trimTrailingZeros,
 } from '@/utils/blockchain/creditUnits'
 
-export const PRICING_UNITS = Object.freeze({
+const PRICING_UNITS = Object.freeze({
   minute: 60n,
   hour: 3600n,
   day: 86400n,
@@ -24,7 +22,7 @@ export function normalizePricingUnit(unit, fallback = 'hour') {
     : fallback
 }
 
-export function parseDisplayCredits(value, decimals = CREDIT_DECIMALS) {
+function parseDisplayCredits(value, decimals = CREDIT_DECIMALS) {
   const text = String(value ?? '').trim()
   if (!text) {
     throw new Error('Price is required')
@@ -100,18 +98,4 @@ export function normalizeAllowedDurations(metadata = {}) {
   }
 
   return []
-}
-
-export function formatRawCreditsForUnit(rawPerSecond, unit = 'hour') {
-  return trimTrailingZeros(rawPerSecondToDisplayPrice(rawPerSecond, unit))
-}
-
-export function effectiveDisplayCredits(amount, unit = 'hour', decimals = CREDIT_DECIMALS) {
-  const rawPerSecond = displayPriceToRawPerSecond(amount, unit, decimals)
-  return {
-    rawPerSecond,
-    effectiveAmount: rawPerSecondToDisplayPrice(rawPerSecond, unit, { decimals, maxFractionDigits: 5 }),
-    rawDisplayAmount: parseDisplayCredits(amount, decimals),
-    rawPerCredit: RAW_PER_CREDIT,
-  }
 }

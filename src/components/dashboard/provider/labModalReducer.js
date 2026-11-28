@@ -47,6 +47,7 @@ export const initialState = (lab) => ({
     fmiVersion: lab?.fmiVersion || '',
     simulationType: lab?.simulationType || '',
     modelVariables: lab?.modelVariables || [],
+    fmiLsStruct: lab?.fmiLsStruct || null,
     defaultStartTime: lab?.defaultStartTime ?? null,
     defaultStopTime: lab?.defaultStopTime ?? null,
     defaultStepSize: lab?.defaultStepSize ?? null,

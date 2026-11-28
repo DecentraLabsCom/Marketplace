@@ -1,0 +1,79 @@
+import type { AppReadyMessage, DigitalTwinHostExtensions, DigitalTwinSample, DigitalTwinScalar, FmiLsExperiment, FmiLsParameterPreset, FmuConnectionConfig, FmuStateCheckpointBundle, InputEvent, RunOptions, PlaybackControlMessage, SimulationState } from './index.js'
+export interface SampleProcessingContext { runId: string; signal: AbortSignal }
+export interface ResultCompletion { runId: string; state: 'completed' | 'cancelled' | 'error'; sampleCount: number; checkpoint?: FmuStateCheckpointBundle }
+export interface SampleBatch { runId: string; samples: DigitalTwinSample[]; firstSampleIndex: number; lastSampleIndex: number }
+export interface FmuStateLoadedContext { checkpointId: string; simTime: number; modelValues?: Record<string, DigitalTwinScalar> }
+export interface AdaptiveBatchOptions {
+  targetResponseMs?: number; maxComputeMs?: number; presentationReserveMs?: number; safetyMarginMs?: number
+}
+export interface FmuAdvanceOptions {
+  /** Output sampling interval in FMI communication steps, 1–100000. */
+  outputSampleEverySteps?: number
+  /** 1–512 distinct outputs, requested and checked in initial and subsequent samples. */
+  outputVariables?: string[]
+}
+export interface DigitalTwinAppClientOptions {
+  /** Supply this to use the app independently of a Marketplace parent window. */
+  getConnection?: (request: { options: RunOptions; signal: AbortSignal }) => Promise<FmuConnectionConfig | { connection: FmuConnectionConfig; inputSchedule?: InputEvent[]; executionPace?: 'fastest' | 'realtime' }>
+  onHostReady?: (extensions: DigitalTwinHostExtensions) => void
+  /** Called per sample when onSamples is not supplied. */
+  onSample?: (sample: DigitalTwinSample, context: SampleProcessingContext) => void | Promise<void>
+  /** Receives every batch, including the initial sample; takes precedence over onSample. */
+  onSamples?: (samples: DigitalTwinSample[], batch: SampleBatch, context: SampleProcessingContext) => void | Promise<void>
+  /** In adaptive mode, resolve after the latest sample has actually been rendered. */
+  onBatchRendered?: (samples: DigitalTwinSample[], batch: SampleBatch, context: SampleProcessingContext) => void | Promise<void>
+  onReset?: (runId: string) => void
+  onSimulationState?: (state: SimulationState, message: { runId: string; state: SimulationState; options?: RunOptions }) => void
+  onResultsComplete?: (message: ResultCompletion, context: SampleProcessingContext) => void | Promise<void>
+  onPlaybackRate?: (rate: number, message: PlaybackControlMessage) => void
+  /** Opt in to the Marketplace Pace selector; the SDK applies its selection to each hosted run. */
+  executionPaceControl?: boolean
+  /** Pace used by the SDK when no host selection or per-run override is available. */
+  defaultExecutionPace?: 'fastest' | 'realtime'
+  /** Called with the effective pace when an FMU run starts. */
+  onExecutionPace?: (pace: 'fastest' | 'realtime') => void
+  /** Apply an FMI-LS-REF parameter set selected in the Marketplace host UI. */
+  onFmiLsParameterPreset?: (preset: FmiLsParameterPreset) => void
+  /** Reflect the selected FMI-LS-REF experiment in app-owned controls. The SDK applies its parameters and options on run. */
+  onFmiLsExperiment?: (experiment: FmiLsExperiment | null) => void
+  /** Receives a saved checkpoint. The SDK also relays it to the Marketplace host when embedded. */
+  onFmuStateCheckpoint?: (checkpoint: FmuStateCheckpointBundle) => void
+  /** Updates an app's visible state from saved outputs and inputs when the host selects Load. */
+  onFmuStateLoaded?: (sample: DigitalTwinSample, context: FmuStateLoadedContext) => void | Promise<void>
+  onRunAccepted?: (result: { runId: string }) => void
+  onRunRejected?: (result: { code: string }) => void
+  onRunCancelled?: (runId: string) => void
+  onError?: (error: Error) => void
+  defaultPlaybackRate?: number
+  playbackControlPosition?: AppReadyMessage['playbackControlPosition']
+  runRequestTimeoutMs?: number
+}
+export interface DigitalTwinAppClient {
+  reportReady(): boolean
+  reportError(code?: string): boolean
+  run(request?: {
+    parameters?: Record<string, number | boolean | string>; options?: RunOptions; inputSchedule?: InputEvent[]
+    composeInputSchedule?: (providerSchedule: InputEvent[]) => InputEvent[] | Promise<InputEvent[]>
+    inputController?: (sample: DigitalTwinSample, context: SampleProcessingContext) => Record<string, number | boolean | string> | undefined | Promise<Record<string, number | boolean | string> | undefined>
+    inputControllerInterval?: number; inputControllerTimes?: number[]
+    /** Defaults to adaptive for realtime Pace and fixed for fastest Pace. */
+    batchPolicy?: 'fixed' | 'adaptive'; maxBatchSamples?: number; adaptiveBatchOptions?: AdaptiveBatchOptions
+    /** Pace override for standalone runs. A host selection takes precedence. */
+    executionPace?: 'fastest' | 'realtime'
+    advanceOptions?: FmuAdvanceOptions
+    /** Resume from this checkpoint bundle or from the one selected by the host controls. */
+    checkpoint?: FmuStateCheckpointBundle
+    /** Capture and report the final remote FMU state when the run completes. */
+    captureFmuStateOnComplete?: boolean
+    validateModel?: (model: Record<string, unknown>) => boolean | void | Promise<boolean | void>
+    parametersFromModel?: (model: Record<string, unknown>) => Record<string, number | boolean | string> | Promise<Record<string, number | boolean | string>>
+  }): Promise<{ runId: string }>
+  cancel(runId?: string): boolean
+  /** Capture a live run's current state or the last completed state retained by the SDK for up to five minutes. */
+  captureState(): Promise<FmuStateCheckpointBundle>
+  requestModelChange(modelId: string): boolean
+  dispose(): void
+  readonly hostReady: boolean
+  readonly activeRunId: string | null
+}
+export declare function createDigitalTwinAppClient(options?: DigitalTwinAppClientOptions): DigitalTwinAppClient

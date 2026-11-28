@@ -61,17 +61,13 @@ export function getBrowserCredentialMarkerState({ stableUserId, institutionId })
   return readMarkerState(storage, key)
 }
 
-export function hasBrowserCredentialMarker({ stableUserId, institutionId }) {
+function hasBrowserCredentialMarker({ stableUserId, institutionId }) {
   const marker = getBrowserCredentialMarkerState({ stableUserId, institutionId })
   return Number.isFinite(marker.verifiedAt)
 }
 
 export function hasBrowserCredentialMarkerVerified({ stableUserId, institutionId }) {
   return hasBrowserCredentialMarker({ stableUserId, institutionId })
-}
-
-export function setBrowserCredentialMarker({ stableUserId, institutionId }) {
-  return markBrowserCredentialVerified({ stableUserId, institutionId })
 }
 
 export function markBrowserCredentialVerified({ stableUserId, institutionId }) {
@@ -126,14 +122,4 @@ export function shouldShowBrowserCredentialAdvisory(
 
   const now = Date.now()
   return now - marker.advisoryDismissedAt >= cooldownMs
-}
-
-export default {
-  getBrowserCredentialMarkerState,
-  hasBrowserCredentialMarker,
-  hasBrowserCredentialMarkerVerified,
-  setBrowserCredentialMarker,
-  markBrowserCredentialVerified,
-  markBrowserCredentialAdvisoryDismissed,
-  shouldShowBrowserCredentialAdvisory,
 }

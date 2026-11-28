@@ -52,7 +52,7 @@ export const readReconciliationQueue = () => {
   return parsed.map(normalizeEntry).filter(Boolean);
 };
 
-export const writeReconciliationQueue = (entries) => {
+const writeReconciliationQueue = (entries) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries || []));
 };

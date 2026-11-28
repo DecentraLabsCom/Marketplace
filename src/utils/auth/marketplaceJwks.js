@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, createPublicKey } from 'node:crypto'
 
-export const MARKETPLACE_JWT_ALGORITHM = 'RS256'
+const MARKETPLACE_JWT_ALGORITHM = 'RS256'
 
 const STATIC_PUBLIC_KEY_PATH = path.join(
   process.cwd(),
@@ -25,7 +25,7 @@ function assertPem(publicKeyPem, label = 'public key') {
   }
 }
 
-export function derivePublicKeyPem(privateKeyPem) {
+function derivePublicKeyPem(privateKeyPem) {
   if (typeof privateKeyPem !== 'string' || !privateKeyPem.includes('-----BEGIN')) {
     throw new Error('Invalid JWT private key format')
   }

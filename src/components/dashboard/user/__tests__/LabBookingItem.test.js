@@ -25,15 +25,6 @@ import LabBookingItem from '../LabBookingItem';
 
 jest.mock('next/link', () => ({ children, href }) => <a href={href}>{children}</a>);
 
-jest.mock('@/components/ui/ConfirmModal', () => ({ isOpen, onClose, onContinue }) =>
-  isOpen ? (
-    <div data-testid="confirm-modal">
-      <button onClick={onClose}>Close</button>
-      <button onClick={onContinue}>Continue</button>
-    </div>
-  ) : null
-);
-
 jest.mock('@/utils/booking/bookingStatus', () => ({
   getBookingStatusDisplay: jest.fn((booking) => {
     const statusMap = {

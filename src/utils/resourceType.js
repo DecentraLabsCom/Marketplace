@@ -110,6 +110,7 @@ export function getFmuMetadata(resource) {
     'fmiVersion',
     'simulationType',
     'fmuFileName',
+    'fmiLsStruct',
     'defaultStartTime',
     'defaultStopTime',
     'defaultStepSize',
@@ -278,30 +279,4 @@ export function formatFmuSimulationType(value) {
   if (normalized === 'CoSimulation') return 'Co-Simulation'
   if (normalized === 'ModelExchange') return 'Model Exchange'
   return normalized
-}
-
-/**
- * Build a human-readable compatibility label from FMU metadata.
- * @param {Object} resourceOrMetadata
- * @returns {string}
- */
-export function getFmuCompatibilityLabel(resourceOrMetadata) {
-  const hasDirectMetadata = resourceOrMetadata && (
-    resourceOrMetadata.fmiVersion !== undefined ||
-    resourceOrMetadata.simulationType !== undefined
-  )
-  const metadata = hasDirectMetadata ? resourceOrMetadata : getFmuMetadata(resourceOrMetadata)
-  const version = String(metadata?.fmiVersion || '').trim()
-  const simulationType = formatFmuSimulationType(metadata?.simulationType)
-
-  if (version && simulationType) {
-    return `Compatible with FMI ${version} ${simulationType}`
-  }
-  if (version) {
-    return `Compatible with FMI ${version}`
-  }
-  if (simulationType) {
-    return `Compatible with ${simulationType}`
-  }
-  return 'Compatible with FMU simulation'
 }

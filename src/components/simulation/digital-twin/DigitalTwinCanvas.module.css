@@ -1,0 +1,80 @@
+.canvas {
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 20;
+  display: none;
+  max-width: 280px;
+  max-height: min(70%, 240px);
+  overflow-y: auto;
+  pointer-events: none;
+  border: 1px solid rgba(148, 181, 190, 0.34);
+  border-radius: 10px;
+  background: rgba(7, 16, 20, 0.94);
+  padding: 9px 11px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+}
+
+.marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  width: 12px;
+  height: 12px;
+  display: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: left, top;
+}
+
+.markerWave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(1.15);
+  opacity: 0;
+  display: none;
+  will-change: transform, opacity;
+}
+
+.markerCore {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.markerInput .markerWave {
+  border: 1px solid rgba(255, 209, 102, 0.9);
+  box-shadow: 0 0 6px rgba(255, 209, 102, 0.5);
+}
+
+.markerInput .markerCore {
+  border: 1px solid rgba(255, 241, 189, 0.95);
+  background: #ffd166;
+  box-shadow: 0 0 9px 2px rgba(255, 209, 102, 0.65);
+}
+
+.markerOutput .markerWave {
+  border: 1px solid rgba(114, 243, 228, 0.9);
+  box-shadow: 0 0 6px rgba(84, 213, 201, 0.5);
+}
+
+.markerOutput .markerCore {
+  border: 1px solid rgba(156, 247, 235, 0.95);
+  background: #72f3e4;
+  box-shadow: 0 0 9px 2px rgba(84, 213, 201, 0.65);
+}

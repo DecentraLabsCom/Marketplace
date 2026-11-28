@@ -158,8 +158,3 @@ export async function getNextIntentNonce(signerAddress) {
   const nonce = await contract.nextIntentNonce(signerAddress);
   return BigInt(nonce.toString());
 }
-
-export default {
-  getNextIntentNonce,
-  withIntentSignerLock,
-};

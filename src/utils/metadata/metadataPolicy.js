@@ -34,6 +34,17 @@ const modelVariableDimensionSchema = z.object({
   valueReference: z.number().int().nonnegative().optional(),
   variableName: z.string().max(256).optional(),
 }).strip()
+const modelVariableEnumItemSchema = z.object({
+  value: z.number().int(),
+  name: z.string().max(256),
+  description: z.string().max(1_024).optional(),
+}).strip()
+const modelVariableDisplayUnitSchema = z.object({
+  name: z.string().max(64),
+  factor: z.number().finite(),
+  offset: z.number().finite(),
+  inverse: z.boolean().optional(),
+}).strip()
 const modelVariableValueSchema = z.union([
   z.string().max(4_096),
   z.number().finite(),
@@ -58,16 +69,45 @@ const normalizeTermsEffectiveDate = (value) => {
 const unixSecondsSchema = z.number().int().positive().refine(Number.isSafeInteger)
 const modelVariableSchema = z.object({
   name: z.string().max(256),
-  description: z.string().max(1_024).optional(),
+  displayName: z.string().max(256).optional(),
+  description: z.string().max(4_096).optional(),
   type: z.string().max(64).optional(),
   causality: z.string().max(32).optional(),
   variability: z.string().max(32).optional(),
   initial: z.string().max(32).optional(),
   unit: z.string().max(64).optional(),
+  displayUnit: z.union([
+    z.string().max(64),
+    modelVariableDisplayUnitSchema,
+  ]).optional(),
   start: modelVariableValueSchema.optional(),
+  min: z.number().finite().optional(),
+  max: z.number().finite().optional(),
+  enumItems: z.array(modelVariableEnumItemSchema).max(256).optional(),
   valueReference: z.number().int().nonnegative().optional(),
   dimensions: z.array(modelVariableDimensionSchema).max(16).optional(),
 }).strip()
+const fmiLsStructMemberSchema = z.object({
+  variableName: z.string().max(512),
+  memberName: z.string().max(256),
+  variableKind: z.string().max(256),
+  orderingConstraint: z.enum(['unordered', 'increasing', 'decreasing', 'strictlyIncreasing', 'strictlyDecreasing']).optional(),
+}).strip()
+const fmiLsStructSchema = z.object({
+  manifestName: z.literal('org.fmi-standard.fmi-ls-struct'),
+  manifestVersion: z.string().max(64),
+  maps: z.array(z.object({
+    name: z.string().max(256),
+    terminalKind: z.string().max(256),
+    matchingRule: z.string().max(256),
+    members: z.array(fmiLsStructMemberSchema).max(512),
+  }).strip()).max(128),
+}).strip().superRefine((value, context) => {
+  const memberCount = value.maps.reduce((total, map) => total + map.members.length, 0)
+  if (memberCount > 4_096) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Too many FMI-LS-STRUCT map members.' })
+  }
+})
 const attributeValueSchemas = {
   classification: z.array(classificationEntrySchema).max(64),
   classificationPrimaryScheme: z.string().max(32),
@@ -92,6 +132,7 @@ const attributeValueSchemas = {
   timezone: z.string().max(128), resourceType: z.enum(['lab', 'fmu']), fmuFileName: z.string().max(512),
   fmiVersion: z.string().max(64), simulationType: z.string().max(64),
   modelVariables: z.array(modelVariableSchema).max(512),
+  fmiLsStruct: fmiLsStructSchema,
   defaultStartTime: z.number(), defaultStopTime: z.number(), defaultStepSize: z.number(),
 }
 

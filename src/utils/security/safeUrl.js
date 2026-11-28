@@ -22,8 +22,6 @@ export const safeExternalHttpUrl = (value) => {
   return parsed?.toString() || null
 }
 
-export const parseSafeExternalHttpUrl = (value) => parseSafeUrl(value, ['http:', 'https:'])
-
 const isLoopbackHost = (hostname) => {
   const normalized = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '')
   return normalized === 'localhost'

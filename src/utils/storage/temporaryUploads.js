@@ -7,7 +7,7 @@ import {
   resolveManagedLocalPath,
 } from './fileSecurity'
 
-export const TEMP_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000
+const TEMP_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000
 
 export class TemporaryUploadLimitError extends Error {
   constructor(message) {

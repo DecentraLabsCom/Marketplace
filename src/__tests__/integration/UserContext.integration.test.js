@@ -40,7 +40,7 @@ jest.mock("@/context/LabCreditContext", () => ({
     refreshTokenData: jest.fn(),
     refetchBalance: jest.fn(),
     refetchAllowance: jest.fn(),
-    clearDecimalsCache: jest.fn(),
+
   }),
 }));
 

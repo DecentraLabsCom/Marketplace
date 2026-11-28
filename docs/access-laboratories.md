@@ -177,6 +177,84 @@ During the reserved window:
 * you may reconnect while the reservation remains active, depending on provider policy;
 * you should save any work before the reservation end time.
 
+For an FMU without a linked GLB scene or custom Three.js app, Marketplace shows
+a download guide and automatically starts downloading the reservation's proxy
+FMU (`proxy.fmu`; the filename may include the laboratory ID). Import the
+downloaded `.fmu` into an FMI-compatible tool of your choice, configure your
+experiment and run it there. Keep an internet connection: the model runs
+remotely and access is limited to your reservation window. Use **Download
+again** if your browser did not save the file. If access has expired, re-enter
+the reserved laboratory to request a fresh file.
+
+For a simulation with a linked GLB scene, the generated viewer offers three
+execution modes when the FMU supports interactive sessions:
+
+* **Batch** runs the full simulation. Set any input changes on the simulation
+  timeline before starting.
+* **Step by step** waits after each communication step. You can change
+  runtime-writable inputs before advancing again.
+* **Continuous (live)** advances in bounded batches of FMU output samples. The
+  viewer adjusts the batch size from measured Executor compute cost, request
+  cycle time and confirmed display delay. It does not change the FMU step size,
+  and its cap depends on runtime and frame limits rather than the configured
+  run length. It follows the latest sample while interactive and keeps the full
+  timeline for replay afterward. You can change
+  runtime-writable inputs while it runs; pending values are applied before the
+  next batch, after the current batch completes. **Real time (1x)** is the
+  default pace and targets one simulation second per real second. **Fastest**
+  runs at the provider's maximum speed. If the model or connection cannot keep
+  up, the scene falls behind the real-time clock without skipping simulation
+  steps.
+
+All three modes use the same starting inputs and simulation-time settings. The
+Gateway enforces the provider's variable-write permissions. Interactive modes
+are available for FMI 2/3 Co-Simulation models; other simulation types keep the
+batch controls. Interactive modes connect from the browser to the provider
+Gateway. On each full navigation to `/simulation/{labId}`, Marketplace reads
+that lab's registered on-chain `accessURI` and adds only its HTTPS and WSS
+origins to the page CSP. No per-Gateway CSP environment entry is needed. The
+provider must still allow the Marketplace page origin in its Gateway CORS
+configuration.
+
+#### FMI defaults, units and tolerance
+
+The generated controls use valid FMI `DefaultExperiment` start time, stop time
+and step size as their initial values where those controls apply. If a field is
+absent or invalid, Marketplace fills it with a simulation-tool default.
+Scheduled Execution is clock-driven and has no generic step-size control. In
+the GLB viewer, stop time can be left blank for open-ended Continuous
+execution; Batch requires a finite stop time. The FMU's declared time unit
+labels the controls, timeline and simulation-time graph axis; when it is
+absent, the UI uses `s`. The labels do not rescale the FMU's time values.
+
+When declared, `DefaultExperiment.tolerance` appears as read-only FMI metadata.
+If the selected FMI-LS experiment declares its own tolerance, that value takes
+precedence for the run. The Gateway Executor passes the effective value to FMI
+initialization and uses it in its internal Model Exchange and FMI-LS-DAE
+integration. Marketplace does not add a separate editable tolerance control.
+
+#### FMI structure and capabilities
+
+Open **FMI relationships and events** to inspect declared output dependencies,
+state derivatives, clocked states, initial unknowns, event indicators, and FMI
+Co-Simulation/Model Exchange interfaces and capabilities. The panel filters
+variables and dependency links using the reservation's read or write
+permissions. These declarations describe the FMU; Gateway runtime support and
+reservation policy determine which features are available in the session.
+In the GLB graph selector, choosing an input highlights outputs whose FMI
+ModelStructure declaration lists that input as a dependency. The binding
+assistant shows the related inputs for a chosen output. These are suggestions;
+they do not remove other choices or assign GLB nodes and axes.
+
+#### Graphs and event markers
+
+The GLB viewer can plot selected scalar FMI inputs and outputs against
+simulation time or another scalar model variable. Axis labels and variable
+values use FMI display units when available, and simulation time uses the
+declared FMI time unit without rescaling the samples.
+After a run, event, early-return, discontinuity and termination samples can be
+marked on the timeline. Select a marker to seek the viewer to that sample.
+
 At the end of the reservation window, access is closed automatically by the provider-side access controls.
 
 ---

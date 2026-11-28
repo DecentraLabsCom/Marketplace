@@ -40,6 +40,7 @@ policy.
 | **Confirmed** | The provider has confirmed the reservation and the access window is booked. |
 | **Access Authorized** | The reservation is in the access-authorized phase. It is not a normal consumer-cancellation state. |
 | **Completed** | The access window has ended. |
+| **No session recorded** | The access-authorized window has ended and no `SessionStarted` record was found. This reports missing evidence; it does not prove that access was impossible. |
 | **Collected** | The reservation has reached the provider/settlement completion state. |
 | **Cancelled** | The reservation was cancelled through an authorized flow. |
 | **Expired** | A pending or confirmed reservation has passed its usable window or decision deadline. |

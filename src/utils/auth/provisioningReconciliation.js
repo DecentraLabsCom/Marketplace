@@ -1,4 +1,4 @@
-export const PROVISIONING_STAGE_ORDER = Object.freeze([
+const PROVISIONING_STAGE_ORDER = Object.freeze([
   'TOKEN_ISSUED',
   'WALLET_VERIFIED',
   'PROVIDER_ADDED',

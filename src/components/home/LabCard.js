@@ -37,7 +37,6 @@ const titleHasWrapped = (titleElement) => {
  * @param {string} props.name - Lab name/title
  * @param {string} props.provider - Lab provider address
  * @param {string|number} props.price - Lab price in the configured display unit
- * @param {string} props.auth - Authentication requirements
  * @param {boolean} props.activeBooking - Whether user has active booking
  * @param {boolean} [props.isListed=true] - Whether the lab is currently listed
  * @param {string} props.image - Lab main image URL
@@ -50,7 +49,6 @@ const LabCard = React.memo(function LabCard({
   name,
   provider,
   price,
-  auth = null,
   activeBooking = false,
   activeBookingKey = null,
   isListed = true,
@@ -243,7 +241,6 @@ const LabCard = React.memo(function LabCard({
           id={id} 
           hasActiveBooking={activeBooking} 
           reservationKey={reservationKey}
-          resourceType={resourceType}
         />
       )}
     </Card>
@@ -255,7 +252,6 @@ LabCard.propTypes = {
   name: PropTypes.string.isRequired,
   provider: PropTypes.string.isRequired,
   price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeBooking: PropTypes.bool,
   activeBookingKey: PropTypes.string,
   isListed: PropTypes.bool,

@@ -12,7 +12,7 @@ import devLog from '@/utils/dev/logger';
 
 const STALE_TIME = 2 * 60 * 1000; // 2 minutes
 
-export class BillingFetchError extends Error {
+class BillingFetchError extends Error {
   constructor(url, status) {
     super(`HTTP ${status} from ${url}`);
     this.name = 'BillingFetchError';

@@ -7,8 +7,11 @@ const externalScheme = /^(?:https?:|mailto:|tel:|#|\/)/i
 const markdownLinkPattern = /!?(?:\[[^\]]*\])\(([^)]+)\)/g
 const imagePattern = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi
 const privateDocumentationPattern = /(?:^|[(/`])dev\//i
+const privateMarkdownFiles = new Set(['docs/provider/local-glb-demo-previews.md'])
 
 function collectMarkdownFiles(relativePath) {
+  if (isPrivateMarkdownFile(relativePath)) return []
+
   const absolutePath = path.join(root, relativePath)
   if (!fs.existsSync(absolutePath)) return []
 
@@ -18,8 +21,14 @@ function collectMarkdownFiles(relativePath) {
   return fs.readdirSync(absolutePath, { withFileTypes: true }).flatMap((entry) => {
     const childPath = path.join(relativePath, entry.name)
     if (entry.isDirectory()) return collectMarkdownFiles(childPath)
-    return entry.name.toLowerCase().endsWith('.md') ? [path.join(root, childPath)] : []
+    return entry.name.toLowerCase().endsWith('.md') && !isPrivateMarkdownFile(childPath)
+      ? [path.join(root, childPath)]
+      : []
   })
+}
+
+function isPrivateMarkdownFile(relativePath) {
+  return privateMarkdownFiles.has(relativePath.split(path.sep).join('/'))
 }
 
 function normalizeTarget(rawTarget) {

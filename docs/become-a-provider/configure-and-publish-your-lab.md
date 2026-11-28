@@ -46,6 +46,79 @@ Quick Setup keeps the provider input small: price and unit, access endpoint,
 access key and the public metadata URL. The values shown in the capture are
 illustrative only.
 
+## Choose the laboratory experience
+
+The **Real Lab**/**Simulation** choice in **Add New Lab** determines what kind
+of resource a reservation opens. A simulation lab then has one of three
+presentation styles. The listing, reservation and access authorization flow is
+the same; the files and the view presented to the user differ.
+
+| Type selected in Add New Lab | What the user gets after reserving | What the provider prepares |
+| --- | --- | --- |
+| **Real Lab** | Access to the provider's physical equipment and its configured remote-control session. | The physical setup, its control application and Gateway/Station connection. No FMU or digital-twin scene is required. |
+| **Simulation** â€” FMU without a scene | A download guide and an automatically downloaded reservation proxy FMU to import into an external FMI-compatible tool. | The FMU provisioned on the Gateway or Lab Station. No scene asset or AAS visual link is required. |
+| **Simulation** â€” FMU with a GLB scene | Marketplace's standard simulation controls and generic viewer render the provider's GLB scene and apply its FMU output bindings and writable input bindings. | The FMU, a provider-created GLB scene linked through the lab's AAS shell, and provider-authored `extras.fmiBindings` required to connect scene elements to FMU outputs or writable numeric inputs. |
+| **Simulation** â€” FMU with a complete Three.js app | The provider's app as the complete experience. Marketplace embeds the app and grants a temporary connection to the provider Gateway; the app executes and receives outputs directly over WS. | The FMU and a self-contained Three.js web app package linked through the AAS shell and using the Marketplace app contract. |
+
+For all three simulation styles, Marketplace does not store or execute the
+provider's `.fmu`. The provider provisions it in the active Gateway/Lab Station
+environment and registers its filename as the simulation resource. All modes use the same reservation authorization. Complete web apps use a direct provider WebSocket; GLB scenes use generated Marketplace controls; simulations without a visual asset use the proxy FMU in an external FMI tool.
+
+### Physical lab
+
+Choose **Real Lab** when the reserved resource is real equipment. Configure the
+equipment and its control application behind the provider's Gateway, and make
+sure the Gateway/Station can open the correct setup for the registered access
+key. Marketplace does not generate an equipment control UI: the remote session
+is the one configured for that lab. Follow [Enable your lab for online
+access](enable-your-lab-for-online-access.md) to install and verify the access
+path before publishing.
+
+### Virtual lab: FMU without a scene
+
+Choose **Simulation** and register the provisioned FMU. This is the simplest
+virtual lab: Marketplace starts downloading the reservation's proxy FMU and
+shows a short guide. The user imports the downloaded `.fmu` into an
+FMI-compatible tool of their choice and runs the remote simulation there. An
+internet connection and an active reservation are required. No GLB, web app,
+AAS visual asset or output-to-scene binding is needed.
+
+### Virtual lab: FMU with a GLB scene
+
+Choose **Simulation**, provision the FMU and link the provider-created GLB
+scene in the lab's AAS digital-twin shell. Marketplace supplies the surrounding
+controlsâ€”input form, run/replay controls, simulation timeline and output
+indicatorsâ€”and renders the linked scene in its generic viewer. The provider
+must also author `extras.fmiBindings` on GLB nodes that respond to FMU
+outputs or writable numeric inputs. Marketplace applies those mappings; it does not create the scene or
+its bindings. An unbound GLB may render as static geometry, but it does not
+function as an FMU-driven digital twin. See [Configure a GLB scene](#configure-a-glb-scene).
+
+### Virtual lab: FMU with a complete Three.js app
+
+Choose **Simulation**, provision the FMU and link the packaged app in the AAS
+digital-twin shell. In this mode the app owns the complete presentation: its
+scene, normal input controls, run action, charts and telemetry display. The
+user sees that app in Marketplace without the GLB viewer or its standard
+simulation wrapper. Marketplace authorizes a temporary connection grant. The app runs the FMU and receives outputs directly from the provider Gateway, using the same protected WS session as proxy.fmu. The optional SDK or a direct implementation of the startup and authorization messages connects the app; see [Configure a complete Three.js app](#configure-a-complete-threejs-app)
+and the [Three.js app contract](../provider/digital-twin-threejs-app-contract.md).
+
+The choice determines which part of the experience Marketplace generates and
+which part the provider supplies:
+
+~~~mermaid
+flowchart TD
+    FMU["Provider provisions an FMU"]
+    FMU --> Choice{"Visual asset type"}
+    Choice -->|No visual asset| Proxy["Marketplace downloads the proxy FMU and shows an import guide"]
+    Proxy --> ExternalTool["User runs the remote FMU from an external FMI tool"]
+    Choice -->|GLB scene| ProviderScene["Provider creates and supplies the GLB scene and authors the required extras.fmiBindings"]
+    ProviderScene --> GLBViewer["Marketplace generates FMI controls, renders the provider's scene, and applies its bindings"]
+    Choice -->|Complete Three.js app| ProviderApp["Provider supplies the complete Three.js app with WS connection to the FMU"]
+    ProviderApp --> EmbeddedApp["Marketplace embeds the app and authorizes a one-use reservation grant"]
+    EmbeddedApp --> WSS["App connects directly to Gateway over FMU session WebSocket"]
+~~~
+
 ## Listing and unlisted labs
 
 Creating a lab and publishing it are separate states. The default public catalogue contains listed labs only. An explicit `includeUnlisted=true` request can expose an unlisted lab for discovery or administration, but an unlisted lab is not eligible for public booking. If the Marketplace cannot read the on-chain listing status, it does not treat the lab as listed.
@@ -67,9 +140,91 @@ These operations are not interchangeable:
 Use **Unlist** when the intention is only to stop new bookings. Use **Delete**
 only when the on-chain lab record should be permanently removed.
 
-## FMU and gateway files
+## Configure the simulation files
 
-Marketplace upload of `.fmu` files is disabled. For simulation labs, provision the FMU on the provider's **Lab Gateway/Lab Station** and register the corresponding file through the gateway configuration using its `accessKey`. The Marketplace stores and displays the descriptive metadata; it is not the authoritative FMU artifact store.
+Marketplace upload of `.fmu` files is disabled. For every **Simulation** lab,
+provision the FMU on the provider's **Lab Gateway/Lab Station** and register
+its filename as the simulation resource/access key. The Marketplace stores and
+displays descriptive metadata; it is not the authoritative FMU artifact store.
+Follow the [Lab Gateway FMI/FMU guide](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/fmi-fmu-support.md)
+for the execution-side setup.
+
+### Configure a GLB scene
+
+Prepare the provider-created GLB geometry and author `extras.fmiBindings` on
+nodes that respond to FMU outputs or writable numeric inputs. Output bindings
+drive scene targets from model samples. A numeric input binding to
+`position.x`, `position.y` or `position.z` also makes that node draggable along
+its local axis; the existing `scale` and `offset` define the reversible mapping,
+and the FMU's minimum and maximum values constrain the drag. Give each node no
+more than one binding per position axis so the input has a unique target. The Gateway's
+effective variable-access policy must permit runtime writes for scene dragging.
+Dragging is available only during live Step by step or Continuous execution
+while input markers are shown; initial values remain editable through the
+standard input controls. No separate interaction metadata is needed.
+These bindings let the generic viewer use the GLB as an FMU-driven digital twin;
+without them it is only static
+geometry. In the provider Gateway's **Lab Manager â†’ Digital Twins** tab,
+synchronize the AAS shell and add/select the visual asset. The
+Gateway stores and serves the file from its read-only asset route; the AAS
+stores its reference. Marketplace resolves the lab's on-chain Gateway and
+proxies managed GLBs through a same-origin API, so providers do not need to
+request per-Gateway Marketplace CSP or browser CORS changes. Gateway reports
+GLB bindings that do not match FMU input/output variables or supported targets
+before the provider synchronizes the shell. Neither Marketplace file
+permissions nor per-scene interaction code changes are needed.
+
+For uploaded GLBs and GLB companions imported from that Gateway, Lab Manager
+also provides a binding editor. It pre-fills existing `extras.fmiBindings` and
+can suggest FMI variables from node names, variable names, descriptions,
+quantities and enumeration labels. Variable choices show their units, types and
+enumerated states; for array variables, the editor uses FMI dimensions to
+validate selected element coordinates. The editor never chooses a GLB node or
+scene target on the provider's behalf: review the variable, node, target, scale
+and offset before applying the bindings. It can suggest a scale for safe
+meter-to-scene-unit or radian mappings when the FMI base-unit definition has no
+offset; it does not infer a non-zero offset or a display-unit conversion.
+Applying edits creates a new selected GLB for upload and Gateway validation;
+the original immutable asset stays unchanged. Public GLB URLs that Gateway
+cannot import are not editable in this workflow. See the [Gateway GLB visual
+asset guide](https://github.com/DecentraLabsCom/Lab-Gateway/blob/main/docs/aas-fmu-visual-assets.md#author-bindings-in-lab-manager).
+
+See the [DecentraLabs FMI GLB bindings contract](../provider/fmi-glb-bindings-contract.md)
+for the versioned field definitions, supported targets, mapping rules, examples
+and JSON Schema.
+
+### Configure a complete Three.js app
+
+Package the complete static app as a ZIP, including its entry HTML and all
+required modules, charts, stylesheets, fonts and other runtime assets using
+relative paths. Link it from the AAS shell with the app's HTML MIME type
+(`text/html`) through **Lab Manager â†’ Digital Twins**. The Gateway validates
+and stores its files; Marketplace loads the entry page in an isolated iframe.
+Marketplace grants a one-use ticket bound to the active reservation. The app
+opens the provider Gateway WebSocket and sends the ticket in `session.create`;
+simulation inputs and outputs travel directly between the app and Gateway.
+The optional SDK handles this exchange, execution and result reception. Providers
+can also implement the documented messages and FMU session operations directly.
+The current direct session runtime supports FMI 2/3 Co-Simulation.
+
+See the [web app contract](../provider/digital-twin-threejs-app-contract.md) for
+the v2 host schema, independent hosting, security boundaries and optional Speed
+and input-schedule controls. A GLB and the generated controls remain another
+available presentation choice.
+
+### Smart Warehouse Cell example
+
+The distributed demo package includes `SmartWarehouseCell.fmu`, its companion
+GLB and `SmartWarehouseCell.webapp.zip` under `fmu-executor/fmu-data/`. Create
+the listing through **Add New Lab â†’ Simulation** and register
+`SmartWarehouseCell.fmu` as the FMU filename/access key; there is no Marketplace
+FMU upload step. After the listing exists, open **Lab Manager â†’ Digital Twins**
+and synchronize the AAS shell. Lab Manager imports the prepared visual asset
+from the active FMU backend: from Gateway `fmu-data` during local development,
+or from Lab Station through its protected internal endpoint in production.
+The same FMU can use the GLB viewer or the bundled Three.js app; the AAS File
+MIME type selects the Marketplace presentation. The provider Gateway stores
+and serves the selected asset; Lab Station does not expose it publicly.
 
 ## Post-publication management
 
@@ -81,4 +236,4 @@ Marketplace upload of `.fmu` files is disabled. For simulation labs, provision t
 For ongoing reservations, incidents, unlisting and settlement responsibilities,
 see [Operate your laboratory](../provider/operate-your-lab.md).
 
-Last reviewed: 2026-10-06
+Last reviewed: 2026-10-23

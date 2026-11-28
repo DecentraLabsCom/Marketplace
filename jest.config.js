@@ -7,6 +7,8 @@ const createJestConfig = nextJest({
 /** @type {import('jest').Config} */
 const customJestConfig = {
   testEnvironment: "jsdom",
+  // Keep the child-process pool bounded on high-core developer workstations.
+  maxWorkers: 2,
   setupFilesAfterEnv: ["<rootDir>/src/test-utils/setupTests.js"],
   testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
   moduleNameMapper: {

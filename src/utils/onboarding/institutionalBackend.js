@@ -237,14 +237,3 @@ export async function restoreInstitutionalBackend(institutionId) {
   }
   await invalidateInstitutionalBackend(normalizedId)
 }
-
-export default {
-  resolveInstitutionalBackendUrl,
-  institutionalBackendFetch,
-  hasInstitutionalBackend,
-  isInstitutionalBackendSuspended,
-  clearBackendCache,
-  invalidateInstitutionalBackend,
-  denyInstitutionalBackend,
-  restoreInstitutionalBackend,
-}

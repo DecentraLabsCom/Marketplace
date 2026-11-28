@@ -55,5 +55,3 @@ export function useInstitutionResolve(institutionDomain, options = {}) {
     ...options,
   });
 }
-
-export default useInstitutionResolve;

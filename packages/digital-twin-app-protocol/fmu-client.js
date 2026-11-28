@@ -1,0 +1,289 @@
+import { createProtocolId, isValidConnectionConfig, isValidParameters, MAX_MODEL_DESCRIPTION_JSON_BYTES, MAX_SAMPLE_BATCH_JSON_CHARS } from './index.js'
+import { getInputUpdateQuota, getInputUpdateRetryDelayMs } from './input-update-quota.js'
+import { omitParametersMatchingFmiStart } from './parameter-defaults.js'
+
+const failure = (message, code = 'FMU_CONNECTION_FAILED') => Object.assign(new Error(message), { code })
+const CHECKPOINT_FIELDS = ['format', 'checkpointId', 'scope', 'createdAt', 'expiresAt', 'signature']
+
+export function isValidFmuStateCheckpoint(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === CHECKPOINT_FIELDS.length
+    && Object.keys(value).every((key) => CHECKPOINT_FIELDS.includes(key))
+    && value.format === 'decentralabs-fmi-state-v1'
+    && typeof value.checkpointId === 'string' && /^[a-f\d]{32}$/.test(value.checkpointId)
+    && typeof value.scope === 'string' && /^[a-f\d]{64}$/.test(value.scope)
+    && Number.isFinite(value.createdAt) && Number.isFinite(value.expiresAt)
+    && value.expiresAt > value.createdAt && value.expiresAt > Date.now() / 1000
+    && typeof value.signature === 'string' && /^[a-f\d]{64}$/.test(value.signature)
+}
+
+export function isValidFmuStateCheckpointBundle(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).some((key) => !['version', 'simTime', 'checkpoint', 'sample', 'modelValues'].includes(key))
+    || !['version', 'simTime', 'checkpoint'].every((key) => key in value)
+    || value.version !== 1 || !Number.isFinite(value.simTime)
+    || !isValidFmuStateCheckpoint(value.checkpoint)) return false
+  if (value.sample !== undefined && (!value.sample || typeof value.sample !== 'object' || Array.isArray(value.sample)
+    || Object.keys(value.sample).length !== 2 || !('time' in value.sample) || !('outputs' in value.sample)
+    || !Number.isFinite(value.sample.time) || !value.sample.outputs || typeof value.sample.outputs !== 'object'
+    || Array.isArray(value.sample.outputs)
+    || Object.keys(value.sample.outputs).length > 512
+    || Object.entries(value.sample.outputs).some(([name, item]) => !name || name.length > 256
+      || !(typeof item === 'boolean' || (typeof item === 'number' && Number.isFinite(item)))))) return false
+  if (value.modelValues !== undefined && !isValidParameters(value.modelValues)) return false
+  try { return new TextEncoder().encode(JSON.stringify(value)).length <= 4096 } catch { return false }
+}
+
+/** Open a reservation-authorized batch stream directly against Lab Gateway.
+ * The session ticket is sent only as a Bearer header; it is never placed in a URL,
+ * request body, cookie, or persistent browser storage.
+ */
+export function postFmuSimulationStream(connection, body, { signal, fetchImpl = globalThis.fetch } = {}) {
+  if (!isValidConnectionConfig(connection) || connection.ticketExpiresAt <= Date.now() / 1000) {
+    throw failure('The FMU connection grant is invalid or expired.', 'INVALID_CONNECTION_GRANT')
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw failure('The simulation request is invalid.', 'INVALID_RUN_REQUEST')
+  }
+  if (typeof fetchImpl !== 'function') {
+    throw failure('The FMU simulation transport is unavailable.', 'FMU_CONNECTION_FAILED')
+  }
+  if (body.labId !== undefined && String(body.labId) !== connection.labId) {
+    throw failure('The FMU connection grant does not match this laboratory.', 'INVALID_CONNECTION_GRANT')
+  }
+
+  const streamUrl = new URL(connection.gatewayWsUrl)
+  const localPreview = connection.sessionTicket.startsWith('preview_')
+  if (localPreview && streamUrl.pathname !== '/dev-fmu/sessions') {
+    throw failure('The local FMU preview grant is invalid.', 'INVALID_CONNECTION_GRANT')
+  }
+  if (!localPreview && streamUrl.pathname !== '/fmu/api/v1/fmu/sessions') {
+    throw failure('The FMU connection grant has an invalid Gateway endpoint.', 'INVALID_CONNECTION_GRANT')
+  }
+  streamUrl.protocol = streamUrl.protocol === 'wss:' ? 'https:' : 'http:'
+  streamUrl.pathname = localPreview ? '/dev-fmu/simulations/stream' : '/fmu/api/v1/simulations/stream'
+  streamUrl.search = ''
+  streamUrl.hash = ''
+  const requestBody = { ...body, labId: connection.labId }
+  if (localPreview) {
+    if (body.reservationKey !== undefined && String(body.reservationKey) !== connection.reservationKey) {
+      throw failure('The local FMU preview grant does not match this reservation.', 'INVALID_CONNECTION_GRANT')
+    }
+    requestBody.reservationKey = connection.reservationKey
+  } else {
+    delete requestBody.reservationKey
+  }
+  delete requestBody.gatewayUrl
+
+  return fetchImpl(streamUrl.toString(), {
+    method: 'POST',
+    mode: 'cors',
+    credentials: 'omit',
+    cache: 'no-store',
+    redirect: 'error',
+    ...(signal ? { signal } : {}),
+    headers: {
+      Authorization: `Bearer ${connection.sessionTicket}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  })
+}
+
+function waitForRetry(delayMs, signal) {
+  signal?.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    let timeout
+    const onAbort = () => {
+      clearTimeout(timeout)
+      signal.removeEventListener('abort', onAbort)
+      reject(signal.reason || new DOMException('FMU request cancelled.', 'AbortError'))
+    }
+    timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, delayMs)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) onAbort()
+  })
+}
+
+/** Connect directly to the provider's existing proxy.fmu WebSocket service.
+ * The one-use ticket is sent only in session.create, never in a URL or storage.
+ * This client is independent of the Marketplace window and its UI protocol.
+ */
+export async function connectFmuSession(connection, { signal, timeoutMs = 120_000 } = {}) {
+  if (!isValidConnectionConfig(connection) || connection.ticketExpiresAt <= Date.now() / 1000) {
+    throw failure('The FMU connection grant is invalid or expired.', 'INVALID_CONNECTION_GRANT')
+  }
+  signal?.throwIfAborted()
+  const socket = new WebSocket(connection.gatewayWsUrl)
+  const pending = new Map()
+  let sessionId
+  let capabilities = {}
+  let modelVariablesForStart = null
+  let closed = false
+  let openResolve
+  let openReject
+  const opened = new Promise((resolve, reject) => { openResolve = resolve; openReject = reject })
+  const openTimeout = setTimeout(() => close(failure('The FMU connection timed out.')), 30_000)
+  const abort = () => close(signal.reason || new DOMException('Cancelled', 'AbortError'))
+
+  function close(error = failure('The FMU session closed.')) {
+    if (closed) return
+    closed = true
+    clearTimeout(openTimeout)
+    signal?.removeEventListener('abort', abort)
+    openReject(error)
+    for (const item of pending.values()) { clearTimeout(item.timeout); item.reject(error) }
+    pending.clear()
+    socket.close()
+  }
+  signal?.addEventListener('abort', abort, { once: true })
+  socket.addEventListener('open', () => { clearTimeout(openTimeout); openResolve() }, { once: true })
+  socket.addEventListener('error', () => close(failure('The provider FMU service could not be reached.')))
+  socket.addEventListener('close', () => close(failure('The provider FMU session disconnected.', 'FMU_DISCONNECTED')))
+  socket.addEventListener('message', (event) => {
+    try {
+      if (typeof event.data !== 'string') {
+        throw failure('The FMU response exceeds the frame limit.', 'INVALID_FMU_RESPONSE')
+      }
+      const responseBytes = new TextEncoder().encode(event.data).length
+      if (responseBytes > MAX_MODEL_DESCRIPTION_JSON_BYTES) {
+        throw failure('The FMU response exceeds the frame limit.', 'INVALID_FMU_RESPONSE')
+      }
+      const response = JSON.parse(event.data)
+      if (!response || typeof response !== 'object' || typeof response.type !== 'string') throw failure('Invalid FMU response.')
+      const responseLimit = response.type === 'model.description'
+        ? MAX_MODEL_DESCRIPTION_JSON_BYTES
+        : MAX_SAMPLE_BATCH_JSON_CHARS
+      if (responseBytes > responseLimit) {
+        throw failure('The FMU response exceeds the frame limit.', 'INVALID_FMU_RESPONSE')
+      }
+      if (response.type === 'session.closed') { close(failure('The FMU session ended.', response.reason)); return }
+      const item = pending.get(response.requestId)
+      if (!item) return
+      if (sessionId && response.sessionId && response.sessionId !== sessionId) throw failure('The FMU response belongs to another session.')
+      pending.delete(response.requestId)
+      clearTimeout(item.timeout)
+      if (response.type === 'error') {
+        item.reject(Object.assign(failure(response.message || 'The FMU operation failed.', response.code), {
+          retryAfterMs: response.retryAfterMs,
+          retryable: response.retryable,
+          remaining: response.remaining,
+          maxBatchSize: response.maxBatchSize,
+        }))
+      } else if (response.type !== item.expected) {
+        item.reject(failure('The FMU returned an unexpected response.', 'INVALID_FMU_RESPONSE'))
+      } else item.resolve(response)
+    } catch (error) { close(error) }
+  })
+
+  async function request(type, expected, payload = {}) {
+    const hasInitializationParameters = payload.parameters
+      && typeof payload.parameters === 'object' && !Array.isArray(payload.parameters)
+      && Object.keys(payload.parameters).length > 0
+    if (type === 'sim.initialize' && hasInitializationParameters && modelVariablesForStart === null) {
+      try {
+        await request('model.describe', 'model.description', { includeVariables: true })
+      } catch (error) {
+        if (closed || signal?.aborted) throw error
+      }
+    }
+
+    let requestPayload = payload
+    if (type === 'model.describe') {
+      requestPayload = { ...payload, includeVariables: true }
+    } else if (type === 'sim.initialize' && payload.parameters
+      && typeof payload.parameters === 'object' && !Array.isArray(payload.parameters)) {
+      requestPayload = {
+        ...payload,
+        parameters: omitParametersMatchingFmiStart(payload.parameters, modelVariablesForStart || []),
+      }
+    }
+
+    const hasInputUpdates = type === 'sim.setInputs'
+      ? Boolean(payload.values && Object.keys(payload.values).length)
+      : type === 'sim.advance' && (
+        (Array.isArray(payload.inputSchedule) && payload.inputSchedule.length > 0)
+        || Boolean(payload.inputValues && Object.keys(payload.inputValues).length)
+      )
+
+    while (true) {
+      if (closed) throw failure('The FMU session is closed.')
+      signal?.throwIfAborted()
+      const requestId = createProtocolId('rpc')
+      try {
+        const response = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            pending.delete(requestId)
+            reject(failure('The FMU operation timed out.', 'FMU_REQUEST_TIMEOUT'))
+            close()
+          }, timeoutMs)
+          pending.set(requestId, { resolve, reject, timeout, expected })
+          try { socket.send(JSON.stringify({ ...requestPayload, type, requestId, ...(sessionId ? { sessionId } : {}) })) }
+          catch (error) { close(error) }
+        })
+        if (type === 'model.describe') {
+          modelVariablesForStart = Array.isArray(response.modelVariables) ? response.modelVariables : []
+        }
+        return response
+      } catch (error) {
+        if (!hasInputUpdates) throw error
+        const retryAfterMs = getInputUpdateRetryDelayMs(error, capabilities)
+        if (retryAfterMs === null) throw error
+        // The provider rejects over-quota writes before applying their inputs or advancing the FMU.
+        await waitForRetry(retryAfterMs, signal)
+      }
+    }
+  }
+
+  try {
+    await opened
+    const created = await request('session.create', 'session.created', {
+      labId: connection.labId, reservationKey: connection.reservationKey, sessionTicket: connection.sessionTicket,
+    })
+    if (typeof created.sessionId !== 'string' || !created.sessionId) throw failure('Missing FMU session identifier.')
+    getInputUpdateQuota(created.capabilities || {})
+    capabilities = created.capabilities || {}
+    sessionId = created.sessionId
+    function requireFmuStateSupport() {
+      if (capabilities.fmuState?.getAndSet !== true || capabilities.fmuState?.serialize !== true) {
+        throw failure('The provider FMU runtime does not support serialized FMU states.', 'UNSUPPORTED_FMU_STATE')
+      }
+    }
+
+    async function captureState() {
+      requireFmuStateSupport()
+      const response = await request('sim.captureFMUState', 'sim.fmuState')
+      const bundle = { version: 1, simTime: Number(response.simTime), checkpoint: response.checkpoint }
+      if (!isValidFmuStateCheckpointBundle(bundle)) {
+        throw failure('The provider returned an invalid FMU state checkpoint.', 'INVALID_FMU_STATE_CHECKPOINT')
+      }
+      return bundle
+    }
+
+    async function restoreState(value) {
+      requireFmuStateSupport()
+      const checkpoint = isValidFmuStateCheckpointBundle(value) ? value.checkpoint : value
+      if (!isValidFmuStateCheckpoint(checkpoint)) {
+        throw failure('The FMU state checkpoint is invalid.', 'INVALID_FMU_STATE_CHECKPOINT')
+      }
+      return request('sim.restoreFMUState', 'sim.state', { checkpoint })
+    }
+
+    return {
+      sessionId,
+      capabilities,
+      request,
+      captureState,
+      restoreState,
+      close() {
+        if (!closed && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'session.terminate', requestId: createProtocolId('close'), sessionId }))
+        }
+        close()
+      },
+    }
+  } catch (error) { close(error); throw error }
+}

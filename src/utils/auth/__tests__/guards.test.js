@@ -324,12 +324,6 @@ describe('guards', () => {
   });
 
   describe('handleGuardError', () => {
-    let NextResponse;
-    
-    beforeEach(async () => {
-      NextResponse = (await import('next/server')).NextResponse;
-    });
-    
     it('should return 401 response for UnauthorizedError', () => {
       const error = new guards.UnauthorizedError('Test unauthorized');
       const response = guards.handleGuardError(error);

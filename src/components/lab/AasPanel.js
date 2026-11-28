@@ -60,7 +60,14 @@ export default function AasPanel({ labId, gatewayUrl, resourceType }) {
   // Silently omit on fetch errors — non-critical feature
   if (state.error) return null
 
-  const { shell, nameplate, simulationInfo, operationalInfo, executionInfo } = state.data || {}
+  const {
+    shell,
+    nameplate,
+    simulationInfo,
+    operationalInfo,
+    executionInfo,
+    fmiLsResources,
+  } = state.data || {}
   if (!shell) return null
 
   const assetType = shell?.assetInformation?.assetType
@@ -243,6 +250,52 @@ export default function AasPanel({ labId, gatewayUrl, resourceType }) {
                 {simContactEmail}
               </a>
             </p>
+          </div>
+        )}
+
+        {Array.isArray(fmiLsResources?.resources) && fmiLsResources.resources.length > 0 && (
+          <div className="col-span-2 border-t border-[#2a2f33] pt-3 mt-1">
+            <div className="flex items-baseline justify-between gap-3 mb-2">
+              <h4 className="text-text-secondary text-xs uppercase tracking-wide">FMU Related Resources</h4>
+              {fmiLsResources.manifestVersion && (
+                <span className="text-text-secondary text-xs">
+                  FMI-LS-REF {fmiLsResources.manifestVersion}
+                </span>
+              )}
+            </div>
+            <ul className="space-y-2">
+              {fmiLsResources.resources.map((resource) => (
+                <li
+                  key={resource.id || `${resource.role}:${resource.source}`}
+                  className="rounded border border-[#2a2f33] px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                    <span className="text-neutral-200 font-medium">{resource.role || 'related resource'}</span>
+                    {resource.type && <span className="text-text-secondary">{resource.type}</span>}
+                  </div>
+                  {resource.description && (
+                    <p className="text-sm text-neutral-200 mt-1">{resource.description}</p>
+                  )}
+                  <p className="text-xs text-text-secondary font-mono mt-1 break-all">{resource.source}</p>
+                  {resource.availableInFmu === false && (
+                    <p className="text-xs text-amber-300 mt-1">Declared in REF but missing from the FMU archive.</p>
+                  )}
+                  {Array.isArray(resource.labels) && resource.labels.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {resource.labels.map((label, index) => (
+                        <span
+                          key={`${label.name}:${index}`}
+                          className="rounded bg-[#2a2f33] px-2 py-1 text-xs text-neutral-300"
+                          title={label.description || undefined}
+                        >
+                          {label.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

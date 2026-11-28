@@ -71,7 +71,7 @@ async function resolveActiveReservationKey(labId) {
  * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, hasActiveBooking, reservationKey = null, resourceType = RESOURCE_TYPES.LAB }) {
+export default function LabAccess({ id, hasActiveBooking, reservationKey = null }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [authURI, setAuthURI] = useState(null);
@@ -257,5 +257,4 @@ LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   hasActiveBooking: PropTypes.bool.isRequired,
   reservationKey: PropTypes.string,
-  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 }

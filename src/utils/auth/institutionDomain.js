@@ -31,8 +31,3 @@ export function resolveInstitutionDomainFromSession(session) {
     session?.eduPersonScopedAffiliation,
   ]);
 }
-
-export default {
-  resolveInstitutionDomain,
-  resolveInstitutionDomainFromSession,
-};

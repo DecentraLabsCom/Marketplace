@@ -1,0 +1,608 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import PropTypes from 'prop-types'
+import Modal from '@/components/ui/Modal'
+import InputScheduleDialog from '../controls/InputScheduleDialog'
+import ExecutionPaceSelector from '../controls/ExecutionPaceSelector'
+import PlaybackRateControl from '../controls/PlaybackRateControl'
+import FmiLsResourceSelect from '../controls/FmiLsResourceSelect'
+import FmuStateCheckpointControls from '../controls/FmuStateCheckpointControls'
+import { filterFmuStateModelValues } from '../utils/fmuStateCheckpoint'
+import { resolveInputSchedule } from '../utils/inputSchedule'
+import FmiLsStructMapPanel from '@/components/fmi-ls/FmiLsStructMapPanel'
+import { getFmiLsStructMapData } from '@/utils/fmiLsStruct'
+import { canScheduleFmiLsInputChanges } from '@/utils/fmiLsEligibility'
+import useDigitalTwinAppHost from './useDigitalTwinAppHost'
+import { omitParametersMatchingFmiStart } from '@decentralabs/digital-twin-app-protocol/parameter-defaults'
+import { createFmiDependencyMetadata, resolveEffectiveTolerance } from '@decentralabs/digital-twin-app-protocol'
+import {
+  DIGITAL_TWIN_CAPABILITY, DIGITAL_TWIN_MESSAGE as MESSAGE, isValidFmiLsExperiment,
+} from './digitalTwinAppProtocol'
+
+const PLAYBACK_RATE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.PLAYBACK_RATE
+const EXECUTION_PACE_CAPABILITY = DIGITAL_TWIN_CAPABILITY.EXECUTION_PACE
+const FMI_LS_PARAMETER_PRESETS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_PARAMETER_PRESETS
+const FMI_LS_EXPERIMENTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMI_LS_EXPERIMENTS
+const FMU_STATE_CHECKPOINTS_CAPABILITY = DIGITAL_TWIN_CAPABILITY.FMU_STATE_CHECKPOINTS
+
+export default function DigitalTwinAppViewer({
+  appUrl, title = 'Digital Twin', onConnect, modelVariables = [], fmiLsParameterPresets = [], fmiLsExperiments = [], enableInputSchedule = false,
+  scheduleVariables,
+  inputValues = {}, inputEvents = [], onInputEventsChange, startTime = 0, stepSize,
+  fmiLsStruct, fmiModelStructure, defaultTolerance,
+  fmuStateAvailable = false,
+  fmuStateScopeKey = '',
+  onFmuStateValuesLoad,
+  onModelChangeRequest, onBatchSimulation, hostExtensions = {}, downloadError, simulationError, fullScreen = false,
+}) {
+  const controlsButtonRef = useRef(null)
+  const controlsMenuRef = useRef(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const [activeControlDialog, setActiveControlDialog] = useState(null)
+  const [playbackRate, setPlaybackRate] = useState(1)
+  const [executionPace, setExecutionPace] = useState('realtime')
+  const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
+  const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
+  const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
+  const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
+  const [capturingFmuState, setCapturingFmuState] = useState(false)
+  const [fmuStateCaptureAvailable, setFmuStateCaptureAvailable] = useState(false)
+  const [fmuStateError, setFmuStateError] = useState('')
+  const fmuStateScopeRef = useRef(fmuStateScopeKey)
+  const parameterPresetsInitializedRef = useRef(false)
+  const scheduledVariables = useMemo(
+    () => (Array.isArray(scheduleVariables)
+      ? scheduleVariables
+      : modelVariables.filter((variable) => variable?.causality === 'input')),
+    [modelVariables, scheduleVariables],
+  )
+  const fmiLsStructMapCount = useMemo(
+    () => getFmiLsStructMapData(fmiLsStruct, modelVariables, inputValues).length,
+    [fmiLsStruct, inputValues, modelVariables],
+  )
+  const availableFmiLsParameterPresets = useMemo(
+    () => (Array.isArray(fmiLsParameterPresets) ? fmiLsParameterPresets : []).filter((preset) => (
+      preset && typeof preset.id === 'string' && typeof preset.name === 'string'
+      && preset.parameters && typeof preset.parameters === 'object' && !Array.isArray(preset.parameters)
+      && Object.keys(preset.parameters).length > 0 && Object.keys(preset.parameters).length <= 256
+      && Object.entries(preset.parameters).every(([name, value]) => (
+        typeof name === 'string' && name.length > 0 && name.length <= 256
+        && (typeof value === 'boolean'
+          || (typeof value === 'number' && Number.isFinite(value))
+          || (typeof value === 'string' && value.length <= 1024))
+      ))
+    )),
+    [fmiLsParameterPresets],
+  )
+  const availableFmiLsExperiments = useMemo(
+    () => (Array.isArray(fmiLsExperiments) ? fmiLsExperiments : []).filter(isValidFmiLsExperiment),
+    [fmiLsExperiments],
+  )
+  const selectedFmiLsParameterPreset = availableFmiLsParameterPresets.find((preset) => preset.id === selectedFmiLsParameterPresetId)
+  const selectedFmiLsExperiment = availableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const fmiModelMetadata = useMemo(
+    () => createFmiDependencyMetadata(modelVariables, fmiModelStructure),
+    [modelVariables, fmiModelStructure],
+  )
+  const scheduledInputEvents = Array.isArray(inputEvents) ? inputEvents : []
+  const updateScheduledInputEvents = onInputEventsChange || (() => {})
+  async function handleBatchSimulation(request) {
+    const { outputVariables, outputSampleEverySteps } = request.batchOptions || {}
+    return onBatchSimulation({
+      ...request,
+      body: {
+        ...request.body,
+        options: {
+          ...request.body.options,
+          ...(outputVariables ? { outputVariables } : {}),
+          ...(outputSampleEverySteps === undefined ? {} : { outputSampleEverySteps }),
+        },
+        parameters: omitParametersMatchingFmiStart(request.body.parameters, modelVariables),
+      },
+    })
+  }
+
+  async function handleConnectionRequest({ options, capabilities, signal, transport, executionPace: requestedPace }) {
+    const runOptions = { ...options, ...(selectedFmiLsExperiment?.options || {}) }
+    const interval = {
+      startTime: runOptions.startTime ?? startTime,
+      ...(runOptions.stopTime !== undefined ? { stopTime: runOptions.stopTime } : {}),
+      stepSize: runOptions.stepSize ?? stepSize,
+    }
+    const schedule = resolveInputSchedule({
+      experiment: selectedFmiLsExperiment,
+      inputEvents: scheduledInputEvents,
+      scheduleVariables: scheduledVariables,
+      modelVariables,
+      options: interval,
+      enabled: enableInputSchedule,
+    })
+    const effectivePace = capabilities.includes(EXECUTION_PACE_CAPABILITY)
+      ? executionPace
+      : requestedPace || 'fastest'
+    if (transport === 'batch-http' && effectivePace === 'fastest' && typeof onBatchSimulation === 'function') {
+      return {
+        transport: 'batch-http',
+        inputSchedule: schedule,
+        executionPace: effectivePace,
+        defaultStartTime: startTime,
+        ...(Number.isFinite(stepSize) && stepSize > 0 ? { defaultStepSize: stepSize } : {}),
+        captureFmuStateAvailable: fmuStateAvailable,
+      }
+    }
+    if (typeof onConnect !== 'function') throw new Error('The provider FMU connection is unavailable.')
+    const connection = await onConnect({ options: runOptions, signal })
+    return {
+      transport: 'websocket',
+      connection,
+      inputSchedule: schedule,
+      executionPace: effectivePace,
+      defaultStartTime: startTime,
+      ...(Number.isFinite(stepSize) && stepSize > 0 ? { defaultStepSize: stepSize } : {}),
+    }
+  }
+
+  const {
+    iframeRef,
+    appState,
+    appFailureReason,
+    frameLoaded,
+    appCapabilities,
+    execution,
+    send,
+    handleFrameLoad,
+    handleFrameError,
+  } = useDigitalTwinAppHost({
+    appUrl,
+    reloadKey,
+    hostExtensions: {
+      ...hostExtensions,
+      ...(typeof onBatchSimulation === 'function' ? { batchPostStream: true } : {}),
+      ...(fmiModelMetadata.modelVariables.length ? { fmiModelMetadata } : {}),
+    },
+    onAppReady: (message) => {
+      setPlaybackRate(message.defaultPlaybackRate || 1)
+      setExecutionPace(message.defaultExecutionPace || 'realtime')
+    },
+    onExecutionState: (message) => {
+      if (message.state === 'running') {
+        setResumeFromFmuState(false)
+        setFmuStateCaptureAvailable(false)
+      } else if (message.state === 'completed') {
+        setFmuStateCaptureAvailable(true)
+      } else {
+        setFmuStateCaptureAvailable(false)
+      }
+    },
+    onFmuStateSaved: (bundle) => {
+      setFmuStateCheckpoint(bundle)
+      setResumeFromFmuState(false)
+      setCapturingFmuState(false)
+      setFmuStateCaptureAvailable(false)
+      setFmuStateError('')
+    },
+    onFmuStateError: () => {
+      setCapturingFmuState(false)
+      setFmuStateError('The FMU state could not be saved. Check the model and provider runtime.')
+    },
+    onModelChangeRequest,
+    onConnectionRequest: typeof onConnect === 'function' || typeof onBatchSimulation === 'function' ? handleConnectionRequest : null,
+    onBatchSimulation: typeof onBatchSimulation === 'function' ? handleBatchSimulation : null,
+  })
+
+  const isRunning = execution.state === 'running'
+  const activeRunId = execution.runId
+  const executionStartTime = Number(execution.options?.startTime ?? startTime)
+  const executionStopTime = Number(execution.options?.stopTime)
+  const modelDuration = Number.isFinite(executionStartTime) && Number.isFinite(executionStopTime)
+    ? executionStopTime - executionStartTime
+    : 0
+  const hasSystemConfigurationControl = appState === 'ready'
+    && availableFmiLsParameterPresets.length > 0
+    && appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY)
+  const hasFmiLsExperimentsControl = appState === 'ready'
+    && availableFmiLsExperiments.length > 0
+    && appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)
+  const hasPlaybackRateControl = appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)
+  const hasExecutionPaceControl = appState === 'ready' && appCapabilities.includes(EXECUTION_PACE_CAPABILITY)
+  const hasScheduleControl = appState === 'ready'
+    && canScheduleFmiLsInputChanges(enableInputSchedule, scheduledVariables)
+  const hasFmiLsStructMapsControl = appState === 'ready' && fmiLsStructMapCount > 0
+  const appSupportsFmuStateControl = appCapabilities.includes(FMU_STATE_CHECKPOINTS_CAPABILITY)
+  const hasFmuStateControl = appState === 'ready' && fmuStateAvailable && appSupportsFmuStateControl
+  const hasCancelControl = Boolean(isRunning && activeRunId
+    && appCapabilities.includes(DIGITAL_TWIN_CAPABILITY.EXECUTION_CONTROL))
+  const hasFloatingControls = hasSystemConfigurationControl || hasFmiLsExperimentsControl || hasPlaybackRateControl || hasExecutionPaceControl
+    || hasScheduleControl || hasFmiLsStructMapsControl || hasCancelControl || hasFmuStateControl
+  useEffect(() => {
+    setControlsOpen(false)
+    setActiveControlDialog(null)
+    setPlaybackRate(1)
+    setExecutionPace('realtime')
+    setSelectedFmiLsExperimentId('')
+  }, [appUrl, reloadKey])
+  useEffect(() => {
+    if (fmuStateScopeRef.current === fmuStateScopeKey) return
+    fmuStateScopeRef.current = fmuStateScopeKey
+    setFmuStateCheckpoint(null)
+    setResumeFromFmuState(false)
+    setCapturingFmuState(false)
+    setFmuStateCaptureAvailable(false)
+    setFmuStateError('')
+    send(MESSAGE.FMU_STATE_CONFIGURATION, {
+      checkpoint: null,
+      resume: false,
+      captureOnCompletion: false,
+    })
+  }, [fmuStateScopeKey])
+  useEffect(() => {
+    if (!fmuStateCaptureAvailable) return undefined
+    const timeout = window.setTimeout(() => setFmuStateCaptureAvailable(false), 5 * 60 * 1000)
+    return () => window.clearTimeout(timeout)
+  }, [execution.runId, fmuStateCaptureAvailable])
+  let scheduleError = ''
+  try {
+    resolveInputSchedule({
+      experiment: selectedFmiLsExperiment,
+      inputEvents: scheduledInputEvents,
+      scheduleVariables: scheduledVariables,
+      modelVariables,
+      options: {
+        startTime: selectedFmiLsExperiment?.options?.startTime ?? startTime,
+        ...(selectedFmiLsExperiment?.options?.stopTime !== undefined
+          ? { stopTime: selectedFmiLsExperiment.options.stopTime }
+          : {}),
+        stepSize: selectedFmiLsExperiment?.options?.stepSize ?? stepSize,
+      },
+      enabled: enableInputSchedule,
+    })
+  } catch (error) { scheduleError = error.message }
+
+  useEffect(() => {
+    if (!parameterPresetsInitializedRef.current && availableFmiLsParameterPresets.length > 0) {
+      parameterPresetsInitializedRef.current = true
+      setSelectedFmiLsParameterPresetId(availableFmiLsParameterPresets[0].id)
+      return
+    }
+    if (selectedFmiLsParameterPresetId && !selectedFmiLsParameterPreset) setSelectedFmiLsParameterPresetId('')
+  }, [availableFmiLsParameterPresets, selectedFmiLsParameterPreset, selectedFmiLsParameterPresetId])
+
+  useEffect(() => {
+    if (selectedFmiLsExperimentId && !selectedFmiLsExperiment) setSelectedFmiLsExperimentId('')
+  }, [availableFmiLsExperiments, selectedFmiLsExperiment, selectedFmiLsExperimentId])
+
+  useEffect(() => {
+    if (appState !== 'ready' || !appCapabilities.includes(FMI_LS_PARAMETER_PRESETS_CAPABILITY) || !selectedFmiLsParameterPreset) return
+    send(MESSAGE.FMI_LS_PARAMETER_PRESET, {
+      id: selectedFmiLsParameterPreset.id,
+      name: selectedFmiLsParameterPreset.name,
+      description: selectedFmiLsParameterPreset.description || '',
+      parameters: selectedFmiLsParameterPreset.parameters,
+    })
+  }, [appCapabilities, appState, selectedFmiLsParameterPreset])
+
+  useEffect(() => {
+    if (appState !== 'ready' || !appCapabilities.includes(FMI_LS_EXPERIMENTS_CAPABILITY)) return
+    send(MESSAGE.FMI_LS_EXPERIMENT, { experiment: selectedFmiLsExperiment || null })
+  }, [appCapabilities, appState, selectedFmiLsExperiment])
+
+  useEffect(() => {
+    if (!fmuStateAvailable || !appSupportsFmuStateControl) return
+    send(MESSAGE.FMU_STATE_CONFIGURATION, {
+      checkpoint: fmuStateCheckpoint,
+      resume: Boolean(resumeFromFmuState && fmuStateCheckpoint),
+      captureOnCompletion: false,
+    })
+  }, [appSupportsFmuStateControl, fmuStateAvailable, fmuStateCheckpoint, resumeFromFmuState])
+
+  useEffect(() => {
+    if (appState === 'ready' && appCapabilities.includes(PLAYBACK_RATE_CAPABILITY)) {
+      send(MESSAGE.PLAYBACK_CONTROL, { rate: playbackRate, rateUnit: 'model-seconds-per-real-second' })
+    }
+  }, [appCapabilities, appState, playbackRate])
+
+  useEffect(() => {
+    if (!controlsOpen) return undefined
+
+    const closeOnOutsidePointer = (event) => {
+      if (controlsMenuRef.current?.contains(event.target) || controlsButtonRef.current?.contains(event.target)
+        || event.target.closest?.('[data-fmi-ls-option-listbox]')) return
+      setControlsOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape' || activeControlDialog) return
+      setControlsOpen(false)
+      controlsButtonRef.current?.focus()
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activeControlDialog, controlsOpen])
+
+  function cancelCurrentSimulation() {
+    if (activeRunId) send(MESSAGE.EXECUTION_CANCEL, { runId: activeRunId })
+  }
+  function handleLoadFmuState() {
+    const shouldLoad = !resumeFromFmuState
+    if (shouldLoad) {
+      const variableNames = modelVariables.map((variable) => variable?.name).filter(Boolean)
+      const modelValues = filterFmuStateModelValues(fmuStateCheckpoint?.modelValues, variableNames)
+      if (Object.keys(modelValues).length) {
+        onFmuStateValuesLoad?.(modelValues, {
+          checkpointId: fmuStateCheckpoint?.checkpoint?.checkpointId,
+          simTime: fmuStateCheckpoint?.simTime,
+        })
+      }
+      setSelectedFmiLsParameterPresetId('')
+    }
+    setResumeFromFmuState(shouldLoad)
+  }
+
+  return (
+    <section className={fullScreen
+      ? 'relative h-screen min-h-0 w-screen overflow-hidden bg-[#07151b]'
+      : 'relative h-[min(82vh,60rem)] min-h-128 w-full overflow-hidden rounded-xl border border-[#253840] bg-[#07151b]'}>
+      <iframe
+        key={`${appUrl}:${reloadKey}`}
+        ref={iframeRef}
+        src={appUrl}
+        title={`${title} digital twin application`}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        onLoad={handleFrameLoad}
+        onError={handleFrameError}
+        className="absolute inset-0 h-full w-full border-0"
+      />
+      {appState === 'loading' && (
+        <div className="absolute inset-0 grid place-items-center bg-[#07151b]/90 p-6 text-center text-sm text-[#c4d9dd]" role="status" aria-live="polite">
+          {frameLoaded ? 'Waiting for the application scene to initialize…' : 'Loading the provider application…'}
+        </div>
+      )}
+      {appState === 'error' && (
+        <div className="absolute inset-0 grid place-items-center bg-[#07151b]/95 p-6 text-center text-sm text-[#f5b4ba]" role="alert">
+          <div className="max-w-md">
+            <p>{appFailureReason || 'The provider application did not initialize successfully. Check its bundled assets and browser console errors.'}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((current) => current + 1)}
+              className="mt-4 rounded-lg border border-[#7b4650] bg-[#321d24] px-4 py-2 text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e]"
+            >
+              Retry application
+            </button>
+          </div>
+        </div>
+      )}
+      {downloadError && appState !== 'loading' && appState !== 'error' && (
+        <div className="absolute left-3 right-3 top-3 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-6" role="alert">
+          {downloadError}
+        </div>
+      )}
+      {hasFloatingControls && (
+        <>
+          {controlsOpen && (
+            <section
+              ref={controlsMenuRef}
+              id="digital-twin-controls-menu"
+              aria-label="Digital twin controls"
+              className="absolute bottom-[4.5rem] left-4 z-40 max-h-[min(74vh,44rem)] w-[min(15.5rem,calc(100%-2rem))] overflow-y-auto rounded-2xl border border-[#36535a] bg-[#08181d]/95 p-3 text-left shadow-2xl backdrop-blur-xl sm:bottom-[5rem] sm:left-6 sm:p-4"
+            >
+              <div className="mb-3 border-b border-[#263a42] pb-3">
+                <h2 className="text-sm font-semibold text-white">Digital twin controls</h2>
+              </div>
+              <div className="grid gap-3">
+                {hasFmuStateControl ? (
+                  <FmuStateCheckpointControls
+                    available
+                    layout="stacked"
+                    checkpoint={fmuStateCheckpoint}
+                    loaded={resumeFromFmuState}
+                    onSave={() => {
+                      if (capturingFmuState || execution.state !== 'completed') return
+                      setCapturingFmuState(true)
+                      setFmuStateError('')
+                      send(MESSAGE.FMU_STATE_CAPTURE)
+                    }}
+                    onLoad={handleLoadFmuState}
+                    onClear={() => {
+                      setFmuStateCheckpoint(null)
+                      setResumeFromFmuState(false)
+                      setFmuStateCaptureAvailable(false)
+                      send(MESSAGE.FMU_STATE_CONFIGURATION, {
+                        checkpoint: null,
+                        resume: false,
+                        captureOnCompletion: false,
+                      })
+                    }}
+                    saveAvailable={execution.state === 'completed' && fmuStateCaptureAvailable}
+                    clearAvailable={Boolean(fmuStateCheckpoint) || fmuStateCaptureAvailable}
+                    saving={capturingFmuState}
+                    busy={isRunning}
+                    error={fmuStateError}
+                  />
+                ) : null}
+
+                {hasSystemConfigurationControl ? (
+                  <FmiLsResourceSelect
+                    options={availableFmiLsParameterPresets}
+                    selectedOptionId={selectedFmiLsParameterPresetId}
+                    onSelect={(id) => {
+                      setSelectedFmiLsExperimentId('')
+                      setSelectedFmiLsParameterPresetId(id)
+                    }}
+                    disabled={isRunning}
+                  />
+                ) : null}
+
+                {hasFmiLsExperimentsControl ? (
+                  <FmiLsResourceSelect
+                    options={availableFmiLsExperiments}
+                    selectedOptionId={selectedFmiLsExperimentId}
+                    onSelect={(id) => {
+                      setSelectedFmiLsParameterPresetId('')
+                      setSelectedFmiLsExperimentId(id)
+                    }}
+                    choiceLabel="Experiment"
+                    disabled={isRunning}
+                  />
+                ) : null}
+                {(() => {
+                  const effectiveTolerance = resolveEffectiveTolerance(
+                    execution.options || selectedFmiLsExperiment?.options,
+                    defaultTolerance,
+                  )
+                  return effectiveTolerance ? (
+                    <p className="mt-2 max-w-64 text-[11px] leading-relaxed text-[#829ba1]">
+                      The {effectiveTolerance.source === 'run-option' ? 'effective run' : 'default'} relative tolerance used for integrating differential-algebraic equations (DAEs) is{' '}
+                      <span className="font-mono text-[#b8d2d5]">{effectiveTolerance.value.toExponential(3)}</span>.
+                    </p>
+                  ) : null
+                })()}
+
+                {hasExecutionPaceControl ? (
+                  <ExecutionPaceSelector
+                    executionPace={executionPace}
+                    onChange={setExecutionPace}
+                    disabled={isRunning}
+                    toolbar
+                  />
+                ) : null}
+
+                {hasPlaybackRateControl ? (
+                  <PlaybackRateControl
+                    rate={playbackRate}
+                    onChange={setPlaybackRate}
+                    modelDuration={modelDuration}
+                    disabled={isRunning}
+                  />
+                ) : null}
+
+                {hasScheduleControl ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setActiveControlDialog('schedule')}
+                    disabled={isRunning}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[#30464d] bg-[#101d23] px-3 py-2 text-left transition hover:border-[#54d5c9] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span>
+                      <span className="block text-xs font-semibold text-[#dce9e9]">Schedule changes</span>
+                      <span className="mt-1 block text-[11px] text-[#91a9ae]">Set inputs at simulation times</span>
+                    </span>
+                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{scheduledInputEvents.length}</span>
+                  </button>
+                ) : null}
+
+                {hasFmiLsStructMapsControl ? (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setActiveControlDialog('maps')}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[#30464d] bg-[#101d23] px-3 py-2 text-left transition hover:border-[#54d5c9]"
+                  >
+                    <span>
+                      <span className="block text-xs font-semibold text-[#dce9e9]">FMI-LS-STRUCT maps</span>
+                      <span className="mt-1 block text-[11px] text-[#91a9ae]">View reference performance curves</span>
+                    </span>
+                    <span className="rounded-full bg-[#20363d] px-2 py-0.5 font-mono text-[10px] text-[#9ab8bd]">{fmiLsStructMapCount}</span>
+                  </button>
+                ) : null}
+
+                {hasCancelControl ? (
+                  <button
+                    type="button"
+                    onClick={cancelCurrentSimulation}
+                    className="min-h-11 rounded-xl border border-[#7b4650] bg-[#321d24] px-3 py-2 text-center text-xs font-semibold text-[#ffd2d7] transition hover:bg-[#48252e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8e9b]"
+                  >
+                    Cancel simulation
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          )}
+          <button
+            ref={controlsButtonRef}
+            type="button"
+            aria-label={controlsOpen ? 'Close digital twin controls' : 'Open digital twin controls'}
+            aria-expanded={controlsOpen}
+            aria-controls={controlsOpen ? 'digital-twin-controls-menu' : undefined}
+            title={controlsOpen ? 'Close digital twin controls' : 'Digital twin controls'}
+            onClick={() => setControlsOpen((open) => !open)}
+            className="absolute bottom-4 left-4 z-50 grid h-12 w-12 place-items-center rounded-full border border-[#5c858b] bg-[#0b252b] text-[#bffff3] shadow-2xl transition hover:border-[#8bffe4] hover:bg-[#12383d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#54d5c9] sm:bottom-6 sm:left-6"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+              {controlsOpen ? (
+                <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              ) : (
+                <>
+                  <path d="M4 7h9m4 0h3M4 17h3m4 0h9M13 5v4M7 15v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="15" cy="7" r="2" fill="#0b252b" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="9" cy="17" r="2" fill="#0b252b" stroke="currentColor" strokeWidth="1.8" />
+                </>
+              )}
+            </svg>
+          </button>
+        </>
+      )}
+      <InputScheduleDialog
+        isOpen={activeControlDialog === 'schedule'}
+        onClose={() => setActiveControlDialog(null)}
+        variables={scheduledVariables}
+        modelVariables={modelVariables}
+        initialValues={{ ...inputValues, ...(selectedFmiLsExperiment?.parameters || {}) }}
+        events={scheduledInputEvents}
+        startTime={selectedFmiLsExperiment?.options.startTime ?? startTime}
+        stopTime={selectedFmiLsExperiment?.options.stopTime}
+        stepSize={selectedFmiLsExperiment?.options.stepSize ?? stepSize}
+        validationError={scheduleError}
+        disabled={isRunning}
+        onChange={updateScheduledInputEvents}
+        zIndex={120}
+      />
+      <Modal
+        isOpen={activeControlDialog === 'maps'}
+        onClose={() => setActiveControlDialog(null)}
+        title="FMI-LS-STRUCT maps"
+        titleAside={`Maps, operating points and outputs declared in FMI-LS-STRUCT ${fmiLsStruct?.manifestVersion || ''}.`}
+        size="3xl"
+        theme="dark"
+        portal
+        zIndex={120}
+      >
+        <FmiLsStructMapPanel
+          fmiLsStruct={fmiLsStruct}
+          modelVariables={modelVariables}
+          values={{ ...inputValues, ...(selectedFmiLsParameterPreset?.parameters || {}), ...(selectedFmiLsExperiment?.parameters || {}) }}
+          showHeading={false}
+        />
+      </Modal>
+      {simulationError && appState !== 'loading' && appState !== 'error' && (
+        <div className="absolute left-3 right-3 top-16 z-10 rounded-lg border border-[#7b4650] bg-[#321d24]/95 px-4 py-3 text-xs text-[#ffd2d7] shadow-xl sm:left-6 sm:right-6 sm:top-20" role="alert">
+          {simulationError}
+        </div>
+      )}
+    </section>
+  )
+}
+
+DigitalTwinAppViewer.propTypes = {
+  appUrl: PropTypes.string.isRequired, title: PropTypes.string, onConnect: PropTypes.func,
+  onBatchSimulation: PropTypes.func,
+  modelVariables: PropTypes.array, fmiLsParameterPresets: PropTypes.array, fmiLsExperiments: PropTypes.array,
+  enableInputSchedule: PropTypes.bool, scheduleVariables: PropTypes.array,
+  fmiLsStruct: PropTypes.object,
+  fmiModelStructure: PropTypes.object,
+  defaultTolerance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  fmuStateAvailable: PropTypes.bool, fmuStateScopeKey: PropTypes.string,
+  onFmuStateValuesLoad: PropTypes.func,
+  inputValues: PropTypes.object,
+  inputEvents: PropTypes.array, onInputEventsChange: PropTypes.func,
+  startTime: PropTypes.number, stepSize: PropTypes.number,
+  onModelChangeRequest: PropTypes.func, hostExtensions: PropTypes.object,
+  downloadError: PropTypes.string, simulationError: PropTypes.string, fullScreen: PropTypes.bool,
+}

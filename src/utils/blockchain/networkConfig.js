@@ -2,11 +2,11 @@
  * Blockchain network configuration for the DecentraLabs Marketplace
  * Defines default chains and RPC endpoints for different providers
  */
-import { mainnet, polygon, sepolia } from 'wagmi/chains'
+import { mainnet, polygon, sepolia } from 'viem/chains'
 
 /**
  * Default blockchain chain for the application
- * @type {Object} Wagmi chain configuration object
+ * @type {Object} Chain configuration object
  */
 export const defaultChain = sepolia;
 

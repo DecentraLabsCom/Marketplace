@@ -1,513 +1,640 @@
 ﻿"use client";
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import { getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
-import ParameterForm from './ParameterForm'
-import SimulationOptions from './SimulationOptions'
-import SimulationProgress from './SimulationProgress'
-import ResultsChart from './ResultsChart'
-import ResultsTable from './ResultsTable'
-import DownloadButtons from './DownloadButtons'
-import SimulationHistory from './SimulationHistory'
 import devLog from '@/utils/dev/logger'
-import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
-import { useGetIsSSO } from '@/utils/hooks/authMode'
-import { resolveGatewayFeatureError } from './gatewayErrors'
-import { establishFmuGatewaySession } from '@/utils/auth/fmuAccess'
-import { normalizeSimulationParameters } from './simulationParameters'
+import { MAX_SAMPLES_PER_BATCH } from '@decentralabs/digital-twin-app-protocol'
+import { postFmuSimulationStream } from '@decentralabs/digital-twin-app-protocol/fmu-client'
+import { getInitialSimulationOptions } from './utils/simulationTime'
+import useGlbSimulationConfiguration from './hooks/useGlbSimulationConfiguration'
+import useInteractiveTwinExecution from './hooks/useInteractiveTwinExecution'
+import useSimulationGatewaySession from './hooks/useSimulationGatewaySession'
+import useDigitalTwinAssetDiscovery from './hooks/useDigitalTwinAssetDiscovery'
+import {
+  supportsFmiScheduledInputChanges,
+  supportsInteractiveFmiModes,
+} from '@/utils/fmiLsEligibility'
+import useSimulationModelResources from './hooks/useSimulationModelResources'
+import useSimulationExecution, { SIM_STATE } from './hooks/useSimulationExecution'
+import useProxyFmuDownload from './hooks/useProxyFmuDownload'
+import { GlbSimulationPanel } from './SimulationRunnerPanels'
+import ProxyFmuDownload from './ProxyFmuDownload'
+import FmuStateCheckpointControls from './controls/FmuStateCheckpointControls'
+import { createFmuStateResults, filterFmuStateModelValues } from './utils/fmuStateCheckpoint'
 
-const SIM_STATE = {
-  IDLE: 'idle',
-  RUNNING: 'running',
-  COMPLETED: 'completed',
-  ERROR: 'error',
-}
-
-async function readNdjsonStream(response, onEvent) {
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop()
-    for (const line of lines) {
-      if (line.trim()) onEvent(JSON.parse(line))
-    }
-  }
-  if (buffer.trim()) onEvent(JSON.parse(buffer))
-}
-
-function resolveGatewayOrigin(accessUri) {
-  try {
-    return new URL(String(accessUri || '')).origin
-  } catch {
-    return ''
-  }
-}
+const DigitalTwinViewer = dynamic(() => import('./digital-twin/DigitalTwinViewer'), { ssr: false })
+const DigitalTwinAppViewer = dynamic(() => import('./digital-twin/DigitalTwinAppViewer'), { ssr: false })
 
 export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
-  const modelVariables = fmuMeta?.modelVariables || []
-  const inputVars = modelVariables.filter(v => v.causality === 'input')
-  const isSSO = useGetIsSSO()
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+  const discovery = useDigitalTwinAssetDiscovery({ labId, accessUri: lab.accessURI })
 
-  const [parameters, setParameters] = useState(() => {
-    const params = {}
-    inputVars.forEach(v => { params[v.name] = v.start ?? '' })
-    return params
-  })
-  const [options, setOptions] = useState({
-    startTime: fmuMeta?.defaultStartTime ?? 0,
-    stopTime: fmuMeta?.defaultStopTime ?? 10,
-    stepSize: fmuMeta?.defaultStepSize ?? 0.01,
-  })
-  const [simState, setSimState] = useState(SIM_STATE.IDLE)
-  const [results, setResults] = useState(null)
-  const [errorMsg, setErrorMsg] = useState(null)
-  const [showHistory, setShowHistory] = useState(false)
-  const [progress, setProgress] = useState({ elapsedSeconds: 0, chunkIndex: null, totalChunks: null })
-  const [gatewaySessionOrigin, setGatewaySessionOrigin] = useState(null)
-  const [proxyDownloadState, setProxyDownloadState] = useState('idle')
-  const [proxyDownloadMessage, setProxyDownloadMessage] = useState(null)
-  const [proxyNeedsRegeneration, setProxyNeedsRegeneration] = useState(false)
-
-  const authPromiseRef = useRef(null)
-
-  const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
-  const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
-  const [solver, setSolver] = useState('Euler')
-
-  const handleParamChange = useCallback((name, value) => {
-    setParameters(prev => ({ ...prev, [name]: value }))
-  }, [])
-
-  const handleOptionChange = useCallback((name, value) => {
-    setOptions(prev => ({ ...prev, [name]: value }))
-  }, [])
-
-  const reauthenticateGatewaySession = useCallback(async () => {
-    if (authPromiseRef.current) return authPromiseRef.current
-
-    const labId = String(lab.id ?? lab.tokenId ?? '')
-    if (!labId) {
-      throw new Error('Missing labId')
-    }
-
-    const authPromise = (async () => {
-      if (!isSSO) {
-        throw new Error('Institutional login is required')
-      }
-      const authData = await authenticateLabAccessSSO({
-        labId,
-        reservationKey,
-      })
-
-      const accessCode = authData?.accessCode
-      const labURL = authData?.labURL
-      if (!accessCode || !labURL || authData?.resourceType !== 'fmu') {
-        throw new Error('Gateway authentication did not return an FMU access code')
-      }
-      const canonicalReservationKey = authData?.reservationKey || reservationKey
-      if (!canonicalReservationKey || (
-        reservationKey && String(canonicalReservationKey).toLowerCase() !== String(reservationKey).toLowerCase()
-      )) {
-        throw new Error('Gateway returned a different FMU reservation context')
-      }
-      const gatewayOrigin = await establishFmuGatewaySession({
-        accessCode,
-        labId,
-        reservationKey: canonicalReservationKey,
-      })
-      setGatewaySessionOrigin(gatewayOrigin)
-      return gatewayOrigin
-    })()
-
-    authPromiseRef.current = authPromise
-    try {
-      return await authPromise
-    } finally {
-      authPromiseRef.current = null
-    }
-  }, [isSSO, lab.id, lab.tokenId, reservationKey])
-
-  const ensureGatewaySession = useCallback(async () => {
-    if (gatewaySessionOrigin) return gatewaySessionOrigin
-    const gatewayOrigin = resolveGatewayOrigin(lab.accessURI)
-    if (!gatewayOrigin) {
-      throw new Error('Lab gateway URL not available')
-    }
-    // The FMU handoff normally established this HttpOnly session immediately
-    // before navigation. Its validity can only be checked by the gateway, so
-    // optimistically reuse it instead of minting another credential.
-    setGatewaySessionOrigin(gatewayOrigin)
-    return gatewayOrigin
-  }, [gatewaySessionOrigin, lab.accessURI])
-
-  const fetchGateway = useCallback(async (path, init = {}) => {
-    await ensureGatewaySession()
-    let response = await fetch(path, init)
-    if (response.status !== 401) return response
-
-    setGatewaySessionOrigin(null)
-    await reauthenticateGatewaySession()
-    response = await fetch(path, init)
-    return response
-  }, [ensureGatewaySession, reauthenticateGatewaySession])
-
-  const handleRun = useCallback(async () => {
-    setSimState(SIM_STATE.RUNNING)
-    setErrorMsg(null)
-    setResults(null)
-    setProgress({ elapsedSeconds: 0, chunkIndex: null, totalChunks: null })
-
-    try {
-      const gatewayUrl = lab.accessURI || ''
-      if (!gatewayUrl) throw new Error('Lab gateway URL not available')
-
-      const reqOptions = { ...options }
-      if (isModelExchange) {
-        reqOptions.fmiType = 'ModelExchange'
-        reqOptions.solver = solver
-      }
-
-      const normalizedParameters = normalizeSimulationParameters(parameters, modelVariables)
-
-      const body = {
-        labId: String(lab.id ?? lab.tokenId ?? ''),
-        reservationKey,
-        parameters: normalizedParameters,
-        options: reqOptions,
-      }
-
-      const res = await fetchGateway('/api/simulations/stream', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || `Simulation failed (${res.status})`)
-      }
-
-      const accTime = []
-      const accOutputs = {}
-      let finalMeta = {}
-
-      await readNdjsonStream(res, (event) => {
-        switch (event.type) {
-          case 'started':
-            devLog.log('Simulation started:', event.simId)
-            break
-          case 'progress':
-            setProgress(prev => ({ ...prev, elapsedSeconds: event.elapsedSeconds }))
-            break
-          case 'data':
-            if (event.time) accTime.push(...event.time)
-            if (event.outputs) {
-              for (const [k, v] of Object.entries(event.outputs)) {
-                if (!accOutputs[k]) accOutputs[k] = []
-                accOutputs[k].push(...v)
-              }
-            }
-            setProgress(prev => ({ ...prev, chunkIndex: event.chunkIndex, totalChunks: event.totalChunks }))
-            setResults({ time: [...accTime], outputs: { ...accOutputs } })
-            break
-          case 'completed':
-            finalMeta = event
-            break
-          case 'error':
-            throw new Error(event.detail || 'Simulation error')
-          default:
-            break
-        }
-      })
-
-      setResults({
-        time: accTime,
-        outputs: accOutputs,
-        outputVariables: finalMeta.outputVariables || Object.keys(accOutputs),
-        simulationTime: finalMeta.simulationTime,
-        fmiType: finalMeta.fmiType,
-      })
-      setSimState(SIM_STATE.COMPLETED)
-      devLog.log('Simulation completed', { outputKeys: Object.keys(accOutputs), fmiType: finalMeta.fmiType })
-    } catch (err) {
-      devLog.error('Simulation error:', err)
-      setErrorMsg(err.message)
-      setSimState(SIM_STATE.ERROR)
-    }
-  }, [fetchGateway, isModelExchange, lab, modelVariables, options, parameters, reservationKey, solver])
-
-  const handleLoadResult = useCallback(async (simId) => {
-    const gatewayUrl = lab.accessURI || ''
-    const labId = String(lab.id ?? lab.tokenId ?? '')
-    if (!gatewayUrl || !labId) return
-    try {
-      const resultQuery = new URLSearchParams({
-        simId: String(simId),
-        labId,
-        reservationKey: String(reservationKey || ''),
-      })
-      const res = await fetchGateway(
-        `/api/simulations/result?${resultQuery.toString()}`,
-        { credentials: 'include' },
-      )
-      if (!res.ok) {
-        let payload = {}
-        try {
-          payload = await res.json()
-        } catch {
-          payload = {}
-        }
-        const gatewayError = resolveGatewayFeatureError(res.status, payload, {
-          fallbackMessage: `Failed to load result (${res.status})`,
-          unavailableMessage: 'Historical simulation results are not available yet for this FMU backend.',
-        })
-        throw new Error(gatewayError.message)
-      }
-      const data = await res.json()
-      if (data.result) {
-        setResults(data.result)
-      } else {
-        setResults(data)
-      }
-      setSimState(SIM_STATE.COMPLETED)
-    } catch (err) {
-      devLog.error('Failed to load historical result:', err)
-      setResults(null)
-      setErrorMsg(err?.message || 'Unable to load historical simulation result')
-      setSimState(SIM_STATE.ERROR)
-    }
-  }, [fetchGateway, lab, reservationKey])
-
-  const resolveProxyError = useCallback((status, payload) => {
-    const detailsRaw = payload?.details
-    let gatewayDetail = null
-    if (typeof detailsRaw === 'string') {
-      try {
-        gatewayDetail = JSON.parse(detailsRaw)
-      } catch {
-        gatewayDetail = { error: detailsRaw }
-      }
-    } else if (typeof detailsRaw === 'object' && detailsRaw !== null) {
-      gatewayDetail = detailsRaw
-    }
-
-    const gatewayCode = String(gatewayDetail?.code || '').toUpperCase()
-    if (gatewayCode === 'SESSION_TICKET_EXPIRED' || gatewayCode === 'SESSION_TICKET_ALREADY_USED') {
-      setProxyNeedsRegeneration(true)
-      return 'Proxy ticket expired or already used. Click "Regenerate Proxy FMU".'
-    }
-    if (status === 401) {
-      setProxyNeedsRegeneration(true)
-      return 'Authorization failed. Re-authenticate and regenerate the proxy FMU.'
-    }
-    return payload?.error || gatewayDetail?.error || `Proxy download failed (${status})`
-  }, [])
-
-  const triggerProxyDownload = useCallback(async () => {
-    if (!reservationKey) return
-    setProxyDownloadState('running')
-    setProxyDownloadMessage(null)
-
-    try {
-      const qs = new URLSearchParams({
-        labId: String(lab.id ?? lab.tokenId ?? ''),
-        reservationKey: String(reservationKey),
-      })
-      const response = await fetchGateway(`/api/simulations/proxy?${qs.toString()}`, {
-        credentials: 'include',
-      })
-      if (!response.ok) {
-        let payload = {}
-        try {
-          payload = await response.json()
-        } catch {
-          payload = {}
-        }
-        throw new Error(resolveProxyError(response.status, payload))
-      }
-
-      const blob = await response.blob()
-      const contentDisposition = response.headers.get('content-disposition') || ''
-      const filenameMatch = /filename="?([^"]+)"?/i.exec(contentDisposition)
-      const filename = filenameMatch?.[1] || `fmu-proxy-lab-${lab.id ?? lab.tokenId}.fmu`
-
-      const blobUrl = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = blobUrl
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(blobUrl)
-
-      setProxyNeedsRegeneration(false)
-      setProxyDownloadState('success')
-      setProxyDownloadMessage('Proxy FMU downloaded.')
-    } catch (err) {
-      devLog.error('Proxy FMU download failed:', err)
-      setProxyDownloadState('error')
-      setProxyDownloadMessage(err?.message || 'Unable to download proxy FMU')
-    }
-  }, [fetchGateway, lab.id, lab.tokenId, reservationKey, resolveProxyError])
-
-  if (!fmuMeta || !fmuMeta.fmuFileName) {
+  if (!fmuMeta?.fmuFileName) {
+    return <div className="p-8 text-center text-neutral-300">No FMU metadata available for this resource.</div>
+  }
+  if (!reservationKey) {
     return (
-      <div className="text-center text-neutral-300 p-8">
-        No FMU metadata available for this resource.
+      <div role="alert" className="grid min-h-80 place-items-center rounded-2xl border border-primary-200/20 bg-background-surface p-8 text-center text-sm text-neutral-200">
+        An active reservation is required to access this simulation.
+      </div>
+    )
+  }
+  if (discovery.state === 'loading') {
+    return (
+      <div role="status" className="grid min-h-80 place-items-center rounded-2xl border border-primary-200/20 bg-background-surface p-8 text-sm text-neutral-200">
+        Preparing the simulation view…
       </div>
     )
   }
 
-  const gatewayUrl = lab.accessURI || ''
+  const scopeKey = JSON.stringify([labId, reservationKey])
+  if (!discovery.asset) {
+    return <ProxyFmuDownload key={scopeKey} lab={lab} reservationKey={reservationKey} />
+  }
+  return (
+    <LinkedTwinSimulationRunner
+      key={scopeKey}
+      lab={lab}
+      reservationKey={reservationKey}
+      twinAsset={discovery.asset}
+      aasSimulationVariables={discovery.simulationVariables}
+    />
+  )
+}
+
+function LinkedTwinSimulationRunner({ lab, reservationKey, twinAsset, aasSimulationVariables }) {
+  const fmuMeta = getFmuMetadata(lab)
+  const { fetchGateway } = useSimulationGatewaySession({ lab, reservationKey })
+  const labId = String(lab.id ?? lab.tokenId ?? '')
+  const stateScopeKey = JSON.stringify([labId, reservationKey || ''])
+  const requestFmuConnection = useCallback(async ({ signal }) => {
+    const response = await fetchGateway('/api/simulations/connection', {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      throw new Error(payload.error || `The FMU session could not be authorized (${response.status}).`)
+    }
+    return response.json()
+  }, [fetchGateway, labId, reservationKey])
+
+  const [parameters, setParameters] = useState({})
+  const [inputEvents, setInputEvents] = useState([])
+  const [options, setOptions] = useState(() => getInitialSimulationOptions(fmuMeta))
+  const simulationOptionsEditedRef = useRef(false)
+  const glbStopTimeDefaultedRef = useRef(false)
+  const [variableAccess, setVariableAccess] = useState(null)
+  const [variableAccessState, setVariableAccessState] = useState(reservationKey ? 'loading' : 'unavailable')
+  const [fmiLsParameterPresets, setFmiLsParameterPresets] = useState([])
+  const [selectedFmiLsParameterPresetId, setSelectedFmiLsParameterPresetId] = useState('')
+  const [selectedFmiLsExperimentId, setSelectedFmiLsExperimentId] = useState('')
+  const [executionMode, setExecutionMode] = useState('continuous')
+  const [continuousBatchPolicy, setContinuousBatchPolicy] = useState('adaptive')
+  const [continuousExecutionPace, setContinuousExecutionPace] = useState('realtime')
+  const [fixedBatchSamples, setFixedBatchSamples] = useState(MAX_SAMPLES_PER_BATCH)
+  const [fmuStateCheckpoint, setFmuStateCheckpoint] = useState(null)
+  const [candidateFmuStateCheckpoint, setCandidateFmuStateCheckpoint] = useState(null)
+  const [resumeFromFmuState, setResumeFromFmuState] = useState(false)
+  const modelVariables = Array.isArray(variableAccess?.modelVariables) ? variableAccess.modelVariables : []
+  const fmiModelDescription = variableAccess?.modelDescription || {}
+  const effectiveFmiDefaults = { ...fmuMeta, ...fmiModelDescription }
+  const supportsFmuState = variableAccess?.fmuState?.getAndSet === true
+    && variableAccess?.fmuState?.serialize === true
+
+  const effectiveSimulationType = variableAccess?.simulationType || fmuMeta?.simulationType
+  const isScheduledExecution = effectiveSimulationType === 'ScheduledExecution'
+  const supportsInputSchedule = !isScheduledExecution
+  const checkpointReservationScopeRef = useRef(stateScopeKey)
+  const interactiveSessionScopeRef = useRef(stateScopeKey)
+  useEffect(() => {
+    const scope = stateScopeKey
+    if (checkpointReservationScopeRef.current === scope) return
+    checkpointReservationScopeRef.current = scope
+    setFmuStateCheckpoint(null)
+    setCandidateFmuStateCheckpoint(null)
+    setResumeFromFmuState(false)
+  }, [stateScopeKey])
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb' || !twinAsset.url || typeof document === 'undefined') return undefined
+    const preload = document.createElement('link')
+    preload.rel = 'preload'
+    preload.as = 'fetch'
+    preload.href = twinAsset.url
+    preload.crossOrigin = 'anonymous'
+    document.head.appendChild(preload)
+    return () => preload.remove()
+  }, [twinAsset?.type, twinAsset?.url])
+  const twinSimulationType = variableAccess?.simulationType
+  const supportsTwinInputSchedule = supportsFmiScheduledInputChanges(twinSimulationType)
+  const supportsInteractiveTwinModes = Boolean(
+    twinAsset?.type === 'glb'
+    && reservationKey
+    && variableAccessState === 'ready'
+    && supportsInteractiveFmiModes(
+      variableAccess?.simulationType,
+      variableAccess?.fmiVersion,
+    ),
+  )
+  const effectiveExecutionMode = supportsInteractiveTwinModes ? executionMode : 'batch'
+  const simulationTypeLabel = formatFmuSimulationType(twinSimulationType)
+  const proxyDownload = useProxyFmuDownload({
+    fetchGateway,
+    lab,
+    reservationKey,
+    hasFmuMetadata: Boolean(fmuMeta?.fmuFileName),
+    twinAsset,
+    twinAssetState: 'ready',
+  })
+  const { state: proxyDownloadState, message: proxyDownloadMessage } = proxyDownload
+  const modelResources = useSimulationModelResources({
+    modelVariables,
+    access: variableAccess,
+    parameterPresets: fmiLsParameterPresets,
+    aasSimulationVariables,
+  })
+  const {
+    accessibleModelVariables,
+    editableVariables,
+    scheduledRuntimeVariables,
+    twinVariableResolution,
+    twinModelVariables,
+    twinEditableVariables,
+    twinScheduledRuntimeVariables,
+    twinFmiLsParameterPresets,
+    twinFmiLsExperiments,
+  } = modelResources
+  const selectableFmiLsExperiments = twinFmiLsExperiments
+  const selectedFmiLsExperiment = selectableFmiLsExperiments.find((experiment) => experiment.id === selectedFmiLsExperimentId)
+  const isGlbTwin = twinAsset?.type === 'glb'
+  const restoreFmuStateModelValues = useCallback((modelValues) => {
+    const variables = twinAsset?.type === 'glb'
+      ? [...twinEditableVariables, ...twinScheduledRuntimeVariables]
+      : [...editableVariables, ...scheduledRuntimeVariables]
+    const restoredValues = filterFmuStateModelValues(
+      modelValues,
+      variables.map((variable) => variable.name),
+    )
+    if (Object.keys(restoredValues).length) {
+      setParameters((current) => ({ ...current, ...restoredValues }))
+      setSelectedFmiLsParameterPresetId('')
+    }
+  }, [editableVariables, scheduledRuntimeVariables, setParameters, twinAsset?.type, twinEditableVariables, twinScheduledRuntimeVariables])
+  const { effectiveOptions, handleLoad: handleLoadFmuState } = useGlbSimulationConfiguration({
+    enabled: isGlbTwin,
+    options,
+    defaultStartTime: getInitialSimulationOptions(fmuMeta).startTime,
+    experimentStartTime: selectedFmiLsExperiment?.options?.startTime,
+    checkpoint: fmuStateCheckpoint,
+    loaded: resumeFromFmuState,
+    setLoaded: setResumeFromFmuState,
+    onLoadModelValues: restoreFmuStateModelValues,
+  })
+  const isResumingFromCheckpoint = Boolean(isGlbTwin && resumeFromFmuState && fmuStateCheckpoint)
+  const execution = useSimulationExecution({
+    lab,
+    reservationKey,
+    getFmuConnection: requestFmuConnection,
+    variableAccess,
+    variableAccessState,
+    parameters,
+    setParameters,
+    options: effectiveOptions,
+    inputEvents,
+    isScheduledExecution,
+    supportsInputSchedule,
+    scheduledRuntimeVariables,
+    accessibleModelVariables,
+    editableVariables,
+    selectedFmiLsExperimentId,
+    selectableFmiLsExperiments,
+    setCandidateFmuStateCheckpoint,
+  })
+  const {
+    simState,
+    results,
+    errorMsg,
+    setErrorMsg,
+    progress,
+    runSimulation,
+    appendInteractiveSamples,
+    handleInteractiveRunStart,
+    handleInteractiveRunFinish,
+  } = execution
+  useEffect(() => {
+    glbStopTimeDefaultedRef.current = false
+  }, [labId])
+
+  useEffect(() => {
+    if (variableAccessState !== 'ready' || simulationOptionsEditedRef.current) return
+    setOptions(getInitialSimulationOptions(effectiveFmiDefaults))
+  }, [effectiveFmiDefaults.defaultStartTime, effectiveFmiDefaults.defaultStopTime,
+    effectiveFmiDefaults.defaultStepSize, variableAccessState])
+
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb' || glbStopTimeDefaultedRef.current) return
+    glbStopTimeDefaultedRef.current = true
+    const metadataStopTime = getInitialSimulationOptions(effectiveFmiDefaults).stopTime
+    setOptions((current) => current.stopTime === metadataStopTime
+      ? { ...current, stopTime: '' }
+      : current)
+  }, [effectiveFmiDefaults.defaultStartTime, effectiveFmiDefaults.defaultStopTime,
+    effectiveFmiDefaults.defaultStepSize, twinAsset?.type])
+  useEffect(() => {
+    if (variableAccessState !== 'ready') return
+    setParameters((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const variable of editableVariables) {
+        if (next[variable.name] === undefined || next[variable.name] === '') {
+          const permission = variableAccess.variables?.[variable.name]
+          const defaultValue = permission?.read === true
+            ? variable.start
+            : variable.type === 'Boolean' ? false : undefined
+          if (defaultValue === undefined || defaultValue === null) continue
+          next[variable.name] = defaultValue
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [editableVariables, variableAccess, variableAccessState])
+
+  useEffect(() => {
+    if (twinAsset?.type !== 'glb') return
+    setParameters((current) => {
+      let changed = false
+      const next = { ...current }
+      for (const variable of twinEditableVariables) {
+        if ((next[variable.name] === undefined || next[variable.name] === '') && variable.start != null) {
+          next[variable.name] = variable.start
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [twinAsset?.type, twinEditableVariables])
+
+  useEffect(() => {
+    if (twinVariableResolution.conflicts.length > 0) {
+      devLog.warn('AAS simulation metadata disagrees with the FMU description; conflicting fields use FMU metadata.',
+        twinVariableResolution.conflicts.slice(0, 20))
+    }
+  }, [twinVariableResolution.conflicts])
+
+  const handleParamChange = useCallback((name, value) => {
+    setSelectedFmiLsParameterPresetId('')
+    setSelectedFmiLsExperimentId('')
+    setParameters(prev => ({ ...prev, [name]: value }))
+  }, [])
+
+  const handleFmiLsParameterPresetSelect = useCallback((presetId) => {
+    const preset = fmiLsParameterPresets.find((candidate) => candidate.id === presetId)
+    setSelectedFmiLsParameterPresetId(preset ? preset.id : '')
+    setSelectedFmiLsExperimentId('')
+    if (preset) setParameters((current) => ({ ...current, ...preset.parameters }))
+  }, [fmiLsParameterPresets])
+
+  const handleExperimentSelect = useCallback((experimentId) => {
+    const experiment = selectableFmiLsExperiments.find((candidate) => candidate.id === experimentId)
+    setSelectedFmiLsExperimentId(experiment ? experiment.id : '')
+    setSelectedFmiLsParameterPresetId('')
+    if (!experiment) {
+      setOptions((current) => {
+        const next = { ...current }
+        delete next.tolerance
+        return next
+      })
+      return
+    }
+    setParameters((current) => ({ ...current, ...experiment.parameters }))
+    setOptions((current) => {
+      const next = { ...current }
+      delete next.tolerance
+      return { ...next, ...experiment.options }
+    })
+  }, [selectableFmiLsExperiments])
+
+  const handleOptionChange = useCallback((name, value) => {
+    simulationOptionsEditedRef.current = true
+    setSelectedFmiLsExperimentId('')
+    setOptions(prev => ({ ...prev, [name]: value }))
+  }, [])
+
+  const handleInteractiveFmuStateCheckpoint = useCallback((checkpoint) => {
+    setFmuStateCheckpoint(checkpoint)
+    setResumeFromFmuState(false)
+  }, [])
+
+  const interactiveExecution = useInteractiveTwinExecution({
+    getConnection: requestFmuConnection,
+    options: effectiveOptions,
+    parameters,
+    modelVariables: twinModelVariables,
+    editableVariables: twinEditableVariables,
+    runtimeVariables: twinScheduledRuntimeVariables,
+    variableAccess,
+    variableAccessState,
+    supported: supportsInteractiveTwinModes,
+    fmuStateSupported: variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true,
+    onFmuStateCheckpoint: handleInteractiveFmuStateCheckpoint,
+    batchPolicy: continuousBatchPolicy,
+    fixedBatchSamples,
+    executionPace: continuousExecutionPace,
+    onRunStart: handleInteractiveRunStart,
+    onSamples: appendInteractiveSamples,
+    onRunFinish: handleInteractiveRunFinish,
+    onParameterChange: handleParamChange,
+  })
+  useEffect(() => {
+    const scope = stateScopeKey
+    if (interactiveSessionScopeRef.current === scope) return
+    interactiveSessionScopeRef.current = scope
+    interactiveExecution.clearRetainedSession()
+  }, [interactiveExecution.clearRetainedSession, stateScopeKey])
+  const liveSceneInputEditing = interactiveExecution.hasActiveSession
+    && ['step', 'continuous'].includes(interactiveExecution.mode)
+    && interactiveExecution.runtimeInputEditing
+  const sceneInputVariables = useMemo(() => (
+    liveSceneInputEditing
+      ? twinScheduledRuntimeVariables.filter((variable) => variable.causality === 'input')
+      : []
+  ), [liveSceneInputEditing, twinScheduledRuntimeVariables])
+  const sceneInputValues = interactiveExecution.hasActiveSession
+    ? interactiveExecution.liveParameters
+    : parameters
+
+  useEffect(() => {
+    if (!labId || !reservationKey) {
+      setVariableAccess(null)
+      setVariableAccessState('unavailable')
+      setSelectedFmiLsExperimentId('')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setVariableAccess(null)
+    setVariableAccessState('loading')
+      setSelectedFmiLsExperimentId('')
+    fetchGateway('/api/simulations/access', {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || 'Variable access could not be resolved for this reservation.')
+        }
+        return response.json()
+      })
+      .then((access) => {
+        if (controller.signal.aborted) return
+        if (!access?.variables || typeof access.variables !== 'object' || Array.isArray(access.variables)
+          || !Array.isArray(access.modelVariables)) {
+          throw new Error('The provider returned an invalid variable access policy.')
+        }
+        setVariableAccess(access)
+        setVariableAccessState('ready')
+        setSelectedFmiLsExperimentId('')
+        setErrorMsg(null)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setVariableAccessState('error')
+        setErrorMsg(error?.message || 'Variable access could not be resolved for this reservation.')
+      })
+    return () => controller.abort()
+  }, [fetchGateway, labId, reservationKey])
+
+  useEffect(() => {
+    if (!labId || !reservationKey || variableAccessState !== 'ready') {
+      setFmiLsParameterPresets([])
+      setSelectedFmiLsParameterPresetId('')
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setFmiLsParameterPresets([])
+    setSelectedFmiLsParameterPresetId('')
+    fetchGateway('/api/simulations/parameter-sets', {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labId, reservationKey }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return { fmiLsParameterPresets: [] }
+        const payload = await response.json().catch(() => null)
+        return Array.isArray(payload?.fmiLsParameterPresets) ? payload : { fmiLsParameterPresets: [] }
+      })
+      .then((payload) => {
+        if (!controller.signal.aborted) setFmiLsParameterPresets(payload.fmiLsParameterPresets)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          devLog.warn('FMI-LS parameter sets are unavailable.', error?.message || error)
+          setFmiLsParameterPresets([])
+        }
+      })
+
+    return () => controller.abort()
+  }, [fetchGateway, labId, reservationKey, variableAccessState])
+
+  const handleRun = useCallback((scheduledEvents) => {
+    const checkpoint = resumeFromFmuState ? fmuStateCheckpoint : null
+    setCandidateFmuStateCheckpoint(null)
+    if (checkpoint) setResumeFromFmuState(false)
+    if (twinAsset?.type === 'glb' && effectiveExecutionMode !== 'batch') {
+      return interactiveExecution.start(effectiveExecutionMode, { checkpoint })
+    }
+    const stateOptions = {
+      checkpoint,
+      captureFmuState: twinAsset?.type === 'glb' && effectiveExecutionMode === 'batch' && supportsFmuState,
+    }
+    return runSimulation(Array.isArray(scheduledEvents) ? scheduledEvents : undefined, stateOptions)
+  }, [effectiveExecutionMode, fmuStateCheckpoint, interactiveExecution.start, resumeFromFmuState, runSimulation, supportsFmuState, twinAsset?.type])
+
+  const checkpointBusy = simState === SIM_STATE.RUNNING && !interactiveExecution.hasActiveSession
+    || (interactiveExecution.hasActiveSession && interactiveExecution.status !== 'paused')
+  const saveAvailable = Boolean(candidateFmuStateCheckpoint)
+    || (interactiveExecution.canCaptureState && ['paused', 'completed'].includes(interactiveExecution.status))
+  const stateClearAvailable = Boolean(fmuStateCheckpoint || candidateFmuStateCheckpoint || interactiveExecution.canCaptureState)
+  const handleSaveFmuState = useCallback(() => {
+    if (candidateFmuStateCheckpoint) {
+      setFmuStateCheckpoint(candidateFmuStateCheckpoint)
+      setCandidateFmuStateCheckpoint(null)
+      setResumeFromFmuState(false)
+      return
+    }
+    void interactiveExecution.captureState()
+  }, [candidateFmuStateCheckpoint, interactiveExecution.captureState])
+  const handleClearFmuState = useCallback(() => {
+    setFmuStateCheckpoint(null)
+    setCandidateFmuStateCheckpoint(null)
+    setResumeFromFmuState(false)
+    interactiveExecution.clearRetainedSession()
+  }, [interactiveExecution.clearRetainedSession])
+  const loadedCheckpointResults = resumeFromFmuState && twinAsset?.type === 'glb'
+    ? createFmuStateResults(fmuStateCheckpoint?.sample, variableAccess?.simulationType)
+    : null
+  const displayedResults = loadedCheckpointResults || results
+  const displayedSimulationState = loadedCheckpointResults ? SIM_STATE.COMPLETED : simState
+  const displayedErrorMessage = loadedCheckpointResults ? null : errorMsg
+  const fmuStateControls = (
+    <FmuStateCheckpointControls
+      available={supportsFmuState}
+      layout={twinAsset?.type === 'glb' ? 'compact' : 'inline'}
+      checkpoint={fmuStateCheckpoint}
+      loaded={resumeFromFmuState}
+      onSave={handleSaveFmuState}
+      onLoad={handleLoadFmuState}
+      onClear={handleClearFmuState}
+      saveAvailable={saveAvailable}
+      clearAvailable={stateClearAvailable}
+      busy={checkpointBusy}
+      saving={interactiveExecution.capturingState}
+      error={interactiveExecution.checkpointError}
+    />
+  )
+
+  if (variableAccessState === 'unavailable') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-center text-sm text-[#bad0d2]" role="alert">
+        An active reservation is required to access this simulation.
+      </div>
+    )
+  }
+
+  if (variableAccessState === 'loading') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-[#283a42] bg-[#101a20] p-8 text-sm text-[#bad0d2]" role="status">
+        Checking simulation access…
+      </div>
+    )
+  }
+
+  if (variableAccessState === 'error') {
+    return (
+      <div className="grid min-h-80 place-items-center rounded-2xl border border-error-border bg-error-bg p-8 text-center text-sm text-error-text" role="alert">
+        {errorMsg || 'Variable access could not be resolved for this reservation.'}
+      </div>
+    )
+  }
+
+  if (twinAsset?.type === 'threejs-app') {
+    return (
+      <div className="fixed inset-0 z-100 bg-[#07151b]">
+        <DigitalTwinAppViewer
+          appUrl={twinAsset.url}
+          title={lab?.name || 'Digital Twin'}
+          onConnect={requestFmuConnection}
+          onBatchSimulation={async ({ body, signal }) => {
+            const connection = await requestFmuConnection({ signal })
+            return postFmuSimulationStream(connection, { labId, ...body }, { signal })
+          }}
+          modelVariables={accessibleModelVariables}
+          fmiLsParameterPresets={twinFmiLsParameterPresets}
+          fmiLsExperiments={twinFmiLsExperiments}
+          fmiModelStructure={fmiModelDescription?.modelStructure}
+          defaultTolerance={fmiModelDescription?.defaultTolerance}
+          fmiLsStruct={variableAccess?.fmiLsStruct}
+          fmuStateAvailable={variableAccess?.fmuState?.getAndSet === true && variableAccess?.fmuState?.serialize === true}
+          fmuStateScopeKey={stateScopeKey}
+          onFmuStateValuesLoad={restoreFmuStateModelValues}
+          scheduleVariables={twinScheduledRuntimeVariables}
+          enableInputSchedule={supportsTwinInputSchedule}
+          inputValues={parameters}
+          inputEvents={inputEvents}
+          onInputEventsChange={setInputEvents}
+          startTime={Number(options.startTime)}
+          stepSize={Number(options.stepSize)}
+          downloadError={proxyDownloadState === 'error' ? proxyDownloadMessage : null}
+          fullScreen
+        />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-header-bg">
-            Simulation: {lab?.name || 'Untitled FMU'}
-          </h2>
-          {fmuMeta.fmuFileName && (
-            <p className="text-sm text-text-secondary mt-1">
-              {fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {simulationTypeLabel || '?'}
-            </p>
-          )}
-        </div>
-        <button onClick={() => setShowHistory(h => !h)} className="text-xs text-brand hover:underline">
-          {showHistory ? 'Hide History' : 'Show History'}
-        </button>
-      </div>
+    <div>
+      <GlbSimulationPanel
+        lab={lab}
+        model={{
+          fmiVersion: variableAccess?.fmiVersion,
+          simulationTypeLabel,
+          fmiLsStruct: variableAccess?.fmiLsStruct,
+          fmiModelDescription,
+        }}
+        resources={{ modelVariables: twinModelVariables, structModelVariables: accessibleModelVariables, editableVariables: twinEditableVariables, runtimeVariables: twinScheduledRuntimeVariables }}
+        simulation={{
+          simulationType: twinSimulationType,
+          enableInputSchedule: supportsTwinInputSchedule,
+          ignoreScheduleEventsBeforeStartTime: isResumingFromCheckpoint,
+          parameters,
+          onParameterChange: handleParamChange,
+          options: effectiveOptions,
+          onOptionChange: handleOptionChange,
+          inputEvents,
+          onInputEventsChange: setInputEvents,
+          onRun: handleRun,
+          results: displayedResults,
+          fmuStateControls,
+        }}
+        configuration={{
+          presets: twinFmiLsParameterPresets,
+          experiments: twinFmiLsExperiments,
+          selectedPresetId: selectedFmiLsParameterPresetId,
+          selectedExperimentId: selectedFmiLsExperimentId,
+          onPresetSelect: handleFmiLsParameterPresetSelect,
+          onExperimentSelect: handleExperimentSelect,
+        }}
+        interactive={{
+          executionMode: effectiveExecutionMode,
+          onExecutionModeChange: setExecutionMode,
+          continuousBatchPolicy,
+          onContinuousBatchPolicyChange: setContinuousBatchPolicy,
+          continuousExecutionPace,
+          onContinuousExecutionPaceChange: setContinuousExecutionPace,
+          fixedBatchSamples,
+          onFixedBatchSamplesChange: setFixedBatchSamples,
+          supportedModes: supportsInteractiveTwinModes,
+          execution: interactiveExecution,
+          state: displayedSimulationState,
+          progress,
+          errorMessage: displayedErrorMessage,
+        }}
+        proxy={{ visible: Boolean(reservationKey), state: proxyDownloadState, message: proxyDownloadMessage }}
+      />
 
-      {reservationKey && (
-        <div className="rounded border border-[#2a2f33] bg-[#1f2426] p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={triggerProxyDownload}
-              disabled={proxyDownloadState === 'running'}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                proxyDownloadState === 'running'
-                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                  : 'bg-brand hover:bg-hover-dark text-white'
-              }`}
-            >
-              {proxyDownloadState === 'running'
-                ? 'Preparing Proxy FMU...'
-                : (proxyNeedsRegeneration ? 'Regenerate Proxy FMU' : 'Download Proxy FMU')}
-            </button>
-            <span className="text-xs text-text-secondary">
-              For reserved FMU sessions only. The real model is never downloaded.
-            </span>
-          </div>
-          {proxyDownloadMessage && (
-            <p className={`text-sm mt-2 ${proxyDownloadState === 'error' ? 'text-error-text' : 'text-green-500'}`}>
-              {proxyDownloadMessage}
-            </p>
-          )}
-        </div>
-      )}
-
-      {showHistory && (
-        <SimulationHistory
-          labId={String(lab.id ?? lab.tokenId ?? '')}
-          reservationKey={reservationKey}
-          gatewayUrl={gatewayUrl}
-          gatewaySessionOrigin={gatewaySessionOrigin}
-          onEnsureGatewaySession={ensureGatewaySession}
-          onFetchGateway={fetchGateway}
-          onLoadResult={handleLoadResult}
+      {twinAsset?.type === 'glb' && (
+        <DigitalTwinViewer
+          sceneUrl={twinAsset.url}
+          title={lab?.name || 'Digital Twin'}
+          results={displayedResults}
+          modelVariables={twinModelVariables}
+          modelStructure={fmiModelDescription?.modelStructure}
+          inputValues={sceneInputValues}
+          interactiveInputVariables={sceneInputVariables}
+          inputEditingEnabled={sceneInputVariables.length > 0}
+          onInputChange={interactiveExecution.handleInputChange}
+          onInputInteractionStart={interactiveExecution.beginRuntimeInputInteraction}
+          onInputInteractionEnd={interactiveExecution.commitRuntimeInputInteraction}
+          isRunning={simState === SIM_STATE.RUNNING}
+          startTime={Number(effectiveOptions.startTime)}
+          stopTime={effectiveOptions.stopTime === '' ? undefined : Number(effectiveOptions.stopTime)}
+          followLatest={interactiveExecution.mode !== null}
+          timeUnit={fmiModelDescription.timeUnit || 's'}
+          onDisplayedSampleChange={interactiveExecution.reportDisplayedSample}
         />
-      )}
-
-      {inputVars.length > 0 && (
-        <ParameterForm
-          variables={inputVars}
-          modelVariables={modelVariables}
-          values={parameters}
-          onChange={handleParamChange}
-          disabled={simState === SIM_STATE.RUNNING}
-        />
-      )}
-
-      <SimulationOptions options={options} onChange={handleOptionChange} disabled={simState === SIM_STATE.RUNNING} />
-
-      {isModelExchange && (
-        <div className="flex items-center gap-3">
-          <label htmlFor="solver-select" className="text-xs text-text-secondary">ODE Solver:</label>
-          <select
-            id="solver-select"
-            value={solver}
-            onChange={(e) => setSolver(e.target.value)}
-            disabled={simState === SIM_STATE.RUNNING}
-            className="bg-[#1f2426] border border-[#2a2f33] rounded px-2 py-1 text-neutral-200 text-sm focus:outline-none focus:border-brand disabled:opacity-50"
-          >
-            <option value="Euler">Euler (fast, less accurate)</option>
-            <option value="CVode">CVode (adaptive, more accurate)</option>
-          </select>
-        </div>
-      )}
-
-      <div className="flex items-center gap-4">
-        <button
-          onClick={handleRun}
-          disabled={simState === SIM_STATE.RUNNING}
-          className={`px-6 py-2 rounded font-medium transition-colors ${
-            simState === SIM_STATE.RUNNING ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-brand hover:bg-hover-dark text-white'
-          }`}
-        >
-          {simState === SIM_STATE.RUNNING ? 'Running...' : simState === SIM_STATE.COMPLETED ? 'Re-run Simulation' : 'Run Simulation'}
-        </button>
-      </div>
-
-      {simState === SIM_STATE.RUNNING && (
-        <SimulationProgress elapsedSeconds={progress.elapsedSeconds} chunkIndex={progress.chunkIndex} totalChunks={progress.totalChunks} />
-      )}
-
-      {simState === SIM_STATE.ERROR && errorMsg && (
-        <div className="bg-error-bg border border-error-border rounded-lg p-4">
-          <p className="text-error-text text-sm font-medium">Simulation Error</p>
-          <p className="text-error-text text-sm mt-1">{errorMsg}</p>
-        </div>
-      )}
-
-      {(simState === SIM_STATE.COMPLETED || (simState === SIM_STATE.RUNNING && results)) && results && (
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-header-bg">
-            Results
-            {results.fmiType && <span className="ml-2 text-xs font-normal text-text-secondary">({results.fmiType})</span>}
-          </h3>
-          {results.outputs && Object.keys(results.outputs).length > 0 && (
-            <ResultsChart
-              outputs={results.outputs}
-              time={results.time}
-              variableMetadata={modelVariables}
-            />
-          )}
-          {simState === SIM_STATE.COMPLETED && results.outputs && (
-            <ResultsTable
-              outputs={results.outputs}
-              time={results.time}
-              variableMetadata={modelVariables}
-            />
-          )}
-          {simState === SIM_STATE.COMPLETED && (
-            <DownloadButtons
-              results={results}
-              labName={lab?.name}
-              variableMetadata={modelVariables}
-            />
-          )}
-        </div>
       )}
     </div>
   )

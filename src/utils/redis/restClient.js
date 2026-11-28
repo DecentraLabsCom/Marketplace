@@ -55,5 +55,3 @@ export async function redisCommand(command) {
   if (payload.error) throw new Error('Redis REST command was rejected')
   return payload.result
 }
-
-export default { hasRedisConfig, redisCommand }

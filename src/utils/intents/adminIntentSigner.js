@@ -16,7 +16,7 @@ export function isReservationIntentActionAllowed(action) {
   return RESERVATION_ALLOWED.has(Number(action))
 }
 
-export function isActionIntentActionAllowed(action) {
+function isActionIntentActionAllowed(action) {
   return ACTION_ALLOWED.has(Number(action))
 }
 
@@ -196,7 +196,7 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
   }
 }
 
-export async function getAdminWallet() {
+async function getAdminWallet() {
   const privateKey = process.env.WALLET_PRIVATE_KEY
   if (!privateKey) {
     throw new Error('WALLET_PRIVATE_KEY is required for intent signing')
@@ -402,14 +402,4 @@ export async function registerIntentOnChain(kind, meta, payload, signature, opti
   }
 
   throw new Error(`Unsupported intent kind "${kind}" for on-chain registration`)
-}
-
-export default {
-  getAdminWallet,
-  getAdminAddress,
-  signIntentMeta,
-  registerIntentOnChain,
-  getIntentOnChain,
-  cancelIntentOnChain,
-  expireIntentOnChain,
 }

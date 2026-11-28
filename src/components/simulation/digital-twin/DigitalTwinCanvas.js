@@ -1,0 +1,1380 @@
+'use client'
+
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import styles from './DigitalTwinCanvas.module.css'
+import {
+  getFmiInitialValue,
+  getFmiSceneBindingValue,
+  getFmiSceneBoundValue,
+  getFmiSceneInputValueFromCoordinate,
+  isFmiSceneBindingVisible as isFmiBindingVisible,
+  isDraggableFmiSceneBinding,
+  normalizeFmiSceneBinding,
+  setFmiSceneArrayElementValue,
+} from '@decentralabs/digital-twin-app-protocol/fmi-scene-bindings'
+import {
+  createAxisDragContext,
+  createScreenAxisDragContext,
+  getAxisCoordinateFromRay,
+  getScreenAxisCoordinateFromPointer,
+} from './fmiSceneInteraction'
+import { getVariableDescription, getVariableDisplayUnit } from '../utils/simulationParameters'
+import {
+  applySceneMaterialRendering,
+  applySceneObjectRendering,
+  applyScenePresentation,
+  readScenePresentation,
+} from '@decentralabs/digital-twin-app-protocol/scene-presentation'
+
+function disposeObject(object) {
+  object.traverse((node) => {
+    node.geometry?.dispose?.()
+    const materials = Array.isArray(node.material) ? node.material : [node.material]
+    materials.filter(Boolean).forEach((material) => material.dispose?.())
+  })
+}
+
+function getBindingColor(value, fallback) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffff) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) return value
+  return fallback
+}
+
+function numericValue(value) {
+  if (typeof value === 'boolean') return value ? 1 : 0
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function getSceneVariableValue(variable, values) {
+  const current = values?.[variable?.name]
+  if (current !== null && current !== undefined) return current
+  if (variable?.type === 'Boolean') return getFmiInitialValue(variable)
+  if (variable?.start !== null && variable?.start !== undefined) return variable.start
+  return getFmiInitialValue(variable)
+}
+
+function applyMorphWeights(node, value, targetIndex = null) {
+  node.traverse((child) => {
+    if (!child.isMesh || !Array.isArray(child.morphTargetInfluences)) return
+    if (targetIndex === null) {
+      if (value.length !== child.morphTargetInfluences.length) return
+      child.morphTargetInfluences = [...value]
+      return
+    }
+    if (targetIndex < child.morphTargetInfluences.length) {
+      child.morphTargetInfluences[targetIndex] = value
+    }
+  })
+}
+
+function findBindingsForObject(object, bindingsByNode) {
+  for (let node = object; node; node = node.parent) {
+    const bindings = bindingsByNode.get(node)
+    if (bindings?.length) return bindings
+  }
+  return []
+}
+
+function getSceneBindingTargetKey(normalizedBinding) {
+  return normalizedBinding?.axis
+    ? `${normalizedBinding.property}.${normalizedBinding.axis}`
+    : normalizedBinding?.target
+}
+
+function getDraggableTargetKeys(target) {
+  const positionMatch = /^(?:position|translation)\.([xyz])$/.exec(target || '')
+  if (positionMatch) return [`position.${positionMatch[1]}`]
+  const rotationMatch = /^rotation\.([xyz])$/.exec(target || '')
+  if (rotationMatch) return [`rotation.${rotationMatch[1]}`]
+  return target === 'translation' ? ['position.x', 'position.y', 'position.z'] : []
+}
+
+function isVisibleInScene(object) {
+  for (let node = object; node; node = node.parent) {
+    if (!node.visible) return false
+  }
+  return true
+}
+
+function getBoxGap(left, right) {
+  const x = Math.max(0, left.min.x - right.max.x, right.min.x - left.max.x)
+  const y = Math.max(0, left.min.y - right.max.y, right.min.y - left.max.y)
+  const z = Math.max(0, left.min.z - right.max.z, right.min.z - left.max.z)
+  return Math.sqrt(x * x + y * y + z * z)
+}
+
+function clusterNearbyBindings(entries, maximumGap) {
+  if (entries.length < 2) return entries.length ? [entries] : []
+
+  const roots = entries.map((_, index) => index)
+  const findRoot = (index) => {
+    let root = index
+    while (roots[root] !== root) root = roots[root]
+    while (roots[index] !== index) {
+      const next = roots[index]
+      roots[index] = root
+      index = next
+    }
+    return root
+  }
+  const join = (left, right) => {
+    const leftRoot = findRoot(left)
+    const rightRoot = findRoot(right)
+    if (leftRoot !== rightRoot) roots[rightRoot] = leftRoot
+  }
+
+  const cellSize = Math.max(maximumGap, 1e-6)
+  const maximumCellsPerEntry = 128
+  const cells = new Map()
+  const largeEntries = []
+  const cellKey = (x, y, z) => `${x}:${y}:${z}`
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const { bounds } = entries[index]
+    const minX = Math.floor((bounds.min.x - maximumGap) / cellSize)
+    const minY = Math.floor((bounds.min.y - maximumGap) / cellSize)
+    const minZ = Math.floor((bounds.min.z - maximumGap) / cellSize)
+    const maxX = Math.floor((bounds.max.x + maximumGap) / cellSize)
+    const maxY = Math.floor((bounds.max.y + maximumGap) / cellSize)
+    const maxZ = Math.floor((bounds.max.z + maximumGap) / cellSize)
+    const cellCount = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1)
+    if (cellCount > maximumCellsPerEntry) {
+      largeEntries.push(index)
+      continue
+    }
+
+    const candidates = new Set()
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let z = minZ; z <= maxZ; z += 1) {
+          const key = cellKey(x, y, z)
+          for (const candidate of cells.get(key) || []) candidates.add(candidate)
+        }
+      }
+    }
+    for (const candidate of candidates) {
+      if (findRoot(index) === findRoot(candidate)) continue
+      if (getBoxGap(bounds, entries[candidate].bounds) <= maximumGap) join(index, candidate)
+    }
+
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let z = minZ; z <= maxZ; z += 1) {
+          const key = cellKey(x, y, z)
+          const bucket = cells.get(key) || []
+          bucket.push(index)
+          cells.set(key, bucket)
+        }
+      }
+    }
+  }
+
+  for (const index of largeEntries) {
+    for (let candidate = 0; candidate < entries.length; candidate += 1) {
+      if (index === candidate || findRoot(index) === findRoot(candidate)) continue
+      if (getBoxGap(entries[index].bounds, entries[candidate].bounds) <= maximumGap) join(index, candidate)
+    }
+  }
+
+  const clusters = new Map()
+  entries.forEach((entry, index) => {
+    const root = findRoot(index)
+    const cluster = clusters.get(root) || []
+    cluster.push(entry)
+    clusters.set(root, cluster)
+  })
+  return [...clusters.values()]
+}
+
+function getBoxCorners(bounds) {
+  const { min, max } = bounds
+  return [
+    new THREE.Vector3(min.x, min.y, min.z),
+    new THREE.Vector3(min.x, min.y, max.z),
+    new THREE.Vector3(min.x, max.y, min.z),
+    new THREE.Vector3(min.x, max.y, max.z),
+    new THREE.Vector3(max.x, min.y, min.z),
+    new THREE.Vector3(max.x, min.y, max.z),
+    new THREE.Vector3(max.x, max.y, min.z),
+    new THREE.Vector3(max.x, max.y, max.z),
+  ]
+}
+
+function getFmiBindingFocusBounds(sceneRoot, boundObjects) {
+  const boundNodes = [...new Set(boundObjects
+    .filter(({ isOutputBinding }) => isOutputBinding)
+    .map(({ node }) => node))]
+  if (boundNodes.length === 0) return null
+
+  const fullBounds = new THREE.Box3().setFromObject(sceneRoot)
+  if (fullBounds.isEmpty()) return null
+  const largestDimension = (bounds) => {
+    const size = bounds.getSize(new THREE.Vector3())
+    return Math.max(size.x, size.y, size.z)
+  }
+  const fullLargestDimension = largestDimension(fullBounds)
+  const isAncestorOfEveryBoundNode = (candidate) => boundNodes.every((node) => {
+    for (let current = node; current; current = current.parent) {
+      if (current === candidate) return true
+    }
+    return false
+  })
+
+  let commonAncestor = boundNodes[0]
+  while (commonAncestor && !isAncestorOfEveryBoundNode(commonAncestor)) {
+    commonAncestor = commonAncestor.parent
+  }
+  if (commonAncestor && commonAncestor !== sceneRoot) {
+    const contextBounds = new THREE.Box3().setFromObject(commonAncestor)
+    if (!contextBounds.isEmpty() && largestDimension(contextBounds) < fullLargestDimension * 0.9) {
+      return contextBounds
+    }
+  }
+
+  const boundBounds = new THREE.Box3().makeEmpty()
+  for (const node of boundNodes) boundBounds.expandByObject(node)
+  const boundLargestDimension = largestDimension(boundBounds)
+  if (
+    !boundBounds.isEmpty()
+    && boundLargestDimension >= fullLargestDimension * 0.25
+    && boundLargestDimension < fullLargestDimension * 0.9
+  ) return boundBounds
+
+  return null
+}
+
+function setTooltipContent(tooltip, bindings) {
+  tooltip.replaceChildren()
+  for (const { variable } of bindings) {
+    const entry = document.createElement('div')
+    entry.className = 'border-b border-white/10 py-1.5 last:border-0 last:pb-0 first:pt-0'
+
+    const name = document.createElement('p')
+    name.className = 'text-[11px] font-semibold text-white'
+    name.textContent = variable.name
+    entry.appendChild(name)
+
+    const description = getVariableDescription(variable)
+    if (description) {
+      const details = document.createElement('p')
+      details.className = 'mt-0.5 text-[11px] leading-snug text-[#c1d2d5]'
+      details.textContent = description
+      entry.appendChild(details)
+    }
+
+    const metadata = [
+      variable.quantity,
+      variable.type,
+      variable.variability,
+      getVariableDisplayUnit(variable),
+    ].filter((value) => typeof value === 'string' && value.trim())
+    if (metadata.length) {
+      const semantics = document.createElement('p')
+      semantics.className = 'mt-0.5 text-[10px] leading-snug text-[#91a7ac]'
+      semantics.textContent = metadata.join(' / ')
+      entry.appendChild(semantics)
+    }
+
+    tooltip.appendChild(entry)
+  }
+}
+
+export default function DigitalTwinCanvas({
+  sceneUrl,
+  values,
+  animatedValuesRef,
+  modelVariables,
+  pinnedOutputNames = new Set(),
+  interactiveInputVariables = [],
+  inputEditingEnabled = false,
+  onInputChange,
+  onInputInteractionStart,
+  onInputInteractionEnd,
+  onSceneInputBindingsReady,
+  showOutputMarkers = false,
+  showInputMarkers = false,
+  onStatus,
+  sampleIndex,
+  sampleSequence,
+  sampleOrdinal,
+  onSampleRendered,
+}) {
+  const hostRef = useRef(null)
+  const valuesRef = useRef(values)
+  const variablesRef = useRef(modelVariables)
+  const pinnedOutputNamesRef = useRef(pinnedOutputNames)
+  const interactiveInputVariablesRef = useRef(interactiveInputVariables)
+  const inputEditingEnabledRef = useRef(inputEditingEnabled)
+  const onInputChangeRef = useRef(onInputChange)
+  const onInputInteractionStartRef = useRef(onInputInteractionStart)
+  const onInputInteractionEndRef = useRef(onInputInteractionEnd)
+  const onSceneInputBindingsReadyRef = useRef(onSceneInputBindingsReady)
+  const showOutputMarkersRef = useRef(showOutputMarkers)
+  const showInputMarkersRef = useRef(showInputMarkers)
+  const onStatusRef = useRef(onStatus)
+  const sampleIndexRef = useRef(sampleIndex)
+  const sampleSequenceRef = useRef(sampleSequence)
+  const sampleOrdinalRef = useRef(sampleOrdinal)
+  const onSampleRenderedRef = useRef(onSampleRendered)
+  const renderedSampleIndexRef = useRef(null)
+
+  valuesRef.current = values
+  variablesRef.current = modelVariables
+  pinnedOutputNamesRef.current = pinnedOutputNames
+  interactiveInputVariablesRef.current = interactiveInputVariables
+  inputEditingEnabledRef.current = inputEditingEnabled
+  onInputChangeRef.current = onInputChange
+  onInputInteractionStartRef.current = onInputInteractionStart
+  onInputInteractionEndRef.current = onInputInteractionEnd
+  onSceneInputBindingsReadyRef.current = onSceneInputBindingsReady
+  showOutputMarkersRef.current = showOutputMarkers
+  showInputMarkersRef.current = showInputMarkers
+  onStatusRef.current = onStatus
+  sampleIndexRef.current = sampleIndex
+  sampleSequenceRef.current = sampleSequence
+  sampleOrdinalRef.current = sampleOrdinal
+  onSampleRenderedRef.current = onSampleRendered
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || !sceneUrl) return undefined
+
+    let disposed = false
+    renderedSampleIndexRef.current = null
+    onSceneInputBindingsReadyRef.current?.([])
+    let frameId = 0
+    let mixer = null
+    let markerPulseTime = 0
+    const sceneMarkers = []
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color('#0b141a')
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100)
+    camera.position.set(5.2, 4.3, 6.7)
+    camera.lookAt(0, 1, 0)
+
+    let renderer
+    let environmentTarget = null
+    let pmremGenerator = null
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    } catch {
+      onStatusRef.current?.('error')
+      return undefined
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 0.92
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.domElement.className = styles.canvas
+    renderer.domElement.setAttribute('aria-label', 'Interactive 3D digital twin scene')
+    renderer.domElement.tabIndex = 0
+    host.appendChild(renderer.domElement)
+
+    const tooltip = document.createElement('div')
+    tooltip.className = styles.tooltip
+    tooltip.setAttribute('role', 'tooltip')
+    host.appendChild(tooltip)
+
+    let keyLight = null
+    let fillLight = null
+    const addStudioEnvironment = () => {
+      if (environmentTarget) return
+      const studioEnvironment = new RoomEnvironment()
+      pmremGenerator = new THREE.PMREMGenerator(renderer)
+      environmentTarget = pmremGenerator.fromScene(studioEnvironment, 0.04)
+      scene.environment = environmentTarget.texture
+      studioEnvironment.dispose()
+    }
+    const addDefaultSceneLighting = () => {
+      addStudioEnvironment()
+      if (keyLight) return
+      scene.add(new THREE.HemisphereLight('#d9f2ff', '#13212a', 1.3))
+      keyLight = new THREE.DirectionalLight('#fff2d4', 2.25)
+      keyLight.position.set(-3, 7, 4)
+      keyLight.castShadow = true
+      keyLight.shadow.mapSize.set(1024, 1024)
+      scene.add(keyLight)
+      scene.add(keyLight.target)
+      fillLight = new THREE.DirectionalLight('#57b9d0', 0.75)
+      fillLight.position.set(4, 3, -5)
+      scene.add(fillLight)
+    }
+
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.target.set(0, 1, 0)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.07
+    controls.maxPolarAngle = Math.PI * 0.48
+    controls.minDistance = 3.5
+    controls.maxDistance = 13
+
+    const boundObjects = []
+    const bindingsByNode = new WeakMap()
+    const outputDrivenTargetsByNode = new WeakMap()
+    const raycastTargets = new Set()
+    const interactiveBindingsByNode = new WeakMap()
+    const interactiveRaycastTargets = new Set()
+    const raycaster = new THREE.Raycaster()
+    const pointer = new THREE.Vector2()
+    let gltfRoot = null
+    let cameraFollowNode = null
+    let cameraFollowProfile = null
+    const cameraFollowPosition = new THREE.Vector3()
+    const previousCameraFollowPosition = new THREE.Vector3()
+    const cameraFollowDelta = new THREE.Vector3()
+    let hasCameraFollowPosition = false
+    let gltfBounds = null
+    let framingBounds = null
+    let autoFrame = true
+    let activeDrag = null
+    let pendingDragPreview = null
+
+    // Fit the projected scene bounds so wide viewers can use their extra horizontal space.
+    const frameScene = () => {
+      if (!framingBounds || framingBounds.isEmpty()) return
+
+      const center = framingBounds.getCenter(new THREE.Vector3())
+      const size = framingBounds.getSize(new THREE.Vector3())
+      const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
+      const viewDirection = new THREE.Vector3(0.8, 0.6, 1).normalize()
+      const forward = viewDirection.clone().negate()
+      const cameraRight = new THREE.Vector3().crossVectors(forward, camera.up).normalize()
+      const cameraUp = new THREE.Vector3().crossVectors(cameraRight, forward).normalize()
+      const verticalHalfFov = THREE.MathUtils.degToRad(camera.fov / 2)
+      const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(camera.aspect, 0.01))
+      const verticalTangent = Math.tan(verticalHalfFov)
+      const horizontalTangent = Math.tan(horizontalHalfFov)
+      let distance = 0
+
+      for (const x of [framingBounds.min.x, framingBounds.max.x]) {
+        for (const y of [framingBounds.min.y, framingBounds.max.y]) {
+          for (const z of [framingBounds.min.z, framingBounds.max.z]) {
+            const offset = new THREE.Vector3(x, y, z).sub(center)
+            const depthFromTarget = offset.dot(viewDirection)
+            distance = Math.max(
+              distance,
+              depthFromTarget + Math.abs(offset.dot(cameraRight)) / horizontalTangent,
+              depthFromTarget + Math.abs(offset.dot(cameraUp)) / verticalTangent,
+            )
+          }
+        }
+      }
+
+      distance = Math.max(distance, largestDimension * 0.5) * 1.08
+      camera.position.copy(center).addScaledVector(viewDirection, distance)
+      camera.near = Math.max(largestDimension / 1000, 0.01)
+      camera.far = Math.max(distance * 20, 100)
+      camera.lookAt(center)
+      camera.updateProjectionMatrix()
+      controls.target.copy(center)
+      controls.minDistance = Math.max(largestDimension * 0.08, 0.1)
+      controls.maxDistance = Math.max(distance * 8, 10)
+      controls.update()
+    }
+
+    controls.addEventListener('start', () => {
+      autoFrame = false
+    })
+
+    const hideTooltip = () => {
+      tooltip.style.display = 'none'
+      renderer.domElement.style.cursor = 'auto'
+    }
+    const setPointerRay = (event) => {
+      const canvasBounds = renderer.domElement.getBoundingClientRect()
+      if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return false
+      pointer.x = ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1
+      pointer.y = -((event.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1
+      camera.updateMatrixWorld()
+      raycaster.setFromCamera(pointer, camera)
+      return true
+    }
+    const findInteractiveBinding = (object, allowedNames) => {
+      for (let node = object; node; node = node.parent) {
+        const candidates = interactiveBindingsByNode.get(node) || []
+        const candidate = candidates.find(({ variable, normalizedBinding }) => (
+          allowedNames.has(variable.name) && isDraggableFmiSceneBinding(normalizedBinding)
+        ))
+        if (candidate) return { node, ...candidate }
+      }
+      return null
+    }
+    const getInteractiveBindingFromCurrentRay = () => {
+      if (!inputEditingEnabledRef.current || !showInputMarkersRef.current || !gltfRoot) return null
+      const allowedNames = new Set((interactiveInputVariablesRef.current || [])
+        .filter((variable) => variable?.causality === 'input' && typeof variable.name === 'string')
+        .map((variable) => variable.name))
+      return raycaster.intersectObjects([...interactiveRaycastTargets], false)
+        .filter(({ object }) => isVisibleInScene(object))
+        .map(({ object }) => findInteractiveBinding(object, allowedNames))
+        .find(Boolean) || null
+    }
+    const getInteractiveBindingAtPointer = (event) => (
+      setPointerRay(event) ? getInteractiveBindingFromCurrentRay() : null
+    )
+    const getNodeAxisDragContext = (node, axis) => {
+      node.updateWorldMatrix(true, false)
+      const parentWorld = node.parent?.matrixWorld || new THREE.Matrix4()
+      const parentWorldOrigin = new THREE.Vector3().setFromMatrixPosition(parentWorld)
+      const axisUnit = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
+      const worldAxisVector = axisUnit.clone().applyMatrix4(parentWorld).sub(parentWorldOrigin)
+      const worldUnitsPerLocalUnit = worldAxisVector.length()
+      if (!Number.isFinite(worldUnitsPerLocalUnit) || worldUnitsPerLocalUnit <= 1e-8) return null
+
+      const axisOriginLocal = node.position.clone()
+      axisOriginLocal[axis] = 0
+      const axisOrigin = axisOriginLocal.applyMatrix4(parentWorld)
+      const cameraQuaternion = camera.getWorldQuaternion(new THREE.Quaternion())
+      const cameraDirection = camera.getWorldDirection(new THREE.Vector3())
+      const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cameraQuaternion)
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraQuaternion)
+      const worldAxisDirection = worldAxisVector.normalize()
+      camera.updateMatrixWorld(true)
+      const canvasBounds = renderer.domElement.getBoundingClientRect()
+      const projectLocalPosition = (position) => {
+        const projected = position.clone().applyMatrix4(parentWorld).project(camera)
+        return [
+          canvasBounds.left + ((projected.x + 1) * 0.5 * canvasBounds.width),
+          canvasBounds.top + ((1 - projected.y) * 0.5 * canvasBounds.height),
+        ]
+      }
+      const screenAxisOrigin = projectLocalPosition(node.position)
+      const screenAxisEndLocal = node.position.clone()
+      screenAxisEndLocal[axis] += 1
+      const screenAxisEnd = projectLocalPosition(screenAxisEndLocal)
+      const screenContext = createScreenAxisDragContext({
+        origin: screenAxisOrigin,
+        direction: [screenAxisEnd[0] - screenAxisOrigin[0], screenAxisEnd[1] - screenAxisOrigin[1]],
+        coordinate: node.position[axis],
+      })
+
+      const rayContext = createAxisDragContext({
+        axisOrigin: axisOrigin.toArray(),
+        axisDirection: worldAxisDirection.toArray(),
+        cameraDirection: cameraDirection.toArray(),
+        cameraUp: cameraUp.toArray(),
+        cameraRight: cameraRight.toArray(),
+        worldUnitsPerLocalUnit,
+      })
+      return rayContext || screenContext ? { ray: rayContext, screen: screenContext } : null
+    }
+    const snapshotPointerEvent = (event) => ({
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      preventDefault() {},
+      stopPropagation() {},
+    })
+    const initializeDragAfterPause = async (drag) => {
+      const inputInteraction = await drag.inputInteractionReady.catch(() => undefined)
+      drag.inputInteraction = inputInteraction
+      if (inputInteraction?.waitForPause) {
+        await Promise.resolve(inputInteraction.pausePromise).catch(() => {})
+        await new Promise((resolve) => window.requestAnimationFrame(resolve))
+      }
+      if (activeDrag !== drag) return
+
+      const {
+        node,
+        variable,
+        normalizedBinding,
+        pointerDownEvent,
+        hasOutputDrivenTarget,
+        relativeRotationInput,
+      } = drag
+      if (!drag.isRotationDrag) {
+        const context = getNodeAxisDragContext(node, normalizedBinding.axis)
+        if (!context) {
+          drag.waitingForPause = false
+          handlePointerUp(pointerDownEvent)
+          return
+        }
+        const hasPointerRay = setPointerRay(pointerDownEvent)
+        const rayCoordinate = hasPointerRay && context.ray
+          ? getAxisCoordinateFromRay(raycaster.ray, context.ray)
+          : null
+        const pointerCoordinate = rayCoordinate ?? getScreenAxisCoordinateFromPointer(
+          [pointerDownEvent.clientX, pointerDownEvent.clientY],
+          context.screen,
+        )
+        if (pointerCoordinate === null) {
+          drag.waitingForPause = false
+          handlePointerUp(pointerDownEvent)
+          return
+        }
+        drag.context = context
+        drag.coordinateMode = rayCoordinate === null ? 'screen' : 'ray'
+        drag.pointerCoordinate = pointerCoordinate
+        drag.lastPointerCoordinate = pointerCoordinate
+      }
+      const sceneCoordinate = node[normalizedBinding.property][normalizedBinding.axis]
+      const currentInputValue = getSceneVariableValue(variable, valuesRef.current)
+      const boundInputValue = getFmiSceneBindingValue(
+        currentInputValue,
+        normalizedBinding,
+        variablesRef.current || [],
+        valuesRef.current || {},
+      )
+      const initialInputValue = numericValue(boundInputValue)
+      const minimumInputValue = numericValue(variable?.min)
+      const maximumInputValue = numericValue(variable?.max)
+      // A relative rotation gesture may change the bounded command by at most
+      // half its declared range, so one drag cannot jump from one extreme to the other.
+      const maxRelativeInputChange = relativeRotationInput
+        && Number.isFinite(minimumInputValue)
+        && Number.isFinite(maximumInputValue)
+        && maximumInputValue > minimumInputValue
+        ? (maximumInputValue - minimumInputValue) / 2
+        : null
+      const lastInputValue = relativeRotationInput
+        ? initialInputValue
+        : hasOutputDrivenTarget
+          ? getFmiSceneInputValueFromCoordinate(sceneCoordinate, normalizedBinding)
+          : initialInputValue
+
+      drag.sceneCoordinate = sceneCoordinate
+      drag.currentInputValue = currentInputValue
+      drag.initialInputValue = initialInputValue
+      drag.lastInputValue = lastInputValue
+      drag.maxRelativeInputChange = maxRelativeInputChange
+      drag.waitingForPause = false
+
+      const pendingMove = drag.pendingPointerMove
+      const pendingUp = drag.pendingPointerUp
+      drag.pendingPointerMove = null
+      drag.pendingPointerUp = null
+      if (pendingMove) handlePointerMove(pendingMove)
+      if (pendingUp) handlePointerUp(pendingUp)
+    }
+    const handlePointerDown = (event) => {
+      const match = getInteractiveBindingAtPointer(event)
+      if (!match) return
+
+      const { node, variable, normalizedBinding } = match
+      const isRotationDrag = normalizedBinding.property === 'rotation'
+      const pointerCoordinate = isRotationDrag ? event.clientX : null
+      pendingDragPreview = null
+      const hasOutputDrivenTarget = outputDrivenTargetsByNode.get(node)?.has(getSceneBindingTargetKey(normalizedBinding)) === true
+      const relativeRotationInput = hasOutputDrivenTarget && isRotationDrag
+      let inputInteractionReady = Promise.resolve()
+      try {
+        inputInteractionReady = Promise.resolve(onInputInteractionStartRef.current?.())
+      } catch (error) {
+        inputInteractionReady = Promise.reject(error)
+      }
+      inputInteractionReady.catch(() => {})
+
+      activeDrag = {
+        pointerId: event.pointerId,
+        node,
+        variable,
+        normalizedBinding,
+        isRotationDrag,
+        context: null,
+        coordinateMode: null,
+        pointerCoordinate,
+        lastPointerCoordinate: pointerCoordinate,
+        pointerDownEvent: snapshotPointerEvent(event),
+        sceneCoordinate: null,
+        currentInputValue: null,
+        initialInputValue: null,
+        lastInputValue: null,
+        maxRelativeInputChange: null,
+        hasOutputDrivenTarget,
+        relativeRotationInput,
+        hasInputChange: false,
+        inputInteractionReady,
+        inputInteraction: null,
+        waitingForPause: true,
+        pendingPointerMove: null,
+        pendingPointerUp: null,
+        previewSceneCoordinate: null,
+        controlsWereEnabled: controls.enabled,
+      }
+      controls.enabled = false
+      renderer.domElement.style.cursor = 'grabbing'
+      tooltip.style.display = 'none'
+      try {
+        renderer.domElement.setPointerCapture(event.pointerId)
+      } catch {
+        // Synthetic pointer events may not implement pointer capture.
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      void initializeDragAfterPause(activeDrag)
+    }
+    const handlePointerMove = (event) => {
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+      if (activeDrag.waitingForPause) {
+        activeDrag.pendingPointerMove = snapshotPointerEvent(event)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      const canEditVariable = inputEditingEnabledRef.current
+        && showInputMarkersRef.current
+        && (interactiveInputVariablesRef.current || []).some((variable) => variable?.name === activeDrag.variable.name)
+      if (!canEditVariable) {
+        handlePointerUp(event)
+        return
+      }
+      if (!setPointerRay(event)) return
+      const screenCoordinate = activeDrag.isRotationDrag
+        ? null
+        : getScreenAxisCoordinateFromPointer([event.clientX, event.clientY], activeDrag.context.screen)
+      const rayCoordinate = !activeDrag.isRotationDrag && activeDrag.coordinateMode !== 'screen'
+        ? getAxisCoordinateFromRay(raycaster.ray, activeDrag.context.ray)
+        : null
+      const coordinate = activeDrag.isRotationDrag
+        ? event.clientX
+        : activeDrag.coordinateMode === 'screen'
+          ? screenCoordinate
+          : rayCoordinate ?? screenCoordinate
+      if (coordinate === null) return
+
+      const coordinateDelta = activeDrag.isRotationDrag
+        ? (coordinate - activeDrag.pointerCoordinate) * (Math.PI * 2 / Math.max(renderer.domElement.clientWidth, 1))
+        : coordinate - activeDrag.pointerCoordinate
+      const relativeCoordinateDelta = activeDrag.isRotationDrag
+        ? (coordinate - activeDrag.lastPointerCoordinate) * (Math.PI * 2 / Math.max(renderer.domElement.clientWidth, 1))
+        : coordinate - activeDrag.lastPointerCoordinate
+      activeDrag.lastPointerCoordinate = coordinate
+      const nextSceneCoordinate = activeDrag.sceneCoordinate + coordinateDelta
+      const currentBoundInputValue = activeDrag.relativeRotationInput
+        ? numericValue(getFmiSceneBindingValue(
+          activeDrag.currentInputValue,
+          activeDrag.normalizedBinding,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        ))
+        : null
+      if (activeDrag.relativeRotationInput && currentBoundInputValue === null) return
+      const inputCoordinate = activeDrag.relativeRotationInput
+        ? (currentBoundInputValue + (relativeCoordinateDelta / activeDrag.normalizedBinding.scale))
+          * activeDrag.normalizedBinding.scale + activeDrag.normalizedBinding.offset
+        : nextSceneCoordinate
+      let nextInputValue = getFmiSceneInputValueFromCoordinate(inputCoordinate, activeDrag.normalizedBinding)
+      if (activeDrag.relativeRotationInput
+        && Number.isFinite(activeDrag.maxRelativeInputChange)
+        && Number.isFinite(activeDrag.initialInputValue)
+        && Number.isFinite(nextInputValue)) {
+        const minimumInputValue = activeDrag.initialInputValue - activeDrag.maxRelativeInputChange
+        const maximumInputValue = activeDrag.initialInputValue + activeDrag.maxRelativeInputChange
+        nextInputValue = Math.max(minimumInputValue, Math.min(maximumInputValue, nextInputValue))
+      }
+      if (nextInputValue === null || Object.is(nextInputValue, activeDrag.lastInputValue)) return
+
+      activeDrag.lastInputValue = nextInputValue
+      if (activeDrag.relativeRotationInput) {
+        activeDrag.previewSceneCoordinate = activeDrag.sceneCoordinate
+          + ((nextInputValue - activeDrag.initialInputValue) * activeDrag.normalizedBinding.scale)
+      } else if (activeDrag.hasOutputDrivenTarget) {
+        activeDrag.previewSceneCoordinate = getFmiSceneBoundValue(nextInputValue, activeDrag.normalizedBinding)
+      }
+      if (activeDrag.normalizedBinding.indices) {
+        const nextArrayValue = setFmiSceneArrayElementValue(
+          activeDrag.currentInputValue,
+          activeDrag.normalizedBinding.indices,
+          nextInputValue,
+          activeDrag.variable,
+          variablesRef.current || [],
+          valuesRef.current || {},
+        )
+        if (!nextArrayValue) return
+        activeDrag.currentInputValue = nextArrayValue
+        activeDrag.hasInputChange = true
+        onInputChangeRef.current?.(activeDrag.variable.name, nextArrayValue)
+      } else {
+        activeDrag.currentInputValue = nextInputValue
+        activeDrag.hasInputChange = true
+        onInputChangeRef.current?.(activeDrag.variable.name, nextInputValue)
+      }
+      renderer.domElement.style.cursor = 'grabbing'
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handlePointerUp = (event) => {
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+      if (activeDrag.waitingForPause) {
+        activeDrag.pendingPointerUp = snapshotPointerEvent(event)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      const {
+        controlsWereEnabled,
+        hasOutputDrivenTarget,
+        hasInputChange,
+        inputInteraction,
+        normalizedBinding,
+        node,
+        previewSceneCoordinate,
+      } = activeDrag
+      let dragPreview = null
+      if (hasOutputDrivenTarget && previewSceneCoordinate !== null) {
+        dragPreview = {
+          node,
+          property: normalizedBinding.property,
+          axis: normalizedBinding.axis,
+          coordinate: previewSceneCoordinate,
+          sampleOrdinal: sampleOrdinalRef.current,
+          sampleSequence: sampleSequenceRef.current,
+          commitComplete: false,
+        }
+        pendingDragPreview = dragPreview
+      }
+      activeDrag = null
+      controls.enabled = controlsWereEnabled
+      renderer.domElement.style.cursor = 'auto'
+      try {
+        if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+          renderer.domElement.releasePointerCapture(event.pointerId)
+        }
+      } catch {
+        // Ignore release errors from browsers that already dropped pointer capture.
+      }
+      try {
+        Promise.resolve(onInputInteractionEndRef.current?.({ inputInteraction, hasInputChange }))
+          .then(() => {
+            if (dragPreview && pendingDragPreview === dragPreview) dragPreview.commitComplete = true
+          })
+          .catch(() => {
+            if (dragPreview && pendingDragPreview === dragPreview) pendingDragPreview = null
+          })
+      } catch {
+        if (dragPreview && pendingDragPreview === dragPreview) pendingDragPreview = null
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const showBoundVariableTooltip = (event) => {
+      if (activeDrag) return
+      if (!gltfRoot) return hideTooltip()
+
+      if (!setPointerRay(event)) return hideTooltip()
+      const hostBounds = host.getBoundingClientRect()
+      const interactiveBinding = getInteractiveBindingFromCurrentRay()
+      let nearestMarker = null
+      let nearestMarkerDistance = Infinity
+      for (const descriptionMarker of sceneMarkers) {
+        const { visible, variable, screenX, screenY, hitRadius } = descriptionMarker
+        if (!visible || !variable) continue
+        const markerX = hostBounds.left + screenX
+        const markerY = hostBounds.top + screenY
+        const distance = Math.hypot(event.clientX - markerX, event.clientY - markerY)
+        if (distance <= hitRadius && distance < nearestMarkerDistance) {
+          nearestMarker = descriptionMarker
+          nearestMarkerDistance = distance
+        }
+      }
+
+      let uniqueBindings
+      if (nearestMarker) {
+        uniqueBindings = [{ variable: nearestMarker.variable }]
+      } else {
+        const intersections = raycaster.intersectObjects([...raycastTargets], false)
+        const bindings = intersections
+          .filter(({ object }) => isVisibleInScene(object))
+          .map(({ object }) => findBindingsForObject(object, bindingsByNode))
+          .map((nodeBindings) => nodeBindings.filter(({ variable }) => getVariableDescription(variable)))
+          .find((nodeBindings) => nodeBindings.length) || []
+        uniqueBindings = [...new Map(bindings.map((entry) => [entry.variable.name, entry])).values()]
+      }
+      if (uniqueBindings.length === 0) {
+        hideTooltip()
+        if (interactiveBinding) renderer.domElement.style.cursor = 'grab'
+        return
+      }
+
+      setTooltipContent(tooltip, uniqueBindings)
+      tooltip.style.display = 'block'
+      renderer.domElement.style.cursor = interactiveBinding ? 'grab' : 'help'
+      const x = event.clientX - hostBounds.left
+      const y = event.clientY - hostBounds.top
+      const left = Math.max(8, Math.min(x + 14, host.clientWidth - tooltip.offsetWidth - 8))
+      const top = Math.max(8, Math.min(y + 14, host.clientHeight - tooltip.offsetHeight - 8))
+      tooltip.style.left = `${left}px`
+      tooltip.style.top = `${top}px`
+    }
+
+    renderer.domElement.style.touchAction = 'none'
+    renderer.domElement.addEventListener('pointerdown', handlePointerDown, true)
+    renderer.domElement.addEventListener('pointermove', handlePointerMove, true)
+    renderer.domElement.addEventListener('pointerup', handlePointerUp, true)
+    renderer.domElement.addEventListener('pointercancel', handlePointerUp, true)
+    renderer.domElement.addEventListener('lostpointercapture', handlePointerUp, true)
+    renderer.domElement.addEventListener('pointermove', showBoundVariableTooltip)
+    const handlePointerLeave = () => {
+      if (!activeDrag) hideTooltip()
+    }
+    renderer.domElement.addEventListener('pointerleave', handlePointerLeave)
+
+    const resize = new ResizeObserver(() => {
+      if (!host.clientWidth || !host.clientHeight) return
+      camera.aspect = host.clientWidth / host.clientHeight
+      camera.updateProjectionMatrix()
+      if (autoFrame) frameScene()
+      renderer.setSize(host.clientWidth, host.clientHeight, false)
+    })
+    resize.observe(host)
+
+    const loader = new GLTFLoader()
+    loader.load(sceneUrl, (gltf) => {
+      if (disposed) {
+        disposeObject(gltf.scene)
+        return
+      }
+      gltfRoot = gltf.scene
+      const scenePresentation = readScenePresentation(gltfRoot)
+      cameraFollowProfile = scenePresentation?.camera?.follow || null
+      hasCameraFollowPosition = false
+      cameraFollowNode = cameraFollowProfile?.node
+        ? gltfRoot.getObjectByName(cameraFollowProfile.node)
+        : null
+      const presentationSettings = applyScenePresentation(THREE, scenePresentation, {
+        scene,
+        camera,
+        renderer,
+        controls,
+      })
+      autoFrame = presentationSettings.useAutomaticCameraFraming
+      controls.update()
+      if (presentationSettings.useDefaultLighting) addDefaultSceneLighting()
+      else if (presentationSettings.environment === 'room') addStudioEnvironment()
+
+      gltfBounds = new THREE.Box3().setFromObject(gltfRoot)
+      framingBounds = gltfBounds
+      const modelVariablesByName = new Map(
+        (Array.isArray(variablesRef.current) ? variablesRef.current : [])
+          .filter((variable) => typeof variable?.name === 'string')
+          .map((variable) => [variable.name, variable]),
+      )
+      const sceneBindingsByNode = new Map()
+      gltfRoot.traverse((node) => {
+        if (node.isMesh && presentationSettings.lightingMode !== 'authored') {
+          node.castShadow = true
+          node.receiveShadow = true
+          const materials = Array.isArray(node.material) ? node.material : [node.material]
+          materials.filter(Boolean).forEach((material) => { material.envMapIntensity = 0.48 })
+        }
+
+        const declaredBindings = node.userData?.fmiBindings
+        if (!Array.isArray(declaredBindings)) return
+
+        for (const binding of declaredBindings) {
+          if (!binding || typeof binding.variable !== 'string') continue
+          const variable = modelVariablesByName.get(binding.variable)
+          const normalizedBinding = normalizeFmiSceneBinding(binding, variable, variablesRef.current || [])
+          const isOutputBinding = variable?.causality === 'output'
+          const isInputPositionBinding = isDraggableFmiSceneBinding(normalizedBinding)
+          if (!normalizedBinding || (!isOutputBinding && !isInputPositionBinding)) continue
+
+          const nodeBindings = sceneBindingsByNode.get(node) || []
+          nodeBindings.push({ node, binding, variable, normalizedBinding, isOutputBinding })
+          sceneBindingsByNode.set(node, nodeBindings)
+        }
+      })
+      applySceneObjectRendering(gltfRoot)
+      applySceneMaterialRendering(gltfRoot, THREE)
+
+      const interactiveNodes = new Set()
+      const sceneInputBindingNames = new Set()
+      for (const [node, nodeBindings] of sceneBindingsByNode) {
+        const bindingCountsByTarget = new Map()
+        const outputDrivenTargets = new Set()
+        for (const boundObject of nodeBindings) {
+          const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
+          if (isOutputBinding) outputDrivenTargets.add(getSceneBindingTargetKey(normalizedBinding))
+          if (variable.causality !== 'input' || !isDraggableFmiSceneBinding(normalizedBinding)) continue
+          for (const targetKey of getDraggableTargetKeys(binding.target)) {
+            bindingCountsByTarget.set(targetKey, (bindingCountsByTarget.get(targetKey) || 0) + 1)
+          }
+        }
+        outputDrivenTargetsByNode.set(node, outputDrivenTargets)
+        for (const boundObject of nodeBindings) {
+          const { binding, variable, normalizedBinding, isOutputBinding } = boundObject
+          if (!isOutputBinding && isDraggableFmiSceneBinding(normalizedBinding)
+            && getDraggableTargetKeys(binding.target).some((targetKey) => bindingCountsByTarget.get(targetKey) > 1)) continue
+
+          const tooltipBindings = bindingsByNode.get(node) || []
+          tooltipBindings.push({ binding, variable, normalizedBinding })
+          bindingsByNode.set(node, tooltipBindings)
+          if (isOutputBinding && binding.target === 'visible') {
+            const initialValue = getFmiSceneBindingValue(
+              getSceneVariableValue(variable, valuesRef.current),
+              normalizedBinding,
+              variablesRef.current || [],
+              valuesRef.current || {},
+            )
+            node.visible = initialValue !== undefined && initialValue !== null
+              ? isFmiBindingVisible(initialValue, binding)
+              : false
+          }
+          boundObjects.push(boundObject)
+          if (isDraggableFmiSceneBinding(normalizedBinding)) {
+            const interactiveBindings = interactiveBindingsByNode.get(node) || []
+            interactiveBindings.push(boundObject)
+            interactiveBindingsByNode.set(node, interactiveBindings)
+            interactiveNodes.add(node)
+            sceneInputBindingNames.add(variable.name)
+          }
+        }
+      }
+      for (const { node } of boundObjects) {
+        if (node.isMesh) {
+          raycastTargets.add(node)
+        } else {
+          node.traverse((child) => {
+            if (child.isMesh) raycastTargets.add(child)
+          })
+        }
+      }
+      for (const node of interactiveNodes) {
+        if (node.isMesh) {
+          interactiveRaycastTargets.add(node)
+        } else {
+          node.traverse((child) => {
+            if (child.isMesh) interactiveRaycastTargets.add(child)
+          })
+        }
+      }
+      onSceneInputBindingsReadyRef.current?.([...sceneInputBindingNames])
+      gltfRoot.updateMatrixWorld(true)
+      framingBounds = getFmiBindingFocusBounds(gltfRoot, boundObjects) || gltfBounds
+      if (framingBounds && !framingBounds.isEmpty()) {
+        const center = framingBounds.getCenter(new THREE.Vector3())
+        const size = framingBounds.getSize(new THREE.Vector3())
+        const largestDimension = Math.max(size.x, size.y, size.z, 0.1)
+        if (autoFrame) frameScene()
+        if (keyLight && fillLight) {
+          keyLight.position.set(
+            center.x - largestDimension,
+            center.y + largestDimension * 2,
+            center.z + largestDimension,
+          )
+          keyLight.target.position.copy(center)
+          fillLight.position.set(
+            center.x + largestDimension,
+            center.y + largestDimension * 0.7,
+            center.z - largestDimension * 1.5,
+          )
+        }
+      }
+      const markerEntriesByVariable = new Map()
+      const markerNodes = [...new Set(boundObjects.map(({ node }) => node))]
+      for (const node of markerNodes) {
+        const variables = [...new Map((bindingsByNode.get(node) || [])
+          .filter(({ variable, normalizedBinding }) => (
+            variable.causality === 'output'
+            || isDraggableFmiSceneBinding(normalizedBinding)
+          ))
+          .map(({ variable }) => {
+            const kind = variable.causality === 'output' ? 'output' : 'input'
+            return [`${kind}:${variable.name}`, { variable, kind }]
+          })).values()]
+        if (variables.length === 0) continue
+
+        const bounds = new THREE.Box3().setFromObject(node)
+        if (bounds.isEmpty()) continue
+        node.updateWorldMatrix(true, false)
+        const worldCorners = getBoxCorners(bounds)
+        const localCorners = worldCorners.map((corner) => node.worldToLocal(corner.clone()))
+        const entry = {
+          node,
+          bounds,
+          localCorners,
+          worldCorners: localCorners.map(() => new THREE.Vector3()),
+        }
+
+        for (const { variable, kind } of variables) {
+          const key = `${kind}:${variable.name}`
+          const group = markerEntriesByVariable.get(key) || { variable, kind, entries: [] }
+          group.entries.push(entry)
+          markerEntriesByVariable.set(key, group)
+        }
+      }
+      if (markerEntriesByVariable.size > 0) {
+        const sceneSize = (framingBounds || gltfBounds).getSize(new THREE.Vector3())
+        const largestSceneDimension = Math.max(sceneSize.x, sceneSize.y, sceneSize.z, 0.1)
+        const clusterScale = Math.min(Math.max(largestSceneDimension * 0.006, 0.004), 0.12)
+        const maximumClusterGap = Math.max(largestSceneDimension * 0.015, clusterScale * 2)
+        const markerClusters = [...markerEntriesByVariable.values()]
+          .flatMap(({ variable, kind, entries }) => clusterNearbyBindings(entries, maximumClusterGap)
+            .map((members) => ({ members, variable, kind })))
+
+        for (const { members, variable, kind } of markerClusters) {
+          const marker = document.createElement('div')
+          marker.className = `${styles.marker} ${kind === 'input' ? styles.markerInput : styles.markerOutput}`
+          marker.setAttribute('aria-hidden', 'true')
+
+          const waves = [0, 0.5].map((phaseOffset) => {
+            const wave = document.createElement('span')
+            wave.className = styles.markerWave
+            marker.appendChild(wave)
+            return { element: wave, phaseOffset }
+          })
+
+          const core = document.createElement('span')
+          core.className = styles.markerCore
+          marker.appendChild(core)
+          host.appendChild(marker)
+
+          sceneMarkers.push({
+            element: marker,
+            members,
+            waves,
+            variable,
+            kind,
+            hasDescription: Boolean(getVariableDescription(variable)),
+            worldPosition: new THREE.Vector3(),
+            projectedPosition: new THREE.Vector3(),
+            screenX: 0,
+            baseScreenX: 0,
+            screenY: 0,
+            hitRadius: 16,
+            visible: false,
+          })
+        }
+      }
+      scene.add(gltfRoot)
+      mixer = gltf.animations.length ? new THREE.AnimationMixer(gltfRoot) : null
+      onStatusRef.current?.('ready')
+    }, undefined, () => {
+      if (!disposed) onStatusRef.current?.('error')
+    })
+
+    const clock = new THREE.Clock()
+    const animate = () => {
+      frameId = window.requestAnimationFrame(animate)
+      const delta = clock.getDelta()
+      markerPulseTime += delta
+      if (mixer) mixer.update(delta)
+      for (const { node, binding, variable, normalizedBinding, isOutputBinding } of boundObjects) {
+        if (!isOutputBinding
+          && outputDrivenTargetsByNode.get(node)?.has(getSceneBindingTargetKey(normalizedBinding))) continue
+        const animatedValues = animatedValuesRef?.current
+        const currentValue = animatedValues && Object.hasOwn(animatedValues, binding.variable)
+          ? animatedValues[binding.variable]
+          : valuesRef.current?.[binding.variable]
+        const rawValue = currentValue ?? (!isOutputBinding ? getSceneVariableValue(variable, valuesRef.current) : undefined)
+        const runtimeValues = animatedValues || valuesRef.current || {}
+        const bindingValue = getFmiSceneBindingValue(
+          rawValue,
+          normalizedBinding,
+          variablesRef.current || [],
+          runtimeValues,
+        )
+        if (bindingValue === null || bindingValue === undefined) continue
+
+        if (binding.target === 'visible') {
+          node.visible = isFmiBindingVisible(bindingValue, binding)
+          continue
+        }
+        if (binding.target === 'material.color') {
+          const trueColor = getBindingColor(binding.trueColor, '#ff2738')
+          const falseColor = getBindingColor(binding.falseColor, '#4f2028')
+          const hasValueMap = binding.valueMap && typeof binding.valueMap === 'object'
+          const mappedColor = hasValueMap ? getBindingColor(bindingValue, trueColor) : null
+          const materials = Array.isArray(node.material) ? node.material : [node.material]
+          for (const material of materials.filter(Boolean)) {
+            if (material.color) material.color.set(mappedColor || (bindingValue ? trueColor : falseColor))
+            if (material.emissive) material.emissive.set(mappedColor || (bindingValue ? trueColor : '#160b0d'))
+          }
+          continue
+        }
+
+        if (binding.target === 'weights') {
+          if (normalizedBinding.index === null) {
+            if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+            applyMorphWeights(node, bindingValue)
+          } else {
+            const mapped = getFmiSceneBoundValue(bindingValue, normalizedBinding)
+            if (mapped !== null && Math.abs(mapped) <= 100_000) {
+              applyMorphWeights(node, mapped, normalizedBinding.index)
+            }
+          }
+          continue
+        }
+
+        if (binding.target === 'translation') {
+          if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+          node.position.set(...bindingValue)
+          continue
+        }
+        if (binding.target === 'scale') {
+          if (bindingValue.some((mapped) => Math.abs(mapped) > 100_000)) continue
+          node.scale.set(...bindingValue)
+          continue
+        }
+        if (binding.target === 'rotation') {
+          node.quaternion.set(...bindingValue).normalize()
+          continue
+        }
+
+        const mapped = getFmiSceneBoundValue(bindingValue, normalizedBinding)
+        if (mapped === null || Math.abs(mapped) > 100_000) continue
+        const { property, axis } = normalizedBinding
+        if (['position', 'rotation', 'scale'].includes(property) && ['x', 'y', 'z'].includes(axis)) {
+          node[property][axis] = mapped
+        }
+      }
+      if (pendingDragPreview) {
+        if (!inputEditingEnabledRef.current && pendingDragPreview.commitComplete) {
+          pendingDragPreview = null
+        } else if (pendingDragPreview.commitComplete) {
+          const hasSequencePair = Number.isSafeInteger(pendingDragPreview.sampleSequence)
+            && Number.isSafeInteger(sampleSequenceRef.current)
+          const hasNewSample = hasSequencePair
+            ? sampleSequenceRef.current > pendingDragPreview.sampleSequence
+            : sampleOrdinalRef.current !== pendingDragPreview.sampleOrdinal
+          if (hasNewSample) pendingDragPreview = null
+        }
+      }
+      const dragPreview = activeDrag?.hasOutputDrivenTarget && activeDrag.previewSceneCoordinate !== null
+        ? {
+          node: activeDrag.node,
+          property: activeDrag.normalizedBinding.property,
+          axis: activeDrag.normalizedBinding.axis,
+          coordinate: activeDrag.previewSceneCoordinate,
+        }
+        : pendingDragPreview
+      if (dragPreview) dragPreview.node[dragPreview.property][dragPreview.axis] = dragPreview.coordinate
+      if (cameraFollowNode && cameraFollowProfile) {
+        cameraFollowNode.updateWorldMatrix(true, false)
+        cameraFollowNode.getWorldPosition(cameraFollowPosition)
+        if (!hasCameraFollowPosition) {
+          const positionOffset = cameraFollowProfile.positionOffset || [0, 0, 0]
+          const targetOffset = cameraFollowProfile.targetOffset || [0, 0, 0]
+          camera.position.set(
+            cameraFollowPosition.x + positionOffset[0],
+            cameraFollowPosition.y + positionOffset[1],
+            cameraFollowPosition.z + positionOffset[2],
+          )
+          controls.target.set(
+            cameraFollowPosition.x + targetOffset[0],
+            cameraFollowPosition.y + targetOffset[1],
+            cameraFollowPosition.z + targetOffset[2],
+          )
+          hasCameraFollowPosition = true
+        } else {
+          // Move the follow anchor without resetting the user's orbit, pan, or zoom.
+          cameraFollowDelta.subVectors(cameraFollowPosition, previousCameraFollowPosition)
+          camera.position.add(cameraFollowDelta)
+          controls.target.add(cameraFollowDelta)
+        }
+        previousCameraFollowPosition.copy(cameraFollowPosition)
+      }
+      controls.update()
+      camera.updateMatrixWorld()
+      if (sceneMarkers.length > 0) {
+        const waveCycleSeconds = 4.4
+        const hostWidth = host.clientWidth
+        const hostHeight = host.clientHeight
+        for (const marker of sceneMarkers) {
+          const { element, members, waves, worldPosition, projectedPosition } = marker
+          const markerEnabled = marker.kind === 'output'
+            ? showOutputMarkersRef.current
+              && (marker.hasDescription || pinnedOutputNamesRef.current.has(marker.variable.name))
+            : showInputMarkersRef.current
+              && interactiveInputVariablesRef.current.some((variable) => variable?.name === marker.variable.name)
+          if (markerEnabled) {
+            const bounds = new THREE.Box3().makeEmpty()
+            for (const member of members) {
+              if (!isVisibleInScene(member.node)) continue
+              member.node.updateWorldMatrix(true, false)
+              for (let index = 0; index < member.localCorners.length; index += 1) {
+                const worldCorner = member.worldCorners[index]
+                  .copy(member.localCorners[index])
+                  .applyMatrix4(member.node.matrixWorld)
+                bounds.expandByPoint(worldCorner)
+              }
+            }
+            if (!bounds.isEmpty()) {
+              bounds.getCenter(worldPosition)
+              projectedPosition.copy(worldPosition).project(camera)
+              const screenX = (projectedPosition.x + 1) * 0.5 * hostWidth
+              const screenY = (1 - projectedPosition.y) * 0.5 * hostHeight
+              marker.baseScreenX = screenX
+              marker.screenX = screenX
+              marker.screenY = screenY
+              marker.visible = projectedPosition.z >= -1 && projectedPosition.z <= 1
+                && screenX >= 0 && screenX <= hostWidth
+                && screenY >= 0 && screenY <= hostHeight
+              element.style.display = marker.visible ? 'block' : 'none'
+            } else {
+              marker.visible = false
+              element.style.display = 'none'
+            }
+          } else {
+            marker.visible = false
+            element.style.display = 'none'
+          }
+          for (const wave of waves) {
+            const waveVisible = marker.visible && !prefersReducedMotion
+            wave.element.style.display = waveVisible ? 'block' : 'none'
+            if (!waveVisible) continue
+            const phase = ((markerPulseTime / waveCycleSeconds) + wave.phaseOffset) % 1
+            wave.element.style.transform = `translate(-50%, -50%) scale(${1.15 + phase * 3.4})`
+            wave.element.style.opacity = String((1 - phase) * 0.48)
+          }
+        }
+        for (const marker of sceneMarkers) {
+          if (!marker.visible) continue
+          const overlapsOtherKind = sceneMarkers.some((other) => (
+            other.visible
+            && other.kind !== marker.kind
+            && Math.hypot(other.baseScreenX - marker.baseScreenX, other.screenY - marker.screenY) < 12
+          ))
+          const offsetX = overlapsOtherKind ? (marker.kind === 'input' ? 7 : -7) : 0
+          marker.screenX = marker.baseScreenX + offsetX
+          marker.element.style.left = `${marker.screenX}px`
+          marker.element.style.top = `${marker.screenY}px`
+        }
+      }
+      renderer.render(scene, camera)
+      if (gltfRoot && renderedSampleIndexRef.current !== sampleIndexRef.current) {
+        renderedSampleIndexRef.current = sampleIndexRef.current
+        onSampleRenderedRef.current?.(sampleIndexRef.current, performance.now())
+      }
+    }
+    animate()
+    onStatusRef.current?.('loading')
+
+    return () => {
+      disposed = true
+      window.cancelAnimationFrame(frameId)
+      resize.disconnect()
+      renderer.domElement.removeEventListener('pointerdown', handlePointerDown, true)
+      renderer.domElement.removeEventListener('pointermove', handlePointerMove, true)
+      renderer.domElement.removeEventListener('pointerup', handlePointerUp, true)
+      renderer.domElement.removeEventListener('pointercancel', handlePointerUp, true)
+      renderer.domElement.removeEventListener('lostpointercapture', handlePointerUp, true)
+      renderer.domElement.removeEventListener('pointermove', showBoundVariableTooltip)
+      renderer.domElement.removeEventListener('pointerleave', handlePointerLeave)
+      controls.dispose()
+      tooltip.remove()
+      if (gltfRoot) disposeObject(gltfRoot)
+      if (scene.background?.isTexture) scene.background.dispose()
+      for (const { element } of sceneMarkers) element.remove()
+      environmentTarget?.dispose()
+      pmremGenerator?.dispose()
+      renderer.dispose()
+      renderer.forceContextLoss()
+      renderer.domElement.remove()
+    }
+  }, [modelVariables, sceneUrl])
+
+  return <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
+}

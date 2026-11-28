@@ -39,7 +39,6 @@ describe('ActiveBookingSection', () => {
       <ActiveBookingSection
         activeBooking={activeBooking}
         nextBooking={null}
-        userAddress="0xabc"
         onBookingAction={onBookingAction}
         cancellationStates={new Map()}
       />
@@ -66,7 +65,6 @@ describe('ActiveBookingSection', () => {
       <ActiveBookingSection
         activeBooking={null}
         nextBooking={nextBooking}
-        userAddress="0xabc"
         onBookingAction={onBookingAction}
         cancellationStates={new Map()}
       />
@@ -93,7 +91,6 @@ describe('ActiveBookingSection', () => {
       <ActiveBookingSection
         activeBooking={null}
         nextBooking={nextBooking}
-        userAddress="0xabc"
         onBookingAction={onBookingAction}
         cancellationStates={new Map()}
       />
@@ -120,7 +117,6 @@ describe('ActiveBookingSection', () => {
         activeBooking={null}
         nextBooking={null}
         lastBooking={lastBooking}
-        userAddress="0xabc"
         cancellationStates={new Map()}
       />
     );

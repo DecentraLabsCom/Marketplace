@@ -7,7 +7,7 @@ export const PROVISIONING_REGISTRATION_TYPES = Object.freeze({
   CONSUMER: 'consumer',
 });
 
-export const PROVISIONING_EIP712_TYPES = Object.freeze({
+const PROVISIONING_EIP712_TYPES = Object.freeze({
   InstitutionProvisioning: [
     { name: 'institutionId', type: 'string' },
     { name: 'walletAddress', type: 'address' },

@@ -3,7 +3,3 @@ export function serializeIntent(intentPackage) {
     JSON.stringify(intentPackage, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
   )
 }
-
-export default {
-  serializeIntent,
-}

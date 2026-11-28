@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://decentralabs.org/schemas/scene-presentation-v1.json",
+  "title": "DecentraLabs GLB Scene Presentation v1",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": { "const": 1 },
+    "camera": {
+      "type": "object",
+      "required": ["position", "target", "fov", "near", "far"],
+      "properties": {
+        "projection": { "const": "perspective" },
+        "position": { "$ref": "#/$defs/vector3" },
+        "target": { "$ref": "#/$defs/vector3" },
+        "fov": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180 },
+        "up": { "$ref": "#/$defs/vector3" },
+        "zoom": { "type": "number", "exclusiveMinimum": 0 },
+        "filmGauge": { "type": "number", "exclusiveMinimum": 0 },
+        "filmOffset": { "type": "number" },
+        "aspectRatio": { "type": "number", "exclusiveMinimum": 0 },
+        "near": { "type": "number", "exclusiveMinimum": 0 },
+        "far": { "type": "number", "exclusiveMinimum": 0 },
+        "follow": {
+          "type": "object",
+          "required": ["node"],
+          "properties": {
+            "node": { "type": "string", "minLength": 1 },
+            "positionOffset": { "$ref": "#/$defs/vector3" },
+            "targetOffset": { "$ref": "#/$defs/vector3" }
+          },
+          "additionalProperties": false
+        },
+        "minDistance": { "type": "number", "minimum": 0 },
+        "maxDistance": { "type": "number", "exclusiveMinimum": 0 },
+        "minPolarAngle": { "type": "number", "minimum": 0, "maximum": 3.141592653589793 },
+        "maxPolarAngle": { "type": "number", "minimum": 0, "maximum": 3.141592653589793 },
+        "dampingFactor": { "type": "number", "minimum": 0, "maximum": 1 },
+        "enableDamping": { "type": "boolean" },
+        "enablePan": { "type": "boolean" },
+        "enableRotate": { "type": "boolean" },
+        "enableZoom": { "type": "boolean" },
+        "screenSpacePanning": { "type": "boolean" },
+        "rotateSpeed": { "type": "number" },
+        "zoomSpeed": { "type": "number" },
+        "panSpeed": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "scene": {
+      "type": "object",
+      "required": ["background"],
+      "properties": {
+        "background": { "type": ["string", "null"] },
+        "backgroundImage": { "type": "string", "pattern": "^data:image/" },
+        "backgroundMapping": { "enum": ["UVMapping", "EquirectangularReflectionMapping"] },
+        "backgroundColorSpace": { "enum": ["SRGBColorSpace", "LinearSRGBColorSpace", "DisplayP3ColorSpace"] },
+        "fog": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["color", "near", "far"],
+              "properties": {
+                "color": { "type": "string" },
+                "near": { "type": "number", "minimum": 0 },
+                "far": { "type": "number", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["type", "color", "density"],
+              "properties": {
+                "type": { "const": "exp2" },
+                "color": { "type": "string" },
+                "density": { "type": "number", "minimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "renderer": {
+      "type": "object",
+      "properties": {
+        "outputColorSpace": { "enum": ["SRGBColorSpace", "LinearSRGBColorSpace", "DisplayP3ColorSpace"] },
+        "toneMapping": { "enum": ["NoToneMapping", "LinearToneMapping", "ReinhardToneMapping", "CineonToneMapping", "ACESFilmicToneMapping", "AgXToneMapping", "NeutralToneMapping"] },
+        "toneMappingExposure": { "type": "number" },
+        "pixelRatio": { "type": "number", "exclusiveMinimum": 0 },
+        "pixelRatioLimit": { "type": "number", "exclusiveMinimum": 0 },
+        "clearColor": { "type": ["string", "null"] },
+        "clearAlpha": { "type": "number", "minimum": 0, "maximum": 1 },
+        "autoClear": { "type": "boolean" },
+        "autoClearColor": { "type": "boolean" },
+        "autoClearDepth": { "type": "boolean" },
+        "autoClearStencil": { "type": "boolean" },
+        "sortObjects": { "type": "boolean" },
+        "shadowMap": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "type": { "enum": ["BasicShadowMap", "PCFShadowMap", "PCFSoftShadowMap", "VSMShadowMap"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "lighting": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["authored", "studio"] },
+        "environment": { "enum": ["none", "room"] },
+        "environmentIntensity": { "type": "number", "minimum": 0 },
+        "ambient": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["type", "skyColor", "groundColor", "intensity"],
+                "properties": {
+                  "type": { "const": "hemisphere" },
+                  "skyColor": { "type": "string" },
+                  "groundColor": { "type": "string" },
+                "intensity": { "type": "number", "minimum": 0 },
+                "position": { "$ref": "#/$defs/vector3" }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "color", "intensity"],
+                "properties": {
+                  "type": { "const": "ambient" },
+                  "color": { "type": "string" },
+                  "intensity": { "type": "number", "minimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

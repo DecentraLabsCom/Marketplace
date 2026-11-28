@@ -1,5 +1,5 @@
 export const DEFAULT_MARKET_PAGE_SIZE = 24
-export const MAX_MARKET_PAGE_SIZE = 100
+const MAX_MARKET_PAGE_SIZE = 100
 
 const isIntegerString = (value) => /^\d+$/.test(String(value))
 
